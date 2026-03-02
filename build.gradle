@@ -1,0 +1,52 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.0.3'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.swyp'
+version = '0.0.1-SNAPSHOT'
+description = 'SWYP APP 4th'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+    // Web
+    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    // JPA
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    // Security
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+	// Swagger
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.1'
+	// Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    // devTools
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+	// PostgreSQL
+    runtimeOnly 'org.postgresql:postgresql'
+	// Test
+	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

@@ -1,0 +1,23 @@
+name: "🔀 Merge (병합)"
+description: "브랜치를 Merge할 때 사용합니다."
+title: "🔀 Merge: "
+labels: ["🔀 Merge (병합)"]
+type: Task
+body:
+  - type: textarea
+    id: overview
+    attributes:
+      label: "🛠️ Issue Overview"
+      placeholder: "예: develop 브랜치를 master에 병합"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: "📝 Issue Description"
+      placeholder: "예: v1.0.0 배포를 위해 코드를 병합합니다."
+  - type: textarea
+    id: todo
+    attributes:
+      label: "✅ To do"
+      placeholder: "예: - [ ] Conflict 해결 및 Merge"

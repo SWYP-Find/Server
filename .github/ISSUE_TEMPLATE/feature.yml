@@ -1,0 +1,23 @@
+name: "✨ Feat (기능 추가)"
+description: "새로운 기능을 추가할 때 사용합니다."
+title: "✨ Feat: "
+labels: ["✨ Feat (기능 추가)"]
+type: Feature
+body:
+  - type: textarea
+    id: overview
+    attributes:
+      label: "🛠️ Issue Overview"
+      placeholder: "예: 사용자 편의를 위해 소셜 로그인 기능이 필요합니다."
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: "📝 Issue Description"
+      placeholder: "예: 카카오 OAuth 2.0을 연동하여 접근성을 높입니다."
+  - type: textarea
+    id: todo
+    attributes:
+      label: "✅ To do"
+      placeholder: "예: - [ ] 카카오 앱 등록"

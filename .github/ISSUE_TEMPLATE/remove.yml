@@ -1,0 +1,23 @@
+name: "🔥 Remove (파일 삭제)"
+description: "파일을 삭제하는 작업만 수행할 때 사용합니다."
+title: "🔥 Remove: "
+labels: ["🔥 Remove (파일 삭제)"]
+type: Task
+body:
+  - type: textarea
+    id: overview
+    attributes:
+      label: "🛠️ Issue Overview"
+      placeholder: "예: 미사용 이미지 파일 삭제"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: "📝 Issue Description"
+      placeholder: "예: 레거시 로고 이미지를 삭제합니다."
+  - type: textarea
+    id: todo
+    attributes:
+      label: "✅ To do"
+      placeholder: "예: - [ ] legacy_logo.png 삭제"

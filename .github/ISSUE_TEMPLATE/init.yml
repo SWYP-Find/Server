@@ -1,0 +1,23 @@
+name: "🎉 Init (초기 세팅)"
+description: "프로젝트 초기 세팅을 수행할 때 사용합니다."
+title: "🎉 Init: "
+labels: ["🎉 Init (초기 세팅)"]
+type: Feature
+body:
+  - type: textarea
+    id: overview
+    attributes:
+      label: "🛠️ Issue Overview"
+      placeholder: "예: Spring Boot 프로젝트 초기 설정"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: "📝 Issue Description"
+      placeholder: "예: 기본 패키지 구조 및 .gitignore 설정"
+  - type: textarea
+    id: todo
+    attributes:
+      label: "✅ To do"
+      placeholder: "예: - [ ] 프로젝트 생성"

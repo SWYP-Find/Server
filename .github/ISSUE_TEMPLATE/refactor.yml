@@ -1,0 +1,23 @@
+name: "♻️ Refactor (리팩토링)"
+description: "코드 구조 개선 및 성능 최적화를 위해 사용합니다."
+title: "♻️ Refactor: "
+labels: ["♻️ Refactor (리팩토링)"]
+type: Task
+body:
+  - type: textarea
+    id: overview
+    attributes:
+      label: "🛠️ Issue Overview"
+      placeholder: "예: UserService 클래스 분리가 필요합니다."
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: "📝 Issue Description"
+      placeholder: "예: AS-IS: 단일 서비스 / TO-BE: 도메인별 분리"
+  - type: textarea
+    id: todo
+    attributes:
+      label: "✅ To do"
+      placeholder: "예: - [ ] Auth 관련 로직 분리"

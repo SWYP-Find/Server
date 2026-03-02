@@ -1,0 +1,23 @@
+name: "👷 CI/CD (배포/파이프라인)"
+description: "CI/CD 파이프라인 및 배포 관련 작업을 위해 사용합니다."
+title: "👷 CI/CD: "
+labels: ["👷 CI/CD (배포/파이프라인)"]
+type: Task
+body:
+  - type: textarea
+    id: overview
+    attributes:
+      label: "🛠️ Issue Overview"
+      placeholder: "예: GitHub Actions 배포 스크립트 수정이 필요합니다."
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: "📝 Issue Description"
+      placeholder: "예: 빌드 속도 개선을 위해 Gradle 캐싱을 적용합니다."
+  - type: textarea
+    id: todo
+    attributes:
+      label: "✅ To do"
+      placeholder: "예: - [ ] workflow 파일 수정"

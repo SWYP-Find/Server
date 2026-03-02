@@ -1,0 +1,23 @@
+name: "💥 Breaking Change (중대 변경)"
+description: "커다란 API 변경이 있을 때 사용합니다."
+title: "💥 Breaking Change: "
+labels: ["💥 Breaking Change (중대 변경)"]
+type: Feature
+body:
+  - type: textarea
+    id: overview
+    attributes:
+      label: "🛠️ Issue Overview"
+      placeholder: "예: API v1 지원 종료 및 v2 강제 전환"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: "📝 Issue Description"
+      placeholder: "예: 보안 이슈로 인해 인증 방식이 전면 변경됩니다."
+  - type: textarea
+    id: todo
+    attributes:
+      label: "✅ To do"
+      placeholder: "예: - [ ] v1 엔드포인트 제거"

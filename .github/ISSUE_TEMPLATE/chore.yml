@@ -1,0 +1,23 @@
+name: "🔨 Chore (기타 작업)"
+description: "패키지 매니저 수정, 설정 변경 등 기타 작업을 위해 사용합니다."
+title: "🔨 Chore: "
+labels: ["🔨 Chore (기타 작업)"]
+type: Task
+body:
+  - type: textarea
+    id: overview
+    attributes:
+      label: "🛠️ Issue Overview"
+      placeholder: "예: build.gradle 의존성 버전 업데이트"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: "📝 Issue Description"
+      placeholder: "예: Spring Boot 버전을 3.2.0으로 올립니다."
+  - type: textarea
+    id: todo
+    attributes:
+      label: "✅ To do"
+      placeholder: "예: - [ ] 버전 변경 및 빌드 확인"

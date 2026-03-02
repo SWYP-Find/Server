@@ -1,0 +1,23 @@
+name: "🚑 Hotfix (긴급 수정)"
+description: "급하게 치명적인 버그를 고쳐야 할 때 사용합니다."
+title: "🚑 Hotfix: "
+labels: ["🚑 Hotfix (긴급 수정)"]
+type: Bug
+body:
+  - type: textarea
+    id: overview
+    attributes:
+      label: "🛠️ Issue Overview"
+      placeholder: "예: 결제 모듈 오류로 인해 결제 실패가 반복됩니다."
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: "📝 Issue Description"
+      placeholder: "예: PG사 API 키 만료 문제로 갱신이 필요합니다."
+  - type: textarea
+    id: todo
+    attributes:
+      label: "✅ To do"
+      placeholder: "예: - [ ] API 키 갱신 및 긴급 배포"

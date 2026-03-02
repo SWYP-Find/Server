@@ -1,0 +1,23 @@
+name: "🧪 Test (테스트 코드)"
+description: "테스트 코드 추가 및 리팩토링 테스트를 위해 사용합니다."
+title: "🧪 Test: "
+labels: ["🧪 Test (테스트 코드)"]
+type: Task
+body:
+  - type: textarea
+    id: overview
+    attributes:
+      label: "🛠️ Issue Overview"
+      placeholder: "예: 로그인 서비스 단위 테스트 작성"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: "📝 Issue Description"
+      placeholder: "예: 성공/실패 케이스 테스트 코드가 누락되었습니다."
+  - type: textarea
+    id: todo
+    attributes:
+      label: "✅ To do"
+      placeholder: "예: - [ ] LoginServiceTest 작성"

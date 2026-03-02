@@ -1,0 +1,23 @@
+name: "🏷️ Rename (명칭 수정)"
+description: "파일 또는 폴더명을 수정하거나 이동할 때 사용합니다."
+title: "🏷️ Rename: "
+labels: ["🏷️ Rename (명칭 수정)"]
+type: Task
+body:
+  - type: textarea
+    id: overview
+    attributes:
+      label: "🛠️ Issue Overview"
+      placeholder: "예: UserDto 클래스명 변경"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: "📝 Issue Description"
+      placeholder: "예: UserDto -> UserResponseDto로 변경합니다."
+  - type: textarea
+    id: todo
+    attributes:
+      label: "✅ To do"
+      placeholder: "예: - [ ] 파일명 및 참조 코드 수정"

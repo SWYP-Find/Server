@@ -1,0 +1,23 @@
+name: "📚 Docs (문서 수정)"
+description: "문서를 수정할 때 사용합니다."
+title: "📚 Docs: "
+labels: ["📚 Docs (문서 수정)"]
+type: Task
+body:
+  - type: textarea
+    id: overview
+    attributes:
+      label: "🛠️ Issue Overview"
+      placeholder: "예: API 명세서 최신화가 필요합니다."
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: "📝 Issue Description"
+      placeholder: "예: 회원가입 Response 필드 변경 사항을 문서에 반영합니다."
+  - type: textarea
+    id: todo
+    attributes:
+      label: "✅ To do"
+      placeholder: "예: - [ ] Swagger 문서 업데이트"

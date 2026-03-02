@@ -1,0 +1,23 @@
+name: "💄 Style (코드 포맷팅)"
+description: "코드 변경 없이 포맷팅, 세미콜론 누락 등을 수정할 때 사용합니다."
+title: "💄 Style: "
+labels: ["💄 Style (코드 포맷팅)"]
+type: Task
+body:
+  - type: textarea
+    id: overview
+    attributes:
+      label: "🛠️ Issue Overview"
+      placeholder: "예: 메인 페이지 코드 포맷팅 작업"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: "📝 Issue Description"
+      placeholder: "예: 들여쓰기가 깨진 부분이 있어 Prettier를 적용합니다."
+  - type: textarea
+    id: todo
+    attributes:
+      label: "✅ To do"
+      placeholder: "예: - [ ] 전체 코드 포맷팅 실행"

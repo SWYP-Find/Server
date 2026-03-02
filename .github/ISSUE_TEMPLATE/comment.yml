@@ -1,0 +1,23 @@
+name: "💡 Comment (주석)"
+description: "필요한 주석을 추가하거나 변경할 때 사용합니다."
+title: "💡 Comment: "
+labels: ["💡 Comment (주석)"]
+type: Task
+body:
+  - type: textarea
+    id: overview
+    attributes:
+      label: "🛠️ Issue Overview"
+      placeholder: "예: 결제 로직에 주석 추가"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: "📝 Issue Description"
+      placeholder: "예: 복잡한 연산 로직에 설명을 추가합니다."
+  - type: textarea
+    id: todo
+    attributes:
+      label: "✅ To do"
+      placeholder: "예: - [ ] PaymentService 주석 작성"

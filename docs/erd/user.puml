@@ -1,0 +1,81 @@
+@startuml
+hide circle
+hide methods
+skinparam linetype ortho
+
+entity "USERS\n사용자" as users {
+  * id : uuid <<PK>>
+  --
+  provider : string
+  provider_user_id : string
+  status : string
+  created_at : datetime
+}
+
+entity "USER_PROFILES\n사용자 프로필" as user_profiles {
+  * user_id : uuid <<PK, FK>>
+  --
+  nickname : string
+  avatar_type : string
+  avatar_url : string
+  manner_temperature : float
+  updated_at : datetime
+}
+
+entity "USER_SETTINGS\n사용자 설정" as user_settings {
+  * user_id : uuid <<PK, FK>>
+  --
+  push_enabled : boolean
+  email_enabled : boolean
+  debate_request_enabled : boolean
+  profile_public : boolean
+  updated_at : datetime
+}
+
+entity "USER_AGREEMENTS\n사용자 동의 이력" as user_agreements {
+  * id : uuid <<PK>>
+  --
+  user_id : uuid <<FK>>
+  agreement_type : string
+  version : string
+  agreed_at : datetime
+}
+
+entity "USER_DEVICES\n사용자 디바이스" as user_devices {
+  * id : uuid <<PK>>
+  --
+  user_id : uuid <<FK>>
+  device_token : string
+  platform : string
+  last_seen_at : datetime
+}
+
+entity "USER_BLOCKS\n사용자 차단" as user_blocks {
+  * id : uuid <<PK>>
+  --
+  blocker_user_id : uuid <<FK>>
+  blocked_user_id : uuid <<FK>>
+  created_at : datetime
+}
+
+entity "USER_TENDENCY_SCORES\n사용자 성향 점수 (-100~100) \n(필드는 추후 수정)" as user_tendency_scores {
+  * user_id : uuid <<PK, FK>>
+  --
+  score_1 : int
+  score_2 : int
+  score_3 : int
+  score_4 : int
+  score_5 : int
+  score_6 : int
+  updated_at : datetime
+}
+
+users ||--|| user_profiles
+users ||--|| user_settings
+users ||--o{ user_agreements
+users ||--o{ user_devices
+users ||--o{ user_blocks : blocker
+users ||--o{ user_blocks : blocked
+users ||--|| user_tendency_scores
+
+@enduml

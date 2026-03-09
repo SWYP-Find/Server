@@ -42,7 +42,7 @@ entity "refresh_tokens" {
   * id : BIGINT <<PK>>
   --
   user_id : BIGINT <<FK>>
-  token_value : VARCHAR(255)
+  token_value : TEXT
   expired_at : TIMESTAMP
   ' is_revoked : BOOLEAN DEFAULT false
 }

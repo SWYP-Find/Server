@@ -11,7 +11,6 @@ entity "users" {
   character_id : INT <<FK>>
   role : ENUM('USER', 'ADMIN')
   status : ENUM('PENDING', 'ACTIVE')
-  credit : INT
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }

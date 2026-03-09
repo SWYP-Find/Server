@@ -10,7 +10,7 @@ entity "users" {
   nickname : VARCHAR(50) <<UNIQUE>>
   character_id : INT <<FK>>
   role : ENUM('USER', 'ADMIN')
-  status : ENUM('PENDING', 'ACTIVE')
+  status : ENUM('PENDING', 'ACTIVE', 'DELETED', 'BANNED')
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }

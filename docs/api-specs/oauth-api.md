@@ -99,6 +99,36 @@
 }
 ```
 
+### 2.5 로그아웃
+* **Endpoint**: `POST /api/v1/auth/logout`
+* **설명**: 현재 로그인된 사용자의 Refresh Token을 삭제하여 로그아웃 처리합니다.
+* **요청 헤더**: `Authorization: Bearer {accessToken}`
+* **성공 응답**:
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "loggedOut": true
+  },
+  "error": null
+}
+```
+
+### 2.6 회원 탈퇴
+* **Endpoint**: `DELETE /api/v1/me`
+* **설명**: 현재 로그인된 사용자의 계정을 삭제합니다. `users`, `user_socials`, `refresh_tokens`, `user_wallets`, `credit_histories` 연관 데이터를 함께 처리합니다.
+* **요청 헤더**: `Authorization: Bearer {accessToken}`
+* **성공 응답**:
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "withdrawn": true
+  },
+  "error": null
+}
+```
+
 ---
 
 ## 3. 예외 응답 (공통)
@@ -165,6 +195,19 @@
   "error": {
     "code": "ONBOARDING_ALREADY_COMPLETED",
     "message": "이미 온보딩이 완료된 사용자입니다.",
+    "errors": []
+  }
+}
+```
+
+### 3.4 접근 거부 오류 (403)
+```json
+{
+  "statusCode": 403,
+  "data": null,
+  "error": {
+    "code": "USER_BANNED",
+    "message": "제재된 사용자입니다.",
     "errors": []
   }
 }

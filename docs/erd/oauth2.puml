@@ -16,6 +16,7 @@ entity "users" {
 }
 
 ' 2. OAuth 연동 정보 테이블
+' [논의 필요] access_token, refresh_token 암호화 저장 여부 검토 필요
 entity "user_socials" {
   * id : BIGINT <<PK>>
   --

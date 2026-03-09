@@ -36,12 +36,15 @@ entity "characters" {
 }
 
 ' 4. 서비스 자체 인증 토큰 관리
+' [논의 필요] 현재는 재발급 시 기존 토큰 삭제 방식 사용
+' 토큰 탈취 감지가 필요하다면 is_revoked : BOOLEAN DEFAULT false 추가 검토
 entity "refresh_tokens" {
   * id : BIGINT <<PK>>
   --
   user_id : BIGINT <<FK>>
   token_value : VARCHAR(255)
   expired_at : TIMESTAMP
+  ' is_revoked : BOOLEAN DEFAULT false
 }
 
 ' 5. 지갑 테이블

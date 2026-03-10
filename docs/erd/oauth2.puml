@@ -1,0 +1,78 @@
+@startuml
+!theme plain
+skinparam Linetype ortho
+
+' 1. 사용자 기본 테이블
+entity "users" {
+  * id : BIGINT <<PK>>
+  --
+  email : VARCHAR(255) <<UNIQUE>>
+  nickname : VARCHAR(50) <<UNIQUE>>
+  character_id : INT <<FK>>
+  role : ENUM('USER', 'ADMIN')
+  status : ENUM('PENDING', 'ACTIVE', 'DELETED', 'BANNED')
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+' 2. OAuth 연동 정보 테이블
+' [논의 필요] access_token, refresh_token 암호화 저장 여부 검토 필요
+entity "user_socials" {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK>>
+  provider : ENUM('KAKAO', 'GOOGLE', 'APPLE')
+  provider_user_id : VARCHAR(255)
+  access_token : TEXT
+  refresh_token : TEXT
+}
+
+' 3. 선택 가능한 캐릭터 정보 테이블
+entity "characters" {
+  * id : INT <<PK>>
+  --
+  name : VARCHAR(50)
+  image_url : VARCHAR(255)
+  description : VARCHAR(255)
+}
+
+' 4. 서비스 자체 인증 토큰 관리
+' [논의 필요] 현재는 재발급 시 기존 토큰 삭제 방식 사용
+' 토큰 탈취 감지가 필요하다면 is_revoked : BOOLEAN DEFAULT false 추가 검토
+entity "refresh_tokens" {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK>>
+  token_value : TEXT
+  expired_at : TIMESTAMP
+  ' is_revoked : BOOLEAN DEFAULT false
+}
+
+' 5. 지갑 테이블
+entity "user_wallets" {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK, UNIQUE>>
+  credit : INT DEFAULT 0
+  updated_at : TIMESTAMP
+}
+
+' 6. 크레딧 변동 이력 테이블
+entity "credit_histories" {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK>>
+  amount : INT -- 변동된 크레딧 양
+  type : ENUM('CHARGE', 'USE', 'EVENT', 'REFUND')
+  description : VARCHAR(255)
+  created_at : TIMESTAMP
+}
+
+' 관계 설정
+users }|--|| characters : "선택한 캐릭터"
+users ||--o{ user_socials : "소셜 연동"
+users ||--o{ refresh_tokens : "인증 관리"
+users ||--|| user_wallets : "보유 크레딧"
+users ||--o{ credit_histories : "이력 기록"
+
+@enduml

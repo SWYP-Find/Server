@@ -1,0 +1,61 @@
+@startuml tag
+hide circle
+hide methods
+skinparam linetype ortho
+
+' ───────────────────────────────
+' 테이블 정의
+' ───────────────────────────────
+
+entity "BATTLES\n배틀(주제)" as battles {
+  * id : UUID <<PK>>
+  --
+  title : VARCHAR(255)
+  summary : VARCHAR(500)
+  description : TEXT
+  thumbnail_url : VARCHAR(500)
+  target_date : DATE
+  status : ENUM('DRAFT', 'PENDING', 'PUBLISHED', 'REJECTED', 'ARCHIVED')
+  creator_type : ENUM('ADMIN', 'USER', 'AI')
+  creator_id : BIGINT <<FK>> (nullable)
+  reject_reason : VARCHAR(500) (nullable)
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "TAGS\n태그" as tags {
+  * id : UUID <<PK>>
+  --
+  name : VARCHAR(50) <<UNIQUE>>
+  created_at : TIMESTAMP
+}
+
+entity "BATTLE_TAGS\n배틀-태그 매핑" as battle_tags {
+  * battle_id : UUID <<FK>>
+  * tag_id : UUID <<FK>>
+}
+
+' ───────────────────────────────
+' 배치 가이드 (좌→우→아래)
+' ───────────────────────────────
+
+battles    -[hidden]right- tags
+tags       -[hidden]down-  battle_tags
+
+' ───────────────────────────────
+' 관계
+' ───────────────────────────────
+
+battles ||--o{ battle_tags : "tagged with"
+tags    ||--o{ battle_tags : "used in"
+
+' ───────────────────────────────
+' 노트
+' ───────────────────────────────
+
+note bottom of battle_tags
+  복합 PK: (battle_id, tag_id)
+  배틀과 태그의 N:M 관계를 처리하는 중간 테이블
+end note
+
+@enduml

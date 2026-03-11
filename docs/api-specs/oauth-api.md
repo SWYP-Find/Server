@@ -25,7 +25,7 @@
   - 이후 인증이 필요한 API 호출 시 `Authorization: Bearer {access_token}` 헤더로 전달합니다.
   - 예: `GET /api/v1/me/profile`, `PATCH /api/v1/me/settings`, `DELETE /api/v1/me`
 - `refresh_token`
-  - 보호 API가 `401`과 `auth_access_token_expired`를 반환했을 때 `POST /api/v1/auth/refresh` 에서 사용합니다.
+  - API가 `401`과 `auth_access_token_expired`를 반환했을 때 `POST /api/v1/auth/refresh` 에서 사용합니다.
   - `X-Refresh-Token: {refresh_token}` 헤더로 전달합니다.
 - Access Token 만료 안내
   - 인증이 필요한 API는 Access Token이 만료되면 `401 Unauthorized`를 반환합니다.
@@ -62,7 +62,7 @@
 
 소셜 인가 코드를 이용해 로그인 및 계정을 생성합니다.
 
-- `{provider}`: `kakao`, `google`, `apple`
+- `{provider}`: `kakao`, `google`
 - 상태가 `BANNED`인 사용자는 `403`을 반환합니다.
 - 신규 사용자는 `status = PENDING`, `is_new_user = true` 상태로 응답합니다.
 

@@ -18,62 +18,20 @@
 ### 2.1 `GET /api/v1/onboarding/bootstrap`
 
 첫 로그인 화면 진입 시 필요한 초기 데이터 조회.
-
-#### 2.1.1 기본 버전
-
-서버가 캐릭터 이미지 URL까지 내려주는 버전.
+이모지는 8개 뿐이라 앱에서 관리하는 버전입니다.
 
 응답:
 
 ```json
 {
-  "random_nickname": "생각하는올빼미",
-  "character_options": [
-    {
-      "character_type": "owl",
-      "display_name": "올빼미",
-      "image_url": "https://..."
-    },
-    {
-      "character_type": "fox",
-      "display_name": "여우",
-      "image_url": "https://..."
-    }
-  ]
-}
-```
-
-#### 2.1.2 정적 리소스 버전
-
-프론트엔드가 캐릭터 이미지를 정적 리소스로 직접 보유하는 버전.
-
-- 캐릭터 이미지가 소수의 고정 리소스일 때 적합합니다.
-- 서버는 `image_url` 대신 정적 리소스 매핑용 키만 내려줍니다.
-
-응답:
-
-```json
-{
-  "random_nickname": "생각하는올빼미",
-  "character_options": [
-    {
-      "character_type": "owl",
-      "display_name": "올빼미",
-      "resource_key": "owl"
-    },
-    {
-      "character_type": "fox",
-      "display_name": "여우",
-      "resource_key": "fox"
-    }
-  ]
+  "random_nickname": "생각하는올빼미"
 }
 ```
 
 ### 2.2 `POST /api/v1/onboarding/profile`
 
 첫 로그인 시 프로필 생성.
-
+owl, wolf, lion 등은 추후 디자인에 따라 정의
 요청:
 
 ```json
@@ -110,11 +68,7 @@
 {
   "user_tag": "sfit4-2",
   "nickname": "생각하는올빼미",
-  "character": {
-    "character_type": "owl",
-    "display_name": "올빼미",
-    "image_url": "https://..."
-  },
+  "character_type": "owl",
   "manner_temperature": 36.5
 }
 ```
@@ -206,6 +160,7 @@
 ### 5.1 `PUT /api/v1/me/tendency-scores`
 
 최신 성향 점수 수정 및 이력 저장.
+!!! 기획 확정에 따라 필드명 및 규칙 변경될 예정
 
 요청:
 

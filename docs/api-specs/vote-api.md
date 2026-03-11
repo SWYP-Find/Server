@@ -127,6 +127,109 @@
 
 ---
 
+### `GET /api/v1/battles/{battle_id}/vote-stats`
+
+- 투표 %를 조회
+
+#### 성공 응답 `200 OK`
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "options": [
+      {
+        "option_id": "option_A",
+        "label": "A",
+        "title": "찬성",
+        "vote_count": 1259,
+        "ratio": 59.5
+      },
+      {
+        "option_id": "option_B",
+        "label": "B",
+        "title": "반대",
+        "vote_count": 856,
+        "ratio": 40.5
+      }
+    ],
+    "total_count": 2115,
+    "updated_at": "2026-03-11T12:00:00Z"
+  },
+  "error": null
+}
+```
+
+#### 예외 응답 `404 - 배틀없음`
+
+```json
+{
+  "statusCode": 404,
+  "data": null,
+  "error": {
+    "code": "BATTLE_NOT_FOUND",
+    "message": "존재하지 않는 배틀입니다.",
+    "errors": []
+  }
+}
+```
+---
+### `GET /api/v1/battles/{battle_id}/votes/me`
+
+- 투표 %를 조회
+
+#### 성공 응답 `200 OK`
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "pre_vote": {
+      "option_id": "option_A",
+      "label": "A",
+      "title": "찬성"
+    },
+    "post_vote": {
+      "option_id": "option_A",
+      "label": "A",
+      "title": "찬성"
+    },
+    "mind_changed": false,
+    "status": "POST_VOTED"
+  },
+  "error": null
+}
+```
+
+#### 예외 응답 `404 - 배틀없음`
+
+```json
+{
+  "statusCode": 404,
+  "data": null,
+  "error": {
+    "code": "BATTLE_NOT_FOUND",
+    "message": "존재하지 않는 배틀입니다.",
+    "errors": []
+  }
+}
+```
+
+#### 예외 응답 `404 - 투표 내역 없음`
+
+```json
+{
+  "statusCode": 404,
+  "data": null,
+  "error": {
+    "code": "VOTE_NOT_FOUND",
+    "message": "투표 내역이 없습니다.",
+    "errors": []
+  }
+}
+```
+
+---
 ## 공통 에러 코드
 
 | Error Code | HTTP Status | 설명 |

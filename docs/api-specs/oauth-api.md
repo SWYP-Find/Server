@@ -1,214 +1,202 @@
-# 🔐 PIQUE 사용자 인증 및 온보딩 API 통합 명세서
+# OAuth API 명세서
 
 ## 1. 설계 메모
-* **인증 방식**: OAuth 2.0 인가 코드 방식을 사용하며, 서비스 자체 JWT(Access/Refresh)를 발급합니다.
-* **온보딩 흐름**: 로그인 응답의 `isNewUser`가 `true`일 경우, `bootstrap` 데이터를 조회한 뒤 `profile` 생성 API를 호출합니다.
-* **상태 전환**: 프로필 생성이 완료되면 유저 상태(`status`)는 `PENDING`에서 `ACTIVE`로 변경됩니다.
-* **재화 관리**: 유저 지갑(`userWallet`)은 별도 테이블로 관리하며 프로필 설정 완료 시 함께 조회됩니다.
-* **응답 규격**: 모든 응답은 `statusCode`, `data`, `error` 필드를 포함하는 공통 포맷을 준수합니다.
+
+- OAuth API는 `snake_case` 필드명을 기준으로 합니다.
+- 소셜 로그인은 OAuth 2.0 인가 코드 방식을 사용합니다.
+- 로그인 성공 시 서비스 자체 `access_token`, `refresh_token`을 발급합니다.
+- 사용자 프로필 생성 및 온보딩 상세 명세는 `user-api.md`를 기준으로 합니다.
+- 외부 응답에서는 내부 PK인 `user_id`를 노출하지 않고 `user_tag`를 사용합니다.
+
+### 1.1 공통 요청 헤더
+
+- `Content-Type: application/json`
+  - JSON 요청 바디가 있는 API에 사용합니다.
+- `Authorization: Bearer {access_token}`
+  - 로그인 이후 인증이 필요한 API에 사용합니다.
+- `X-Refresh-Token: {refresh_token}`
+  - Access Token 재발급 API에 사용합니다.
+
+### 1.2 토큰 사용 방식
+
+로그인 성공 후 클라이언트는 `access_token`, `refresh_token`을 발급받습니다.
+
+- `access_token`
+  - 이후 인증이 필요한 API 호출 시 `Authorization: Bearer {access_token}` 헤더로 전달합니다.
+  - 예: `GET /api/v1/me/profile`, `PATCH /api/v1/me/settings`, `DELETE /api/v1/me`
+- `refresh_token`
+  - 보호 API가 `401`과 `auth_access_token_expired`를 반환했을 때 `POST /api/v1/auth/refresh` 에서 사용합니다.
+  - `X-Refresh-Token: {refresh_token}` 헤더로 전달합니다.
+- Access Token 만료 안내
+  - 인증이 필요한 API는 Access Token이 만료되면 `401 Unauthorized`를 반환합니다.
+  - 에러 코드가 `auth_access_token_expired` 이면 클라이언트는 Refresh API를 호출해야 합니다.
+  - Refresh 성공 후 실패했던 요청을 새 `access_token`으로 1회 재시도합니다.
+- Refresh Token 만료 안내
+  - Refresh API가 `401`과 `auth_refresh_token_expired`를 반환하면 재로그인이 필요합니다.
+- 재발급 성공 시
+  - 새 `access_token`, 새 `refresh_token`으로 교체합니다.
+  - 이후 요청에는 기존 토큰 대신 새 토큰을 사용합니다.
+- 로그아웃 시
+  - `POST /api/v1/auth/logout` 호출 후 클라이언트에 저장된 토큰을 삭제합니다.
+- 회원 탈퇴 시
+  - `DELETE /api/v1/me` 호출 후 클라이언트에 저장된 토큰을 삭제합니다.
+
+신규 사용자 흐름:
+
+1. `POST /api/v1/auth/login/{provider}` 호출
+2. 응답에서 `is_new_user = true` 확인
+3. 발급받은 `access_token`으로 온보딩 API 호출
+4. `POST /api/v1/onboarding/profile` 완료 후 일반 사용자 API 사용
+
+기존 사용자 흐름:
+
+1. `POST /api/v1/auth/login/{provider}` 호출
+2. 응답에서 `is_new_user = false` 확인
+3. 발급받은 `access_token`으로 바로 사용자 API 호출
 
 ---
 
-## 2. API 상세 내역
+## 2. 인증 API
 
-### 2.1 소셜 로그인 및 회원가입
-* **Endpoint**: `POST /api/v1/auth/login/{provider}`
-* **설명**: 소셜 인가 코드를 이용해 로그인 및 계정을 생성합니다. 상태가 `BANNED`인 유저는 403을 반환합니다.
-* **요청 바디**:
+### 2.1 `POST /api/v1/auth/login/{provider}`
+
+소셜 인가 코드를 이용해 로그인 및 계정을 생성합니다.
+
+- `{provider}`: `kakao`, `google`, `apple`
+- 상태가 `BANNED`인 사용자는 `403`을 반환합니다.
+- 신규 사용자는 `status = PENDING`, `is_new_user = true` 상태로 응답합니다.
+
+요청:
+
 ```json
 {
-  "authorizationCode": "string",
-  "redirectUri": "string"
-}
-```
-* **성공 응답**:
-```json
-{
-  "statusCode": 200,
-  "data": {
-    "accessToken": "eyJhbGciOiJIUzI...",
-    "refreshToken": "def456-ghi789...",
-    "userId": 105,
-    "isNewUser": true,
-    "status": "PENDING"
-  },
-  "error": null
+  "authorization_code": "string",
+  "redirect_uri": "string"
 }
 ```
 
-### 2.2 온보딩 초기 데이터 조회
-* **Endpoint**: `GET /api/v1/onboarding/bootstrap`
-* **설명**: 첫 로그인 화면 진입 시 필요한 랜덤 닉네임과 캐릭터 옵션을 조회합니다.
-* **성공 응답**:
+요청 헤더:
+
+- `Content-Type: application/json`
+
+응답:
+
 ```json
 {
-  "statusCode": 200,
-  "data": {
-    "randomNickname": "생각하는올빼미",
-    "characterOptions": [
-      { "id": 1, "name": "올빼미", "imageUrl": "https://..." },
-      { "id": 2, "name": "여우", "imageUrl": "https://..." }
-    ]
-  },
-  "error": null
+  "access_token": "eyJhbGciOiJIUzI...",
+  "refresh_token": "def456-ghi789...",
+  "user_tag": "sfit4-2",
+  "is_new_user": true,
+  "status": "PENDING"
 }
 ```
 
-### 2.3 초기 프로필 설정 (가입 완료)
-* **Endpoint**: `POST /api/v1/onboarding/profile`
-* **설명**: 신규 유저의 닉네임과 캐릭터를 설정하여 정식 회원으로 전환합니다.
-* **요청 바디**:
+### 2.2 `POST /api/v1/auth/refresh`
+
+만료된 Access Token을 Refresh Token으로 재발급합니다.
+
+요청 헤더:
+
+- `Content-Type: application/json`
+- `X-Refresh-Token: {refresh_token}`
+
+응답:
+
 ```json
 {
-  "nickname": "생각하는올빼미",
-  "characterId": 1
-}
-```
-* **성공 응답**:
-```json
-{
-  "statusCode": 200,
-  "data": {
-    "userId": 105,
-    "nickname": "생각하는올빼미",
-    "characterId": 1,
-    "userWallet": {
-      "credit": 500,
-      "updatedAt": "2026-03-08T12:00:00Z"
-    },
-    "status": "ACTIVE",
-    "onboardingCompleted": true
-  },
-  "error": null
+  "access_token": "new_eyJhbGciOiJIUzI...",
+  "refresh_token": "new_def456-ghi789..."
 }
 ```
 
-### 2.4 토큰 재발급
-* **Endpoint**: `POST /api/v1/auth/refresh`
-* **설명**: 만료된 Access Token을 Refresh Token을 사용하여 재발급합니다.
-* **요청 헤더**: `X-Refresh-Token: {refreshToken}`
-* **성공 응답**:
+### 2.3 `POST /api/v1/auth/logout`
+
+현재 로그인된 사용자의 Refresh Token을 삭제하여 로그아웃 처리합니다.
+
+요청 헤더:
+
+- `Content-Type: application/json`
+- `Authorization: Bearer {access_token}`
+
+응답:
+
 ```json
 {
-  "statusCode": 200,
-  "data": {
-    "accessToken": "new_eyJhbGciOiJIUzI...",
-    "refreshToken": "new_def456-ghi789..."
-  },
-  "error": null
+  "logged_out": true
 }
 ```
 
-### 2.5 로그아웃
-* **Endpoint**: `POST /api/v1/auth/logout`
-* **설명**: 현재 로그인된 사용자의 Refresh Token을 삭제하여 로그아웃 처리합니다.
-* **요청 헤더**: `Authorization: Bearer {accessToken}`
-* **성공 응답**:
-```json
-{
-  "statusCode": 200,
-  "data": {
-    "loggedOut": true
-  },
-  "error": null
-}
-```
+### 2.4 `DELETE /api/v1/me`
 
-### 2.6 회원 탈퇴
-* **Endpoint**: `DELETE /api/v1/me`
-* **설명**: 현재 로그인된 사용자의 계정을 삭제합니다. `users`, `user_socials`, `refresh_tokens`, `user_wallets`, `credit_histories` 연관 데이터를 함께 처리합니다.
-* **요청 헤더**: `Authorization: Bearer {accessToken}`
-* **성공 응답**:
+현재 로그인된 사용자의 계정을 탈퇴 처리합니다.
+
+- `users`, `user_social_accounts`, `auth_refresh_tokens` 연관 데이터를 함께 처리합니다.
+- 사용자 도메인 상세 정리는 `user` 정책에 따라 함께 처리합니다.
+
+요청 헤더:
+
+- `Authorization: Bearer {access_token}`
+
+응답:
+
 ```json
 {
-  "statusCode": 200,
-  "data": {
-    "withdrawn": true
-  },
-  "error": null
+  "withdrawn": true
 }
 ```
 
 ---
 
-## 3. 예외 응답 (공통)
+## 3. 인증 예외 응답
 
-### 3.1 요청 파라미터 오류 (400)
+### 3.1 잘못된 요청 (400)
+
 ```json
 {
-  "statusCode": 400,
-  "data": null,
-  "error": {
-    "code": "COMMON_INVALID_PARAMETER",
-    "message": "요청 파라미터가 잘못되었습니다.",
-    "errors": [
-      {
-        "field": "nickname",
-        "value": "홍길동!",
-        "reason": "특수문자는 포함할 수 없습니다."
-      }
-    ]
-  }
+  "code": "common_invalid_parameter",
+  "message": "요청 파라미터가 잘못되었습니다.",
+  "errors": [
+    {
+      "field": "redirect_uri",
+      "value": "",
+      "reason": "redirect_uri 는 필수입니다."
+    }
+  ]
 }
 ```
 
-### 3.2 인증 오류 (401)
+### 3.2 인증 실패 (401)
+
 ```json
 {
-  "statusCode": 401,
-  "data": null,
-  "error": {
-    "code": "AUTH_INVALID_CODE",
-    "message": "유효하지 않은 소셜 인가 코드입니다.",
-    "errors": []
-  }
-}
-```
-```json
-{
-  "statusCode": 401,
-  "data": null,
-  "error": {
-    "code": "AUTH_TOKEN_EXPIRED",
-    "message": "만료되었거나 유효하지 않은 Refresh Token입니다.",
-    "errors": []
-  }
+  "code": "auth_invalid_code",
+  "message": "유효하지 않은 소셜 인가 코드입니다.",
+  "errors": []
 }
 ```
 
-### 3.3 중복 오류 (409)
 ```json
 {
-  "statusCode": 409,
-  "data": null,
-  "error": {
-    "code": "USER_NICKNAME_DUPLICATE",
-    "message": "이미 사용 중인 닉네임입니다.",
-    "errors": []
-  }
-}
-```
-```json
-{
-  "statusCode": 409,
-  "data": null,
-  "error": {
-    "code": "ONBOARDING_ALREADY_COMPLETED",
-    "message": "이미 온보딩이 완료된 사용자입니다.",
-    "errors": []
-  }
+  "code": "auth_access_token_expired",
+  "message": "Access Token이 만료되었습니다. Refresh Token으로 재발급이 필요합니다.",
+  "errors": []
 }
 ```
 
-### 3.4 접근 거부 오류 (403)
 ```json
 {
-  "statusCode": 403,
-  "data": null,
-  "error": {
-    "code": "USER_BANNED",
-    "message": "제재된 사용자입니다.",
-    "errors": []
-  }
+  "code": "auth_refresh_token_expired",
+  "message": "Refresh Token이 만료되었거나 유효하지 않습니다. 다시 로그인이 필요합니다.",
+  "errors": []
+}
+```
+
+### 3.3 접근 거부 (403)
+
+```json
+{
+  "code": "user_banned",
+  "message": "제재된 사용자입니다.",
+  "errors": []
 }
 ```

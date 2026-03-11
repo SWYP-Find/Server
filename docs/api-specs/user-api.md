@@ -2,24 +2,71 @@
 
 ## 1. 설계 메모
 
-- 첫 로그인 시 닉네임 랜덤 생성과 이모지 선택이 필요합니다.
+- 사용자 API는 `snake_case` 필드명을 기준으로 합니다.
+- 외부 응답에서는 내부 PK인 `user_id`를 노출하지 않고 `user_tag`를 사용합니다.
+- `nickname`은 중복 허용 프로필명입니다.
+- `user_tag`는 고유한 공개 식별자이며 저장 시 `@` 없이 관리합니다.
+- 프로필 아바타는 자유 입력 이모지가 아니라 `character_type` 선택 방식으로 관리합니다.
+- `character_type`은 소문자 `snake_case` 문자열 값으로 관리합니다.
 - 프로필, 설정, 성향 점수는 모두 사용자 도메인 책임입니다.
 - 성향 점수는 현재값을 갱신하면서 이력도 함께 적재합니다.
 
 ---
 
-## 2. 첫 로그인 API
+## 2. 첫 로그인 / 온보딩 API
 
 ### 2.1 `GET /api/v1/onboarding/bootstrap`
 
 첫 로그인 화면 진입 시 필요한 초기 데이터 조회.
+
+#### 2.1.1 기본 버전
+
+서버가 캐릭터 이미지 URL까지 내려주는 버전.
 
 응답:
 
 ```json
 {
   "random_nickname": "생각하는올빼미",
-  "emoji_options": ["🦊", "🦉", "🐱", "🐻", "🐰", "🦁", "🐸", "🐧"]
+  "character_options": [
+    {
+      "character_type": "owl",
+      "display_name": "올빼미",
+      "image_url": "https://..."
+    },
+    {
+      "character_type": "fox",
+      "display_name": "여우",
+      "image_url": "https://..."
+    }
+  ]
+}
+```
+
+#### 2.1.2 정적 리소스 버전
+
+프론트엔드가 캐릭터 이미지를 정적 리소스로 직접 보유하는 버전.
+
+- 캐릭터 이미지가 소수의 고정 리소스일 때 적합합니다.
+- 서버는 `image_url` 대신 정적 리소스 매핑용 키만 내려줍니다.
+
+응답:
+
+```json
+{
+  "random_nickname": "생각하는올빼미",
+  "character_options": [
+    {
+      "character_type": "owl",
+      "display_name": "올빼미",
+      "resource_key": "owl"
+    },
+    {
+      "character_type": "fox",
+      "display_name": "여우",
+      "resource_key": "fox"
+    }
+  ]
 }
 ```
 
@@ -32,7 +79,7 @@
 ```json
 {
   "nickname": "생각하는올빼미",
-  "avatar_emoji": "🦉"
+  "character_type": "owl"
 }
 ```
 
@@ -40,10 +87,11 @@
 
 ```json
 {
-  "user_id": "user_001",
+  "user_tag": "sfit4-2",
   "nickname": "생각하는올빼미",
-  "avatar_emoji": "🦉",
+  "character_type": "owl",
   "manner_temperature": 36.5,
+  "status": "ACTIVE",
   "onboarding_completed": true
 }
 ```
@@ -52,16 +100,51 @@
 
 ## 3. 프로필 API
 
-### 3.1 `PATCH /api/v1/me/profile`
+### 3.1 `GET /api/v1/users/{user_tag}`
 
-닉네임 및 아바타 수정.
+공개 사용자 프로필 조회.
+
+응답:
+
+```json
+{
+  "user_tag": "sfit4-2",
+  "nickname": "생각하는올빼미",
+  "character": {
+    "character_type": "owl",
+    "display_name": "올빼미",
+    "image_url": "https://..."
+  },
+  "manner_temperature": 36.5
+}
+```
+
+### 3.2 `GET /api/v1/me/profile`
+
+내 프로필 조회.
+
+응답:
+
+```json
+{
+  "user_tag": "sfit4-2",
+  "nickname": "생각하는올빼미",
+  "character_type": "owl",
+  "manner_temperature": 36.5,
+  "updated_at": "2026-03-08T12:00:00Z"
+}
+```
+
+### 3.3 `PATCH /api/v1/me/profile`
+
+닉네임 및 캐릭터 수정.
 
 요청:
 
 ```json
 {
   "nickname": "생각하는펭귄",
-  "avatar_emoji": "🐧"
+  "character_type": "penguin"
 }
 ```
 
@@ -69,9 +152,9 @@
 
 ```json
 {
-  "user_id": "user_001",
+  "user_tag": "sfit4-2",
   "nickname": "생각하는펭귄",
-  "avatar_emoji": "🐧",
+  "character_type": "penguin",
   "updated_at": "2026-03-08T12:00:00Z"
 }
 ```
@@ -141,7 +224,7 @@
 
 ```json
 {
-  "user_id": "user_001",
+  "user_tag": "sfit4-2",
   "score_1": 30,
   "score_2": -20,
   "score_3": 55,

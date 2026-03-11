@@ -12,7 +12,7 @@
 
 ### `POST /api/v1/battles/{battle_id}/perspectives`
 
-- 특정 배틀에 대한 관점 생성
+- 특정 배틀에 대한 관점 생성 (비동기)
 
 #### Request Body
 

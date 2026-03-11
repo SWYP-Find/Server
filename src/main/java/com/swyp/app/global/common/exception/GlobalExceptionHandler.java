@@ -1,0 +1,29 @@
+package com.swyp.app.global.common.exception;
+
+import com.swyp.app.global.common.response.ApiResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+@Slf4j
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(CustomException.class)
+    public ResponseEntity<ApiResponse<Void>> handleCustomException(CustomException e) {
+        ErrorCode code = e.getErrorCode();
+        return ResponseEntity
+                .status(code.getHttpStatus())
+                .body(ApiResponse.onFailure(code.getHttpStatus().value(), code.getCode(), code.getMessage()));
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiResponse<Void>> handleAllException(Exception e) {
+        log.error("Internal Server Error: ", e);
+        ErrorCode code = ErrorCode._INTERNAL_SERVER_ERROR;
+        return ResponseEntity
+                .status(code.getHttpStatus())
+                .body(ApiResponse.onFailure(500, code.getCode(), e.getMessage()));
+    }
+}

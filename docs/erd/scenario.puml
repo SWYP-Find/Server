@@ -1,0 +1,127 @@
+@startuml scenario
+hide circle
+hide methods
+skinparam linetype ortho
+
+' ───────────────────────────────
+' 테이블 정의
+' ───────────────────────────────
+
+entity "users\n사용자" as users {
+  * id : BIGINT <<PK>>
+  --
+  email : VARCHAR(255) <<UNIQUE>>
+  nickname : VARCHAR(50) <<UNIQUE>>
+  character_id : INT <<FK>>
+  role : ENUM('USER', 'ADMIN')
+  status : ENUM('PENDING', 'ACTIVE', 'DELETED', 'BANNED')
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "BATTLES\n배틀(주제)" as battles {
+  * id : UUID <<PK>>
+  --
+  title : VARCHAR(255)
+  summary : VARCHAR(500)
+  description : TEXT
+  thumbnail_url : VARCHAR(500)
+  target_date : DATE
+  status : ENUM('DRAFT', 'PENDING', 'PUBLISHED', 'REJECTED', 'ARCHIVED')
+  creator_type : ENUM('ADMIN', 'USER', 'AI')
+  creator_id : BIGINT <<FK>> (nullable)
+  reject_reason : TEXT (nullable)
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+
+entity "SCENARIOS\n시나리오 마스터" as scenarios {
+  * id : UUID <<PK>>
+  --
+  battle_id : UUID <<FK>>
+  creator_type : ENUM('ADMIN', 'USER', 'AI')
+  creator_id : BIGINT <<FK>> (nullable)
+  is_interactive : BOOLEAN
+  status : ENUM('DRAFT', 'PENDING', 'PUBLISHED', 'REJECTED', 'ARCHIVED')
+  reject_reason : VARCHAR(500) (nullable)
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "SCENARIO_NODES\n시나리오 노드 (오디오/분기 통합)" as scenario_nodes {
+  * id : UUID <<PK>>
+  --
+  scenario_id : UUID <<FK>>
+  node_name : VARCHAR(100)
+  audio_url : VARCHAR(500)
+  audio_duration : INT
+  is_start_node : BOOLEAN
+  interactive_options : JSONB
+}
+
+entity "SCENARIO_SCRIPTS\n대본(말풍선)" as scenario_scripts {
+  * id : UUID <<PK>>
+  --
+  node_id : UUID <<FK>>
+  start_time : INT
+  speaker_name : VARCHAR(100)
+  speaker_side : ENUM('A', 'B', 'NONE')
+  message : TEXT
+}
+
+' ───────────────────────────────
+' 배치 가이드 (위→아래)
+' ───────────────────────────────
+
+users          -[hidden]down- battles
+battles        -[hidden]down- scenarios
+scenarios      -[hidden]down- scenario_nodes
+scenario_nodes -[hidden]down- scenario_scripts
+
+' ───────────────────────────────
+' 관계
+' ───────────────────────────────
+
+users          ||--o{ scenarios        : "creates"
+battles        ||--||  scenarios        : "has"
+scenarios      ||--o{ scenario_nodes   : "contains"
+scenario_nodes ||--o{ scenario_scripts : "contains"
+
+' ───────────────────────────────
+' 노트
+' ───────────────────────────────
+
+note right of scenarios
+  status 흐름:
+
+  [관리자 직접 발행]
+  DRAFT → PUBLISHED → ARCHIVED
+
+  [AI 자동 생성 · 스케줄러 - 후순위]
+  PENDING → PUBLISHED → ARCHIVED
+           → REJECTED
+
+  [유저 크리에이터 - 후순위]
+  PENDING → PUBLISHED → ARCHIVED
+           → REJECTED
+
+  is_interactive = false :
+    노드 1개, interactive_options = []
+
+  is_interactive = true :
+    오프닝 → 분기(A/B) → 클로징
+    interactive_options = [
+      { label, next_node_id }
+    ]
+
+  PUBLISHED 전환 시
+  TTS 생성 + CDN 업로드 자동 연동
+
+  creator_type
+  ADMIN : 관리자 직접 발행 → creator_id = null
+  AI    : [후순위] 스케줄러 자동 생성 → creator_id = null
+  USER  : [후순위] 유저 제안 → creator_id = users.id
+end note
+
+@enduml

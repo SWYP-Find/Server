@@ -29,7 +29,7 @@ entity "PERSPECTIVES\n관점" as perspectives {
   updated_at : TIMESTAMP
 }
 
-entity "PERSPECTIVE_COMMENTS\n관점 댓글" as perspective_comments {
+entity "COMMENTS\n관점 댓글" as perspective_comments {
   * id : UUID <<PK>>
   --
   perspective_id : UUID <<FK>>
@@ -39,7 +39,7 @@ entity "PERSPECTIVE_COMMENTS\n관점 댓글" as perspective_comments {
   updated_at : TIMESTAMP
 }
 
-entity "PERSPECTIVE_LIKES\n관점 좋아요" as perspective_likes {
+entity "LIKES\n관점 좋아요" as perspective_likes {
   * perspective_id : UUID <<FK>>
   * user_id : BIGINT <<FK>>
   --

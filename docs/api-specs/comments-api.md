@@ -31,7 +31,7 @@
       {
         "comment_id": "comment_001",
         "user": {
-          "user_id": 105,
+          "user_tag": "user@12312asb",
           "nickname": "철학하는고양이",
           "character_url": "https://cdn.pique.app/characters/cat.png"
         },
@@ -202,7 +202,7 @@
   "data": {
     "comment_id": "comment_001",
     "user": {
-      "user_id": 105,
+      "user_tag": "user@12312asb",
       "nickname": "철학하는고양이",
       "character_url": "https://cdn.pique.app/characters/cat.png"
     },

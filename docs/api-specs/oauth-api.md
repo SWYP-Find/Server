@@ -83,11 +83,15 @@
 
 ```json
 {
-  "access_token": "eyJhbGciOiJIUzI...",
-  "refresh_token": "def456-ghi789...",
-  "user_tag": "sfit4-2",
-  "is_new_user": true,
-  "status": "PENDING"
+  "statusCode": 200,
+  "data": {
+    "access_token": "eyJhbGciOiJIUzI...",
+    "refresh_token": "def456-ghi789...",
+    "user_tag": "sfit4-2",
+    "is_new_user": true,
+    "status": "PENDING"
+  },
+  "error": null
 }
 ```
 
@@ -104,8 +108,12 @@
 
 ```json
 {
-  "access_token": "new_eyJhbGciOiJIUzI...",
-  "refresh_token": "new_def456-ghi789..."
+  "statusCode": 200,
+  "data": {
+    "access_token": "new_eyJhbGciOiJIUzI...",
+    "refresh_token": "new_def456-ghi789..."
+  },
+  "error": null
 }
 ```
 
@@ -122,7 +130,11 @@
 
 ```json
 {
-  "logged_out": true
+  "statusCode": 200,
+  "data": {
+    "logged_out": true
+  },
+  "error": null
 }
 ```
 
@@ -141,7 +153,11 @@
 
 ```json
 {
-  "withdrawn": true
+  "statusCode": 200,
+  "data": {
+    "withdrawn": true
+  },
+  "error": null
 }
 ```
 
@@ -153,15 +169,19 @@
 
 ```json
 {
-  "code": "common_invalid_parameter",
-  "message": "요청 파라미터가 잘못되었습니다.",
-  "errors": [
-    {
-      "field": "redirect_uri",
-      "value": "",
-      "reason": "redirect_uri 는 필수입니다."
-    }
-  ]
+  "statusCode": 400,
+  "data": null,
+  "error": {
+    "code": "COMMON_INVALID_PARAMETER",
+    "message": "요청 파라미터가 잘못되었습니다.",
+    "errors": [
+      {
+        "field": "redirect_uri",
+        "value": "",
+        "reason": "redirect_uri 는 필수입니다."
+      }
+    ]
+  }
 }
 ```
 
@@ -169,25 +189,37 @@
 
 ```json
 {
-  "code": "auth_invalid_code",
-  "message": "유효하지 않은 소셜 인가 코드입니다.",
-  "errors": []
+  "statusCode": 401,
+  "data": null,
+  "error": {
+    "code": "AUTH_INVALID_CODE",
+    "message": "유효하지 않은 소셜 인가 코드입니다.",
+    "errors": []
+  }
 }
 ```
 
 ```json
 {
-  "code": "auth_access_token_expired",
-  "message": "Access Token이 만료되었습니다. Refresh Token으로 재발급이 필요합니다.",
-  "errors": []
+  "statusCode": 401,
+  "data": null,
+  "error": {
+    "code": "AUTH_ACCESS_TOKEN_EXPIRED",
+    "message": "Access Token이 만료되었습니다. Refresh Token으로 재발급이 필요합니다.",
+    "errors": []
+  }
 }
 ```
 
 ```json
 {
-  "code": "auth_refresh_token_expired",
-  "message": "Refresh Token이 만료되었거나 유효하지 않습니다. 다시 로그인이 필요합니다.",
-  "errors": []
+  "statusCode": 401,
+  "data": null,
+  "error": {
+    "code": "AUTH_REFRESH_TOKEN_EXPIRED",
+    "message": "Refresh Token이 만료되었거나 유효하지 않습니다. 다시 로그인이 필요합니다.",
+    "errors": []
+  }
 }
 ```
 
@@ -195,8 +227,35 @@
 
 ```json
 {
-  "code": "user_banned",
-  "message": "제재된 사용자입니다.",
-  "errors": []
+  "statusCode": 403,
+  "data": null,
+  "error": {
+    "code": "USER_BANNED",
+    "message": "제재된 사용자입니다.",
+    "errors": []
+  }
 }
 ```
+
+```json
+{
+  "statusCode": 403,
+  "data": null,
+  "error": {
+    "code": "USER_SUSPENDED",
+    "message": "제재된 사용자입니다.",
+    "errors": []
+  }
+}
+```
+
+## 인증 예외 응답
+
+| HTTP | 에러 코드 | 설명 |
+|------|-----------|------|
+| `400` | `COMMON_INVALID_PARAMETER` | 요청 파라미터가 잘못되었습니다. |
+| `401` | `AUTH_INVALID_CODE` | 유효하지 않은 소셜 인가 코드 |
+| `401` | `AUTH_ACCESS_TOKEN_EXPIRED` | Access Token 만료 — Refresh 필요 |
+| `401` | `AUTH_REFRESH_TOKEN_EXPIRED` | Refresh Token 만료 — 재로그인 필요 |
+| `403` | `USER_BANNED` | 영구 제재된 사용자 |
+| `403` | `USER_SUSPENDED` | 일정 기간 이용 정지된 사용자 |

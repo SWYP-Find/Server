@@ -157,7 +157,7 @@
   "statusCode": 403,
   "data": null,
   "error": {
-    "code": "FORBIDDEN_ACCESS",
+    "code": "COMMENT_FORBIDDEN",
     "message": "본인 댓글만 삭제할 수 있습니다.",
     "errors": []
   }
@@ -182,7 +182,7 @@
 
 
 ## 특정 댓글 생성 API
-### `PATCH  /api/v1/perspectives/{perspective_id}/comments`
+### `DELETE  /api/v1/perspectives/{perspective_id}/comments`
 
 - 특정 댓글을 삭제
 

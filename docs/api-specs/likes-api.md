@@ -10,7 +10,7 @@
 
 ## 관점 좋아요 조회 API
 
-### `POST /api/v1/perspectives/{perspective_id}/likes`
+### `GET /api/v1/perspectives/{perspective_id}/likes`
 
 - 관점 좋아요
 
@@ -140,7 +140,7 @@
 
 ```json
 {
-  "statusCode": 409,
+  "statusCode": 404,
   "data": null,
   "error": {
     "code": "LIKE_NOT_FOUND",

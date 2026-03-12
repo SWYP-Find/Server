@@ -1,0 +1,84 @@
+@startuml perspective
+hide circle
+hide methods
+skinparam linetype ortho
+
+entity "users\n사용자" as users {
+  * id : BIGINT <<PK>>
+}
+
+entity "BATTLES\n배틀(주제)" as battles {
+  * id : UUID <<PK>>
+}
+
+entity "BATTLE_OPTIONS\n선택지" as battle_options {
+  * id : UUID <<PK>>
+}
+
+entity "PERSPECTIVES\n관점" as perspectives {
+  * id : UUID <<PK>>
+  --
+  battle_id : UUID <<FK>>
+  user_id : BIGINT <<FK>>
+  option_id : UUID <<FK>>
+  content : TEXT
+  like_count : INT default 0
+  comment_count : INT default 0
+  status : ENUM('PENDING', 'PUBLISHED', 'REJECTED')
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "COMMENTS\n관점 댓글" as perspective_comments {
+  * id : UUID <<PK>>
+  --
+  perspective_id : UUID <<FK>>
+  user_id : BIGINT <<FK>>
+  content : TEXT
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "LIKES\n관점 좋아요" as perspective_likes {
+  * perspective_id : UUID <<FK>>
+  * user_id : BIGINT <<FK>>
+  --
+  created_at : TIMESTAMP
+}
+
+users              -[hidden]down- perspectives
+battles            -[hidden]down- perspectives
+perspectives       -[hidden]down- perspective_comments
+perspective_likes  -[hidden]right- perspective_comments
+
+battles         ||--o{ perspectives         : "has"
+users           ||--o{ perspectives         : "writes"
+battle_options  ||--o{ perspectives         : "belongs to"
+perspectives    ||--o{ perspective_comments : "has"
+users           ||--o{ perspective_comments : "writes"
+perspectives    ||--o{ perspective_likes    : "has"
+users           ||--o{ perspective_likes    : "likes"
+
+note right of perspectives
+  status 흐름:
+  PENDING → PUBLISHED → REJECTED
+
+  option_id: 서버가 votes 테이블에서
+  pre_vote_option_id를 읽어서 저장
+
+  like_count, comment_count:
+  캐싱용 카운터 (정합성은 배치로 보정)
+
+  UNIQUE (battle_id, user_id):
+  1인 1관점 제약
+end note
+
+note bottom of perspective_likes
+  복합 PK: (perspective_id, user_id)
+  동일 유저 중복 좋아요 방지
+end note
+
+@enduml
+```
+
+---

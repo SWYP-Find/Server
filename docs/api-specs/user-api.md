@@ -24,7 +24,11 @@
 
 ```json
 {
-  "random_nickname": "생각하는올빼미"
+  "statusCode": 200,
+  "data": {
+    "random_nickname": "생각하는올빼미"
+  },
+  "error": null
 }
 ```
 
@@ -32,6 +36,7 @@
 
 첫 로그인 시 프로필 생성.
 owl, wolf, lion 등은 추후 디자인에 따라 정의
+
 요청:
 
 ```json
@@ -45,12 +50,16 @@ owl, wolf, lion 등은 추후 디자인에 따라 정의
 
 ```json
 {
-  "user_tag": "sfit4-2",
-  "nickname": "생각하는올빼미",
-  "character_type": "owl",
-  "manner_temperature": 36.5,
-  "status": "ACTIVE",
-  "onboarding_completed": true
+  "statusCode": 200,
+  "data": {
+    "user_tag": "sfit4-2",
+    "nickname": "생각하는올빼미",
+    "character_type": "owl",
+    "manner_temperature": 36.5,
+    "status": "ACTIVE",
+    "onboarding_completed": true
+  },
+  "error": null
 }
 ```
 
@@ -66,12 +75,18 @@ owl, wolf, lion 등은 추후 디자인에 따라 정의
 
 ```json
 {
-  "user_tag": "sfit4-2",
-  "nickname": "생각하는올빼미",
-  "character_type": "owl",
-  "manner_temperature": 36.5
+  "statusCode": 200,
+  "data": {
+    "user_tag": "sfit4-2",
+    "nickname": "생각하는올빼미",
+    "character_type": "owl",
+    "manner_temperature": 36.5
+  },
+  "error": null
 }
 ```
+
+---
 
 ### 3.2 `GET /api/v1/me/profile`
 
@@ -81,13 +96,19 @@ owl, wolf, lion 등은 추후 디자인에 따라 정의
 
 ```json
 {
-  "user_tag": "sfit4-2",
-  "nickname": "생각하는올빼미",
-  "character_type": "owl",
-  "manner_temperature": 36.5,
-  "updated_at": "2026-03-08T12:00:00Z"
+  "statusCode": 200,
+  "data": {
+    "user_tag": "sfit4-2",
+    "nickname": "생각하는올빼미",
+    "character_type": "owl",
+    "manner_temperature": 36.5,
+    "updated_at": "2026-03-08T12:00:00Z"
+  },
+  "error": null
 }
 ```
+
+---
 
 ### 3.3 `PATCH /api/v1/me/profile`
 
@@ -106,10 +127,14 @@ owl, wolf, lion 등은 추후 디자인에 따라 정의
 
 ```json
 {
-  "user_tag": "sfit4-2",
-  "nickname": "생각하는펭귄",
-  "character_type": "penguin",
-  "updated_at": "2026-03-08T12:00:00Z"
+  "statusCode": 200,
+  "data": {
+    "user_tag": "sfit4-2",
+    "nickname": "생각하는펭귄",
+    "character_type": "penguin",
+    "updated_at": "2026-03-08T12:00:00Z"
+  },
+  "error": null
 }
 ```
 
@@ -125,12 +150,18 @@ owl, wolf, lion 등은 추후 디자인에 따라 정의
 
 ```json
 {
-  "push_enabled": true,
-  "email_enabled": false,
-  "debate_request_enabled": true,
-  "profile_public": true
+  "statusCode": 200,
+  "data": {
+    "push_enabled": true,
+    "email_enabled": false,
+    "debate_request_enabled": true,
+    "profile_public": true
+  },
+  "error": null
 }
 ```
+
+---
 
 ### 4.2 `PATCH /api/v1/me/settings`
 
@@ -149,7 +180,11 @@ owl, wolf, lion 등은 추후 디자인에 따라 정의
 
 ```json
 {
-  "updated": true
+  "statusCode": 200,
+  "data": {
+    "updated": true
+  },
+  "error": null
 }
 ```
 
@@ -179,17 +214,23 @@ owl, wolf, lion 등은 추후 디자인에 따라 정의
 
 ```json
 {
-  "user_tag": "sfit4-2",
-  "score_1": 30,
-  "score_2": -20,
-  "score_3": 55,
-  "score_4": 10,
-  "score_5": -75,
-  "score_6": 42,
-  "updated_at": "2026-03-08T12:00:00Z",
-  "history_saved": true
+  "statusCode": 200,
+  "data": {
+    "user_tag": "sfit4-2",
+    "score_1": 30,
+    "score_2": -20,
+    "score_3": 55,
+    "score_4": 10,
+    "score_5": -75,
+    "score_6": 42,
+    "updated_at": "2026-03-08T12:00:00Z",
+    "history_saved": true
+  },
+  "error": null
 }
 ```
+
+---
 
 ### 5.2 `GET /api/v1/me/tendency-scores/history`
 
@@ -204,18 +245,45 @@ owl, wolf, lion 등은 추후 디자인에 따라 정의
 
 ```json
 {
-  "items": [
-    {
-      "history_id": "ths_001",
-      "score_1": 30,
-      "score_2": -20,
-      "score_3": 55,
-      "score_4": 10,
-      "score_5": -75,
-      "score_6": 42,
-      "created_at": "2026-03-08T12:00:00Z"
-    }
-  ],
-  "next_cursor": null
+  "statusCode": 200,
+  "data": {
+    "items": [
+      {
+        "history_id": "ths_001",
+        "score_1": 30,
+        "score_2": -20,
+        "score_3": 55,
+        "score_4": 10,
+        "score_5": -75,
+        "score_6": 42,
+        "created_at": "2026-03-08T12:00:00Z"
+      }
+    ],
+    "next_cursor": null
+  },
+  "error": null
 }
 ```
+
+---
+
+## 6. 에러 코드
+
+### 6.1 공통 에러 코드
+
+| Error Code | HTTP Status | 설명 |
+|------------|:-----------:|------|
+| `COMMON_INVALID_PARAMETER` | `400` | 요청 파라미터 오류 |
+| `AUTH_UNAUTHORIZED` | `401` | 인증 실패 |
+| `AUTH_ACCESS_TOKEN_EXPIRED` | `401` | Access Token 만료 |
+| `AUTH_REFRESH_TOKEN_EXPIRED` | `401` | Refresh Token 만료 — 재로그인 필요 |
+| `USER_BANNED` | `403` | 영구 제재된 사용자 |
+| `USER_SUSPENDED` | `403` | 일정 기간 이용 정지된 사용자 |
+| `INTERNAL_SERVER_ERROR` | `500` | 서버 오류 |
+
+### 6.2 사용자 에러 코드
+
+| Error Code | HTTP Status | 설명 |
+|------------|:-----------:|------|
+| `USER_NOT_FOUND` | `404` | 존재하지 않는 사용자 |
+| `ONBOARDING_ALREADY_COMPLETED` | `409` | 이미 온보딩이 완료된 사용자 |

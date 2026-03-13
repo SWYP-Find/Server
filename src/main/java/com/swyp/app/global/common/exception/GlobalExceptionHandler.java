@@ -1,9 +1,11 @@
 package com.swyp.app.global.common.exception;
 
 import com.swyp.app.global.common.response.ApiResponse;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -20,7 +22,13 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.onFailure(code.getHttpStatus().value(), code.getCode(), code.getMessage()));
     }
 
-    @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class, IllegalArgumentException.class})
+    @ExceptionHandler({
+            HttpMessageNotReadableException.class,
+            MethodArgumentTypeMismatchException.class,
+            MethodArgumentNotValidException.class,
+            ConstraintViolationException.class,
+            IllegalArgumentException.class
+    })
     public ResponseEntity<ApiResponse<Void>> handleBadRequest(Exception e) {
         log.warn("Bad Request: {}", e.getMessage());
         ErrorCode code = ErrorCode.BAD_REQUEST;

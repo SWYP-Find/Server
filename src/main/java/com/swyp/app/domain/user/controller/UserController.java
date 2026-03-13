@@ -14,6 +14,7 @@ import com.swyp.app.domain.user.dto.response.UserProfileResponse;
 import com.swyp.app.domain.user.dto.response.UserSettingsResponse;
 import com.swyp.app.domain.user.service.UserService;
 import com.swyp.app.global.common.response.ApiResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -39,7 +40,7 @@ public class UserController {
 
     @PostMapping("/onboarding/profile")
     public ApiResponse<OnboardingProfileResponse> createOnboardingProfile(
-            @RequestBody CreateOnboardingProfileRequest request
+            @Valid @RequestBody CreateOnboardingProfileRequest request
     ) {
         return ApiResponse.onSuccess(userService.createOnboardingProfile(request));
     }
@@ -56,7 +57,7 @@ public class UserController {
 
     @PatchMapping("/me/profile")
     public ApiResponse<MyProfileResponse> updateMyProfile(
-            @RequestBody UpdateUserProfileRequest request
+            @Valid @RequestBody UpdateUserProfileRequest request
     ) {
         return ApiResponse.onSuccess(userService.updateMyProfile(request));
     }
@@ -68,14 +69,14 @@ public class UserController {
 
     @PatchMapping("/me/settings")
     public ApiResponse<UpdateResultResponse> updateMySettings(
-            @RequestBody UpdateUserSettingsRequest request
+            @Valid @RequestBody UpdateUserSettingsRequest request
     ) {
         return ApiResponse.onSuccess(userService.updateMySettings(request));
     }
 
     @PutMapping("/me/tendency-scores")
     public ApiResponse<TendencyScoreResponse> updateMyTendencyScores(
-            @RequestBody UpdateTendencyScoreRequest request
+            @Valid @RequestBody UpdateTendencyScoreRequest request
     ) {
         return ApiResponse.onSuccess(userService.updateMyTendencyScores(request));
     }

@@ -50,6 +50,8 @@ public class UserService {
     private static final BigDecimal DEFAULT_MANNER_TEMPERATURE = BigDecimal.valueOf(36.5);
     private static final int DEFAULT_HISTORY_SIZE = 20;
     private static final String DEFAULT_AGREEMENT_VERSION = "1.0";
+    private static final String USER_TAG_CHARACTERS = "abcdefghijklmnopqrstuvwxyz0123456789";
+    private static final int USER_TAG_LENGTH = 8;
 
     private final UserRepository userRepository;
     private final UserAgreementRepository userAgreementRepository;
@@ -282,7 +284,12 @@ public class UserService {
     private String generateUserTag() {
         String candidate;
         do {
-            candidate = "sfit4-%d".formatted(ThreadLocalRandom.current().nextInt(1000, 10000));
+            StringBuilder builder = new StringBuilder(USER_TAG_LENGTH);
+            for (int i = 0; i < USER_TAG_LENGTH; i++) {
+                int index = ThreadLocalRandom.current().nextInt(USER_TAG_CHARACTERS.length());
+                builder.append(USER_TAG_CHARACTERS.charAt(index));
+            }
+            candidate = builder.toString();
         } while (userRepository.existsByUserTag(candidate));
         return candidate;
     }

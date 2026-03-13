@@ -6,6 +6,7 @@
 - 외부 응답에서는 내부 PK인 `user_id`를 노출하지 않고 `user_tag`를 사용합니다.
 - `nickname`은 중복 허용 프로필명입니다.
 - `user_tag`는 고유한 공개 식별자이며 저장 시 `@` 없이 관리합니다.
+- `user_tag`는 prefix 없이 생성되는 8자리 이하의 랜덤 문자열입니다.
 - 프로필 아바타는 자유 입력 이모지가 아니라 `character_type` 선택 방식으로 관리합니다.
 - `character_type`은 소문자 `snake_case` 문자열 값으로 관리합니다.
 - 프로필, 설정, 성향 점수는 모두 사용자 도메인 책임입니다.
@@ -53,7 +54,7 @@ owl, wolf, lion 등은 추후 디자인에 따라 정의
 {
   "statusCode": 200,
   "data": {
-    "user_tag": "sfit4-2",
+    "user_tag": "a7k2m9q1",
     "nickname": "생각하는올빼미",
     "character_type": "owl",
     "manner_temperature": 36.5,
@@ -78,7 +79,7 @@ owl, wolf, lion 등은 추후 디자인에 따라 정의
 {
   "statusCode": 200,
   "data": {
-    "user_tag": "sfit4-2",
+    "user_tag": "a7k2m9q1",
     "nickname": "생각하는올빼미",
     "character_type": "owl",
     "manner_temperature": 36.5
@@ -99,7 +100,7 @@ owl, wolf, lion 등은 추후 디자인에 따라 정의
 {
   "statusCode": 200,
   "data": {
-    "user_tag": "sfit4-2",
+    "user_tag": "a7k2m9q1",
     "nickname": "생각하는올빼미",
     "character_type": "owl",
     "manner_temperature": 36.5,
@@ -130,7 +131,7 @@ owl, wolf, lion 등은 추후 디자인에 따라 정의
 {
   "statusCode": 200,
   "data": {
-    "user_tag": "sfit4-2",
+    "user_tag": "a7k2m9q1",
     "nickname": "생각하는펭귄",
     "character_type": "penguin",
     "updated_at": "2026-03-08T12:00:00Z"
@@ -217,7 +218,7 @@ owl, wolf, lion 등은 추후 디자인에 따라 정의
 {
   "statusCode": 200,
   "data": {
-    "user_tag": "sfit4-2",
+    "user_tag": "a7k2m9q1",
     "score_1": 30,
     "score_2": -20,
     "score_3": 55,

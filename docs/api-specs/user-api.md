@@ -152,10 +152,10 @@ owl, wolf, lion 등은 추후 디자인에 따라 정의
 {
   "statusCode": 200,
   "data": {
-    "push_enabled": true,
+    "push_enabled": false,
     "email_enabled": false,
-    "debate_request_enabled": true,
-    "profile_public": true
+    "debate_request_enabled": false,
+    "profile_public": false
   },
   "error": null
 }

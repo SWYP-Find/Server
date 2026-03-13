@@ -31,7 +31,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -77,10 +76,10 @@ public class UserService {
 
         UserSettings settings = UserSettings.builder()
                 .user(user)
-                .pushEnabled(true)
+                .pushEnabled(false)
                 .emailEnabled(false)
-                .debateRequestEnabled(true)
-                .profilePublic(true)
+                .debateRequestEnabled(false)
+                .profilePublic(false)
                 .build();
 
         UserTendencyScore tendencyScore = UserTendencyScore.builder()
@@ -115,8 +114,8 @@ public class UserService {
         return new UserProfileResponse(user.getUserTag(), profile.getNickname(), profile.getCharacterType(), profile.getMannerTemperature());
     }
 
-    public MyProfileResponse getMyProfile(String userTag) {
-        User user = findUserByTag(userTag);
+    public MyProfileResponse getMyProfile() {
+        User user = findCurrentUser();
         UserProfile profile = findUserProfile(user.getId());
         return new MyProfileResponse(
                 user.getUserTag(),
@@ -128,8 +127,8 @@ public class UserService {
     }
 
     @Transactional
-    public MyProfileResponse updateMyProfile(String userTag, UpdateUserProfileRequest request) {
-        User user = findUserByTag(userTag);
+    public MyProfileResponse updateMyProfile(UpdateUserProfileRequest request) {
+        User user = findCurrentUser();
         UserProfile profile = findUserProfile(user.getId());
         profile.update(request.nickname(), request.characterType());
         return new MyProfileResponse(
@@ -141,8 +140,8 @@ public class UserService {
         );
     }
 
-    public UserSettingsResponse getMySettings(String userTag) {
-        UserSettings settings = findUserSettings(findUserByTag(userTag).getId());
+    public UserSettingsResponse getMySettings() {
+        UserSettings settings = findUserSettings(findCurrentUser().getId());
         return new UserSettingsResponse(
                 settings.isPushEnabled(),
                 settings.isEmailEnabled(),
@@ -152,8 +151,8 @@ public class UserService {
     }
 
     @Transactional
-    public UpdateResultResponse updateMySettings(String userTag, UpdateUserSettingsRequest request) {
-        UserSettings settings = findUserSettings(findUserByTag(userTag).getId());
+    public UpdateResultResponse updateMySettings(UpdateUserSettingsRequest request) {
+        UserSettings settings = findUserSettings(findCurrentUser().getId());
         settings.update(
                 request.pushEnabled(),
                 request.emailEnabled(),
@@ -164,8 +163,8 @@ public class UserService {
     }
 
     @Transactional
-    public TendencyScoreResponse updateMyTendencyScores(String userTag, UpdateTendencyScoreRequest request) {
-        User user = findUserByTag(userTag);
+    public TendencyScoreResponse updateMyTendencyScores(UpdateTendencyScoreRequest request) {
+        User user = findCurrentUser();
         UserTendencyScore score = findUserTendencyScore(user.getId());
         score.update(
                 request.score1(),
@@ -199,8 +198,8 @@ public class UserService {
         );
     }
 
-    public TendencyScoreHistoryResponse getMyTendencyScoreHistory(String userTag, Long cursor, Integer size) {
-        User user = findUserByTag(userTag);
+    public TendencyScoreHistoryResponse getMyTendencyScoreHistory(Long cursor, Integer size) {
+        User user = findCurrentUser();
         int pageSize = size == null || size <= 0 ? DEFAULT_HISTORY_SIZE : size;
         PageRequest pageable = PageRequest.of(0, pageSize);
 
@@ -225,15 +224,13 @@ public class UserService {
         return new TendencyScoreHistoryResponse(items, nextCursor);
     }
 
-    public String requireCurrentUserTag(String userTagHeader) {
-        if (!StringUtils.hasText(userTagHeader)) {
-            throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED);
-        }
-        return userTagHeader;
-    }
-
     private User findUserByTag(String userTag) {
         return userRepository.findByUserTag(userTag)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private User findCurrentUser() {
+        return userRepository.findTopByOrderByIdDesc()
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 

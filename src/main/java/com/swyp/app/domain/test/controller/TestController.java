@@ -14,6 +14,6 @@ public class TestController {
     @GetMapping("/response")
     public ApiResponse<List<String>> testResponse() {
         List<String> teamMembers = List.of("주천수", "팀원2", "팀원3", "팀원4");
-        return ApiResponse.onSuccess("API 공통 응답 테스트 성공!", teamMembers);
+        return ApiResponse.onSuccess(teamMembers);
     }
 }

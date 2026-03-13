@@ -1,5 +1,6 @@
-package com.swyp.app.domain.user.entity;
+package com.swyp.app.domain.oauth.entity;
 
+import com.swyp.app.domain.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;

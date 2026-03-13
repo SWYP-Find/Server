@@ -26,7 +26,7 @@ entity "USER_AGREEMENTS\n사용자 동의 이력" as user_agreements {
   * id : BIGINT <<PK>>
   --
   user_id : BIGINT <<FK>>
-  agreement_type : string
+  agreement_type : ENUM('TERMS_OF_SERVICE', 'PRIVACY_POLICY')
   version : string
   agreed_at : timestamp
 }

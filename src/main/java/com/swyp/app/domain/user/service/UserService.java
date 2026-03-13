@@ -13,7 +13,9 @@ import com.swyp.app.domain.user.dto.response.TendencyScoreResponse;
 import com.swyp.app.domain.user.dto.response.UpdateResultResponse;
 import com.swyp.app.domain.user.dto.response.UserProfileResponse;
 import com.swyp.app.domain.user.dto.response.UserSettingsResponse;
+import com.swyp.app.domain.user.entity.AgreementType;
 import com.swyp.app.domain.user.entity.User;
+import com.swyp.app.domain.user.entity.UserAgreement;
 import com.swyp.app.domain.user.entity.UserProfile;
 import com.swyp.app.domain.user.entity.UserRole;
 import com.swyp.app.domain.user.entity.UserSettings;
@@ -21,6 +23,7 @@ import com.swyp.app.domain.user.entity.UserStatus;
 import com.swyp.app.domain.user.entity.UserTendencyScore;
 import com.swyp.app.domain.user.entity.UserTendencyScoreHistory;
 import com.swyp.app.domain.user.repository.UserProfileRepository;
+import com.swyp.app.domain.user.repository.UserAgreementRepository;
 import com.swyp.app.domain.user.repository.UserRepository;
 import com.swyp.app.domain.user.repository.UserSettingsRepository;
 import com.swyp.app.domain.user.repository.UserTendencyScoreHistoryRepository;
@@ -33,6 +36,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -45,8 +49,10 @@ public class UserService {
     private static final String[] SUFFIXES = {"올빼미", "여우", "늑대", "사자", "펭귄", "토끼", "고양이", "곰"};
     private static final BigDecimal DEFAULT_MANNER_TEMPERATURE = BigDecimal.valueOf(36.5);
     private static final int DEFAULT_HISTORY_SIZE = 20;
+    private static final String DEFAULT_AGREEMENT_VERSION = "1.0";
 
     private final UserRepository userRepository;
+    private final UserAgreementRepository userAgreementRepository;
     private final UserProfileRepository userProfileRepository;
     private final UserSettingsRepository userSettingsRepository;
     private final UserTendencyScoreRepository userTendencyScoreRepository;
@@ -95,6 +101,7 @@ public class UserService {
         userProfileRepository.save(profile);
         userSettingsRepository.save(settings);
         userTendencyScoreRepository.save(tendencyScore);
+        saveRequiredAgreements(user);
 
         user.completeOnboarding();
 
@@ -232,6 +239,24 @@ public class UserService {
     private User findCurrentUser() {
         return userRepository.findTopByOrderByIdDesc()
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private void saveRequiredAgreements(User user) {
+        LocalDateTime agreedAt = LocalDateTime.now();
+        userAgreementRepository.saveAll(List.of(
+                UserAgreement.builder()
+                        .user(user)
+                        .agreementType(AgreementType.TERMS_OF_SERVICE)
+                        .version(DEFAULT_AGREEMENT_VERSION)
+                        .agreedAt(agreedAt)
+                        .build(),
+                UserAgreement.builder()
+                        .user(user)
+                        .agreementType(AgreementType.PRIVACY_POLICY)
+                        .version(DEFAULT_AGREEMENT_VERSION)
+                        .agreedAt(agreedAt)
+                        .build()
+        ));
     }
 
     private UserProfile findUserProfile(Long userId) {

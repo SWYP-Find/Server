@@ -21,7 +21,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,8 +29,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1")
 public class UserController {
-
-    private static final String USER_TAG_HEADER = "X-User-Tag";
 
     private final UserService userService;
 
@@ -53,51 +50,41 @@ public class UserController {
     }
 
     @GetMapping("/me/profile")
-    public ApiResponse<MyProfileResponse> getMyProfile(
-            @RequestHeader(name = USER_TAG_HEADER, required = false) String userTag
-    ) {
-        return ApiResponse.onSuccess(userService.getMyProfile(userService.requireCurrentUserTag(userTag)));
+    public ApiResponse<MyProfileResponse> getMyProfile() {
+        return ApiResponse.onSuccess(userService.getMyProfile());
     }
 
     @PatchMapping("/me/profile")
     public ApiResponse<MyProfileResponse> updateMyProfile(
-            @RequestHeader(name = USER_TAG_HEADER, required = false) String userTag,
             @RequestBody UpdateUserProfileRequest request
     ) {
-        return ApiResponse.onSuccess(userService.updateMyProfile(userService.requireCurrentUserTag(userTag), request));
+        return ApiResponse.onSuccess(userService.updateMyProfile(request));
     }
 
     @GetMapping("/me/settings")
-    public ApiResponse<UserSettingsResponse> getMySettings(
-            @RequestHeader(name = USER_TAG_HEADER, required = false) String userTag
-    ) {
-        return ApiResponse.onSuccess(userService.getMySettings(userService.requireCurrentUserTag(userTag)));
+    public ApiResponse<UserSettingsResponse> getMySettings() {
+        return ApiResponse.onSuccess(userService.getMySettings());
     }
 
     @PatchMapping("/me/settings")
     public ApiResponse<UpdateResultResponse> updateMySettings(
-            @RequestHeader(name = USER_TAG_HEADER, required = false) String userTag,
             @RequestBody UpdateUserSettingsRequest request
     ) {
-        return ApiResponse.onSuccess(userService.updateMySettings(userService.requireCurrentUserTag(userTag), request));
+        return ApiResponse.onSuccess(userService.updateMySettings(request));
     }
 
     @PutMapping("/me/tendency-scores")
     public ApiResponse<TendencyScoreResponse> updateMyTendencyScores(
-            @RequestHeader(name = USER_TAG_HEADER, required = false) String userTag,
             @RequestBody UpdateTendencyScoreRequest request
     ) {
-        return ApiResponse.onSuccess(userService.updateMyTendencyScores(userService.requireCurrentUserTag(userTag), request));
+        return ApiResponse.onSuccess(userService.updateMyTendencyScores(request));
     }
 
     @GetMapping("/me/tendency-scores/history")
     public ApiResponse<TendencyScoreHistoryResponse> getMyTendencyScoreHistory(
-            @RequestHeader(name = USER_TAG_HEADER, required = false) String userTag,
             @RequestParam(required = false) Long cursor,
             @RequestParam(required = false) Integer size
     ) {
-        return ApiResponse.onSuccess(
-                userService.getMyTendencyScoreHistory(userService.requireCurrentUserTag(userTag), cursor, size)
-        );
+        return ApiResponse.onSuccess(userService.getMyTendencyScoreHistory(cursor, size));
     }
 }

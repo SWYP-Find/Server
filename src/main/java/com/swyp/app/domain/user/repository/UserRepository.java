@@ -7,5 +7,6 @@ import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByUserTag(String userTag);
+    Optional<User> findTopByOrderByIdDesc();
     boolean existsByUserTag(String userTag);
 }

@@ -24,6 +24,6 @@ public class GlobalExceptionHandler {
         ErrorCode code = ErrorCode.INTERNAL_SERVER_ERROR;
         return ResponseEntity
                 .status(code.getHttpStatus())
-                .body(ApiResponse.onFailure(500, code.getCode(), e.getMessage()));
+                .body(ApiResponse.onFailure(500, code.getCode(), code.getMessage()));
     }
 }

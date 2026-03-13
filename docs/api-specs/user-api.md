@@ -251,7 +251,7 @@ owl, wolf, lion 등은 추후 디자인에 따라 정의
   "data": {
     "items": [
       {
-        "history_id": "ths_001",
+        "history_id": 1,
         "score_1": 30,
         "score_2": -20,
         "score_3": 55,

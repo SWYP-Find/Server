@@ -44,7 +44,11 @@ public class UserProfile extends BaseEntity {
     }
 
     public void update(String nickname, CharacterType characterType) {
-        this.nickname = nickname;
-        this.characterType = characterType;
+        if (nickname != null && !nickname.isBlank()) {
+            this.nickname = nickname;
+        }
+        if (characterType != null) {
+            this.characterType = characterType;
+        }
     }
 }

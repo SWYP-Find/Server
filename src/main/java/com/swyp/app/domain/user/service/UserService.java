@@ -66,14 +66,12 @@ public class UserService {
 
     @Transactional
     public OnboardingProfileResponse createOnboardingProfile(CreateOnboardingProfileRequest request) {
-        User user = User.builder()
-                .userTag(generateUserTag())
-                .role(UserRole.USER)
-                .status(UserStatus.PENDING)
-                .onboardingCompleted(false)
-                .build();
+        User user = userRepository.findTopByOrderByIdDesc()
+                .orElseGet(this::createPendingUser);
 
-        userRepository.save(user);
+        if (user.isOnboardingCompleted()) {
+            throw new CustomException(ErrorCode.ONBOARDING_ALREADY_COMPLETED);
+        }
 
         UserProfile profile = UserProfile.builder()
                 .user(user)
@@ -218,7 +216,7 @@ public class UserService {
 
         List<TendencyScoreHistoryItemResponse> items = histories.stream()
                 .map(history -> new TendencyScoreHistoryItemResponse(
-                        "ths_%03d".formatted(history.getId()),
+                        history.getId(),
                         history.getScore1(),
                         history.getScore2(),
                         history.getScore3(),
@@ -241,6 +239,16 @@ public class UserService {
     private User findCurrentUser() {
         return userRepository.findTopByOrderByIdDesc()
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private User createPendingUser() {
+        User user = User.builder()
+                .userTag(generateUserTag())
+                .role(UserRole.USER)
+                .status(UserStatus.PENDING)
+                .onboardingCompleted(false)
+                .build();
+        return userRepository.save(user);
     }
 
     private void saveRequiredAgreements(User user) {

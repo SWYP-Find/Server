@@ -21,6 +21,12 @@ public enum ErrorCode {
     AUTH_ACCESS_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "AUTH_ACCESS_TOKEN_EXPIRED", "Access Token이 만료되었습니다."),
     AUTH_REFRESH_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "AUTH_REFRESH_TOKEN_EXPIRED", "Refresh Token이 만료되었습니다. 다시 로그인이 필요합니다."),
 
+    // User
+    USER_BANNED(HttpStatus.FORBIDDEN, "USER_BANNED", "영구 제재된 사용자입니다."),
+    USER_SUSPENDED(HttpStatus.FORBIDDEN, "USER_SUSPENDED", "일정 기간 이용 정지된 사용자입니다."),
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "존재하지 않는 사용자입니다."),
+    ONBOARDING_ALREADY_COMPLETED(HttpStatus.CONFLICT, "ONBOARDING_ALREADY_COMPLETED", "이미 온보딩이 완료된 사용자입니다."),
+
     // OAuth ( Social Login )
     INVALID_PROVIDER(HttpStatus.BAD_REQUEST, "INVALID_PROVIDER", "지원하지 않는 소셜 로그인 provider입니다.");
 

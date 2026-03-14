@@ -8,57 +8,10 @@
 
 ---
 
-## 성향 기반 연관 배틀 조회 API
-
-### `GET /api/v1/battles/{battle_id}/related`
-
-- 연관 배틀 조회
-
-#### 성공 응답 `200 OK`
-
-```json
-{
-  "statusCode": 200,
-  "data": {
-    "items": [
-      {
-        "battle_id": "battle_002",
-        "title": "유전자 편집 아기, 허용해야 할까?",
-        "tags": [
-          { "tag_id": "tag_001", "name": "과학" },
-          { "tag_id": "tag_002", "name": "윤리" }
-        ],
-        "options": [
-          { "option_id": "option_A", "label": "A", "title": "허용" },
-          { "option_id": "option_B", "label": "B", "title": "금지" }
-        ],
-        "participants_count": 890
-      }
-    ]
-  },
-  "error": null
-}
-```
-
-#### 예외 응답 `404 - 배틀 없음`
-
-```json
-{
-  "statusCode": 404,
-  "data": null,
-  "error": {
-    "code": "BATTLE_NOT_FOUND",
-    "message": "존재하지 않는 배틀입니다.",
-    "errors": []
-  }
-}
-```
-
----
 ## 성향 기반 비슷한 유저가 들은 배틀 조회 API
 ### `GET /api/v1/battles/{battle_id}/recommendations/similar`
 
-- 비슷한 유저가 들은 배틀
+- 비슷한 유저가 들은 배틀 , PM의 전략 미확정 (26.03.15) 
 
 #### 성공 응답 `200 OK`
 
@@ -69,17 +22,27 @@
     "items": [
       {
         "battle_id": "battle_002",
-        "title": "사형제도, 유지 vs 폐지",
-        "thumbnail_url": "https://cdn.pique.app/battle/002.png",
+        "title": "사후세계는 존재하는가, 인간이 만든 위안인가?",
         "tags": [
-          { "tag_id": "tag_001", "name": "사회" }
+          { "tag_id": "tag_001", "name": "철학" }
         ],
-        "participants_count": 1500,
+        "participants_count": 1340,
         "options": [
-          { "option_id": "option_A", "label": "A", "title": "유지" },
-          { "option_id": "option_B", "label": "B", "title": "폐지" }
-        ],
-        "match_ratio": 87
+          {
+            "option_id": "option_A",
+            "label": "A",
+            "title": "존재한다",
+            "representative": "플라톤",
+            "image_url": "https://cdn.pique.app/characters/platon.png"
+          },
+          {
+            "option_id": "option_B",
+            "label": "B",
+            "title": "인간이 만든 위안이다",
+            "representative": "에피쿠로스",
+            "image_url": "https://cdn.pique.app/characters/epicurus.png"
+          }
+        ]
       }
     ]
   },
@@ -101,51 +64,6 @@
 }
 ```
 
----
-## 성향 기반 반대 성향 유저에게 인기 배틀 조회 API
-### `GET /api/v1/battles/{battle_id}/recommendations/opposite`
-
-- 반대 성향 유저에게 인기 중인 배틀
-
-#### 성공 응답 `200 OK`
-
-```json
-{
-  "statusCode": 200,
-  "data": {
-    "items": [
-      {
-        "battle_id": "battle_003",
-        "title": "AI 판사, 도입해야 할까?",
-        "thumbnail_url": "https://cdn.pique.app/battle/003.png",
-        "tags": [
-          { "tag_id": "tag_002", "name": "기술" }
-        ],
-        "participants_count": 780,
-        "options": [
-          { "option_id": "option_A", "label": "A", "title": "도입" },
-          { "option_id": "option_B", "label": "B", "title": "반대" }
-        ]
-      }
-    ]
-  },
-  "error": null
-}
-```
-
-#### 예외 응답 `404 - 배틀 없음`
-
-```json
-{
-  "statusCode": 404,
-  "data": null,
-  "error": {
-    "code": "BATTLE_NOT_FOUND",
-    "message": "존재하지 않는 배틀입니다.",
-    "errors": []
-  }
-}
-```
 ---
 
 ## 공통 에러 코드

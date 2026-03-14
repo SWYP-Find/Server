@@ -27,7 +27,10 @@ public enum ErrorCode {
 
     // Like
     LIKE_ALREADY_EXISTS(HttpStatus.CONFLICT, "LIKE_409", "이미 좋아요를 누른 관점입니다."),
-    LIKE_NOT_FOUND(HttpStatus.NOT_FOUND, "LIKE_404", "좋아요를 누른 적 없는 관점입니다.");
+    LIKE_NOT_FOUND(HttpStatus.NOT_FOUND, "LIKE_404", "좋아요를 누른 적 없는 관점입니다."),
+
+    // Vote
+    VOTE_NOT_FOUND(HttpStatus.NOT_FOUND, "VOTE_404", "투표 내역이 없습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

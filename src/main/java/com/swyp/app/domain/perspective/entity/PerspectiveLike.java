@@ -3,9 +3,12 @@ package com.swyp.app.domain.perspective.entity;
 import com.swyp.app.global.common.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
@@ -28,17 +31,17 @@ public class PerspectiveLike extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    // TODO: Perspective 연관관계 매핑 시 @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "perspective_id") 로 교체
-    @Column(name = "perspective_id", nullable = false)
-    private UUID perspectiveId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "perspective_id", nullable = false)
+    private Perspective perspective;
 
     // TODO: User 엔티티 병합 후 @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "user_id") 로 교체
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
     @Builder
-    private PerspectiveLike(UUID perspectiveId, Long userId) {
-        this.perspectiveId = perspectiveId;
+    private PerspectiveLike(Perspective perspective, Long userId) {
+        this.perspective = perspective;
         this.userId = userId;
     }
 }

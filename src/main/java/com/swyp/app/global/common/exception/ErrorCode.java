@@ -23,7 +23,11 @@ public enum ErrorCode {
 
     // Comment
     COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMENT_404", "존재하지 않는 댓글입니다."),
-    COMMENT_FORBIDDEN(HttpStatus.FORBIDDEN, "COMMENT_403", "본인 댓글만 수정/삭제할 수 있습니다.");
+    COMMENT_FORBIDDEN(HttpStatus.FORBIDDEN, "COMMENT_403", "본인 댓글만 수정/삭제할 수 있습니다."),
+
+    // Like
+    LIKE_ALREADY_EXISTS(HttpStatus.CONFLICT, "LIKE_409", "이미 좋아요를 누른 관점입니다."),
+    LIKE_NOT_FOUND(HttpStatus.NOT_FOUND, "LIKE_404", "좋아요를 누른 적 없는 관점입니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

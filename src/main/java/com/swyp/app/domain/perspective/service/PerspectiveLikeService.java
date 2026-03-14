@@ -1,0 +1,64 @@
+package com.swyp.app.domain.perspective.service;
+
+import com.swyp.app.domain.perspective.dto.response.LikeCountResponse;
+import com.swyp.app.domain.perspective.dto.response.LikeResponse;
+import com.swyp.app.domain.perspective.entity.Perspective;
+import com.swyp.app.domain.perspective.entity.PerspectiveLike;
+import com.swyp.app.domain.perspective.repository.PerspectiveLikeRepository;
+import com.swyp.app.domain.perspective.repository.PerspectiveRepository;
+import com.swyp.app.global.common.exception.CustomException;
+import com.swyp.app.global.common.exception.ErrorCode;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class PerspectiveLikeService {
+
+    private final PerspectiveRepository perspectiveRepository;
+    private final PerspectiveLikeRepository likeRepository;
+
+    public LikeCountResponse getLikeCount(UUID perspectiveId) {
+        Perspective perspective = findPerspectiveById(perspectiveId);
+        return new LikeCountResponse(perspective.getId(), perspective.getLikeCount());
+    }
+
+    @Transactional
+    public LikeResponse addLike(UUID perspectiveId, Long userId) {
+        Perspective perspective = findPerspectiveById(perspectiveId);
+
+        if (likeRepository.existsByPerspectiveAndUserId(perspective, userId)) {
+            throw new CustomException(ErrorCode.LIKE_ALREADY_EXISTS);
+        }
+
+        likeRepository.save(PerspectiveLike.builder()
+                .perspective(perspective)
+                .userId(userId)
+                .build());
+        perspective.incrementLikeCount();
+
+        return new LikeResponse(perspective.getId(), perspective.getLikeCount(), true);
+    }
+
+    @Transactional
+    public LikeResponse removeLike(UUID perspectiveId, Long userId) {
+        Perspective perspective = findPerspectiveById(perspectiveId);
+
+        PerspectiveLike like = likeRepository.findByPerspectiveAndUserId(perspective, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.LIKE_NOT_FOUND));
+
+        likeRepository.delete(like);
+        perspective.decrementLikeCount();
+
+        return new LikeResponse(perspective.getId(), perspective.getLikeCount(), false);
+    }
+
+    private Perspective findPerspectiveById(UUID perspectiveId) {
+        return perspectiveRepository.findById(perspectiveId)
+                .orElseThrow(() -> new CustomException(ErrorCode.PERSPECTIVE_NOT_FOUND));
+    }
+}

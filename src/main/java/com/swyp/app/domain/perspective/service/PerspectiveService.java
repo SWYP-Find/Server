@@ -1,5 +1,8 @@
 package com.swyp.app.domain.perspective.service;
 
+import com.swyp.app.domain.battle.entity.BattleOption;
+import com.swyp.app.domain.battle.entity.BattleOptionLabel;
+import com.swyp.app.domain.battle.service.BattleService;
 import com.swyp.app.domain.perspective.dto.request.CreatePerspectiveRequest;
 import com.swyp.app.domain.perspective.dto.request.UpdatePerspectiveRequest;
 import com.swyp.app.domain.perspective.dto.response.CreatePerspectiveResponse;
@@ -8,6 +11,8 @@ import com.swyp.app.domain.perspective.dto.response.UpdatePerspectiveResponse;
 import com.swyp.app.domain.perspective.entity.Perspective;
 import com.swyp.app.domain.perspective.repository.PerspectiveLikeRepository;
 import com.swyp.app.domain.perspective.repository.PerspectiveRepository;
+import com.swyp.app.domain.user.service.UserQueryService;
+import com.swyp.app.domain.vote.service.VoteService;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -28,20 +33,24 @@ public class PerspectiveService {
 
     private final PerspectiveRepository perspectiveRepository;
     private final PerspectiveLikeRepository perspectiveLikeRepository;
+    private final BattleService battleService;
+    private final VoteService voteService;
+    private final UserQueryService userQueryService;
 
     @Transactional
     public CreatePerspectiveResponse createPerspective(UUID battleId, Long userId, CreatePerspectiveRequest request) {
-        // TODO: Battle 엔티티 병합 후 배틀 존재 여부 검증 (ErrorCode.BATTLE_NOT_FOUND)
-        // TODO: Vote 엔티티 병합 후 사전 투표 여부 검증 및 optionId 조회
+        battleService.findById(battleId);
 
         if (perspectiveRepository.existsByBattleIdAndUserId(battleId, userId)) {
             throw new CustomException(ErrorCode.PERSPECTIVE_ALREADY_EXISTS);
         }
 
+        UUID optionId = voteService.findPreVoteOptionId(battleId, userId);
+
         Perspective perspective = Perspective.builder()
                 .battleId(battleId)
                 .userId(userId)
-                .optionId(null) // TODO: Vote에서 조회한 optionId로 교체
+                .optionId(optionId)
                 .content(request.content())
                 .build();
 
@@ -49,30 +58,42 @@ public class PerspectiveService {
         return new CreatePerspectiveResponse(saved.getId(), saved.getStatus(), saved.getCreatedAt());
     }
 
-    public PerspectiveListResponse getPerspectives(UUID battleId, String cursor, Integer size, String optionLabel) {
-        // TODO: Battle 엔티티 병합 후 배틀 존재 여부 검증 (ErrorCode.BATTLE_NOT_FOUND)
-        // TODO: BattleOption 병합 후 optionLabel → optionId 변환 및 필터 쿼리 적용
+    public PerspectiveListResponse getPerspectives(UUID battleId, Long userId, String cursor, Integer size, String optionLabel) {
+        battleService.findById(battleId);
 
         int pageSize = (size == null || size <= 0) ? DEFAULT_PAGE_SIZE : size;
         PageRequest pageable = PageRequest.of(0, pageSize);
 
-        List<Perspective> perspectives = cursor == null
-                ? perspectiveRepository.findByBattleIdOrderByCreatedAtDesc(battleId, pageable)
-                : perspectiveRepository.findByBattleIdAndCreatedAtBeforeOrderByCreatedAtDesc(
-                        battleId, LocalDateTime.parse(cursor), pageable);
+        List<Perspective> perspectives;
 
-        // TODO: User, BattleOption 병합 후 user/option 정보 실제 데이터로 교체
+        if (optionLabel != null) {
+            BattleOptionLabel label = BattleOptionLabel.valueOf(optionLabel.toUpperCase());
+            BattleOption option = battleService.findOptionByBattleIdAndLabel(battleId, label);
+            perspectives = cursor == null
+                    ? perspectiveRepository.findByBattleIdAndOptionIdOrderByCreatedAtDesc(battleId, option.getId(), pageable)
+                    : perspectiveRepository.findByBattleIdAndOptionIdAndCreatedAtBeforeOrderByCreatedAtDesc(battleId, option.getId(), LocalDateTime.parse(cursor), pageable);
+        } else {
+            perspectives = cursor == null
+                    ? perspectiveRepository.findByBattleIdOrderByCreatedAtDesc(battleId, pageable)
+                    : perspectiveRepository.findByBattleIdAndCreatedAtBeforeOrderByCreatedAtDesc(battleId, LocalDateTime.parse(cursor), pageable);
+        }
+
         List<PerspectiveListResponse.Item> items = perspectives.stream()
-                .map(p -> new PerspectiveListResponse.Item(
-                        p.getId(),
-                        new PerspectiveListResponse.UserSummary(null, null, null),
-                        new PerspectiveListResponse.OptionSummary(p.getOptionId(), null, null),
-                        p.getContent(),
-                        p.getLikeCount(),
-                        p.getCommentCount(),
-                        false, // TODO: 현재 로그인 유저 기반 좋아요 여부로 교체
-                        p.getCreatedAt()
-                ))
+                .map(p -> {
+                    UserQueryService.UserSummary user = userQueryService.findSummaryById(p.getUserId());
+                    BattleOption option = battleService.findOptionById(p.getOptionId());
+                    boolean isLiked = perspectiveLikeRepository.existsByPerspectiveAndUserId(p, userId);
+                    return new PerspectiveListResponse.Item(
+                            p.getId(),
+                            new PerspectiveListResponse.UserSummary(user.userTag(), user.nickname(), user.characterUrl()),
+                            new PerspectiveListResponse.OptionSummary(option.getId(), option.getLabel().name(), option.getTitle()),
+                            p.getContent(),
+                            p.getLikeCount(),
+                            p.getCommentCount(),
+                            isLiked,
+                            p.getCreatedAt()
+                    );
+                })
                 .toList();
 
         String nextCursor = perspectives.size() == pageSize

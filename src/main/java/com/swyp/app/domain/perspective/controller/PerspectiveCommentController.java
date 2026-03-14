@@ -44,7 +44,9 @@ public class PerspectiveCommentController {
             @RequestParam(required = false) String cursor,
             @RequestParam(required = false) Integer size
     ) {
-        return ApiResponse.onSuccess(commentService.getComments(perspectiveId, cursor, size));
+        // TODO: Security 적용 후 @AuthenticationPrincipal로 userId 교체
+        Long userId = 1L;
+        return ApiResponse.onSuccess(commentService.getComments(perspectiveId, userId, cursor, size));
     }
 
     @DeleteMapping("/perspectives/{perspectiveId}/comments/{commentId}")

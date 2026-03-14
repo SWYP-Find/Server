@@ -9,6 +9,7 @@ import com.swyp.app.domain.perspective.entity.Perspective;
 import com.swyp.app.domain.perspective.entity.PerspectiveComment;
 import com.swyp.app.domain.perspective.repository.PerspectiveCommentRepository;
 import com.swyp.app.domain.perspective.repository.PerspectiveRepository;
+import com.swyp.app.domain.user.service.UserQueryService;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ public class PerspectiveCommentService {
 
     private final PerspectiveRepository perspectiveRepository;
     private final PerspectiveCommentRepository commentRepository;
+    private final UserQueryService userQueryService;
 
     @Transactional
     public CreateCommentResponse createComment(UUID perspectiveId, Long userId, CreateCommentRequest request) {
@@ -43,16 +45,16 @@ public class PerspectiveCommentService {
         commentRepository.save(comment);
         perspective.incrementCommentCount();
 
-        // TODO: User 병합 후 실제 user 정보로 교체
+        UserQueryService.UserSummary user = userQueryService.findSummaryById(userId);
         return new CreateCommentResponse(
                 comment.getId(),
-                new CreateCommentResponse.UserSummary(null, null, null),
+                new CreateCommentResponse.UserSummary(user.userTag(), user.nickname(), user.characterUrl()),
                 comment.getContent(),
                 comment.getCreatedAt()
         );
     }
 
-    public CommentListResponse getComments(UUID perspectiveId, String cursor, Integer size) {
+    public CommentListResponse getComments(UUID perspectiveId, Long userId, String cursor, Integer size) {
         Perspective perspective = findPerspectiveById(perspectiveId);
 
         int pageSize = (size == null || size <= 0) ? DEFAULT_PAGE_SIZE : size;
@@ -63,15 +65,17 @@ public class PerspectiveCommentService {
                 : commentRepository.findByPerspectiveAndCreatedAtBeforeOrderByCreatedAtDesc(
                         perspective, LocalDateTime.parse(cursor), pageable);
 
-        // TODO: User 병합 후 실제 user 정보 및 isMine 교체
         List<CommentListResponse.Item> items = comments.stream()
-                .map(c -> new CommentListResponse.Item(
-                        c.getId(),
-                        new CommentListResponse.UserSummary(null, null, null),
-                        c.getContent(),
-                        false,
-                        c.getCreatedAt()
-                ))
+                .map(c -> {
+                    UserQueryService.UserSummary user = userQueryService.findSummaryById(c.getUserId());
+                    return new CommentListResponse.Item(
+                            c.getId(),
+                            new CommentListResponse.UserSummary(user.userTag(), user.nickname(), user.characterUrl()),
+                            c.getContent(),
+                            c.getUserId().equals(userId),
+                            c.getCreatedAt()
+                    );
+                })
                 .toList();
 
         String nextCursor = comments.size() == pageSize

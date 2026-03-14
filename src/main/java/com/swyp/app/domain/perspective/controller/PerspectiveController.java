@@ -45,7 +45,9 @@ public class PerspectiveController {
             @RequestParam(required = false) Integer size,
             @RequestParam(required = false) String optionLabel
     ) {
-        return ApiResponse.onSuccess(perspectiveService.getPerspectives(battleId, cursor, size, optionLabel));
+        // TODO: Security 적용 후 @AuthenticationPrincipal로 userId 교체
+        Long userId = 1L;
+        return ApiResponse.onSuccess(perspectiveService.getPerspectives(battleId, userId, cursor, size, optionLabel));
     }
 
     @DeleteMapping("/perspectives/{perspectiveId}")

@@ -18,8 +18,8 @@ public class RecommendationController {
 
     private final RecommendationService recommendationService;
 
-    @GetMapping("/battles/{battleId}/recommendations/similar")
-    public ApiResponse<RecommendationListResponse> getSimilarBattles(@PathVariable UUID battleId) {
-        return ApiResponse.onSuccess(recommendationService.getSimilarBattles(battleId));
+    @GetMapping("/battles/{battleId}/recommendations/interesting")
+    public ApiResponse<RecommendationListResponse> getInterestingBattles(@PathVariable UUID battleId) {
+        return ApiResponse.onSuccess(recommendationService.getInterestingBattles(battleId));
     }
 }

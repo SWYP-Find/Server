@@ -16,5 +16,7 @@ public interface PerspectiveRepository extends JpaRepository<Perspective, UUID> 
 
     List<Perspective> findByBattleIdAndCreatedAtBeforeOrderByCreatedAtDesc(UUID battleId, LocalDateTime cursor, Pageable pageable);
 
-    // TODO: BattleOption 병합 후 optionId 필터 쿼리 추가
+    List<Perspective> findByBattleIdAndOptionIdOrderByCreatedAtDesc(UUID battleId, UUID optionId, Pageable pageable);
+
+    List<Perspective> findByBattleIdAndOptionIdAndCreatedAtBeforeOrderByCreatedAtDesc(UUID battleId, UUID optionId, LocalDateTime cursor, Pageable pageable);
 }

@@ -10,7 +10,7 @@ import com.swyp.app.domain.oauth.entity.UserSocialAccount;
 import com.swyp.app.domain.oauth.jwt.JwtProvider;
 import com.swyp.app.domain.oauth.repository.AuthRefreshTokenRepository;
 import com.swyp.app.domain.oauth.repository.UserSocialAccountRepository;
-import com.swyp.app.domain.user.entity.Role;
+import com.swyp.app.domain.user.entity.UserRole;
 import com.swyp.app.domain.user.entity.User;
 import com.swyp.app.domain.user.entity.UserStatus;
 import com.swyp.app.domain.user.repository.UserRepository;
@@ -56,7 +56,7 @@ public class AuthService {
             // 신규 유저 생성
             user = User.builder()
                     .userTag(generateUserTag())
-                    .role(Role.USER)
+                    .role(UserRole.USER)
                     .status(UserStatus.PENDING)
                     .onboardingCompleted(false)
                     .build();

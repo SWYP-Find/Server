@@ -2,6 +2,7 @@ package com.swyp.app.domain.vote.entity;
 
 import com.swyp.app.domain.battle.entity.Battle;
 import com.swyp.app.domain.battle.entity.BattleOption;
+import com.swyp.app.domain.vote.enums.VoteStatus;
 import com.swyp.app.global.common.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -47,25 +48,33 @@ public class Vote extends BaseEntity {
     @JoinColumn(name = "post_vote_option_id")
     private BattleOption postVoteOption;
 
-    @Column(name = "mind_changed", nullable = false)
-    private boolean mindChanged;
-
-    @Column(name = "reward_credits", nullable = false)
-    private int rewardCredits;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private VoteStatus status;
 
     @Builder
     private Vote(Long userId, Battle battle, BattleOption preVoteOption,
-                 BattleOption postVoteOption, boolean mindChanged, int rewardCredits, VoteStatus status) {
+                 BattleOption postVoteOption, VoteStatus status) {
         this.userId = userId;
         this.battle = battle;
         this.preVoteOption = preVoteOption;
         this.postVoteOption = postVoteOption;
-        this.mindChanged = mindChanged;
-        this.rewardCredits = rewardCredits;
         this.status = status;
+    }
+
+    // 사전 투표 생성 팩토리 메서드
+    public static Vote createPreVote(Long userId, Battle battle, BattleOption option) {
+        return Vote.builder()
+                .userId(userId)
+                .battle(battle)
+                .preVoteOption(option)
+                .status(VoteStatus.PRE_VOTED)
+                .build();
+    }
+
+    // 사후 투표 실행 상태 변경 메서드
+    public void doPostVote(BattleOption postOption) {
+        this.postVoteOption = postOption;
+        this.status = VoteStatus.POST_VOTED;
     }
 }

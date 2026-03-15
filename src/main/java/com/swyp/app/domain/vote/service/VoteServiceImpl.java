@@ -4,9 +4,13 @@ import com.swyp.app.domain.battle.entity.Battle;
 import com.swyp.app.domain.battle.entity.BattleOption;
 import com.swyp.app.domain.battle.repository.BattleOptionRepository;
 import com.swyp.app.domain.battle.service.BattleService;
+import com.swyp.app.domain.vote.converter.VoteConverter;
+import com.swyp.app.domain.vote.dto.request.VoteRequest;
 import com.swyp.app.domain.vote.dto.response.MyVoteResponse;
+import com.swyp.app.domain.vote.dto.response.VoteResultResponse;
 import com.swyp.app.domain.vote.dto.response.VoteStatsResponse;
 import com.swyp.app.domain.vote.entity.Vote;
+import com.swyp.app.domain.vote.enums.VoteStatus;
 import com.swyp.app.domain.vote.repository.VoteRepository;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
@@ -33,7 +37,7 @@ public class VoteServiceImpl implements VoteService {
         Vote vote = voteRepository.findByBattleAndUserId(battle, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.VOTE_NOT_FOUND));
         if (vote.getPreVoteOption() == null) {
-            throw new CustomException(ErrorCode.PERSPECTIVE_POST_VOTE_REQUIRED);
+            throw new CustomException(ErrorCode.PRE_VOTE_REQUIRED);
         }
         return vote.getPreVoteOption().getId();
     }
@@ -59,7 +63,7 @@ public class VoteServiceImpl implements VoteService {
                 .map(Vote::getUpdatedAt)
                 .orElse(null);
 
-        return new VoteStatsResponse(stats, totalCount, updatedAt);
+        return VoteConverter.toVoteStatsResponse(stats, totalCount, updatedAt);
     }
 
     @Override
@@ -68,14 +72,44 @@ public class VoteServiceImpl implements VoteService {
         Vote vote = voteRepository.findByBattleAndUserId(battle, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.VOTE_NOT_FOUND));
 
-        MyVoteResponse.OptionInfo preVote = toOptionInfo(vote.getPreVoteOption());
-        MyVoteResponse.OptionInfo postVote = toOptionInfo(vote.getPostVoteOption());
-
-        return new MyVoteResponse(preVote, postVote, vote.isMindChanged(), vote.getStatus());
+        return VoteConverter.toMyVoteResponse(vote);
     }
 
-    private MyVoteResponse.OptionInfo toOptionInfo(BattleOption option) {
-        if (option == null) return null;
-        return new MyVoteResponse.OptionInfo(option.getId(), option.getLabel().name(), option.getTitle());
+    @Override
+    @Transactional
+    public VoteResultResponse preVote(UUID battleId, Long userId, VoteRequest request) {
+        Battle battle = battleService.findById(battleId);
+        BattleOption option = battleOptionRepository.findById(request.optionId())
+                .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));
+
+        // 이미 투표 내역이 존재하는지 검증
+        if (voteRepository.findByBattleAndUserId(battle, userId).isPresent()) {
+            throw new CustomException(ErrorCode.VOTE_ALREADY_SUBMITTED);
+        }
+
+        Vote vote = Vote.createPreVote(userId, battle, option);
+        voteRepository.save(vote);
+
+        return VoteConverter.toVoteResultResponse(vote);
+    }
+
+    @Override
+    @Transactional
+    public VoteResultResponse postVote(UUID battleId, Long userId, VoteRequest request) {
+        Battle battle = battleService.findById(battleId);
+        BattleOption option = battleOptionRepository.findById(request.optionId())
+                .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));
+
+        Vote vote = voteRepository.findByBattleAndUserId(battle, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.VOTE_NOT_FOUND));
+
+        // 사전 투표 상태일 때만 사후 투표 가능
+        if (vote.getStatus() != VoteStatus.PRE_VOTED) {
+            throw new CustomException(ErrorCode.INVALID_VOTE_STATUS);
+        }
+
+        vote.doPostVote(option);
+
+        return VoteConverter.toVoteResultResponse(vote);
     }
 }

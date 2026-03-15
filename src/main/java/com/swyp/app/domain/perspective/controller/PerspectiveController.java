@@ -74,6 +74,15 @@ public class PerspectiveController {
         return ApiResponse.onSuccess(null);
     }
 
+    @Operation(summary = "관점 검수 재시도", description = "검수 실패(MODERATION_FAILED) 상태의 관점에 대해 GPT 검수를 다시 요청합니다.")
+    @PostMapping("/perspectives/{perspectiveId}/moderation/retry")
+    public ApiResponse<Void> retryModeration(@PathVariable UUID perspectiveId) {
+        // TODO: Security 적용 후 @AuthenticationPrincipal로 userId 교체
+        Long userId = 1L;
+        perspectiveService.retryModeration(perspectiveId, userId);
+        return ApiResponse.onSuccess(null);
+    }
+
     @Operation(summary = "관점 수정", description = "본인이 작성한 관점의 내용을 수정합니다.")
     @PatchMapping("/perspectives/{perspectiveId}")
     public ApiResponse<UpdatePerspectiveResponse> updatePerspective(

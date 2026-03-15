@@ -6,6 +6,25 @@
 
 - 관점 API 입니다.
 - 현재 Creator 뱃지 부분이 ERD 상에선 보이지 않는데 확인 필요
+
+### 관점 상태(status) 흐름
+
+| status | 설명 |
+|--------|------|
+| `PENDING` | 생성/수정 직후, GPT 검수 대기 중 |
+| `PUBLISHED` | GPT 검수 통과, 목록에 노출됨 |
+| `REJECTED` | GPT 검수 거절 (욕설/공격적 표현 포함) |
+| `MODERATION_FAILED` | GPT API 호출 실패 (네트워크 오류 등), 재시도 가능 |
+
+```
+생성/수정 → PENDING → GPT 호출 성공 → APPROVED → PUBLISHED
+                                    → REJECT   → REJECTED
+                    → GPT 호출 실패 → 1회 재시도
+                                    → 재시도 실패 → MODERATION_FAILED
+                                                     ↓ (재시도 버튼)
+                                                   PENDING → GPT 재호출
+```
+
 ---
 
 ## 관점 생성 API
@@ -268,6 +287,67 @@
 
 ---
 
+## 관점 검수 재시도 API
+### `POST /api/v1/perspectives/{perspective_id}/moderation/retry`
+
+- `MODERATION_FAILED` 상태의 관점에 대해 GPT 검수를 다시 요청합니다.
+- 재시도 후 상태는 `PENDING`으로 변경되며, GPT 응답에 따라 `PUBLISHED` / `REJECTED` / `MODERATION_FAILED`로 전환됩니다.
+- 재시도도 실패하면 다시 `MODERATION_FAILED`로 남습니다.
+
+#### 성공 응답 `200 OK`
+
+```json
+{
+  "statusCode": 200,
+  "data": null,
+  "error": null
+}
+```
+
+#### 예외 응답 `404 - 관점 없음`
+
+```json
+{
+  "statusCode": 404,
+  "data": null,
+  "error": {
+    "code": "PERSPECTIVE_NOT_FOUND",
+    "message": "존재하지 않는 관점입니다.",
+    "errors": []
+  }
+}
+```
+
+#### 예외 응답 `400 - 검수 실패 상태 아님`
+
+```json
+{
+  "statusCode": 400,
+  "data": null,
+  "error": {
+    "code": "PERSPECTIVE_400",
+    "message": "검수 실패 상태의 관점이 아닙니다.",
+    "errors": []
+  }
+}
+```
+
+#### 예외 응답 `403 - 본인 관점 아님`
+
+```json
+{
+  "statusCode": 403,
+  "data": null,
+  "error": {
+    "code": "PERSPECTIVE_403",
+    "message": "본인 관점만 수정/삭제할 수 있습니다.",
+    "errors": []
+  }
+}
+```
+
+---
+
 ## 공통 에러 코드
 
 | Error Code | HTTP Status | 설명 |
@@ -290,5 +370,6 @@
 | `PERSPECTIVE_ALREADY_EXISTS` | `409` | 해당 배틀에 이미 관점 작성함      |
 | `PERSPECTIVE_FORBIDDEN` | `403` | 본인 관점 아님  |
 | `PERSPECTIVE_POST_VOTE_REQUIRED` | `409` | 사후 투표 미완료 |
+| `PERSPECTIVE_400` | `400` | 검수 실패 상태의 관점이 아님 (재시도 불가) |
 
 ---

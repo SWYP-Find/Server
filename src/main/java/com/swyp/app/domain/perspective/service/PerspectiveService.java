@@ -39,6 +39,7 @@ public class PerspectiveService {
     private final BattleService battleService;
     private final VoteService voteService;
     private final UserService userQueryService;
+    private final GptModerationService gptModerationService;
 
     @Transactional
     public CreatePerspectiveResponse createPerspective(UUID battleId, Long userId, CreatePerspectiveRequest request) {
@@ -58,6 +59,7 @@ public class PerspectiveService {
                 .build();
 
         Perspective saved = perspectiveRepository.save(perspective);
+        gptModerationService.moderate(saved.getId(), saved.getContent());
         return new CreatePerspectiveResponse(saved.getId(), saved.getStatus(), saved.getCreatedAt());
     }
 
@@ -118,6 +120,8 @@ public class PerspectiveService {
         Perspective perspective = findPerspectiveById(perspectiveId);
         validateOwnership(perspective, userId);
         perspective.updateContent(request.content());
+        perspective.updateStatus(PerspectiveStatus.PENDING);
+        gptModerationService.moderate(perspective.getId(), perspective.getContent());
         return new UpdatePerspectiveResponse(perspective.getId(), perspective.getContent(), perspective.getUpdatedAt());
     }
 
@@ -132,6 +136,17 @@ public class PerspectiveService {
                 perspective.getStatus(),
                 perspective.getCreatedAt()
         );
+    }
+
+    @Transactional
+    public void retryModeration(UUID perspectiveId, Long userId) {
+        Perspective perspective = findPerspectiveById(perspectiveId);
+        validateOwnership(perspective, userId);
+        if (perspective.getStatus() != PerspectiveStatus.MODERATION_FAILED) {
+            throw new CustomException(ErrorCode.PERSPECTIVE_MODERATION_NOT_FAILED);
+        }
+        perspective.updateStatus(PerspectiveStatus.PENDING);
+        gptModerationService.moderate(perspectiveId, perspective.getContent());
     }
 
     private Perspective findPerspectiveById(UUID perspectiveId) {

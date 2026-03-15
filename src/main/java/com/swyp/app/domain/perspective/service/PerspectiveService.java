@@ -1,7 +1,7 @@
 package com.swyp.app.domain.perspective.service;
 
 import com.swyp.app.domain.battle.entity.BattleOption;
-import com.swyp.app.domain.battle.entity.BattleOptionLabel;
+import com.swyp.app.domain.battle.enums.BattleOptionLabel;
 import com.swyp.app.domain.battle.service.BattleService;
 import com.swyp.app.domain.perspective.entity.PerspectiveStatus;
 import com.swyp.app.domain.perspective.dto.request.CreatePerspectiveRequest;

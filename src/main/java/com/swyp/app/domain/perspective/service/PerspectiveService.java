@@ -3,6 +3,7 @@ package com.swyp.app.domain.perspective.service;
 import com.swyp.app.domain.battle.entity.BattleOption;
 import com.swyp.app.domain.battle.entity.BattleOptionLabel;
 import com.swyp.app.domain.battle.service.BattleService;
+import com.swyp.app.domain.perspective.entity.PerspectiveStatus;
 import com.swyp.app.domain.perspective.dto.request.CreatePerspectiveRequest;
 import com.swyp.app.domain.perspective.dto.request.UpdatePerspectiveRequest;
 import com.swyp.app.domain.perspective.dto.response.CreatePerspectiveResponse;
@@ -70,12 +71,12 @@ public class PerspectiveService {
             BattleOptionLabel label = BattleOptionLabel.valueOf(optionLabel.toUpperCase());
             BattleOption option = battleService.findOptionByBattleIdAndLabel(battleId, label);
             perspectives = cursor == null
-                    ? perspectiveRepository.findByBattleIdAndOptionIdOrderByCreatedAtDesc(battleId, option.getId(), pageable)
-                    : perspectiveRepository.findByBattleIdAndOptionIdAndCreatedAtBeforeOrderByCreatedAtDesc(battleId, option.getId(), LocalDateTime.parse(cursor), pageable);
+                    ? perspectiveRepository.findByBattleIdAndOptionIdAndStatusOrderByCreatedAtDesc(battleId, option.getId(), PerspectiveStatus.PUBLISHED, pageable)
+                    : perspectiveRepository.findByBattleIdAndOptionIdAndStatusAndCreatedAtBeforeOrderByCreatedAtDesc(battleId, option.getId(), PerspectiveStatus.PUBLISHED, LocalDateTime.parse(cursor), pageable);
         } else {
             perspectives = cursor == null
-                    ? perspectiveRepository.findByBattleIdOrderByCreatedAtDesc(battleId, pageable)
-                    : perspectiveRepository.findByBattleIdAndCreatedAtBeforeOrderByCreatedAtDesc(battleId, LocalDateTime.parse(cursor), pageable);
+                    ? perspectiveRepository.findByBattleIdAndStatusOrderByCreatedAtDesc(battleId, PerspectiveStatus.PUBLISHED, pageable)
+                    : perspectiveRepository.findByBattleIdAndStatusAndCreatedAtBeforeOrderByCreatedAtDesc(battleId, PerspectiveStatus.PUBLISHED, LocalDateTime.parse(cursor), pageable);
         }
 
         List<PerspectiveListResponse.Item> items = perspectives.stream()

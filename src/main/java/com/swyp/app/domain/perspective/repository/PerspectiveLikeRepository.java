@@ -12,4 +12,6 @@ public interface PerspectiveLikeRepository extends JpaRepository<PerspectiveLike
     boolean existsByPerspectiveAndUserId(Perspective perspective, Long userId);
 
     Optional<PerspectiveLike> findByPerspectiveAndUserId(Perspective perspective, Long userId);
+
+    long countByPerspective(Perspective perspective);
 }

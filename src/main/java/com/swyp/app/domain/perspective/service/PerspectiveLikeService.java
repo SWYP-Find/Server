@@ -24,7 +24,8 @@ public class PerspectiveLikeService {
 
     public LikeCountResponse getLikeCount(UUID perspectiveId) {
         Perspective perspective = findPerspectiveById(perspectiveId);
-        return new LikeCountResponse(perspective.getId(), perspective.getLikeCount());
+        long likeCount = likeRepository.countByPerspective(perspective);
+        return new LikeCountResponse(perspective.getId(), likeCount);
     }
 
     @Transactional

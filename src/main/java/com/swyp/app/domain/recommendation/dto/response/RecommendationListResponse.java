@@ -3,7 +3,7 @@ package com.swyp.app.domain.recommendation.dto.response;
 import java.util.List;
 import java.util.UUID;
 
-public record RecommendationListResponse(List<Item> items) {
+public record RecommendationListResponse(List<Item> items, String nextCursor, boolean hasNext) {
 
     public record Item(
             UUID battleId,

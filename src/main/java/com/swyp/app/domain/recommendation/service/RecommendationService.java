@@ -18,11 +18,11 @@ public class RecommendationService {
     private final BattleService battleService;
     private final TagService tagService;
 
-    public RecommendationListResponse getInterestingBattles(UUID battleId) {
+    public RecommendationListResponse getInterestingBattles(UUID battleId, String cursor, Integer size) {
         battleService.findById(battleId);
 
         // TODO: 흥미 기반 배틀 추천 정책 미확정 (추후 구현)
 
-        return new RecommendationListResponse(List.of());
+        return new RecommendationListResponse(List.of(), null, false);
     }
 }

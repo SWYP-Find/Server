@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
@@ -23,7 +24,10 @@ public class RecommendationController {
 
     @Operation(summary = "흥미 기반 배틀 추천 조회", description = "특정 배틀 기반으로 흥미로운 배틀 목록을 추천합니다. (추천 정책 미확정)")
     @GetMapping("/battles/{battleId}/recommendations/interesting")
-    public ApiResponse<RecommendationListResponse> getInterestingBattles(@PathVariable UUID battleId) {
-        return ApiResponse.onSuccess(recommendationService.getInterestingBattles(battleId));
+    public ApiResponse<RecommendationListResponse> getInterestingBattles(
+            @PathVariable UUID battleId,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) Integer size) {
+        return ApiResponse.onSuccess(recommendationService.getInterestingBattles(battleId, cursor, size));
     }
 }

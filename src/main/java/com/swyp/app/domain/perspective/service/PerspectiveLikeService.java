@@ -31,6 +31,10 @@ public class PerspectiveLikeService {
     public LikeResponse addLike(UUID perspectiveId, Long userId) {
         Perspective perspective = findPerspectiveById(perspectiveId);
 
+        if (perspective.getUserId().equals(userId)) {
+            throw new CustomException(ErrorCode.LIKE_SELF_FORBIDDEN);
+        }
+
         if (likeRepository.existsByPerspectiveAndUserId(perspective, userId)) {
             throw new CustomException(ErrorCode.LIKE_ALREADY_EXISTS);
         }

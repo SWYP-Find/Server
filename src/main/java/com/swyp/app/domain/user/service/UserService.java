@@ -13,6 +13,7 @@ import com.swyp.app.domain.user.dto.response.TendencyScoreResponse;
 import com.swyp.app.domain.user.dto.response.UpdateResultResponse;
 import com.swyp.app.domain.user.dto.response.UserProfileResponse;
 import com.swyp.app.domain.user.dto.response.UserSettingsResponse;
+import com.swyp.app.domain.user.dto.response.UserSummary;
 import com.swyp.app.domain.user.entity.AgreementType;
 import com.swyp.app.domain.user.entity.User;
 import com.swyp.app.domain.user.entity.UserAgreement;
@@ -229,6 +230,13 @@ public class UserService {
 
         Long nextCursor = histories.size() == pageSize ? histories.get(histories.size() - 1).getId() : null;
         return new TendencyScoreHistoryResponse(items, nextCursor);
+    }
+
+    public UserSummary findSummaryById(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        UserProfile profile = findUserProfile(user.getId());
+        return new UserSummary(user.getUserTag(), profile.getNickname(), profile.getCharacterType());
     }
 
     private User findUserByTag(String userTag) {

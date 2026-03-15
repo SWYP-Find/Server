@@ -13,7 +13,8 @@ import com.swyp.app.domain.perspective.dto.response.UpdatePerspectiveResponse;
 import com.swyp.app.domain.perspective.entity.Perspective;
 import com.swyp.app.domain.perspective.repository.PerspectiveLikeRepository;
 import com.swyp.app.domain.perspective.repository.PerspectiveRepository;
-import com.swyp.app.domain.user.service.UserQueryService;
+import com.swyp.app.domain.user.dto.response.UserSummary;
+import com.swyp.app.domain.user.service.UserService;
 import com.swyp.app.domain.vote.service.VoteService;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
@@ -37,7 +38,7 @@ public class PerspectiveService {
     private final PerspectiveLikeRepository perspectiveLikeRepository;
     private final BattleService battleService;
     private final VoteService voteService;
-    private final UserQueryService userQueryService;
+    private final UserService userQueryService;
 
     @Transactional
     public CreatePerspectiveResponse createPerspective(UUID battleId, Long userId, CreatePerspectiveRequest request) {
@@ -82,12 +83,12 @@ public class PerspectiveService {
 
         List<PerspectiveListResponse.Item> items = perspectives.stream()
                 .map(p -> {
-                    UserQueryService.UserSummary user = userQueryService.findSummaryById(p.getUserId());
+                    UserSummary user = userQueryService.findSummaryById(p.getUserId());
                     BattleOption option = battleService.findOptionById(p.getOptionId());
                     boolean isLiked = perspectiveLikeRepository.existsByPerspectiveAndUserId(p, userId);
                     return new PerspectiveListResponse.Item(
                             p.getId(),
-                            new PerspectiveListResponse.UserSummary(user.userTag(), user.nickname(), user.characterUrl()),
+                            new PerspectiveListResponse.UserSummary(user.userTag(), user.nickname(), user.characterType()),
                             new PerspectiveListResponse.OptionSummary(option.getId(), option.getLabel().name(), option.getTitle()),
                             p.getContent(),
                             p.getLikeCount(),

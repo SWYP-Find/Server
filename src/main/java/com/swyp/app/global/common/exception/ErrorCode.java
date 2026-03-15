@@ -14,6 +14,7 @@ public enum ErrorCode {
 
     // User
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_404", "존재하지 않는 유저입니다."),
+    ONBOARDING_ALREADY_COMPLETED(HttpStatus.CONFLICT, "USER_409", "이미 온보딩이 완료된 사용자입니다."),
 
     // Battle & Tag
     BATTLE_NOT_FOUND(HttpStatus.NOT_FOUND, "BATTLE_404", "존재하지 않는 배틀입니다."),
@@ -36,9 +37,6 @@ public enum ErrorCode {
 
     // Vote
     VOTE_NOT_FOUND(HttpStatus.NOT_FOUND, "VOTE_404", "투표 내역이 없습니다.");
-    // User
-    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_404", "존재하지 않는 사용자입니다."),
-    ONBOARDING_ALREADY_COMPLETED(HttpStatus.CONFLICT, "USER_409", "이미 온보딩이 완료된 사용자입니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

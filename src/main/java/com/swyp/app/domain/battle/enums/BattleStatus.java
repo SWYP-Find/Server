@@ -1,4 +1,4 @@
-package com.swyp.app.domain.battle.entity;
+package com.swyp.app.domain.battle.enums;
 
 public enum BattleStatus {
     DRAFT, PENDING, PUBLISHED, REJECTED, ARCHIVED

@@ -3,6 +3,7 @@ package com.swyp.app.domain.perspective.controller;
 import com.swyp.app.domain.perspective.dto.request.CreatePerspectiveRequest;
 import com.swyp.app.domain.perspective.dto.request.UpdatePerspectiveRequest;
 import com.swyp.app.domain.perspective.dto.response.CreatePerspectiveResponse;
+import com.swyp.app.domain.perspective.dto.response.MyPerspectiveResponse;
 import com.swyp.app.domain.perspective.dto.response.PerspectiveListResponse;
 import com.swyp.app.domain.perspective.dto.response.UpdatePerspectiveResponse;
 import com.swyp.app.domain.perspective.service.PerspectiveService;
@@ -54,6 +55,14 @@ public class PerspectiveController {
         // TODO: Security 적용 후 @AuthenticationPrincipal로 userId 교체
         Long userId = 1L;
         return ApiResponse.onSuccess(perspectiveService.getPerspectives(battleId, userId, cursor, size, optionLabel));
+    }
+
+    @Operation(summary = "내 PENDING 관점 조회", description = "특정 배틀에서 내가 작성한 관점이 PENDING 상태인 경우 반환합니다. PENDING 관점이 없으면 404를 반환합니다.")
+    @GetMapping("/battles/{battleId}/perspectives/me/pending")
+    public ApiResponse<MyPerspectiveResponse> getMyPendingPerspective(@PathVariable UUID battleId) {
+        // TODO: Security 적용 후 @AuthenticationPrincipal로 userId 교체
+        Long userId = 1L;
+        return ApiResponse.onSuccess(perspectiveService.getMyPendingPerspective(battleId, userId));
     }
 
     @Operation(summary = "관점 삭제", description = "본인이 작성한 관점을 삭제합니다.")

@@ -7,6 +7,7 @@ import com.swyp.app.domain.perspective.entity.PerspectiveStatus;
 import com.swyp.app.domain.perspective.dto.request.CreatePerspectiveRequest;
 import com.swyp.app.domain.perspective.dto.request.UpdatePerspectiveRequest;
 import com.swyp.app.domain.perspective.dto.response.CreatePerspectiveResponse;
+import com.swyp.app.domain.perspective.dto.response.MyPerspectiveResponse;
 import com.swyp.app.domain.perspective.dto.response.PerspectiveListResponse;
 import com.swyp.app.domain.perspective.dto.response.UpdatePerspectiveResponse;
 import com.swyp.app.domain.perspective.entity.Perspective;
@@ -117,6 +118,19 @@ public class PerspectiveService {
         validateOwnership(perspective, userId);
         perspective.updateContent(request.content());
         return new UpdatePerspectiveResponse(perspective.getId(), perspective.getContent(), perspective.getUpdatedAt());
+    }
+
+    public MyPerspectiveResponse getMyPendingPerspective(UUID battleId, Long userId) {
+        battleService.findById(battleId);
+        Perspective perspective = perspectiveRepository.findByBattleIdAndUserId(battleId, userId)
+                .filter(p -> p.getStatus() == PerspectiveStatus.PENDING)
+                .orElseThrow(() -> new CustomException(ErrorCode.PERSPECTIVE_NOT_FOUND));
+        return new MyPerspectiveResponse(
+                perspective.getId(),
+                perspective.getContent(),
+                perspective.getStatus(),
+                perspective.getCreatedAt()
+        );
     }
 
     private Perspective findPerspectiveById(UUID perspectiveId) {

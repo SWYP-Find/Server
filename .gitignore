@@ -39,3 +39,4 @@ out/
 ### Setting ###
 .env
 postgres_data/
+src/main/resources/application-local.yml

@@ -1,26 +1,58 @@
 package com.swyp.app.domain.user.entity;
 
 import com.swyp.app.global.common.BaseEntity;
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
+@Getter
 @Entity
 @Table(name = "users")
-@Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor
-@Builder
 public class User extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "user_tag", nullable = false, unique = true, length = 30)
     private String userTag;
 
-    @Column(nullable = false)
-    private String nickname;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private UserRole role;
 
-    private String characterUrl;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private UserStatus status;
+
+    @Column(name = "onboarding_completed", nullable = false)
+    private boolean onboardingCompleted;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    @Builder
+    private User(String userTag, UserRole role, UserStatus status, boolean onboardingCompleted) {
+        this.userTag = userTag;
+        this.role = role;
+        this.status = status;
+        this.onboardingCompleted = onboardingCompleted;
+    }
+
+    public void completeOnboarding() {
+        this.status = UserStatus.ACTIVE;
+        this.onboardingCompleted = true;
+    }
 }

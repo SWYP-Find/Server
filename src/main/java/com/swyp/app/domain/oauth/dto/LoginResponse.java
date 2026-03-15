@@ -1,5 +1,6 @@
 package com.swyp.app.domain.oauth.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
@@ -10,6 +11,8 @@ public class LoginResponse {
     private String accessToken;
     private String refreshToken;
     private String userTag; // 회의에서 userTag 반환하는 것으로 통일했기 때문에 userId 대신 userTag 반환
+
+    @JsonProperty("is_new_user")
     private boolean isNewUser;
     private String status;
 }

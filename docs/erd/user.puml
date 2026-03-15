@@ -8,7 +8,7 @@ entity "USERS\n서비스 사용자" as users {
   --
   user_tag : VARCHAR(30) <<UNIQUE>>
   role : ENUM('USER', 'ADMIN')
-  status : ENUM('PENDING', 'ACTIVE', 'DELETED')
+  status : ENUM('PENDING', 'ACTIVE', 'DELETED', 'BANNED')
   onboarding_completed : boolean
   created_at : timestamp
   updated_at : timestamp
@@ -19,7 +19,7 @@ entity "USER_PROFILES\n사용자 프로필" as user_profiles {
   * user_id : BIGINT <<PK, FK>>
   --
   nickname : string
-  character_type : ENUM('owl', 'fox', '...')
+  character_type : ENUM('owl', 'fox', 'wolf', 'lion', 'penguin', 'bear', 'rabbit', 'cat')
   manner_temperature : float
   updated_at : timestamp
 }
@@ -66,6 +66,12 @@ end note
 note right of user_profiles
   nickname은 중복 허용
   user_tag를 대외 식별자로 활용
+end note
+
+note bottom of user_tendency_score_histories
+  공통 컬럼 정책
+  - BaseEntity: created_at, updated_at
+  - deleted_at 은 users 에만 개별 보유
 end note
 
 @enduml

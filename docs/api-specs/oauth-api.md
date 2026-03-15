@@ -89,7 +89,7 @@
   "data": {
     "access_token": "eyJhbGciOiJIUzI...",
     "refresh_token": "def456-ghi789...",
-    "user_tag": "sfit4-2",
+    "user_tag": "a7k2m9q1",
     "is_new_user": true,
     "status": "PENDING"
   },

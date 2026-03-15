@@ -7,7 +7,7 @@ entity "USERS\n서비스 사용자" as users {
   * id : BIGINT <<PK>>
   --
   user_tag : VARCHAR(30) <<UNIQUE>>
-  status : ENUM('PENDING', 'ACTIVE', 'DELETED')
+  status : ENUM('PENDING', 'ACTIVE', 'DELETED', 'BANNED')
   created_at : timestamp
   updated_at : timestamp
 }
@@ -26,7 +26,7 @@ entity "USER_AGREEMENTS\n사용자 동의 이력" as user_agreements {
   * id : BIGINT <<PK>>
   --
   user_id : BIGINT <<FK>>
-  agreement_type : string
+  agreement_type : ENUM('TERMS_OF_SERVICE', 'PRIVACY_POLICY')
   version : string
   agreed_at : timestamp
 }
@@ -59,5 +59,11 @@ users ||--o{ user_agreements
 users ||--o{ user_devices
 users ||--o{ user_blocks : blocker
 users ||--o{ user_blocks : blocked
+
+note bottom of user_blocks
+  공통 컬럼 정책
+  - BaseEntity: created_at, updated_at
+  - agreed_at, last_seen_at 은 도메인별 개별 컬럼
+end note
 
 @enduml

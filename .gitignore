@@ -39,6 +39,4 @@ out/
 ### Setting ###
 .env
 postgres_data/
-
-### 로컬 개발 키 ###
-application-local.yml
+src/main/resources/application-local.yml

@@ -29,7 +29,13 @@ public class VoteServiceImpl implements VoteService {
 
     @Override
     public UUID findPreVoteOptionId(UUID battleId, Long userId) {
-        throw new UnsupportedOperationException("Not yet implemented - pending Vote domain merge");
+        Battle battle = battleService.findById(battleId);
+        Vote vote = voteRepository.findByBattleAndUserId(battle, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.VOTE_NOT_FOUND));
+        if (vote.getPreVoteOption() == null) {
+            throw new CustomException(ErrorCode.PERSPECTIVE_POST_VOTE_REQUIRED);
+        }
+        return vote.getPreVoteOption().getId();
     }
 
     @Override

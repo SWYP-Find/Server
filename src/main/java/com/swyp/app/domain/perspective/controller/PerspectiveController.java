@@ -31,6 +31,7 @@ public class PerspectiveController {
 
     private final PerspectiveService perspectiveService;
 
+    // TODO: Prevote 의 여부를  Vote 도메인 개발 이후 교체
     @Operation(summary = "관점 생성", description = "특정 배틀에 대한 관점을 생성합니다. 사전 투표가 완료된 경우에만 가능합니다.")
     @PostMapping("/battles/{battleId}/perspectives")
     public ApiResponse<CreatePerspectiveResponse> createPerspective(

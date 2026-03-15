@@ -128,6 +128,42 @@
 ```
 
 ---
+## 내 PENDING 관점 조회 API
+### `GET /api/v1/battles/{battle_id}/perspectives/me/pending`
+
+- 특정 배틀에서 내가 작성한 관점이 PENDING 상태인 경우 반환합니다.
+- UI 상단에 검수 대기 중인 내 관점을 표시하기 위한 API입니다.
+
+#### 성공 응답 `200 OK`
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "perspective_id": "perspective_001",
+    "content": "자기결정권은 가장 기본적인 인권이라고 생각해요.",
+    "status": "PENDING",
+    "created_at": "2026-03-11T12:00:00Z"
+  },
+  "error": null
+}
+```
+
+#### 예외 응답 `404 - PENDING 관점 없음`
+
+```json
+{
+  "statusCode": 404,
+  "data": null,
+  "error": {
+    "code": "PERSPECTIVE_NOT_FOUND",
+    "message": "존재하지 않는 관점입니다.",
+    "errors": []
+  }
+}
+```
+
+---
 ## 관점 삭제 API
 ### `DELETE /api/v1/perspectives/{perspective_id}`
 

@@ -87,7 +87,7 @@ public class PerspectiveService {
                     boolean isLiked = perspectiveLikeRepository.existsByPerspectiveAndUserId(p, userId);
                     return new PerspectiveListResponse.Item(
                             p.getId(),
-                            new PerspectiveListResponse.UserSummary(user.userTag(), user.nickname(), user.characterUrl()),
+                            new PerspectiveListResponse.UserSummary(user.userTag(), user.nickname(), user.characterType()),
                             new PerspectiveListResponse.OptionSummary(option.getId(), option.getLabel().name(), option.getTitle()),
                             p.getContent(),
                             p.getLikeCount(),

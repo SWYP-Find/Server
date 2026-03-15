@@ -48,7 +48,7 @@ public class PerspectiveCommentService {
         UserQueryService.UserSummary user = userQueryService.findSummaryById(userId);
         return new CreateCommentResponse(
                 comment.getId(),
-                new CreateCommentResponse.UserSummary(user.userTag(), user.nickname(), user.characterUrl()),
+                new CreateCommentResponse.UserSummary(user.userTag(), user.nickname(), user.characterType()),
                 comment.getContent(),
                 comment.getCreatedAt()
         );
@@ -70,7 +70,7 @@ public class PerspectiveCommentService {
                     UserQueryService.UserSummary user = userQueryService.findSummaryById(c.getUserId());
                     return new CommentListResponse.Item(
                             c.getId(),
-                            new CommentListResponse.UserSummary(user.userTag(), user.nickname(), user.characterUrl()),
+                            new CommentListResponse.UserSummary(user.userTag(), user.nickname(), user.characterType()),
                             c.getContent(),
                             c.getUserId().equals(userId),
                             c.getCreatedAt()

@@ -31,7 +31,7 @@ public class GlobalExceptionHandler {
     })
     public ResponseEntity<ApiResponse<Void>> handleBadRequest(Exception e) {
         log.warn("Bad Request: {}", e.getMessage());
-        ErrorCode code = ErrorCode.BAD_REQUEST;
+        ErrorCode code = ErrorCode.COMMON_INVALID_PARAMETER;
         return ResponseEntity
                 .status(code.getHttpStatus())
                 .body(ApiResponse.onFailure(code.getHttpStatus().value(), code.getCode(), code.getMessage()));

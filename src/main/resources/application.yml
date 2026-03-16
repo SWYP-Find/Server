@@ -14,9 +14,6 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-  jackson:
-    property-naming-strategy: SNAKE_CASE
-
 springdoc:
   default-consumes-media-type: application/json
   default-produces-media-type: application/json

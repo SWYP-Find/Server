@@ -4,5 +4,5 @@ public interface UserQueryService {
 
     UserSummary findSummaryById(Long userId);
 
-    record UserSummary(String userTag, String nickname, String characterUrl) {}
+    record UserSummary(String userTag, String nickname, String characterType) {}
 }

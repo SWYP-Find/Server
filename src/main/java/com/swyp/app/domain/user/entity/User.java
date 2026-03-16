@@ -63,4 +63,9 @@ public class User extends BaseEntity {
         this.status = UserStatus.ACTIVE;
         this.onboardingCompleted = true;
     }
+
+    public void delete() {
+        this.status = UserStatus.DELETED;
+        this.deletedAt = LocalDateTime.now();
+    }
 }

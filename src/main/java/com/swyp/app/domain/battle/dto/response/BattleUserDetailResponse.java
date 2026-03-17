@@ -11,7 +11,7 @@ public record BattleUserDetailResponse(
         BattleSummaryResponse battleInfo, // 기본적인 배틀 정보 (요약 DTO 재사용)
         String description,               // 상세 본문 설명
         String shareUrl,                  // 공유하기 버튼용 링크
-        String userVoteStatus,            // 현재 유저의 투표 상태 (NONE, A, B...)
+        String userVoteStatus,            // 현재 유저의 투표 상태
         List<BattleTagResponse> categoryTags,    // UI 상단용 카테고리 태그만 분리
         List<BattleTagResponse> philosopherTags, // UI 하단용 철학자 태그만 분리
         List<BattleTagResponse> valueTags        // 성향 분석용 가치관 태그만 분리

@@ -1,0 +1,79 @@
+package com.swyp.app.domain.scenario.controller;
+
+import com.swyp.app.domain.scenario.dto.request.ScenarioCreateRequest;
+import com.swyp.app.domain.scenario.dto.request.ScenarioStatusUpdateRequest;
+import com.swyp.app.domain.scenario.dto.response.AdminDeleteResponse;
+import com.swyp.app.domain.scenario.dto.response.AdminScenarioResponse;
+import com.swyp.app.domain.scenario.dto.response.UserScenarioResponse;
+import com.swyp.app.domain.scenario.service.ScenarioService;
+import com.swyp.app.global.common.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+import java.util.UUID;
+
+@Tag(name = "시나리오 (Scenario)", description = "시나리오 API")
+@RestController
+@RequestMapping("/api/v1")
+@RequiredArgsConstructor
+public class ScenarioController {
+
+    private final ScenarioService scenarioService;
+
+    @Operation(summary = "배틀 - 시나리오 조회")
+    @GetMapping("/battles/{battleId}/scenario")
+    public ApiResponse<UserScenarioResponse> getBattleScenario(
+            @PathVariable UUID battleId,
+            @RequestAttribute(value = "userId", required = false) Long userId
+    ) {
+        return ApiResponse.onSuccess(scenarioService.getScenarioForUser(battleId, userId));
+    }
+
+    @Operation(summary = "시나리오 생성")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/admin/scenarios")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<Map<String, Object>> createScenario(
+            @RequestBody ScenarioCreateRequest request) {
+
+        UUID scenarioId = scenarioService.createScenario(request);
+        return ApiResponse.onSuccess(Map.of("scenarioId", scenarioId, "status", "DRAFT"));
+    }
+
+    @Operation(summary = "시나리오 내용 수정")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/admin/scenarios/{scenarioId}")
+    public ApiResponse<Void> updateScenarioContent(
+            @PathVariable UUID scenarioId,
+            @RequestBody ScenarioCreateRequest request) {
+
+        scenarioService.updateScenarioContent(scenarioId, request);
+        return ApiResponse.onSuccess(null);
+    }
+
+    @Operation(summary = "시나리오 상태 수정 (PUBLISHED 변경 시 자동 오디오 처리)")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PatchMapping("/admin/scenarios/{scenarioId}")
+    public ApiResponse<AdminScenarioResponse> updateScenarioStatus(
+            @PathVariable UUID scenarioId,
+            @RequestBody ScenarioStatusUpdateRequest request) {
+
+        scenarioService.updateScenarioStatus(scenarioId, request.status());
+        return ApiResponse.onSuccess(scenarioService.updateScenarioStatus(scenarioId, request.status()));
+    }
+
+    @Operation(summary = "시나리오 삭제 (Soft Delete)")
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/admin/scenarios/{scenarioId}")
+    public ApiResponse<AdminDeleteResponse> deleteScenario(
+            @PathVariable UUID scenarioId) {
+
+        scenarioService.deleteScenario(scenarioId);
+        return ApiResponse.onSuccess(scenarioService.deleteScenario(scenarioId));
+    }
+}

@@ -103,10 +103,10 @@ public class BattleConverter {
                         o.getId(),
                         o.getLabel(),
                         o.getTitle(),
-                        o.getRepresentative(),
-                        o.getImageUrl(),
                         o.getStance(),
-                        o.getQuote()
+                        o.getRepresentative(),
+                        o.getQuote(),
+                        o.getImageUrl()
                 )).toList();
     }
 

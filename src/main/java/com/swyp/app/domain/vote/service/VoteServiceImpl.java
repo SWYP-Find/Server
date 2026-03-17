@@ -34,8 +34,10 @@ public class VoteServiceImpl implements VoteService {
     @Override
     public UUID findPreVoteOptionId(UUID battleId, Long userId) {
         Battle battle = battleService.findById(battleId);
+
         Vote vote = voteRepository.findByBattleAndUserId(battle, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.VOTE_NOT_FOUND));
+
         if (vote.getPreVoteOption() == null) {
             throw new CustomException(ErrorCode.PRE_VOTE_REQUIRED);
         }
@@ -69,6 +71,7 @@ public class VoteServiceImpl implements VoteService {
     @Override
     public MyVoteResponse getMyVote(UUID battleId, Long userId) {
         Battle battle = battleService.findById(battleId);
+
         Vote vote = voteRepository.findByBattleAndUserId(battle, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.VOTE_NOT_FOUND));
 

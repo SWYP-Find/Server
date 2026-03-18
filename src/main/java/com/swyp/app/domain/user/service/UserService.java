@@ -236,7 +236,7 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         UserProfile profile = findUserProfile(user.getId());
-        return new UserSummary(user.getUserTag(), profile.getNickname(), profile.getCharacterType());
+        return new UserSummary(user.getUserTag(), profile.getNickname(), profile.getCharacterType().name());
     }
 
     private User findUserByTag(String userTag) {

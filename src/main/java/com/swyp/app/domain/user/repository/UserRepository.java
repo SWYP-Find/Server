@@ -9,4 +9,3 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findTopByOrderByIdDesc();
     boolean existsByUserTag(String userTag);
 }
-

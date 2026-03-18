@@ -29,6 +29,12 @@ public class User extends BaseEntity {
     @Column(name = "user_tag", nullable = false, unique = true, length = 30)
     private String userTag;
 
+    @Column(length = 50)
+    private String nickname;
+
+    @Column(name = "character_url", columnDefinition = "TEXT")
+    private String characterUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private UserRole role;
@@ -44,8 +50,10 @@ public class User extends BaseEntity {
     private LocalDateTime deletedAt;
 
     @Builder
-    private User(String userTag, UserRole role, UserStatus status, boolean onboardingCompleted) {
+    private User(String userTag, String nickname, String characterUrl, UserRole role, UserStatus status, boolean onboardingCompleted) {
         this.userTag = userTag;
+        this.nickname = nickname;
+        this.characterUrl = characterUrl;
         this.role = role;
         this.status = status;
         this.onboardingCompleted = onboardingCompleted;
@@ -54,5 +62,10 @@ public class User extends BaseEntity {
     public void completeOnboarding() {
         this.status = UserStatus.ACTIVE;
         this.onboardingCompleted = true;
+    }
+
+    public void delete() {
+        this.status = UserStatus.DELETED;
+        this.deletedAt = LocalDateTime.now();
     }
 }

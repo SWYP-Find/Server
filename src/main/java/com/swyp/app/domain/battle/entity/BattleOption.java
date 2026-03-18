@@ -1,21 +1,13 @@
 package com.swyp.app.domain.battle.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import com.swyp.app.domain.battle.enums.BattleOptionLabel;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -33,7 +25,7 @@ public class BattleOption {
     private Battle battle;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 5)
+    @Column(nullable = false, length = 10)
     private BattleOptionLabel label;
 
     @Column(nullable = false, length = 100)
@@ -48,22 +40,26 @@ public class BattleOption {
     @Column(columnDefinition = "TEXT")
     private String quote;
 
-    @Column(columnDefinition = "jsonb")
-    private String keywords;
+    @Column(name = "vote_count")
+    private Long voteCount = 0L;
 
     @Column(name = "image_url", length = 500)
     private String imageUrl;
 
     @Builder
-    private BattleOption(Battle battle, BattleOptionLabel label, String title, String stance,
-                         String representative, String quote, String keywords, String imageUrl) {
+    public BattleOption(Battle battle, BattleOptionLabel label, String title, String stance,
+                        String representative, String quote, List<String> keywords, String imageUrl) {
         this.battle = battle;
         this.label = label;
         this.title = title;
         this.stance = stance;
         this.representative = representative;
         this.quote = quote;
-        this.keywords = keywords;
         this.imageUrl = imageUrl;
+        this.voteCount = 0L;
+    }
+
+    public void increaseVoteCount() {
+        this.voteCount = (this.voteCount == null ? 0L : this.voteCount) + 1;
     }
 }

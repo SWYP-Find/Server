@@ -1,7 +1,5 @@
 package com.swyp.app.domain.perspective.dto.response;
 
-import com.swyp.app.domain.user.entity.CharacterType;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -25,7 +23,7 @@ public record PerspectiveListResponse(
     public record UserSummary(
             String userTag,
             String nickname,
-            CharacterType characterType
+            String characterType
     ) {}
 
     public record OptionSummary(

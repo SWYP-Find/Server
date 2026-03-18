@@ -56,6 +56,12 @@ jwt:
 #  key: ${OPEN_API_KEY}
 
 # 5. Swagger 문서 설정
+openai:
+  api-key: ${OPENAI_API_KEY}
+  url: https://api.openai.com/v1/chat/completions
+  model: gpt-4o-mini
+
+
 springdoc:
   default-consumes-media-type: application/json
   default-produces-media-type: application/json

@@ -13,7 +13,8 @@ import com.swyp.app.domain.perspective.dto.response.UpdatePerspectiveResponse;
 import com.swyp.app.domain.perspective.entity.Perspective;
 import com.swyp.app.domain.perspective.repository.PerspectiveLikeRepository;
 import com.swyp.app.domain.perspective.repository.PerspectiveRepository;
-import com.swyp.app.domain.user.service.UserQueryService;
+import com.swyp.app.domain.user.dto.response.UserSummary;
+import com.swyp.app.domain.user.service.UserService;
 import com.swyp.app.domain.vote.service.VoteService;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
@@ -37,7 +38,8 @@ public class PerspectiveService {
     private final PerspectiveLikeRepository perspectiveLikeRepository;
     private final BattleService battleService;
     private final VoteService voteService;
-    private final UserQueryService userQueryService;
+    private final UserService userQueryService;
+    private final GptModerationService gptModerationService;
 
     @Transactional
     public CreatePerspectiveResponse createPerspective(UUID battleId, Long userId, CreatePerspectiveRequest request) {
@@ -57,6 +59,7 @@ public class PerspectiveService {
                 .build();
 
         Perspective saved = perspectiveRepository.save(perspective);
+        gptModerationService.moderate(saved.getId(), saved.getContent());
         return new CreatePerspectiveResponse(saved.getId(), saved.getStatus(), saved.getCreatedAt());
     }
 
@@ -82,7 +85,7 @@ public class PerspectiveService {
 
         List<PerspectiveListResponse.Item> items = perspectives.stream()
                 .map(p -> {
-                    UserQueryService.UserSummary user = userQueryService.findSummaryById(p.getUserId());
+                    UserSummary user = userQueryService.findSummaryById(p.getUserId());
                     BattleOption option = battleService.findOptionById(p.getOptionId());
                     boolean isLiked = perspectiveLikeRepository.existsByPerspectiveAndUserId(p, userId);
                     return new PerspectiveListResponse.Item(
@@ -117,6 +120,8 @@ public class PerspectiveService {
         Perspective perspective = findPerspectiveById(perspectiveId);
         validateOwnership(perspective, userId);
         perspective.updateContent(request.content());
+        perspective.updateStatus(PerspectiveStatus.PENDING);
+        gptModerationService.moderate(perspective.getId(), perspective.getContent());
         return new UpdatePerspectiveResponse(perspective.getId(), perspective.getContent(), perspective.getUpdatedAt());
     }
 
@@ -131,6 +136,17 @@ public class PerspectiveService {
                 perspective.getStatus(),
                 perspective.getCreatedAt()
         );
+    }
+
+    @Transactional
+    public void retryModeration(UUID perspectiveId, Long userId) {
+        Perspective perspective = findPerspectiveById(perspectiveId);
+        validateOwnership(perspective, userId);
+        if (perspective.getStatus() != PerspectiveStatus.MODERATION_FAILED) {
+            throw new CustomException(ErrorCode.PERSPECTIVE_MODERATION_NOT_FAILED);
+        }
+        perspective.updateStatus(PerspectiveStatus.PENDING);
+        gptModerationService.moderate(perspectiveId, perspective.getContent());
     }
 
     private Perspective findPerspectiveById(UUID perspectiveId) {

@@ -44,10 +44,11 @@ public enum ErrorCode {
     TAG_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "TAG_400_LIMIT", "배틀당 태그 최대 개수를 초과했습니다."),
 
     // Perspective
-    PERSPECTIVE_NOT_FOUND         (HttpStatus.NOT_FOUND, "PERSPECTIVE_404",      "존재하지 않는 관점입니다."),
-    PERSPECTIVE_ALREADY_EXISTS    (HttpStatus.CONFLICT,  "PERSPECTIVE_409",      "이미 관점을 작성한 배틀입니다."),
-    PERSPECTIVE_FORBIDDEN         (HttpStatus.FORBIDDEN, "PERSPECTIVE_403",      "본인 관점만 수정/삭제할 수 있습니다."),
-    PERSPECTIVE_POST_VOTE_REQUIRED(HttpStatus.CONFLICT,  "PERSPECTIVE_VOTE_409", "사후 투표가 완료되지 않았습니다."),
+    PERSPECTIVE_NOT_FOUND             (HttpStatus.NOT_FOUND,  "PERSPECTIVE_404",      "존재하지 않는 관점입니다."),
+    PERSPECTIVE_ALREADY_EXISTS        (HttpStatus.CONFLICT,   "PERSPECTIVE_409",      "이미 관점을 작성한 배틀입니다."),
+    PERSPECTIVE_FORBIDDEN             (HttpStatus.FORBIDDEN,  "PERSPECTIVE_403",      "본인 관점만 수정/삭제할 수 있습니다."),
+    PERSPECTIVE_POST_VOTE_REQUIRED    (HttpStatus.CONFLICT,   "PERSPECTIVE_VOTE_409", "사후 투표가 완료되지 않았습니다."),
+    PERSPECTIVE_MODERATION_NOT_FAILED (HttpStatus.BAD_REQUEST,"PERSPECTIVE_400",      "검수 실패 상태의 관점이 아닙니다."),
 
     // Comment
     COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMENT_NOT_FOUND", "존재하지 않는 댓글입니다."),
@@ -61,7 +62,7 @@ public enum ErrorCode {
     // Vote
     VOTE_NOT_FOUND        (HttpStatus.NOT_FOUND,   "VOTE_404",     "투표 내역이 없습니다."),
     VOTE_ALREADY_SUBMITTED(HttpStatus.CONFLICT,    "VOTE_409_SUB", "이미 투표가 완료되었습니다."),
-    INVALID_VOTE_STATUS   (HttpStatus.BAD_REQUEST, "VOTE_400_INV", "사전 투표를 진행해야 하거나, 이미 사후 투표가 완료되었습니다."), // 💡 새로 추가됨!
+    INVALID_VOTE_STATUS   (HttpStatus.BAD_REQUEST, "VOTE_400_INV", "사전 투표를 진행해야 하거나, 이미 사후 투표가 완료되었습니다."),
     PRE_VOTE_REQUIRED     (HttpStatus.CONFLICT,    "VOTE_409_PRE", "사전 투표가 필요합니다."),
     POST_VOTE_REQUIRED    (HttpStatus.CONFLICT,    "VOTE_409_PST", "사후 투표가 필요합니다.");
 

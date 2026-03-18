@@ -9,7 +9,8 @@ import com.swyp.app.domain.perspective.entity.Perspective;
 import com.swyp.app.domain.perspective.entity.PerspectiveComment;
 import com.swyp.app.domain.perspective.repository.PerspectiveCommentRepository;
 import com.swyp.app.domain.perspective.repository.PerspectiveRepository;
-import com.swyp.app.domain.user.service.UserQueryService;
+import com.swyp.app.domain.user.dto.response.UserSummary;
+import com.swyp.app.domain.user.service.UserService;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +31,7 @@ public class PerspectiveCommentService {
 
     private final PerspectiveRepository perspectiveRepository;
     private final PerspectiveCommentRepository commentRepository;
-    private final UserQueryService userQueryService;
+    private final UserService userQueryService;
 
     @Transactional
     public CreateCommentResponse createComment(UUID perspectiveId, Long userId, CreateCommentRequest request) {
@@ -45,7 +46,7 @@ public class PerspectiveCommentService {
         commentRepository.save(comment);
         perspective.incrementCommentCount();
 
-        UserQueryService.UserSummary user = userQueryService.findSummaryById(userId);
+        UserSummary user = userQueryService.findSummaryById(userId);
         return new CreateCommentResponse(
                 comment.getId(),
                 new CreateCommentResponse.UserSummary(user.userTag(), user.nickname(), user.characterType()),
@@ -67,7 +68,7 @@ public class PerspectiveCommentService {
 
         List<CommentListResponse.Item> items = comments.stream()
                 .map(c -> {
-                    UserQueryService.UserSummary user = userQueryService.findSummaryById(c.getUserId());
+                    UserSummary user = userQueryService.findSummaryById(c.getUserId());
                     return new CommentListResponse.Item(
                             c.getId(),
                             new CommentListResponse.UserSummary(user.userTag(), user.nickname(), user.characterType()),

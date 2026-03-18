@@ -70,6 +70,10 @@ public class Perspective extends BaseEntity {
         this.content = content;
     }
 
+    public void updateStatus(PerspectiveStatus status) {
+        this.status = status;
+    }
+
     public void publish() {
         this.status = PerspectiveStatus.PUBLISHED;
     }

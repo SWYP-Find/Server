@@ -14,6 +14,12 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+openai:
+  api-key: ${OPENAI_API_KEY}
+  url: https://api.openai.com/v1/chat/completions
+  model: gpt-4o-mini
+
+
 springdoc:
   default-consumes-media-type: application/json
   default-produces-media-type: application/json

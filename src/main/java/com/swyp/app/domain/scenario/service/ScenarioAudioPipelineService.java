@@ -1,0 +1,147 @@
+package com.swyp.app.domain.scenario.service;
+
+import com.swyp.app.domain.scenario.entity.*;
+import com.swyp.app.domain.scenario.enums.*;
+import com.swyp.app.domain.scenario.repository.ScenarioRepository;
+import com.swyp.app.domain.scenario.util.PathFinder;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.io.File;
+import java.util.*;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class ScenarioAudioPipelineService {
+
+    private final ScenarioRepository scenarioRepository;
+    private final TtsService ttsService;
+    private final FFmpegService ffmpegService;
+    private final S3UploadService s3UploadService;
+
+    private static final int SILENCE_MS = 600;
+
+    @Async
+    @Transactional(propagation = Propagation.REQUIRES_NEW) // 비동기 전용 독립 트랜잭션 보장
+    public void generateAndMergeAudioAsync(UUID scenarioId) {
+        // 부모 트랜잭션이 커밋된 후에 도는 것이므로 데이터가 완벽하게 보입니다.
+        Scenario scenario = scenarioRepository.findById(scenarioId).orElseThrow();
+
+        log.info("\n==================================================");
+        log.info("[오디오 파이프라인 시작] 시나리오 ID: {}", scenarioId);
+        log.info("[시나리오 타입] 인터랙티브(분기) 여부: {}", scenario.getIsInteractive());
+
+        try {
+            log.info("--- [1단계] 구글 TTS API 호출 및 캐싱 ---");
+            Map<UUID, File> ttsCache = new HashMap<>();
+            int apiCallCount = 0;
+
+            for (ScenarioNode node : scenario.getNodes()) {
+                for (Script script : node.getScripts()) {
+                    ttsCache.put(script.getId(), ttsService.generateTtsWithSsml(script.getText(), script.getSpeakerType()));
+                    apiCallCount++;
+                }
+            }
+            log.info("[API 호출 통계] 💳 구글 TTS API가 총 {}회 호출되어 캐시에 저장되었습니다.", apiCallCount);
+
+            File silence = ffmpegService.createSilenceFile(SILENCE_MS);
+
+            // 경로 탐색
+            List<List<ScenarioNode>> paths = PathFinder.findAllPaths(scenario.getNodes());
+            log.info("--- [2단계] 경로 탐색 완료. 총 {}개의 통합 경로 발견 ---", paths.size());
+
+            for (int i = 0; i < paths.size(); i++) {
+                log.info(">> 경로 {}번 처리 시작...", (i + 1));
+                processPathAndMerge(scenario, paths.get(i), ttsCache, silence);
+            }
+
+            // 최종 상태 및 시간 계산 결과 저장
+            scenario.updateStatus(ScenarioStatus.PUBLISHED);
+            scenarioRepository.saveAndFlush(scenario);
+
+            cleanUpFiles(ttsCache, silence);
+            log.info("[오디오 파이프라인 종료] 시나리오 생성 및 S3 업로드 완벽 성공!");
+            log.info("==================================================\n");
+
+        } catch (Exception e) {
+            log.error("[오디오 파이프라인 치명적 오류]", e);
+        }
+    }
+
+    private void processPathAndMerge(Scenario scenario, List<ScenarioNode> path, Map<UUID, File> cache, File silence) throws Exception {
+        List<File> segments = new ArrayList<>();
+        int currentTimeMs = 0;
+
+        int commonAudioCount = 0;
+        int aAudioCount = 0;
+        int bAudioCount = 0;
+
+        AudioPathType type = determineType(path, scenario.getIsInteractive());
+
+        for (ScenarioNode node : path) {
+            int nodeDurationMs = 0;
+            log.info("   -> 방문 중인 노드: {}", node.getNodeName());
+
+            boolean isNodeA = node.getNodeName().toUpperCase().contains("_A");
+            boolean isNodeB = node.getNodeName().toUpperCase().contains("_B");
+            boolean isCommonNode = !scenario.getIsInteractive() || (!isNodeA && !isNodeB);
+
+            for (Script script : node.getScripts()) {
+                script.updateStartTimeMs(currentTimeMs);
+                File audio = cache.get(script.getId());
+
+                segments.add(audio);
+                segments.add(silence);
+
+                if (isCommonNode) commonAudioCount++;
+                else if (isNodeA) aAudioCount++;
+                else if (isNodeB) bAudioCount++;
+
+                int duration = ffmpegService.getAudioDurationMs(audio) + SILENCE_MS;
+                currentTimeMs += duration;
+                nodeDurationMs += duration;
+            }
+            node.updateAudioDuration(nodeDurationMs / 1000);
+        }
+
+        if (type == AudioPathType.PATH_A) {
+            log.info("[FFmpeg 조립] 'PATH_A' 경로 분석: 공통 오디오 {}개 + A 전용 오디오 {}개 병합 완료", commonAudioCount, aAudioCount);
+        } else if (type == AudioPathType.PATH_B) {
+            log.info("[FFmpeg 조립] 'PATH_B' 경로 분석: 공통 오디오 {}개 + B 전용 오디오 {}개 병합 완료", commonAudioCount, bAudioCount);
+        } else {
+            log.info("[FFmpeg 조립] 'COMMON' 경로 분석: 공통 오디오 {}개 병합 완료", commonAudioCount);
+        }
+
+        File merged = ffmpegService.mergeAudioFiles(segments);
+        String url = s3UploadService.uploadFile("scenarios/" + scenario.getId() + "/" + type + ".mp3", merged);
+
+        log.info("[S3 업로드 완료] {} 오디오 주소: {}", type, url);
+
+        scenario.addAudioUrl(type, url);
+
+        // 파일 즉각 삭제 (필요 시 사용 예쩡)
+        // merged.delete();
+
+        // MP3 파일이 생성된 내 컴퓨터의 절대 경로 (음성 확인 가능)
+        log.info("🎧 [테스트용] 실제 생성된 오디오 파일 위치: {}", merged.getAbsolutePath());
+    }
+
+    private AudioPathType determineType(List<ScenarioNode> path, boolean isInteractive) {
+        if (!isInteractive) return AudioPathType.COMMON;
+        for (ScenarioNode n : path) {
+            if (n.getNodeName().toUpperCase().contains("_A")) return AudioPathType.PATH_A;
+            if (n.getNodeName().toUpperCase().contains("_B")) return AudioPathType.PATH_B;
+        }
+        return AudioPathType.COMMON;
+    }
+
+    private void cleanUpFiles(Map<UUID, File> cache, File silence) {
+        cache.values().forEach(File::delete);
+        if (silence != null) silence.delete();
+    }
+}

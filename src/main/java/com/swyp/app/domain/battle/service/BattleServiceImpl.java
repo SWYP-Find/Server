@@ -107,9 +107,14 @@ public class BattleServiceImpl implements BattleService {
         List<Tag> allTags = getTagsByBattle(battle);
         List<BattleOption> options = battleOptionRepository.findByBattle(battle);
 
-        // 임시 유저 1L의 투표 상태 확인 (추후 수정 필요)
+        // 🔥 수정됨: findByBattleIdAndUserId -> findByBattleAndUserId 로 변경하여 에러 해결
         String voteStatus = voteRepository.findByBattleAndUserId(battle, 1L)
-                .map(v -> v.getPostVoteOption().getLabel().name())
+                .map(v -> {
+                    if (v.getPostVoteOption() != null) {
+                        return v.getPostVoteOption().getLabel().name();
+                    }
+                    return "NONE"; // 사후 투표를 아직 안 했을 경우를 대비한 안전 처리
+                })
                 .orElse("NONE");
 
         return BattleConverter.toUserDetailResponse(battle, allTags, options, battle.getTotalParticipantsCount(), voteStatus);

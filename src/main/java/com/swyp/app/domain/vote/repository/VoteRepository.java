@@ -10,6 +10,10 @@ import java.util.UUID;
 
 public interface VoteRepository extends JpaRepository<Vote, UUID> {
 
+    // ScenarioService : Battle 엔티티 조회 없이 ID만으로 투표 내역 확인
+    Optional<Vote> findByBattleIdAndUserId(UUID battleId, Long userId);
+
+    // VoteService : 이미 조회된 Battle 엔티티를 활용하여 투표 내역 확인
     Optional<Vote> findByBattleAndUserId(Battle battle, Long userId);
 
     long countByBattle(Battle battle);

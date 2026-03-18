@@ -1,3 +1,11 @@
+# 1. 서버 및 파일 업로드 설정
+server:
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+# 2. 데이터베이스 및 클라우드(인프라) 설정
 spring:
   datasource:
     url: ${DB_URL}
@@ -14,6 +22,40 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+  cloud:
+    # GCP TTS 인증 파일 경로
+    gcp:
+      credentials:
+        location: ${GCP_CREDENTIALS_PATH}
+    # AWS S3 설정 (Mock 사용 시에도 필드는 필요)
+    aws:
+      s3:
+        bucket: ${AWS_S3_BUCKET}
+      region:
+        static: ${AWS_REGION}
+      credentials:
+        access-key: ${AWS_ACCESS_KEY}
+        secret-key: ${AWS_SECRET_KEY}
+
+# 3. 인증 및 보안 설정 (OAuth2, JWT)
+oauth:
+  kakao:
+    client-id: ${KAKAO_CLIENT_ID}
+    client-secret: ${KAKAO_CLIENT_SECRET}
+  google:
+    client-id: ${GOOGLE_CLIENT_ID}
+    client-secret: ${GOOGLE_CLIENT_SECRET}
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiration: 1800000     # 30분 (밀리초)
+  refresh-token-expiration: 2592000000 # 30일 (밀리초)
+
+# 4. 외부 API 키 설정 (OpenAI 등)
+#open-api:
+#  key: ${OPEN_API_KEY}
+
+# 5. Swagger 문서 설정
 openai:
   api-key: ${OPENAI_API_KEY}
   url: https://api.openai.com/v1/chat/completions

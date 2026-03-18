@@ -29,11 +29,8 @@ public class AdminBattleController {
             @RequestBody @Valid AdminBattleCreateRequest request,
             @AuthenticationPrincipal Long adminUserId
     ) {
-        // TODO: 로그인 기능 구현 후 @AuthenticationPrincipal adminUserId로 변경 예정
-        // 현재 인증 정보가 없어 null이 들어오므로 테스트용 가짜 ID(1L)를 사용함
-        Long testAdminId = (adminUserId != null) ? adminUserId : 1L;
-
-        return ApiResponse.onSuccess(battleService.createBattle(request, testAdminId));
+        // 인증된 관리자 ID를 사용하여 배틀을 생성합니다.
+        return ApiResponse.onSuccess(battleService.createBattle(request, adminUserId));
     }
 
     @Operation(summary = "배틀 수정 (변경 필드만 포함)")

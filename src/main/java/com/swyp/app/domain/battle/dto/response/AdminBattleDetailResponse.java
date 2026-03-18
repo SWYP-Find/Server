@@ -29,4 +29,3 @@ public record AdminBattleDetailResponse(
         LocalDateTime createdAt,        // 데이터 생성 일시
         LocalDateTime updatedAt         // 데이터 최종 수정 일시
 ) {}
-) {}

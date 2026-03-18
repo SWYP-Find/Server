@@ -27,6 +27,7 @@ public class GptModerationService {
     private static final int MAX_ATTEMPTS = 2;
     private static final int CONNECT_TIMEOUT_MS = 5000;
     private static final int READ_TIMEOUT_MS = 10000;
+    private static final int WAIT_TIMEOUT_MS = 2000;
 
     private final PerspectiveRepository perspectiveRepository;
 
@@ -60,7 +61,7 @@ public class GptModerationService {
             } catch (Exception e) {
                 lastException = e;
                 if (attempt < MAX_ATTEMPTS) {
-                    try { Thread.sleep(2000); } catch (InterruptedException ie) {
+                    try { Thread.sleep(WAIT_TIMEOUT_MS); } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         break;
                     }

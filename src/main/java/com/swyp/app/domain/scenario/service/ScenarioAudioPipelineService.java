@@ -37,7 +37,7 @@ public class ScenarioAudioPipelineService {
         log.info("[시나리오 타입] 인터랙티브(분기) 여부: {}", scenario.getIsInteractive());
 
         try {
-            log.info("--- [1단계] 구글 TTS API 호출 및 캐싱 ---");
+            log.info("--- [1단계] TTS API 호출 및 캐싱 ---");
             Map<UUID, File> ttsCache = new HashMap<>();
             int apiCallCount = 0;
 
@@ -47,7 +47,7 @@ public class ScenarioAudioPipelineService {
                     apiCallCount++;
                 }
             }
-            log.info("[API 호출 통계] 💳 구글 TTS API가 총 {}회 호출되어 캐시에 저장되었습니다.", apiCallCount);
+            log.info("[API 호출 통계] 💳 TTS API가 총 {}회 호출되어 캐시에 저장되었습니다.", apiCallCount);
 
             File silence = ffmpegService.createSilenceFile(SILENCE_MS);
 
@@ -124,7 +124,7 @@ public class ScenarioAudioPipelineService {
 
         scenario.addAudioUrl(type, url);
 
-        // 파일 즉각 삭제 (필요 시 사용 예쩡)
+        // 파일 즉각 삭제 (필요 시 사용 예정)
         // merged.delete();
 
         // MP3 파일이 생성된 내 컴퓨터의 절대 경로 (음성 확인 가능)

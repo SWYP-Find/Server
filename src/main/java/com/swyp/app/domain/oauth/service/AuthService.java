@@ -86,7 +86,7 @@ public class AuthService {
         // 4. 기존 refresh token 삭제 후 새로 발급
         refreshTokenRepository.deleteByUser(user);
 
-        String accessToken = jwtProvider.createAccessToken(user.getId());
+        String accessToken = jwtProvider.createAccessToken(user.getId(), user.getRole().name());
         String refreshToken = jwtProvider.createRefreshToken();
 
         // 5. refresh token 해시해서 저장
@@ -123,7 +123,7 @@ public class AuthService {
         User user = authRefreshToken.getUser();
         refreshTokenRepository.delete(authRefreshToken);
 
-        String newAccessToken = jwtProvider.createAccessToken(user.getId());
+        String newAccessToken = jwtProvider.createAccessToken(user.getId(), user.getRole().name());
         String newRefreshToken = jwtProvider.createRefreshToken();
 
         // 4. 새 refresh token 저장

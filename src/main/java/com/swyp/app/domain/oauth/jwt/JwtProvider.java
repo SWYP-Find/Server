@@ -34,10 +34,11 @@ public class JwtProvider {
         this.key = Keys.hmacShaKeyFor(keyBytes);
     }
 
-    // access token 생성
-    public String createAccessToken(Long userId) {
+    // access token 생성 (권한 정보 추가)
+    public String createAccessToken(Long userId, String role) {
         return Jwts.builder()
                 .subject(String.valueOf(userId))
+                .claim("role", role)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + accessTokenExpiration))
                 .signWith(key)
@@ -51,13 +52,14 @@ public class JwtProvider {
 
     // token 에서 userId 추출
     public Long getUserId(String token) {
-        Claims claims = Jwts.parser()
-                .verifyWith(key)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
-
+        Claims claims = getClaims(token);
         return Long.parseLong(claims.getSubject());
+    }
+
+    // token 에서 role 추출
+    public String getRole(String token) {
+        Claims claims = getClaims(token);
+        return claims.get("role", String.class);
     }
 
     // token 유효성 검증
@@ -71,5 +73,14 @@ public class JwtProvider {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    // 중복 코드를 줄이기 위한 헬퍼 메서드
+    private Claims getClaims(String token) {
+        return Jwts.parser()
+                .verifyWith(key)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
     }
 }

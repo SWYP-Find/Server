@@ -12,8 +12,7 @@ public record AdminBattleCreateRequest(
         String description,
         String thumbnailUrl,
         BattleType type,
-        UUID categoryId,
         LocalDate targetDate,
-        List<UUID> tagIds,
+        List<UUID> tagIds, // 배틀 공통 태그 (카테고리, 가치관, 철학자)
         List<AdminBattleOptionRequest> options
 ) {}

@@ -15,7 +15,7 @@ import java.io.FileOutputStream;
 import java.util.UUID;
 
 @Slf4j
-@Primary
+// @Primary - 사용할 때 주석 삭제
 @Service
 public class GoogleCloudTtsServiceImpl implements TtsService {
 

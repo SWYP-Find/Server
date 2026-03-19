@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,6 +20,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/admin/battles")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ADMIN')")
 public class AdminBattleController {
 
     private final BattleService battleService;
@@ -29,7 +31,6 @@ public class AdminBattleController {
             @RequestBody @Valid AdminBattleCreateRequest request,
             @AuthenticationPrincipal Long adminUserId
     ) {
-        // 인증된 관리자 ID를 사용하여 배틀을 생성합니다.
         return ApiResponse.onSuccess(battleService.createBattle(request, adminUserId));
     }
 

@@ -23,6 +23,7 @@ import com.swyp.app.domain.vote.repository.VoteRepository;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -69,6 +70,7 @@ public class ScenarioServiceImpl implements ScenarioService {
 
     @Override
     @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
     public UUID createScenario(ScenarioCreateRequest request) {
         if (scenarioRepository.existsByBattleId(request.battleId())) {
             throw new CustomException(ErrorCode.SCENARIO_ALREADY_EXISTS);
@@ -91,6 +93,7 @@ public class ScenarioServiceImpl implements ScenarioService {
 
     @Override
     @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
     public void updateScenarioContent(UUID scenarioId, ScenarioCreateRequest request) {
         Scenario scenario = scenarioRepository.findById(scenarioId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SCENARIO_NOT_FOUND));
@@ -107,6 +110,7 @@ public class ScenarioServiceImpl implements ScenarioService {
 
     @Override
     @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
     public AdminScenarioResponse updateScenarioStatus(UUID scenarioId, ScenarioStatus status) {
         Scenario scenario = scenarioRepository.findById(scenarioId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SCENARIO_NOT_FOUND));
@@ -136,6 +140,7 @@ public class ScenarioServiceImpl implements ScenarioService {
 
     @Override
     @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
     public AdminDeleteResponse deleteScenario(UUID scenarioId) {
         Scenario scenario = scenarioRepository.findById(scenarioId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SCENARIO_NOT_FOUND));

@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -33,6 +34,7 @@ public class TagController {
     }
 
     @Operation(summary = "태그 생성 (관리자)", description = "관리자가 새로운 태그를 생성합니다.")
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/admin/tags")
     public ApiResponse<TagResponse> createTag(
             @Valid @RequestBody TagRequest request) {
@@ -42,6 +44,7 @@ public class TagController {
     }
 
     @Operation(summary = "태그 수정 (관리자)", description = "관리자가 기존 태그의 이름이나 정보를 수정합니다.")
+    @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/admin/tags/{tag_id}")
     public ApiResponse<TagResponse> updateTag(
             @Parameter(description = "수정할 태그의 UUID", example = "123e4567-e89b-12d3-a456-426614174000")
@@ -53,6 +56,7 @@ public class TagController {
     }
 
     @Operation(summary = "태그 삭제 (관리자)", description = "관리자가 특정 태그를 삭제합니다. 단, 배틀에 사용 중인 태그는 삭제할 수 없습니다.")
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/admin/tags/{tag_id}")
     public ApiResponse<TagDeleteResponse> deleteTag(
             @Parameter(description = "삭제할 태그의 UUID", example = "123e4567-e89b-12d3-a456-426614174000")

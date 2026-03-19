@@ -12,6 +12,7 @@ import com.swyp.app.domain.tag.repository.TagRepository;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,6 +46,7 @@ public class TagServiceImpl implements TagService {
 
     @Override
     @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
     public TagResponse createTag(TagRequest request) {
         validateDuplicateTag(request.name(), request.type());
 
@@ -56,6 +58,7 @@ public class TagServiceImpl implements TagService {
 
     @Override
     @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
     public TagResponse updateTag(UUID tagId, TagRequest request) {
         Tag tag = findTagById(tagId);
 
@@ -69,6 +72,7 @@ public class TagServiceImpl implements TagService {
 
     @Override
     @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
     public TagDeleteResponse deleteTag(UUID tagId) {
         Tag tag = findTagById(tagId);
 

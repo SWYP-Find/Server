@@ -51,17 +51,27 @@ jwt:
   access-token-expiration: 1800000     # 30분 (밀리초)
   refresh-token-expiration: 2592000000 # 30일 (밀리초)
 
-# 4. 외부 API 키 설정 (OpenAI 등)
-#open-api:
-#  key: ${OPEN_API_KEY}
-
-# 5. Swagger 문서 설정
+# 4. 외부 API 키 설정 (OpenAI / ElevenLabs)
 openai:
   api-key: ${OPENAI_API_KEY}
+  # 검수 모델
   url: https://api.openai.com/v1/chat/completions
   model: gpt-4o-mini
+  # TTS 모델
+  tts:
+    url: https://api.openai.com/v1/audio/speech
+    model: gpt-4o-mini-tts
 
+elevenlabs:
+  api-key: ${ELEVENLABS_API_KEY}
+  model: ${ELEVENLABS_MODEL}
+  voice-id:
+    a: ${ELEVENLABS_VOICE_A}
+    b: ${ELEVENLABS_VOICE_B}
+    user: ${ELEVENLABS_VOICE_USER}
+    narrator: ${ELEVENLABS_VOICE_NARRATOR}
 
+# 5. Swagger 문서 설정
 springdoc:
   default-consumes-media-type: application/json
   default-produces-media-type: application/json

@@ -6,11 +6,13 @@ import com.swyp.app.domain.battle.dto.request.AdminBattleUpdateRequest;
 import com.swyp.app.domain.battle.dto.response.*;
 import com.swyp.app.domain.battle.entity.Battle;
 import com.swyp.app.domain.battle.entity.BattleOption;
+import com.swyp.app.domain.battle.entity.BattleOptionTag;
 import com.swyp.app.domain.battle.entity.BattleTag;
 import com.swyp.app.domain.battle.enums.BattleOptionLabel;
 import com.swyp.app.domain.battle.enums.BattleStatus;
 import com.swyp.app.domain.battle.enums.BattleType;
 import com.swyp.app.domain.battle.repository.BattleOptionRepository;
+import com.swyp.app.domain.battle.repository.BattleOptionTagRepository;
 import com.swyp.app.domain.battle.repository.BattleRepository;
 import com.swyp.app.domain.battle.repository.BattleTagRepository;
 import com.swyp.app.domain.tag.entity.Tag;
@@ -22,6 +24,7 @@ import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,9 +42,11 @@ public class BattleServiceImpl implements BattleService {
     private final BattleRepository battleRepository;
     private final BattleOptionRepository battleOptionRepository;
     private final BattleTagRepository battleTagRepository;
+    private final BattleOptionTagRepository battleOptionTagRepository;
     private final TagRepository tagRepository;
     private final UserRepository userRepository;
     private final VoteRepository voteRepository;
+    private final BattleConverter battleConverter;
 
     @Override
     public Battle findById(UUID battleId) {
@@ -107,17 +112,11 @@ public class BattleServiceImpl implements BattleService {
         List<Tag> allTags = getTagsByBattle(battle);
         List<BattleOption> options = battleOptionRepository.findByBattle(battle);
 
-        // 🔥 수정됨: findByBattleIdAndUserId -> findByBattleAndUserId 로 변경하여 에러 해결
         String voteStatus = voteRepository.findByBattleAndUserId(battle, 1L)
-                .map(v -> {
-                    if (v.getPostVoteOption() != null) {
-                        return v.getPostVoteOption().getLabel().name();
-                    }
-                    return "NONE"; // 사후 투표를 아직 안 했을 경우를 대비한 안전 처리
-                })
+                .map(v -> v.getPostVoteOption() != null ? v.getPostVoteOption().getLabel().name() : "NONE")
                 .orElse("NONE");
 
-        return BattleConverter.toUserDetailResponse(battle, allTags, options, battle.getTotalParticipantsCount(), voteStatus);
+        return battleConverter.toUserDetailResponse(battle, allTags, options, battle.getTotalParticipantsCount(), voteStatus);
     }
 
     @Override
@@ -144,26 +143,17 @@ public class BattleServiceImpl implements BattleService {
 
     @Override
     @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
     public AdminBattleDetailResponse createBattle(AdminBattleCreateRequest request, Long adminUserId) {
-        // 1. 유저 확인
         User admin = userRepository.findById(adminUserId == null ? 1L : adminUserId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 2. 선택지 개수 검증 (VOTE는 4개, QUIZ, BATTLE은 2개)
-        int requiredOptionCount = (request.type() == BattleType.VOTE) ? 4 : 2;
-        if (request.options().size() != requiredOptionCount) {
-            throw new CustomException(ErrorCode.BATTLE_INVALID_OPTION_COUNT);
-        }
+        Battle battle = battleRepository.save(battleConverter.toEntity(request, admin));
 
-        // 3. 배틀 저장
-        Battle battle = battleRepository.save(BattleConverter.toEntity(request, admin));
-
-        // 4. 태그 저장
         if (request.tagIds() != null) {
-            saveBattleTags(battle, request.tagIds());
+            saveBattleTags(battle, request.tagIds().stream().distinct().toList());
         }
 
-        // 5. 옵션 저장
         List<BattleOption> savedOptions = new ArrayList<>();
         for (var optReq : request.options()) {
             BattleOption option = battleOptionRepository.save(BattleOption.builder()
@@ -175,15 +165,26 @@ public class BattleServiceImpl implements BattleService {
                     .quote(optReq.quote())
                     .imageUrl(optReq.imageUrl())
                     .build());
+
+            if (optReq.tagIds() != null) {
+                saveBattleOptionTags(option, optReq.tagIds().stream().distinct().toList());
+            }
             savedOptions.add(option);
         }
+        return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), savedOptions);
+    }
 
-        // 6. 관리자용 상세 응답 반환
-        return BattleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), savedOptions);
+    private void saveBattleOptionTags(BattleOption option, List<UUID> tagIds) {
+        tagRepository.findAllById(tagIds).stream()
+                .filter(t -> t.getDeletedAt() == null)
+                .forEach(t -> battleOptionTagRepository.save(
+                        BattleOptionTag.builder().battleOption(option).tag(t).build()
+                ));
     }
 
     @Override
     @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
     public AdminBattleDetailResponse updateBattle(UUID battleId, AdminBattleUpdateRequest request) {
         Battle battle = findById(battleId);
         battle.update(request.title(), request.summary(), request.description(),
@@ -194,11 +195,12 @@ public class BattleServiceImpl implements BattleService {
             saveBattleTags(battle, request.tagIds());
         }
 
-        return BattleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), battleOptionRepository.findByBattle(battle));
+        return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), battleOptionRepository.findByBattle(battle));
     }
 
     @Override
     @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
     public AdminBattleDeleteResponse deleteBattle(UUID battleId) {
         Battle battle = findById(battleId);
         battle.delete();
@@ -211,7 +213,7 @@ public class BattleServiceImpl implements BattleService {
         return battles.stream().map(battle -> {
             List<Tag> tags = getTagsByBattle(battle);
             List<BattleOption> options = battleOptionRepository.findByBattle(battle);
-            return BattleConverter.toTodayResponse(battle, tags, options);
+            return battleConverter.toTodayResponse(battle, tags, options);
         }).toList();
     }
 

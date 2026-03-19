@@ -14,5 +14,5 @@ public record AdminBattleUpdateRequest(
         LocalDate targetDate,
         Integer audioDuration,
         BattleStatus status,
-        List<UUID> tagIds
+        List<UUID> tagIds // 배틀 공통 태그 수정용 (카테고리, 가치관, 철학자)
 ) {}

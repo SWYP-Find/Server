@@ -2,16 +2,12 @@ package com.swyp.app.domain.user.service;
 
 import com.swyp.app.domain.battle.entity.Battle;
 import com.swyp.app.domain.battle.entity.BattleOption;
-import com.swyp.app.domain.battle.entity.BattleTag;
 import com.swyp.app.domain.battle.enums.BattleOptionLabel;
-import com.swyp.app.domain.battle.repository.BattleOptionRepository;
-import com.swyp.app.domain.battle.repository.BattleRepository;
-import com.swyp.app.domain.battle.repository.BattleTagRepository;
+import com.swyp.app.domain.battle.service.BattleQueryService;
 import com.swyp.app.domain.perspective.entity.Perspective;
 import com.swyp.app.domain.perspective.entity.PerspectiveComment;
 import com.swyp.app.domain.perspective.entity.PerspectiveLike;
-import com.swyp.app.domain.perspective.repository.PerspectiveCommentRepository;
-import com.swyp.app.domain.perspective.repository.PerspectiveLikeRepository;
+import com.swyp.app.domain.perspective.service.PerspectiveQueryService;
 import com.swyp.app.domain.user.dto.request.UpdateNotificationSettingsRequest;
 import com.swyp.app.domain.user.dto.response.BattleRecordListResponse;
 import com.swyp.app.domain.user.dto.response.ContentActivityListResponse;
@@ -20,7 +16,9 @@ import com.swyp.app.domain.user.dto.response.NoticeDetailResponse;
 import com.swyp.app.domain.user.dto.response.NoticeListResponse;
 import com.swyp.app.domain.user.dto.response.NotificationSettingsResponse;
 import com.swyp.app.domain.user.dto.response.RecapResponse;
+import com.swyp.app.domain.user.dto.response.UserSummary;
 import com.swyp.app.domain.user.entity.ActivityType;
+import com.swyp.app.domain.user.entity.CharacterType;
 import com.swyp.app.domain.user.entity.Notice;
 import com.swyp.app.domain.user.entity.NoticeType;
 import com.swyp.app.domain.user.entity.PhilosopherType;
@@ -32,22 +30,19 @@ import com.swyp.app.domain.user.entity.UserTendencyScore;
 import com.swyp.app.domain.user.entity.VoteSide;
 import com.swyp.app.domain.user.repository.NoticeRepository;
 import com.swyp.app.domain.vote.entity.Vote;
-import com.swyp.app.domain.vote.enums.VoteStatus;
-import com.swyp.app.domain.vote.repository.VoteRepository;
+import com.swyp.app.domain.vote.service.VoteQueryService;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -58,12 +53,9 @@ public class MypageService {
 
     private final UserService userService;
     private final NoticeRepository noticeRepository;
-    private final VoteRepository voteRepository;
-    private final BattleRepository battleRepository;
-    private final BattleOptionRepository battleOptionRepository;
-    private final BattleTagRepository battleTagRepository;
-    private final PerspectiveCommentRepository perspectiveCommentRepository;
-    private final PerspectiveLikeRepository perspectiveLikeRepository;
+    private final VoteQueryService voteQueryService;
+    private final BattleQueryService battleQueryService;
+    private final PerspectiveQueryService perspectiveQueryService;
 
     public MypageResponse getMypage() {
         User user = userService.findCurrentUser();
@@ -115,17 +107,18 @@ public class MypageService {
     }
 
     private RecapResponse.PreferenceReport buildPreferenceReport(Long userId) {
-        // 총 참여 수 (사전 투표 이상)
-        long totalParticipation = voteRepository.countByUserId(userId);
+        long totalParticipation = voteQueryService.countTotalParticipation(userId);
+        long opinionChanges = voteQueryService.countOpinionChanges(userId);
+        int battleWinRate = voteQueryService.calculateBattleWinRate(userId);
 
-        // 입장 변경 수
-        long opinionChanges = voteRepository.countOpinionChangesByUserId(userId);
+        List<UUID> battleIds = voteQueryService.findParticipatedBattleIds(userId);
+        Map<String, Long> topTags = battleQueryService.getTopTagsByBattleIds(battleIds, 4);
 
-        // 배틀 승률: 사후 투표 중 최종 옵션이 더 많은 득표를 받은 비율
-        int battleWinRate = calculateBattleWinRate(userId);
-
-        // 선호 주제: 참여한 배틀의 태그별 빈도 상위 4개
-        List<RecapResponse.FavoriteTopic> favoriteTopics = calculateFavoriteTopics(userId);
+        List<RecapResponse.FavoriteTopic> favoriteTopics = new ArrayList<>();
+        int rank = 1;
+        for (Map.Entry<String, Long> entry : topTags.entrySet()) {
+            favoriteTopics.add(new RecapResponse.FavoriteTopic(rank++, entry.getKey(), entry.getValue().intValue()));
+        }
 
         return new RecapResponse.PreferenceReport(
                 (int) totalParticipation,
@@ -135,81 +128,15 @@ public class MypageService {
         );
     }
 
-    private int calculateBattleWinRate(Long userId) {
-        List<Vote> postVotes = voteRepository.findByUserId(userId).stream()
-                .filter(v -> v.getStatus() == VoteStatus.POST_VOTED && v.getPostVoteOption() != null)
-                .toList();
-
-        if (postVotes.isEmpty()) return 0;
-
-        long wins = postVotes.stream()
-                .filter(v -> {
-                    BattleOption myOption = v.getPostVoteOption();
-                    BattleOption otherOption = v.getPreVoteOption();
-                    // 내 최종 선택의 득표가 상대보다 높으면 승리
-                    if (myOption.getId().equals(otherOption.getId())) {
-                        // 사전/사후 같은 옵션이면 해당 옵션 득표로 판단
-                        long totalVotes = v.getBattle().getTotalParticipantsCount();
-                        return myOption.getVoteCount() > totalVotes - myOption.getVoteCount();
-                    }
-                    return myOption.getVoteCount() > otherOption.getVoteCount();
-                })
-                .count();
-
-        return (int) (wins * 100 / postVotes.size());
-    }
-
-    private List<RecapResponse.FavoriteTopic> calculateFavoriteTopics(Long userId) {
-        List<Vote> votes = voteRepository.findByUserId(userId);
-        if (votes.isEmpty()) return Collections.emptyList();
-
-        List<UUID> battleIds = votes.stream()
-                .map(v -> v.getBattle().getId())
-                .distinct()
-                .toList();
-
-        List<BattleTag> battleTags = battleTagRepository.findByBattleIdIn(battleIds);
-
-        // 태그별 참여 횟수 집계
-        Map<String, Long> tagCounts = battleTags.stream()
-                .collect(Collectors.groupingBy(
-                        bt -> bt.getTag().getName(),
-                        Collectors.counting()
-                ));
-
-        // 상위 4개 태그 추출
-        List<Map.Entry<String, Long>> sorted = tagCounts.entrySet().stream()
-                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
-                .limit(4)
-                .toList();
-
-        List<RecapResponse.FavoriteTopic> topics = new ArrayList<>();
-        for (int i = 0; i < sorted.size(); i++) {
-            Map.Entry<String, Long> entry = sorted.get(i);
-            topics.add(new RecapResponse.FavoriteTopic(
-                    i + 1,
-                    entry.getKey(),
-                    entry.getValue().intValue()
-            ));
-        }
-        return topics;
-    }
-
     public BattleRecordListResponse getBattleRecords(Integer offset, Integer size, VoteSide voteSide) {
         User user = userService.findCurrentUser();
         int pageOffset = offset == null || offset < 0 ? 0 : offset;
         int pageSize = size == null || size <= 0 ? DEFAULT_PAGE_SIZE : size;
-        PageRequest pageable = PageRequest.of(pageOffset / pageSize, pageSize);
 
         BattleOptionLabel label = voteSide != null ? toOptionLabel(voteSide) : null;
 
-        List<Vote> votes = label != null
-                ? voteRepository.findByUserIdAndPreVoteOptionLabelOrderByCreatedAtDesc(user.getId(), label, pageable)
-                : voteRepository.findByUserIdOrderByCreatedAtDesc(user.getId(), pageable);
-
-        long totalCount = label != null
-                ? voteRepository.countByUserIdAndPreVoteOptionLabel(user.getId(), label)
-                : voteRepository.countByUserId(user.getId());
+        List<Vote> votes = voteQueryService.findUserVotes(user.getId(), pageOffset, pageSize, label);
+        long totalCount = voteQueryService.countUserVotes(user.getId(), label);
 
         List<BattleRecordListResponse.BattleRecordItem> items = votes.stream()
                 .map(vote -> new BattleRecordListResponse.BattleRecordItem(
@@ -224,7 +151,6 @@ public class MypageService {
 
         int nextOffset = pageOffset + pageSize;
         boolean hasNext = nextOffset < totalCount;
-
         return new BattleRecordListResponse(items, hasNext ? nextOffset : null, hasNext);
     }
 
@@ -232,21 +158,16 @@ public class MypageService {
         User user = userService.findCurrentUser();
         int pageOffset = offset == null || offset < 0 ? 0 : offset;
         int pageSize = size == null || size <= 0 ? DEFAULT_PAGE_SIZE : size;
-        PageRequest pageable = PageRequest.of(pageOffset / pageSize, pageSize);
 
         if (activityType == ActivityType.LIKE) {
-            return getLikeActivities(user, pageOffset, pageSize, pageable);
-        } else if (activityType == ActivityType.COMMENT) {
-            return getCommentActivities(user, pageOffset, pageSize, pageable);
+            return buildLikeActivities(user, pageOffset, pageSize);
         }
-
-        // activityType이 null이면 댓글 기준으로 반환 (기본값)
-        return getCommentActivities(user, pageOffset, pageSize, pageable);
+        return buildCommentActivities(user, pageOffset, pageSize);
     }
 
-    private ContentActivityListResponse getCommentActivities(User user, int pageOffset, int pageSize, PageRequest pageable) {
-        List<PerspectiveComment> comments = perspectiveCommentRepository.findByUserIdOrderByCreatedAtDesc(user.getId(), pageable);
-        long totalCount = perspectiveCommentRepository.countByUserId(user.getId());
+    private ContentActivityListResponse buildCommentActivities(User user, int pageOffset, int pageSize) {
+        List<PerspectiveComment> comments = perspectiveQueryService.findUserComments(user.getId(), pageOffset, pageSize);
+        long totalCount = perspectiveQueryService.countUserComments(user.getId());
 
         List<Perspective> perspectives = comments.stream().map(PerspectiveComment::getPerspective).toList();
         Map<UUID, Battle> battleMap = loadBattles(perspectives);
@@ -254,18 +175,10 @@ public class MypageService {
 
         List<ContentActivityListResponse.ContentActivityItem> items = comments.stream()
                 .map(comment -> {
-                    Perspective perspective = comment.getPerspective();
-                    Battle battle = battleMap.get(perspective.getBattleId());
-                    BattleOption option = optionMap.get(perspective.getOptionId());
-                    return toContentActivityItem(
-                            comment.getId().toString(),
-                            ActivityType.COMMENT,
-                            perspective,
-                            battle,
-                            option,
-                            comment.getContent(),
-                            comment.getCreatedAt()
-                    );
+                    Perspective p = comment.getPerspective();
+                    return toActivityItem(comment.getId().toString(), ActivityType.COMMENT, p,
+                            battleMap.get(p.getBattleId()), optionMap.get(p.getOptionId()),
+                            comment.getContent(), comment.getCreatedAt());
                 })
                 .toList();
 
@@ -274,9 +187,9 @@ public class MypageService {
         return new ContentActivityListResponse(items, hasNext ? nextOffset : null, hasNext);
     }
 
-    private ContentActivityListResponse getLikeActivities(User user, int pageOffset, int pageSize, PageRequest pageable) {
-        List<PerspectiveLike> likes = perspectiveLikeRepository.findByUserIdOrderByCreatedAtDesc(user.getId(), pageable);
-        long totalCount = perspectiveLikeRepository.countByUserId(user.getId());
+    private ContentActivityListResponse buildLikeActivities(User user, int pageOffset, int pageSize) {
+        List<PerspectiveLike> likes = perspectiveQueryService.findUserLikes(user.getId(), pageOffset, pageSize);
+        long totalCount = perspectiveQueryService.countUserLikes(user.getId());
 
         List<Perspective> perspectives = likes.stream().map(PerspectiveLike::getPerspective).toList();
         Map<UUID, Battle> battleMap = loadBattles(perspectives);
@@ -284,18 +197,10 @@ public class MypageService {
 
         List<ContentActivityListResponse.ContentActivityItem> items = likes.stream()
                 .map(like -> {
-                    Perspective perspective = like.getPerspective();
-                    Battle battle = battleMap.get(perspective.getBattleId());
-                    BattleOption option = optionMap.get(perspective.getOptionId());
-                    return toContentActivityItem(
-                            like.getId().toString(),
-                            ActivityType.LIKE,
-                            perspective,
-                            battle,
-                            option,
-                            perspective.getContent(),
-                            like.getCreatedAt()
-                    );
+                    Perspective p = like.getPerspective();
+                    return toActivityItem(like.getId().toString(), ActivityType.LIKE, p,
+                            battleMap.get(p.getBattleId()), optionMap.get(p.getOptionId()),
+                            p.getContent(), like.getCreatedAt());
                 })
                 .toList();
 
@@ -304,19 +209,17 @@ public class MypageService {
         return new ContentActivityListResponse(items, hasNext ? nextOffset : null, hasNext);
     }
 
-    private ContentActivityListResponse.ContentActivityItem toContentActivityItem(
+    private ContentActivityListResponse.ContentActivityItem toActivityItem(
             String activityId, ActivityType activityType, Perspective perspective,
-            Battle battle, BattleOption option,
-            String content, java.time.LocalDateTime createdAt) {
+            Battle battle, BattleOption option, String content, LocalDateTime createdAt) {
 
-        com.swyp.app.domain.user.dto.response.UserSummary author = userService.findSummaryById(perspective.getUserId());
+        UserSummary author = userService.findSummaryById(perspective.getUserId());
         ContentActivityListResponse.AuthorInfo authorInfo = new ContentActivityListResponse.AuthorInfo(
-                author.userTag(), author.nickname(), com.swyp.app.domain.user.entity.CharacterType.from(author.characterType())
+                author.userTag(), author.nickname(), CharacterType.from(author.characterType())
         );
 
         return new ContentActivityListResponse.ContentActivityItem(
-                activityId,
-                activityType,
+                activityId, activityType,
                 perspective.getId().toString(),
                 perspective.getBattleId().toString(),
                 battle != null ? battle.getTitle() : null,
@@ -329,21 +232,13 @@ public class MypageService {
     }
 
     private Map<UUID, Battle> loadBattles(List<Perspective> perspectives) {
-        List<UUID> battleIds = perspectives.stream()
-                .map(Perspective::getBattleId)
-                .distinct()
-                .toList();
-        return battleRepository.findAllById(battleIds).stream()
-                .collect(Collectors.toMap(Battle::getId, Function.identity()));
+        List<UUID> battleIds = perspectives.stream().map(Perspective::getBattleId).distinct().toList();
+        return battleQueryService.findBattlesByIds(battleIds);
     }
 
     private Map<UUID, BattleOption> loadOptions(List<Perspective> perspectives) {
-        List<UUID> optionIds = perspectives.stream()
-                .map(Perspective::getOptionId)
-                .distinct()
-                .toList();
-        return battleOptionRepository.findAllById(optionIds).stream()
-                .collect(Collectors.toMap(BattleOption::getId, Function.identity()));
+        List<UUID> optionIds = perspectives.stream().map(Perspective::getOptionId).distinct().toList();
+        return battleQueryService.findOptionsByIds(optionIds);
     }
 
     public NotificationSettingsResponse getNotificationSettings() {
@@ -374,12 +269,8 @@ public class MypageService {
 
         List<NoticeListResponse.NoticeItem> items = notices.stream()
                 .map(notice -> new NoticeListResponse.NoticeItem(
-                        notice.getId(),
-                        notice.getType(),
-                        notice.getTitle(),
-                        notice.getBodyPreview(),
-                        notice.isPinned(),
-                        notice.getPublishedAt()
+                        notice.getId(), notice.getType(), notice.getTitle(),
+                        notice.getBodyPreview(), notice.isPinned(), notice.getPublishedAt()
                 ))
                 .toList();
 
@@ -389,14 +280,9 @@ public class MypageService {
     public NoticeDetailResponse getNoticeDetail(Long noticeId) {
         Notice notice = noticeRepository.findById(noticeId)
                 .orElseThrow(() -> new CustomException(ErrorCode.COMMON_INVALID_PARAMETER));
-
         return new NoticeDetailResponse(
-                notice.getId(),
-                notice.getType(),
-                notice.getTitle(),
-                notice.getBody(),
-                notice.isPinned(),
-                notice.getPublishedAt()
+                notice.getId(), notice.getType(), notice.getTitle(),
+                notice.getBody(), notice.isPinned(), notice.getPublishedAt()
         );
     }
 
@@ -410,12 +296,9 @@ public class MypageService {
 
     private NotificationSettingsResponse toNotificationSettingsResponse(UserSettings settings) {
         return new NotificationSettingsResponse(
-                settings.isNewBattleEnabled(),
-                settings.isBattleResultEnabled(),
-                settings.isCommentReplyEnabled(),
-                settings.isNewCommentEnabled(),
-                settings.isContentLikeEnabled(),
-                settings.isMarketingEventEnabled()
+                settings.isNewBattleEnabled(), settings.isBattleResultEnabled(),
+                settings.isCommentReplyEnabled(), settings.isNewCommentEnabled(),
+                settings.isContentLikeEnabled(), settings.isMarketingEventEnabled()
         );
     }
 }

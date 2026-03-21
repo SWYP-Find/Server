@@ -1,0 +1,62 @@
+package com.swyp.app.domain.battle.service;
+
+import com.swyp.app.domain.battle.entity.Battle;
+import com.swyp.app.domain.battle.entity.BattleOption;
+import com.swyp.app.domain.battle.entity.BattleTag;
+import com.swyp.app.domain.battle.repository.BattleOptionRepository;
+import com.swyp.app.domain.battle.repository.BattleRepository;
+import com.swyp.app.domain.battle.repository.BattleTagRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class BattleQueryService {
+
+    private final BattleRepository battleRepository;
+    private final BattleOptionRepository battleOptionRepository;
+    private final BattleTagRepository battleTagRepository;
+
+    public Map<UUID, Battle> findBattlesByIds(List<UUID> battleIds) {
+        return battleRepository.findAllById(battleIds).stream()
+                .collect(Collectors.toMap(Battle::getId, Function.identity()));
+    }
+
+    public Map<UUID, BattleOption> findOptionsByIds(List<UUID> optionIds) {
+        return battleOptionRepository.findAllById(optionIds).stream()
+                .collect(Collectors.toMap(BattleOption::getId, Function.identity()));
+    }
+
+    /**
+     * 주어진 배틀 ID 목록에 대해 태그별 빈도를 집계하여 상위 limit개를 반환한다.
+     * @return Map<태그명, 빈도수> (상위 limit개)
+     */
+    public Map<String, Long> getTopTagsByBattleIds(List<UUID> battleIds, int limit) {
+        if (battleIds.isEmpty()) return Map.of();
+
+        List<BattleTag> battleTags = battleTagRepository.findByBattleIdIn(battleIds);
+
+        return battleTags.stream()
+                .collect(Collectors.groupingBy(
+                        bt -> bt.getTag().getName(),
+                        Collectors.counting()
+                ))
+                .entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .limit(limit)
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue,
+                        (a, b) -> a,
+                        java.util.LinkedHashMap::new
+                ));
+    }
+}

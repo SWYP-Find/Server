@@ -2,9 +2,11 @@ package com.swyp.app.domain.user.service;
 
 import com.swyp.app.domain.battle.entity.Battle;
 import com.swyp.app.domain.battle.entity.BattleOption;
+import com.swyp.app.domain.battle.entity.BattleTag;
 import com.swyp.app.domain.battle.enums.BattleOptionLabel;
 import com.swyp.app.domain.battle.repository.BattleOptionRepository;
 import com.swyp.app.domain.battle.repository.BattleRepository;
+import com.swyp.app.domain.battle.repository.BattleTagRepository;
 import com.swyp.app.domain.perspective.entity.Perspective;
 import com.swyp.app.domain.perspective.entity.PerspectiveComment;
 import com.swyp.app.domain.perspective.entity.PerspectiveLike;
@@ -30,6 +32,7 @@ import com.swyp.app.domain.user.entity.UserTendencyScore;
 import com.swyp.app.domain.user.entity.VoteSide;
 import com.swyp.app.domain.user.repository.NoticeRepository;
 import com.swyp.app.domain.vote.entity.Vote;
+import com.swyp.app.domain.vote.enums.VoteStatus;
 import com.swyp.app.domain.vote.repository.VoteRepository;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
@@ -58,6 +61,7 @@ public class MypageService {
     private final VoteRepository voteRepository;
     private final BattleRepository battleRepository;
     private final BattleOptionRepository battleOptionRepository;
+    private final BattleTagRepository battleTagRepository;
     private final PerspectiveCommentRepository perspectiveCommentRepository;
     private final PerspectiveLikeRepository perspectiveLikeRepository;
 
@@ -105,12 +109,90 @@ public class MypageService {
                 score.getIdeal()
         );
 
-        // TODO: 타 도메인(vote, perspective) 연동 필요, 현재는 0/빈값 반환
-        RecapResponse.PreferenceReport preferenceReport = new RecapResponse.PreferenceReport(
-                0, 0, 0, Collections.emptyList()
-        );
+        RecapResponse.PreferenceReport preferenceReport = buildPreferenceReport(user.getId());
 
         return new RecapResponse(myCard, bestMatchCard, worstMatchCard, scores, preferenceReport);
+    }
+
+    private RecapResponse.PreferenceReport buildPreferenceReport(Long userId) {
+        // 총 참여 수 (사전 투표 이상)
+        long totalParticipation = voteRepository.countByUserId(userId);
+
+        // 입장 변경 수
+        long opinionChanges = voteRepository.countOpinionChangesByUserId(userId);
+
+        // 배틀 승률: 사후 투표 중 최종 옵션이 더 많은 득표를 받은 비율
+        int battleWinRate = calculateBattleWinRate(userId);
+
+        // 선호 주제: 참여한 배틀의 태그별 빈도 상위 4개
+        List<RecapResponse.FavoriteTopic> favoriteTopics = calculateFavoriteTopics(userId);
+
+        return new RecapResponse.PreferenceReport(
+                (int) totalParticipation,
+                (int) opinionChanges,
+                battleWinRate,
+                favoriteTopics
+        );
+    }
+
+    private int calculateBattleWinRate(Long userId) {
+        List<Vote> postVotes = voteRepository.findByUserId(userId).stream()
+                .filter(v -> v.getStatus() == VoteStatus.POST_VOTED && v.getPostVoteOption() != null)
+                .toList();
+
+        if (postVotes.isEmpty()) return 0;
+
+        long wins = postVotes.stream()
+                .filter(v -> {
+                    BattleOption myOption = v.getPostVoteOption();
+                    BattleOption otherOption = v.getPreVoteOption();
+                    // 내 최종 선택의 득표가 상대보다 높으면 승리
+                    if (myOption.getId().equals(otherOption.getId())) {
+                        // 사전/사후 같은 옵션이면 해당 옵션 득표로 판단
+                        long totalVotes = v.getBattle().getTotalParticipantsCount();
+                        return myOption.getVoteCount() > totalVotes - myOption.getVoteCount();
+                    }
+                    return myOption.getVoteCount() > otherOption.getVoteCount();
+                })
+                .count();
+
+        return (int) (wins * 100 / postVotes.size());
+    }
+
+    private List<RecapResponse.FavoriteTopic> calculateFavoriteTopics(Long userId) {
+        List<Vote> votes = voteRepository.findByUserId(userId);
+        if (votes.isEmpty()) return Collections.emptyList();
+
+        List<UUID> battleIds = votes.stream()
+                .map(v -> v.getBattle().getId())
+                .distinct()
+                .toList();
+
+        List<BattleTag> battleTags = battleTagRepository.findByBattleIdIn(battleIds);
+
+        // 태그별 참여 횟수 집계
+        Map<String, Long> tagCounts = battleTags.stream()
+                .collect(Collectors.groupingBy(
+                        bt -> bt.getTag().getName(),
+                        Collectors.counting()
+                ));
+
+        // 상위 4개 태그 추출
+        List<Map.Entry<String, Long>> sorted = tagCounts.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .limit(4)
+                .toList();
+
+        List<RecapResponse.FavoriteTopic> topics = new ArrayList<>();
+        for (int i = 0; i < sorted.size(); i++) {
+            Map.Entry<String, Long> entry = sorted.get(i);
+            topics.add(new RecapResponse.FavoriteTopic(
+                    i + 1,
+                    entry.getKey(),
+                    entry.getValue().intValue()
+            ));
+        }
+        return topics;
     }
 
     public BattleRecordListResponse getBattleRecords(Integer offset, Integer size, VoteSide voteSide) {

@@ -44,4 +44,15 @@ public interface VoteRepository extends JpaRepository<Vote, UUID> {
     // MypageService: 사용자 투표 수 - voteSide 필터
     @Query("SELECT COUNT(v) FROM Vote v WHERE v.userId = :userId AND v.preVoteOption.label = :label")
     long countByUserIdAndPreVoteOptionLabel(@Param("userId") Long userId, @Param("label") BattleOptionLabel label);
+
+    // MypageService (recap): 사후 투표 완료 수
+    long countByUserIdAndStatus(Long userId, com.swyp.app.domain.vote.enums.VoteStatus status);
+
+    // MypageService (recap): 입장 변경 수 (사전/사후 투표 옵션이 다른 경우)
+    @Query("SELECT COUNT(v) FROM Vote v WHERE v.userId = :userId AND v.status = 'POST_VOTED' " +
+           "AND v.preVoteOption <> v.postVoteOption")
+    long countOpinionChangesByUserId(@Param("userId") Long userId);
+
+    // MypageService (recap): 사용자가 참여한 모든 투표 (배틀 목록 추출용)
+    List<Vote> findByUserId(Long userId);
 }

@@ -3,7 +3,7 @@ package com.swyp.app.domain.home.service;
 import com.swyp.app.domain.battle.dto.response.TodayBattleResponse;
 import com.swyp.app.domain.battle.dto.response.TodayOptionResponse;
 import com.swyp.app.domain.battle.enums.BattleType;
-import com.swyp.app.domain.battle.service.BattleService;
+import com.swyp.app.domain.battle.service.HomeBattleService;
 import com.swyp.app.domain.home.dto.response.HomeBattleOptionResponse;
 import com.swyp.app.domain.home.dto.response.HomeBattleResponse;
 import com.swyp.app.domain.home.dto.response.HomeResponse;
@@ -24,7 +24,7 @@ public class HomeService {
 
     private static final int NOTICE_EXISTS_LIMIT = 1;
 
-    private final BattleService battleService;
+    private final HomeBattleService battleService;
     private final NoticeService noticeService;
 
     public HomeResponse getHome() {

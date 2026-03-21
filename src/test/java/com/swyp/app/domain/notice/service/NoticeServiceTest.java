@@ -5,6 +5,7 @@ import com.swyp.app.domain.notice.entity.NoticePlacement;
 import com.swyp.app.domain.notice.entity.NoticeType;
 import com.swyp.app.domain.notice.repository.NoticeRepository;
 import com.swyp.app.global.common.exception.CustomException;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -33,7 +34,8 @@ class NoticeServiceTest {
     private NoticeService noticeService;
 
     @Test
-    void getNoticeList_활성공지_목록을_개수와_함께_반환한다() {
+    @DisplayName("활성공지 목록을 개수와 함께 반환한다")
+    void getNoticeList_returns_active_notices_with_count() {
         Notice notice = Notice.builder()
                 .title("공지")
                 .body("내용")
@@ -55,7 +57,8 @@ class NoticeServiceTest {
     }
 
     @Test
-    void getNoticeDetail_활성공지가_없으면_예외를_던진다() {
+    @DisplayName("활성공지가 없으면 예외를 던진다")
+    void getNoticeDetail_throws_when_no_active_notice() {
         UUID noticeId = UUID.randomUUID();
         when(noticeRepository.findActiveById(eq(noticeId), any(LocalDateTime.class))).thenReturn(Optional.empty());
 

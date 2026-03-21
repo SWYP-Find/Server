@@ -40,7 +40,8 @@ class HomeServiceTest {
     private HomeService homeService;
 
     @Test
-    void getHome_명세기준으로_섹션별_데이터를_조합한다() {
+    @DisplayName("명세기준으로 섹션별 데이터를 조합한다")
+    void getHome_aggregates_sections_by_spec() {
         TodayBattleResponse editorPick = battle("editor-id", BATTLE);
         TodayBattleResponse trendingBattle = battle("trending-id", BATTLE);
         TodayBattleResponse bestBattle = battle("best-id", BATTLE);
@@ -94,7 +95,8 @@ class HomeServiceTest {
     }
 
     @Test
-    void getHome_데이터가_없으면_false와_빈리스트를_반환한다() {
+    @DisplayName("데이터가 없으면 false와 빈리스트를 반환한다")
+    void getHome_returns_false_and_empty_lists_when_no_data() {
         when(noticeService.getActiveNotices(NoticePlacement.HOME_TOP, null, 1)).thenReturn(List.of());
         when(battleService.getEditorPicks()).thenReturn(List.of());
         when(battleService.getTrendingBattles()).thenReturn(List.of());

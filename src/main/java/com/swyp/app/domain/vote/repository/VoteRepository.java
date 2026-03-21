@@ -2,9 +2,14 @@ package com.swyp.app.domain.vote.repository;
 
 import com.swyp.app.domain.battle.entity.Battle;
 import com.swyp.app.domain.battle.entity.BattleOption;
+import com.swyp.app.domain.battle.enums.BattleOptionLabel;
 import com.swyp.app.domain.vote.entity.Vote;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -21,4 +26,22 @@ public interface VoteRepository extends JpaRepository<Vote, UUID> {
     long countByBattleAndPreVoteOption(Battle battle, BattleOption preVoteOption);
 
     Optional<Vote> findTopByBattleOrderByUpdatedAtDesc(Battle battle);
+
+    // MypageService: 사용자 투표 기록 조회 (offset 페이지네이션)
+    @Query("SELECT v FROM Vote v JOIN FETCH v.battle JOIN FETCH v.preVoteOption " +
+           "WHERE v.userId = :userId ORDER BY v.createdAt DESC")
+    List<Vote> findByUserIdOrderByCreatedAtDesc(@Param("userId") Long userId, Pageable pageable);
+
+    // MypageService: 사용자 투표 기록 - voteSide(PRO/CON) 필터
+    @Query("SELECT v FROM Vote v JOIN FETCH v.battle JOIN FETCH v.preVoteOption " +
+           "WHERE v.userId = :userId AND v.preVoteOption.label = :label ORDER BY v.createdAt DESC")
+    List<Vote> findByUserIdAndPreVoteOptionLabelOrderByCreatedAtDesc(
+            @Param("userId") Long userId, @Param("label") BattleOptionLabel label, Pageable pageable);
+
+    // MypageService: 사용자 투표 전체 수
+    long countByUserId(Long userId);
+
+    // MypageService: 사용자 투표 수 - voteSide 필터
+    @Query("SELECT COUNT(v) FROM Vote v WHERE v.userId = :userId AND v.preVoteOption.label = :label")
+    long countByUserIdAndPreVoteOptionLabel(@Param("userId") Long userId, @Param("label") BattleOptionLabel label);
 }

@@ -1,5 +1,6 @@
 package com.swyp.app.domain.user.service;
 
+import com.swyp.app.domain.battle.enums.BattleOptionLabel;
 import com.swyp.app.domain.user.dto.request.UpdateNotificationSettingsRequest;
 import com.swyp.app.domain.user.dto.response.BattleRecordListResponse;
 import com.swyp.app.domain.user.dto.response.ContentActivityListResponse;
@@ -19,9 +20,12 @@ import com.swyp.app.domain.user.entity.UserSettings;
 import com.swyp.app.domain.user.entity.UserTendencyScore;
 import com.swyp.app.domain.user.entity.VoteSide;
 import com.swyp.app.domain.user.repository.NoticeRepository;
+import com.swyp.app.domain.vote.entity.Vote;
+import com.swyp.app.domain.vote.repository.VoteRepository;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,8 +37,11 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class MypageService {
 
+    private static final int DEFAULT_PAGE_SIZE = 20;
+
     private final UserService userService;
     private final NoticeRepository noticeRepository;
+    private final VoteRepository voteRepository;
 
     public MypageResponse getMypage() {
         User user = userService.findCurrentUser();
@@ -89,8 +96,36 @@ public class MypageService {
     }
 
     public BattleRecordListResponse getBattleRecords(Integer offset, Integer size, VoteSide voteSide) {
-        // TODO: VoteRepository 연동 필요 - 사용자의 투표 기록을 조회하여 배틀 정보와 함께 반환
-        return new BattleRecordListResponse(Collections.emptyList(), null, false);
+        User user = userService.findCurrentUser();
+        int pageOffset = offset == null || offset < 0 ? 0 : offset;
+        int pageSize = size == null || size <= 0 ? DEFAULT_PAGE_SIZE : size;
+        PageRequest pageable = PageRequest.of(pageOffset / pageSize, pageSize);
+
+        BattleOptionLabel label = voteSide != null ? toOptionLabel(voteSide) : null;
+
+        List<Vote> votes = label != null
+                ? voteRepository.findByUserIdAndPreVoteOptionLabelOrderByCreatedAtDesc(user.getId(), label, pageable)
+                : voteRepository.findByUserIdOrderByCreatedAtDesc(user.getId(), pageable);
+
+        long totalCount = label != null
+                ? voteRepository.countByUserIdAndPreVoteOptionLabel(user.getId(), label)
+                : voteRepository.countByUserId(user.getId());
+
+        List<BattleRecordListResponse.BattleRecordItem> items = votes.stream()
+                .map(vote -> new BattleRecordListResponse.BattleRecordItem(
+                        vote.getBattle().getId().toString(),
+                        vote.getId().toString(),
+                        toVoteSide(vote.getPreVoteOption().getLabel()),
+                        vote.getBattle().getTitle(),
+                        vote.getBattle().getSummary(),
+                        vote.getCreatedAt()
+                ))
+                .toList();
+
+        int nextOffset = pageOffset + pageSize;
+        boolean hasNext = nextOffset < totalCount;
+
+        return new BattleRecordListResponse(items, hasNext ? nextOffset : null, hasNext);
     }
 
     public ContentActivityListResponse getContentActivities(Integer offset, Integer size, ActivityType activityType) {
@@ -150,6 +185,14 @@ public class MypageService {
                 notice.isPinned(),
                 notice.getPublishedAt()
         );
+    }
+
+    private VoteSide toVoteSide(BattleOptionLabel label) {
+        return label == BattleOptionLabel.A ? VoteSide.PRO : VoteSide.CON;
+    }
+
+    private BattleOptionLabel toOptionLabel(VoteSide voteSide) {
+        return voteSide == VoteSide.PRO ? BattleOptionLabel.A : BattleOptionLabel.B;
     }
 
     private NotificationSettingsResponse toNotificationSettingsResponse(UserSettings settings) {

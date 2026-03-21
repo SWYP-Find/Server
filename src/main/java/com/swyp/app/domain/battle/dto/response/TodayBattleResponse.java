@@ -15,6 +15,8 @@ public record TodayBattleResponse(
         String summary,         // 중간 요약 문구
         String thumbnailUrl,    // 풀스크린 배경 이미지 URL
         BattleType type,        // 타입 태그
+        Integer viewCount,      // 조회수
+        Long participantsCount, // 누적 참여자 수
         Integer audioDuration,  // 소요 시간 (분:초 변환용 데이터)
         List<BattleTagResponse> tags,       // 상단 태그 리스트
         List<TodayOptionResponse> options   // 중앙 세로형 대결 카드 데이터

@@ -29,6 +29,9 @@ public enum ErrorCode {
     // OAuth (Social Login)
     INVALID_PROVIDER(HttpStatus.BAD_REQUEST, "AUTH_400_PROVIDER", "지원하지 않는 소셜 로그인 provider입니다."),
 
+    // Notice
+    NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTICE_404", "존재하지 않는 공지사항입니다."),
+
     // Battle
     BATTLE_NOT_FOUND        (HttpStatus.NOT_FOUND, "BATTLE_404",     "존재하지 않는 배틀입니다."),
     BATTLE_CLOSED           (HttpStatus.CONFLICT,  "BATTLE_409_CLS", "종료된 배틀입니다."),

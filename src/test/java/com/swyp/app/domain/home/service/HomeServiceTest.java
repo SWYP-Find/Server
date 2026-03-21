@@ -4,7 +4,7 @@ import com.swyp.app.domain.battle.dto.response.TodayBattleResponse;
 import com.swyp.app.domain.battle.dto.response.TodayOptionResponse;
 import com.swyp.app.domain.battle.enums.BattleOptionLabel;
 import com.swyp.app.domain.battle.enums.BattleType;
-import com.swyp.app.domain.battle.service.HomeBattleService;
+import com.swyp.app.domain.battle.service.HomeServiceV2;
 import com.swyp.app.domain.home.dto.response.HomeBattleResponse;
 import com.swyp.app.domain.notice.dto.response.NoticeSummaryResponse;
 import com.swyp.app.domain.notice.entity.NoticePlacement;
@@ -31,7 +31,7 @@ import static org.mockito.Mockito.when;
 class HomeServiceTest {
 
     @Mock
-    private HomeBattleService battleService;
+    private HomeServiceV2 battleService;
     @Mock
     private NoticeService noticeService;
 

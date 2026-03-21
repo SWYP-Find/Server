@@ -6,7 +6,7 @@ import com.swyp.app.domain.battle.enums.BattleType;
 import java.util.List;
 import java.util.UUID;
 
-public interface HomeBattleService {
+public interface HomeServiceV2 {
 
     List<TodayBattleResponse> getEditorPicks();
 

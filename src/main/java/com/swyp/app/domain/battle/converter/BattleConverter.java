@@ -52,6 +52,21 @@ public class BattleConverter {
         );
     }
 
+    public BattleSummaryResponse toSummaryResponse(Battle b, List<Tag> tags, List<BattleOption> opts) {
+        return new BattleSummaryResponse(
+                b.getId(),
+                b.getTitle(),
+                b.getSummary(),
+                b.getThumbnailUrl(),
+                b.getType(),
+                b.getViewCount() == null ? 0 : b.getViewCount(),
+                b.getTotalParticipantsCount() == null ? 0L : b.getTotalParticipantsCount(),
+                b.getAudioDuration() == null ? 0 : b.getAudioDuration(),
+                toTagResponses(tags, null),
+                toOptionResponses(opts)
+        );
+    }
+
     public AdminBattleDetailResponse toAdminDetailResponse(Battle b, List<Tag> tags, List<BattleOption> opts) {
         return new AdminBattleDetailResponse(
                 b.getId(),

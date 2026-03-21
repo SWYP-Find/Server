@@ -1,0 +1,48 @@
+name: Java CI/CD with Gradle
+
+on:
+  push:
+    branches: [ "main" ] # 메인 브랜치에 푸시할 때 작동
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      # 1. 빌드 (테스트는 환경 변수 문제로 실패할 수 있으니 일단 제외)
+      - name: Build with Gradle
+        run: ./gradlew build -x test
+
+      # 2. GitHub Secret(ENV_VARIABLES)을 다시 .env 파일로 생성
+      - name: Create .env file from Secret
+        run: |
+          echo "${{ secrets.ENV_VARIABLES }}" > .env
+
+      # 3. JAR 파일과 .env 파일을 EC2로 전송
+      - name: Copy JAR and .env to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "build/libs/*.jar, .env"
+          target: "~/"
+          strip_components: 2
+
+      # 4. EC2에서 실행 스크립트(start.sh) 가동
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            chmod +x ~/start.sh
+            ./start.sh

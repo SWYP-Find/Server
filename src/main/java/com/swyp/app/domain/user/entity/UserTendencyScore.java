@@ -1,6 +1,7 @@
 package com.swyp.app.domain.user.entity;
 
 import com.swyp.app.global.common.BaseEntity;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
@@ -27,30 +28,43 @@ public class UserTendencyScore extends BaseEntity {
     @JoinColumn(name = "user_id")
     private User user;
 
-    private int score1;
-    private int score2;
-    private int score3;
-    private int score4;
-    private int score5;
-    private int score6;
+    @Column(name = "score1")
+    private int principle;
+
+    @Column(name = "score2")
+    private int reason;
+
+    @Column(name = "score3")
+    private int individual;
+
+    @Column(name = "score4")
+    private int change;
+
+    @Column(name = "score5")
+    private int inner;
+
+    @Column(name = "score6")
+    private int ideal;
 
     @Builder
-    private UserTendencyScore(User user, int score1, int score2, int score3, int score4, int score5, int score6) {
+    private UserTendencyScore(User user, int principle, int reason, int individual,
+                              int change, int inner, int ideal) {
         this.user = user;
-        this.score1 = score1;
-        this.score2 = score2;
-        this.score3 = score3;
-        this.score4 = score4;
-        this.score5 = score5;
-        this.score6 = score6;
+        this.principle = principle;
+        this.reason = reason;
+        this.individual = individual;
+        this.change = change;
+        this.inner = inner;
+        this.ideal = ideal;
     }
 
-    public void update(int score1, int score2, int score3, int score4, int score5, int score6) {
-        this.score1 = score1;
-        this.score2 = score2;
-        this.score3 = score3;
-        this.score4 = score4;
-        this.score5 = score5;
-        this.score6 = score6;
+    public void update(int principle, int reason, int individual,
+                       int change, int inner, int ideal) {
+        this.principle = principle;
+        this.reason = reason;
+        this.individual = individual;
+        this.change = change;
+        this.inner = inner;
+        this.ideal = ideal;
     }
 }

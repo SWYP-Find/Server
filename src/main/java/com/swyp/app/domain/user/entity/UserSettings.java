@@ -1,6 +1,7 @@
 package com.swyp.app.domain.user.entity;
 
 import com.swyp.app.global.common.BaseEntity;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
@@ -27,35 +28,57 @@ public class UserSettings extends BaseEntity {
     @JoinColumn(name = "user_id")
     private User user;
 
-    private boolean pushEnabled;
+    @Column(name = "new_battle_enabled")
+    private boolean newBattleEnabled;
 
-    private boolean emailEnabled;
+    @Column(name = "battle_result_enabled")
+    private boolean battleResultEnabled;
 
-    private boolean debateRequestEnabled;
+    @Column(name = "comment_reply_enabled")
+    private boolean commentReplyEnabled;
 
-    private boolean profilePublic;
+    @Column(name = "new_comment_enabled")
+    private boolean newCommentEnabled;
+
+    @Column(name = "content_like_enabled")
+    private boolean contentLikeEnabled;
+
+    @Column(name = "marketing_event_enabled")
+    private boolean marketingEventEnabled;
 
     @Builder
-    private UserSettings(User user, boolean pushEnabled, boolean emailEnabled, boolean debateRequestEnabled, boolean profilePublic) {
+    private UserSettings(User user, boolean newBattleEnabled, boolean battleResultEnabled,
+                         boolean commentReplyEnabled, boolean newCommentEnabled,
+                         boolean contentLikeEnabled, boolean marketingEventEnabled) {
         this.user = user;
-        this.pushEnabled = pushEnabled;
-        this.emailEnabled = emailEnabled;
-        this.debateRequestEnabled = debateRequestEnabled;
-        this.profilePublic = profilePublic;
+        this.newBattleEnabled = newBattleEnabled;
+        this.battleResultEnabled = battleResultEnabled;
+        this.commentReplyEnabled = commentReplyEnabled;
+        this.newCommentEnabled = newCommentEnabled;
+        this.contentLikeEnabled = contentLikeEnabled;
+        this.marketingEventEnabled = marketingEventEnabled;
     }
 
-    public void update(Boolean pushEnabled, Boolean emailEnabled, Boolean debateRequestEnabled, Boolean profilePublic) {
-        if (pushEnabled != null) {
-            this.pushEnabled = pushEnabled;
+    public void update(Boolean newBattleEnabled, Boolean battleResultEnabled,
+                       Boolean commentReplyEnabled, Boolean newCommentEnabled,
+                       Boolean contentLikeEnabled, Boolean marketingEventEnabled) {
+        if (newBattleEnabled != null) {
+            this.newBattleEnabled = newBattleEnabled;
         }
-        if (emailEnabled != null) {
-            this.emailEnabled = emailEnabled;
+        if (battleResultEnabled != null) {
+            this.battleResultEnabled = battleResultEnabled;
         }
-        if (debateRequestEnabled != null) {
-            this.debateRequestEnabled = debateRequestEnabled;
+        if (commentReplyEnabled != null) {
+            this.commentReplyEnabled = commentReplyEnabled;
         }
-        if (profilePublic != null) {
-            this.profilePublic = profilePublic;
+        if (newCommentEnabled != null) {
+            this.newCommentEnabled = newCommentEnabled;
+        }
+        if (contentLikeEnabled != null) {
+            this.contentLikeEnabled = contentLikeEnabled;
+        }
+        if (marketingEventEnabled != null) {
+            this.marketingEventEnabled = marketingEventEnabled;
         }
     }
 }

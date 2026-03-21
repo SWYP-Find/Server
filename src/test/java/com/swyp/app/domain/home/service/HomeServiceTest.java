@@ -1,7 +1,7 @@
 package com.swyp.app.domain.home.service;
 
-import com.swyp.app.domain.battle.dto.response.BattleOptionResponse;
-import com.swyp.app.domain.battle.dto.response.BattleSummaryResponse;
+import com.swyp.app.domain.battle.dto.response.TodayBattleResponse;
+import com.swyp.app.domain.battle.dto.response.TodayOptionResponse;
 import com.swyp.app.domain.battle.enums.BattleOptionLabel;
 import com.swyp.app.domain.battle.enums.BattleType;
 import com.swyp.app.domain.battle.service.BattleService;
@@ -40,12 +40,12 @@ class HomeServiceTest {
 
     @Test
     void getHome_명세기준으로_섹션별_데이터를_조합한다() {
-        BattleSummaryResponse editorPick = battle("editor-id", BATTLE);
-        BattleSummaryResponse trendingBattle = battle("trending-id", BATTLE);
-        BattleSummaryResponse bestBattle = battle("best-id", BATTLE);
-        BattleSummaryResponse todayVotePick = battle("today-vote-id", VOTE);
-        BattleSummaryResponse quizBattle = quiz("quiz-id");
-        BattleSummaryResponse newBattle = battle("new-id", BATTLE);
+        TodayBattleResponse editorPick = battle("editor-id", BATTLE);
+        TodayBattleResponse trendingBattle = battle("trending-id", BATTLE);
+        TodayBattleResponse bestBattle = battle("best-id", BATTLE);
+        TodayBattleResponse todayVotePick = battle("today-vote-id", VOTE);
+        TodayBattleResponse quizBattle = quiz("quiz-id");
+        TodayBattleResponse newBattle = battle("new-id", BATTLE);
 
         NoticeSummaryResponse notice = new NoticeSummaryResponse(
                 UUID.randomUUID(),
@@ -59,12 +59,12 @@ class HomeServiceTest {
         );
 
         when(noticeService.getActiveNotices(NoticePlacement.HOME_TOP, null, 1)).thenReturn(List.of(notice));
-        when(battleService.getHomeEditorPicks()).thenReturn(List.of(editorPick));
-        when(battleService.getHomeTrendingBattles()).thenReturn(List.of(trendingBattle));
-        when(battleService.getHomeBestBattles()).thenReturn(List.of(bestBattle));
-        when(battleService.getHomeTodayPicks(VOTE)).thenReturn(List.of(todayVotePick));
-        when(battleService.getHomeTodayPicks(QUIZ)).thenReturn(List.of(quizBattle));
-        when(battleService.getHomeNewBattles(List.of(
+        when(battleService.getEditorPicks()).thenReturn(List.of(editorPick));
+        when(battleService.getTrendingBattles()).thenReturn(List.of(trendingBattle));
+        when(battleService.getBestBattles()).thenReturn(List.of(bestBattle));
+        when(battleService.getTodayPicks(VOTE)).thenReturn(List.of(todayVotePick));
+        when(battleService.getTodayPicks(QUIZ)).thenReturn(List.of(quizBattle));
+        when(battleService.getNewBattles(List.of(
                 editorPick.battleId(),
                 trendingBattle.battleId(),
                 bestBattle.battleId(),
@@ -83,7 +83,7 @@ class HomeServiceTest {
         assertThat(response.todayPicks().get(0).options()).extracting(option -> option.text()).containsExactly("A", "B");
         assertThat(response.todayPicks().get(1).options()).extracting(option -> option.text()).containsExactly("A", "B", "C", "D");
 
-        verify(battleService).getHomeNewBattles(argThat(ids -> ids.equals(List.of(
+        verify(battleService).getNewBattles(argThat(ids -> ids.equals(List.of(
                 editorPick.battleId(),
                 trendingBattle.battleId(),
                 bestBattle.battleId(),
@@ -95,12 +95,12 @@ class HomeServiceTest {
     @Test
     void getHome_데이터가_없으면_false와_빈리스트를_반환한다() {
         when(noticeService.getActiveNotices(NoticePlacement.HOME_TOP, null, 1)).thenReturn(List.of());
-        when(battleService.getHomeEditorPicks()).thenReturn(List.of());
-        when(battleService.getHomeTrendingBattles()).thenReturn(List.of());
-        when(battleService.getHomeBestBattles()).thenReturn(List.of());
-        when(battleService.getHomeTodayPicks(VOTE)).thenReturn(List.of());
-        when(battleService.getHomeTodayPicks(QUIZ)).thenReturn(List.of());
-        when(battleService.getHomeNewBattles(List.of())).thenReturn(List.of());
+        when(battleService.getEditorPicks()).thenReturn(List.of());
+        when(battleService.getTrendingBattles()).thenReturn(List.of());
+        when(battleService.getBestBattles()).thenReturn(List.of());
+        when(battleService.getTodayPicks(VOTE)).thenReturn(List.of());
+        when(battleService.getTodayPicks(QUIZ)).thenReturn(List.of());
+        when(battleService.getNewBattles(List.of())).thenReturn(List.of());
 
         var response = homeService.getHome();
 
@@ -112,8 +112,8 @@ class HomeServiceTest {
         assertThat(response.newBattles()).isEmpty();
     }
 
-    private BattleSummaryResponse battle(String title, BattleType type) {
-        return new BattleSummaryResponse(
+    private TodayBattleResponse battle(String title, BattleType type) {
+        return new TodayBattleResponse(
                 UUID.randomUUID(),
                 title,
                 "summary",
@@ -124,14 +124,14 @@ class HomeServiceTest {
                 90,
                 List.of(),
                 List.of(
-                        new BattleOptionResponse(UUID.randomUUID(), BattleOptionLabel.A, "A", "stance-a", "rep-a", "quote-a", "image-a", List.of()),
-                        new BattleOptionResponse(UUID.randomUUID(), BattleOptionLabel.B, "B", "stance-b", "rep-b", "quote-b", "image-b", List.of())
+                        new TodayOptionResponse(UUID.randomUUID(), BattleOptionLabel.A, "A", "rep-a", "stance-a", "image-a"),
+                        new TodayOptionResponse(UUID.randomUUID(), BattleOptionLabel.B, "B", "rep-b", "stance-b", "image-b")
                 )
         );
     }
 
-    private BattleSummaryResponse quiz(String title) {
-        return new BattleSummaryResponse(
+    private TodayBattleResponse quiz(String title) {
+        return new TodayBattleResponse(
                 UUID.randomUUID(),
                 title,
                 "summary",
@@ -142,10 +142,10 @@ class HomeServiceTest {
                 60,
                 List.of(),
                 List.of(
-                        new BattleOptionResponse(UUID.randomUUID(), BattleOptionLabel.A, "A", "stance-a", "rep-a", "quote-a", "image-a", List.of()),
-                        new BattleOptionResponse(UUID.randomUUID(), BattleOptionLabel.B, "B", "stance-b", "rep-b", "quote-b", "image-b", List.of()),
-                        new BattleOptionResponse(UUID.randomUUID(), BattleOptionLabel.C, "C", "stance-c", "rep-c", "quote-c", "image-c", List.of()),
-                        new BattleOptionResponse(UUID.randomUUID(), BattleOptionLabel.D, "D", "stance-d", "rep-d", "quote-d", "image-d", List.of())
+                        new TodayOptionResponse(UUID.randomUUID(), BattleOptionLabel.A, "A", "rep-a", "stance-a", "image-a"),
+                        new TodayOptionResponse(UUID.randomUUID(), BattleOptionLabel.B, "B", "rep-b", "stance-b", "image-b"),
+                        new TodayOptionResponse(UUID.randomUUID(), BattleOptionLabel.C, "C", "rep-c", "stance-c", "image-c"),
+                        new TodayOptionResponse(UUID.randomUUID(), BattleOptionLabel.D, "D", "rep-d", "stance-d", "image-d")
                 )
         );
     }

@@ -23,23 +23,18 @@ public interface BattleService {
 
     // 1. 에디터 픽 조회 (isEditorPick = true)
     List<TodayBattleResponse> getEditorPicks();
-    List<BattleSummaryResponse> getHomeEditorPicks();
 
     // 2. 지금 뜨는 배틀 조회 (최근 24시간 투표 급증순)
     List<TodayBattleResponse> getTrendingBattles();
-    List<BattleSummaryResponse> getHomeTrendingBattles();
 
     // 3. Best 배틀 조회 (누적 지표 랭킹)
     List<TodayBattleResponse> getBestBattles();
-    List<BattleSummaryResponse> getHomeBestBattles();
 
     // 4. 오늘의 Pické 조회 (단일 타입 매칭)
     List<TodayBattleResponse> getTodayPicks(BattleType type);
-    List<BattleSummaryResponse> getHomeTodayPicks(BattleType type);
 
     // 5. 새로운 배틀 조회 (중복 제외 리스트)
     List<TodayBattleResponse> getNewBattles(List<UUID> excludeIds);
-    List<BattleSummaryResponse> getHomeNewBattles(List<UUID> excludeIds);
 
 
     // === [사용자용 - 기본 API] ===

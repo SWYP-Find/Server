@@ -68,23 +68,10 @@ public class BattleServiceImpl implements BattleService {
     }
 
     @Override
-    public List<BattleSummaryResponse> getHomeEditorPicks() {
-        List<Battle> battles = battleRepository.findEditorPicks(BattleStatus.PUBLISHED, PageRequest.of(0, 10));
-        return convertToSummaryResponses(battles);
-    }
-
-    @Override
     public List<TodayBattleResponse> getTrendingBattles() {
         LocalDateTime yesterday = LocalDateTime.now().minusDays(1);
         List<Battle> battles = battleRepository.findTrendingBattles(yesterday, PageRequest.of(0, 5));
         return convertToTodayResponses(battles);
-    }
-
-    @Override
-    public List<BattleSummaryResponse> getHomeTrendingBattles() {
-        LocalDateTime yesterday = LocalDateTime.now().minusDays(1);
-        List<Battle> battles = battleRepository.findTrendingBattles(yesterday, PageRequest.of(0, 5));
-        return convertToSummaryResponses(battles);
     }
 
     @Override
@@ -94,21 +81,9 @@ public class BattleServiceImpl implements BattleService {
     }
 
     @Override
-    public List<BattleSummaryResponse> getHomeBestBattles() {
-        List<Battle> battles = battleRepository.findBestBattles(PageRequest.of(0, 5));
-        return convertToSummaryResponses(battles);
-    }
-
-    @Override
     public List<TodayBattleResponse> getTodayPicks(BattleType type) {
         List<Battle> battles = battleRepository.findTodayPicks(type, LocalDate.now());
         return convertToTodayResponses(battles);
-    }
-
-    @Override
-    public List<BattleSummaryResponse> getHomeTodayPicks(BattleType type) {
-        List<Battle> battles = battleRepository.findTodayPicks(type, LocalDate.now());
-        return convertToSummaryResponses(battles);
     }
 
     @Override
@@ -117,14 +92,6 @@ public class BattleServiceImpl implements BattleService {
                 ? List.of(UUID.randomUUID()) : excludeIds;
         List<Battle> battles = battleRepository.findNewBattlesExcluding(finalExcludeIds, PageRequest.of(0, 10));
         return convertToTodayResponses(battles);
-    }
-
-    @Override
-    public List<BattleSummaryResponse> getHomeNewBattles(List<UUID> excludeIds) {
-        List<UUID> finalExcludeIds = (excludeIds == null || excludeIds.isEmpty())
-                ? List.of(UUID.randomUUID()) : excludeIds;
-        List<Battle> battles = battleRepository.findNewBattlesExcluding(finalExcludeIds, PageRequest.of(0, 10));
-        return convertToSummaryResponses(battles);
     }
 
     // [사용자용 - 기본 API]
@@ -247,14 +214,6 @@ public class BattleServiceImpl implements BattleService {
             List<Tag> tags = getTagsByBattle(battle);
             List<BattleOption> options = battleOptionRepository.findByBattle(battle);
             return battleConverter.toTodayResponse(battle, tags, options);
-        }).toList();
-    }
-
-    private List<BattleSummaryResponse> convertToSummaryResponses(List<Battle> battles) {
-        return battles.stream().map(battle -> {
-            List<Tag> tags = getTagsByBattle(battle);
-            List<BattleOption> options = battleOptionRepository.findByBattle(battle);
-            return battleConverter.toSummaryResponse(battle, tags, options);
         }).toList();
     }
 

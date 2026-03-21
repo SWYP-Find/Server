@@ -1,7 +1,6 @@
 package com.swyp.app.domain.user.entity;
 
 import com.swyp.app.global.common.BaseEntity;
-import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
@@ -28,22 +27,16 @@ public class UserTendencyScore extends BaseEntity {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @Column(name = "score1")
     private int principle;
 
-    @Column(name = "score2")
     private int reason;
 
-    @Column(name = "score3")
     private int individual;
 
-    @Column(name = "score4")
     private int change;
 
-    @Column(name = "score5")
     private int inner;
 
-    @Column(name = "score6")
     private int ideal;
 
     @Builder

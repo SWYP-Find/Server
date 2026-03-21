@@ -10,9 +10,11 @@ import com.swyp.app.domain.user.dto.response.NoticeDetailResponse;
 import com.swyp.app.domain.user.dto.response.NoticeListResponse;
 import com.swyp.app.domain.user.dto.response.NotificationSettingsResponse;
 import com.swyp.app.domain.user.dto.response.RecapResponse;
+import com.swyp.app.domain.notice.entity.NoticeType;
 import com.swyp.app.domain.user.entity.ActivityType;
-import com.swyp.app.domain.user.entity.NoticeType;
 import com.swyp.app.domain.user.entity.VoteSide;
+
+import java.util.UUID;
 import com.swyp.app.domain.user.service.MypageService;
 import com.swyp.app.domain.user.service.UserService;
 import com.swyp.app.global.common.response.ApiResponse;
@@ -89,7 +91,7 @@ public class MypageController {
     }
 
     @GetMapping("/notices/{noticeId}")
-    public ApiResponse<NoticeDetailResponse> getNoticeDetail(@PathVariable Long noticeId) {
+    public ApiResponse<NoticeDetailResponse> getNoticeDetail(@PathVariable UUID noticeId) {
         return ApiResponse.onSuccess(mypageService.getNoticeDetail(noticeId));
     }
 }

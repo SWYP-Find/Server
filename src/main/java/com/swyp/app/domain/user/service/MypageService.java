@@ -12,6 +12,10 @@ import com.swyp.app.domain.user.dto.request.UpdateNotificationSettingsRequest;
 import com.swyp.app.domain.user.dto.response.BattleRecordListResponse;
 import com.swyp.app.domain.user.dto.response.ContentActivityListResponse;
 import com.swyp.app.domain.user.dto.response.MypageResponse;
+import com.swyp.app.domain.notice.dto.response.NoticeSummaryResponse;
+import com.swyp.app.domain.notice.entity.NoticePlacement;
+import com.swyp.app.domain.notice.entity.NoticeType;
+import com.swyp.app.domain.notice.service.NoticeService;
 import com.swyp.app.domain.user.dto.response.NoticeDetailResponse;
 import com.swyp.app.domain.user.dto.response.NoticeListResponse;
 import com.swyp.app.domain.user.dto.response.NotificationSettingsResponse;
@@ -19,8 +23,6 @@ import com.swyp.app.domain.user.dto.response.RecapResponse;
 import com.swyp.app.domain.user.dto.response.UserSummary;
 import com.swyp.app.domain.user.entity.ActivityType;
 import com.swyp.app.domain.user.entity.CharacterType;
-import com.swyp.app.domain.user.entity.Notice;
-import com.swyp.app.domain.user.entity.NoticeType;
 import com.swyp.app.domain.user.entity.PhilosopherType;
 import com.swyp.app.domain.user.entity.TierCode;
 import com.swyp.app.domain.user.entity.User;
@@ -28,18 +30,14 @@ import com.swyp.app.domain.user.entity.UserProfile;
 import com.swyp.app.domain.user.entity.UserSettings;
 import com.swyp.app.domain.user.entity.UserTendencyScore;
 import com.swyp.app.domain.user.entity.VoteSide;
-import com.swyp.app.domain.user.repository.NoticeRepository;
 import com.swyp.app.domain.vote.entity.Vote;
 import com.swyp.app.domain.vote.service.VoteQueryService;
-import com.swyp.app.global.common.exception.CustomException;
-import com.swyp.app.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -52,7 +50,7 @@ public class MypageService {
     private static final int DEFAULT_PAGE_SIZE = 20;
 
     private final UserService userService;
-    private final NoticeRepository noticeRepository;
+    private final NoticeService noticeService;
     private final VoteQueryService voteQueryService;
     private final BattleQueryService battleQueryService;
     private final PerspectiveQueryService perspectiveQueryService;
@@ -263,26 +261,26 @@ public class MypageService {
     }
 
     public NoticeListResponse getNotices(NoticeType type) {
-        List<Notice> notices = type == null
-                ? noticeRepository.findAllByOrderByIsPinnedDescPublishedAtDesc()
-                : noticeRepository.findByTypeOrderByIsPinnedDescPublishedAtDesc(type);
+        List<NoticeSummaryResponse> notices = noticeService.getActiveNotices(
+                NoticePlacement.NOTICE_BOARD, type, null
+        );
 
         List<NoticeListResponse.NoticeItem> items = notices.stream()
                 .map(notice -> new NoticeListResponse.NoticeItem(
-                        notice.getId(), notice.getType(), notice.getTitle(),
-                        notice.getBodyPreview(), notice.isPinned(), notice.getPublishedAt()
+                        notice.noticeId(), notice.type(), notice.title(),
+                        notice.body(), notice.pinned(), notice.startsAt()
                 ))
                 .toList();
 
         return new NoticeListResponse(items);
     }
 
-    public NoticeDetailResponse getNoticeDetail(Long noticeId) {
-        Notice notice = noticeRepository.findById(noticeId)
-                .orElseThrow(() -> new CustomException(ErrorCode.COMMON_INVALID_PARAMETER));
+    public NoticeDetailResponse getNoticeDetail(UUID noticeId) {
+        com.swyp.app.domain.notice.dto.response.NoticeDetailResponse notice =
+                noticeService.getNoticeDetail(noticeId);
         return new NoticeDetailResponse(
-                notice.getId(), notice.getType(), notice.getTitle(),
-                notice.getBody(), notice.isPinned(), notice.getPublishedAt()
+                notice.noticeId(), notice.type(), notice.title(),
+                notice.body(), notice.pinned(), notice.startsAt()
         );
     }
 

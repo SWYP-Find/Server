@@ -1,6 +1,15 @@
 package com.swyp.app.domain.user.service;
 
+import com.swyp.app.domain.battle.entity.Battle;
+import com.swyp.app.domain.battle.entity.BattleOption;
 import com.swyp.app.domain.battle.enums.BattleOptionLabel;
+import com.swyp.app.domain.battle.repository.BattleOptionRepository;
+import com.swyp.app.domain.battle.repository.BattleRepository;
+import com.swyp.app.domain.perspective.entity.Perspective;
+import com.swyp.app.domain.perspective.entity.PerspectiveComment;
+import com.swyp.app.domain.perspective.entity.PerspectiveLike;
+import com.swyp.app.domain.perspective.repository.PerspectiveCommentRepository;
+import com.swyp.app.domain.perspective.repository.PerspectiveLikeRepository;
 import com.swyp.app.domain.user.dto.request.UpdateNotificationSettingsRequest;
 import com.swyp.app.domain.user.dto.response.BattleRecordListResponse;
 import com.swyp.app.domain.user.dto.response.ContentActivityListResponse;
@@ -29,8 +38,13 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -42,6 +56,10 @@ public class MypageService {
     private final UserService userService;
     private final NoticeRepository noticeRepository;
     private final VoteRepository voteRepository;
+    private final BattleRepository battleRepository;
+    private final BattleOptionRepository battleOptionRepository;
+    private final PerspectiveCommentRepository perspectiveCommentRepository;
+    private final PerspectiveLikeRepository perspectiveLikeRepository;
 
     public MypageResponse getMypage() {
         User user = userService.findCurrentUser();
@@ -129,8 +147,121 @@ public class MypageService {
     }
 
     public ContentActivityListResponse getContentActivities(Integer offset, Integer size, ActivityType activityType) {
-        // TODO: PerspectiveComment/LikeRepository 연동 필요 - 사용자의 댓글/좋아요 활동 조회
-        return new ContentActivityListResponse(Collections.emptyList(), null, false);
+        User user = userService.findCurrentUser();
+        int pageOffset = offset == null || offset < 0 ? 0 : offset;
+        int pageSize = size == null || size <= 0 ? DEFAULT_PAGE_SIZE : size;
+        PageRequest pageable = PageRequest.of(pageOffset / pageSize, pageSize);
+
+        if (activityType == ActivityType.LIKE) {
+            return getLikeActivities(user, pageOffset, pageSize, pageable);
+        } else if (activityType == ActivityType.COMMENT) {
+            return getCommentActivities(user, pageOffset, pageSize, pageable);
+        }
+
+        // activityType이 null이면 댓글 기준으로 반환 (기본값)
+        return getCommentActivities(user, pageOffset, pageSize, pageable);
+    }
+
+    private ContentActivityListResponse getCommentActivities(User user, int pageOffset, int pageSize, PageRequest pageable) {
+        List<PerspectiveComment> comments = perspectiveCommentRepository.findByUserIdOrderByCreatedAtDesc(user.getId(), pageable);
+        long totalCount = perspectiveCommentRepository.countByUserId(user.getId());
+
+        List<Perspective> perspectives = comments.stream().map(PerspectiveComment::getPerspective).toList();
+        Map<UUID, Battle> battleMap = loadBattles(perspectives);
+        Map<UUID, BattleOption> optionMap = loadOptions(perspectives);
+
+        List<ContentActivityListResponse.ContentActivityItem> items = comments.stream()
+                .map(comment -> {
+                    Perspective perspective = comment.getPerspective();
+                    Battle battle = battleMap.get(perspective.getBattleId());
+                    BattleOption option = optionMap.get(perspective.getOptionId());
+                    return toContentActivityItem(
+                            comment.getId().toString(),
+                            ActivityType.COMMENT,
+                            perspective,
+                            battle,
+                            option,
+                            comment.getContent(),
+                            comment.getCreatedAt()
+                    );
+                })
+                .toList();
+
+        int nextOffset = pageOffset + pageSize;
+        boolean hasNext = nextOffset < totalCount;
+        return new ContentActivityListResponse(items, hasNext ? nextOffset : null, hasNext);
+    }
+
+    private ContentActivityListResponse getLikeActivities(User user, int pageOffset, int pageSize, PageRequest pageable) {
+        List<PerspectiveLike> likes = perspectiveLikeRepository.findByUserIdOrderByCreatedAtDesc(user.getId(), pageable);
+        long totalCount = perspectiveLikeRepository.countByUserId(user.getId());
+
+        List<Perspective> perspectives = likes.stream().map(PerspectiveLike::getPerspective).toList();
+        Map<UUID, Battle> battleMap = loadBattles(perspectives);
+        Map<UUID, BattleOption> optionMap = loadOptions(perspectives);
+
+        List<ContentActivityListResponse.ContentActivityItem> items = likes.stream()
+                .map(like -> {
+                    Perspective perspective = like.getPerspective();
+                    Battle battle = battleMap.get(perspective.getBattleId());
+                    BattleOption option = optionMap.get(perspective.getOptionId());
+                    return toContentActivityItem(
+                            like.getId().toString(),
+                            ActivityType.LIKE,
+                            perspective,
+                            battle,
+                            option,
+                            perspective.getContent(),
+                            like.getCreatedAt()
+                    );
+                })
+                .toList();
+
+        int nextOffset = pageOffset + pageSize;
+        boolean hasNext = nextOffset < totalCount;
+        return new ContentActivityListResponse(items, hasNext ? nextOffset : null, hasNext);
+    }
+
+    private ContentActivityListResponse.ContentActivityItem toContentActivityItem(
+            String activityId, ActivityType activityType, Perspective perspective,
+            Battle battle, BattleOption option,
+            String content, java.time.LocalDateTime createdAt) {
+
+        com.swyp.app.domain.user.dto.response.UserSummary author = userService.findSummaryById(perspective.getUserId());
+        ContentActivityListResponse.AuthorInfo authorInfo = new ContentActivityListResponse.AuthorInfo(
+                author.userTag(), author.nickname(), com.swyp.app.domain.user.entity.CharacterType.from(author.characterType())
+        );
+
+        return new ContentActivityListResponse.ContentActivityItem(
+                activityId,
+                activityType,
+                perspective.getId().toString(),
+                perspective.getBattleId().toString(),
+                battle != null ? battle.getTitle() : null,
+                authorInfo,
+                option != null ? option.getStance() : null,
+                content,
+                perspective.getLikeCount(),
+                createdAt
+        );
+    }
+
+    private Map<UUID, Battle> loadBattles(List<Perspective> perspectives) {
+        List<UUID> battleIds = perspectives.stream()
+                .map(Perspective::getBattleId)
+                .distinct()
+                .toList();
+        return battleRepository.findAllById(battleIds).stream()
+                .collect(Collectors.toMap(Battle::getId, Function.identity()));
+    }
+
+    private Map<UUID, BattleOption> loadOptions(List<Perspective> perspectives) {
+        List<UUID> optionIds = perspectives.stream()
+                .map(Perspective::getOptionId)
+                .distinct()
+                .toList();
+        return battleOptionRepository.findAllById(optionIds).stream()
+                .collect(Collectors.toMap(BattleOption::getId, Function.identity()));
     }
 
     public NotificationSettingsResponse getNotificationSettings() {

@@ -9,6 +9,7 @@ import com.swyp.app.domain.home.dto.response.HomeBattleResponse;
 import com.swyp.app.domain.notice.dto.response.NoticeSummaryResponse;
 import com.swyp.app.domain.notice.entity.NoticePlacement;
 import com.swyp.app.domain.notice.service.NoticeService;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -110,6 +111,45 @@ class HomeServiceTest {
         assertThat(response.bestBattles()).isEmpty();
         assertThat(response.todayPicks()).isEmpty();
         assertThat(response.newBattles()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("에디터픽만 있을때 제외목록이 정확하다")
+    void getHome_excludes_only_editor_pick_ids() {
+        TodayBattleResponse editorPick = battle("editor-only", BATTLE);
+
+        when(noticeService.getActiveNotices(NoticePlacement.HOME_TOP, null, 1)).thenReturn(List.of());
+        when(battleService.getEditorPicks()).thenReturn(List.of(editorPick));
+        when(battleService.getTrendingBattles()).thenReturn(List.of());
+        when(battleService.getBestBattles()).thenReturn(List.of());
+        when(battleService.getTodayPicks(VOTE)).thenReturn(List.of());
+        when(battleService.getTodayPicks(QUIZ)).thenReturn(List.of());
+        when(battleService.getNewBattles(List.of(editorPick.battleId()))).thenReturn(List.of());
+
+        homeService.getHome();
+
+        verify(battleService).getNewBattles(List.of(editorPick.battleId()));
+    }
+
+    @Test
+    @DisplayName("공지가 여러개여도 newNotice는 true이다")
+    void getHome_newNotice_true_with_multiple_notices() {
+        NoticeSummaryResponse notice1 = new NoticeSummaryResponse(
+                UUID.randomUUID(), "notice1", "body1", null,
+                NoticePlacement.HOME_TOP, true, LocalDateTime.now().minusDays(1), null
+        );
+
+        when(noticeService.getActiveNotices(NoticePlacement.HOME_TOP, null, 1)).thenReturn(List.of(notice1));
+        when(battleService.getEditorPicks()).thenReturn(List.of());
+        when(battleService.getTrendingBattles()).thenReturn(List.of());
+        when(battleService.getBestBattles()).thenReturn(List.of());
+        when(battleService.getTodayPicks(VOTE)).thenReturn(List.of());
+        when(battleService.getTodayPicks(QUIZ)).thenReturn(List.of());
+        when(battleService.getNewBattles(List.of())).thenReturn(List.of());
+
+        var response = homeService.getHome();
+
+        assertThat(response.newNotice()).isTrue();
     }
 
     private TodayBattleResponse battle(String title, BattleType type) {

@@ -28,7 +28,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class BattleServiceImplV2 implements HomeServiceV2 {
+public class BattleServiceImplV2 implements HomeBattleService {
 
     private final BattleRepository battleRepository;
     private final BattleOptionRepository battleOptionRepository;

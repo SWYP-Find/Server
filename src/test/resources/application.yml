@@ -11,3 +11,46 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
+
+  cloud:
+    gcp:
+      credentials:
+        location: /tmp/test-gcp.json
+    aws:
+      s3:
+        bucket: test-bucket
+      region:
+        static: ap-northeast-2
+      credentials:
+        access-key: test-access-key
+        secret-key: test-secret-key
+
+oauth:
+  kakao:
+    client-id: test-kakao-client-id
+    client-secret: test-kakao-client-secret
+  google:
+    client-id: test-google-client-id
+    client-secret: test-google-client-secret
+
+jwt:
+  secret: dGVzdC10ZXN0LXRlc3QtdGVzdC10ZXN0LXRlc3QtdGVzdA==
+  access-token-expiration: 1800000
+  refresh-token-expiration: 2592000000
+
+openai:
+  api-key: test-openai-key
+  url: https://api.openai.com/v1/chat/completions
+  model: gpt-4o-mini
+  tts:
+    url: https://api.openai.com/v1/audio/speech
+    model: gpt-4o-mini-tts
+
+elevenlabs:
+  api-key: test-elevenlabs-key
+  model: test-model
+  voice-id:
+    a: test-voice-a
+    b: test-voice-b
+    user: test-voice-user
+    narrator: test-voice-narrator

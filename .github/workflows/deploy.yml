@@ -2,7 +2,7 @@ name: Java CI/CD with Gradle
 
 on:
   push:
-    branches: [ "main" ] # 메인 브랜치에 푸시할 때 작동
+    branches: [ "dev" ] # dev 브랜치에 푸시할 때 작동
 
 jobs:
   deploy:

@@ -7,9 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
-public interface BattleOptionRepository extends JpaRepository<BattleOption, UUID> {
+public interface BattleOptionRepository extends JpaRepository<BattleOption, Long> {
 
     List<BattleOption> findByBattle(Battle battle);
     Optional<BattleOption> findByBattleAndLabel(Battle battle, BattleOptionLabel label);

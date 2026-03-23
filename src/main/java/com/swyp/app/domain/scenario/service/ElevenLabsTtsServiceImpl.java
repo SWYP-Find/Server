@@ -3,7 +3,6 @@ package com.swyp.app.domain.scenario.service;
 import com.swyp.app.domain.scenario.enums.SpeakerType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Primary;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -21,10 +20,8 @@ public class ElevenLabsTtsServiceImpl implements TtsService {
 
     @Value("${elevenlabs.api-key}")
     private String apiKey;
-
     @Value("${elevenlabs.model}")
     private String ttsModel;
-
     @Value("${elevenlabs.voice-id.a}")
     private String voiceA;
     @Value("${elevenlabs.voice-id.b}")

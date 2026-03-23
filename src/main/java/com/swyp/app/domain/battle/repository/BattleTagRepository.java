@@ -6,9 +6,8 @@ import com.swyp.app.domain.tag.entity.Tag;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
-import java.util.UUID;
 
-public interface BattleTagRepository extends JpaRepository<BattleTag, UUID> {
+public interface BattleTagRepository extends JpaRepository<BattleTag, Long> {
     List<BattleTag> findByBattle(Battle battle);
     void deleteByBattle(Battle battle);
     boolean existsByTag(Tag tag);

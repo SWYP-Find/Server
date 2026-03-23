@@ -32,7 +32,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -49,7 +48,7 @@ public class BattleServiceImpl implements BattleService {
     private final BattleConverter battleConverter;
 
     @Override
-    public Battle findById(UUID battleId) {
+    public Battle findById(Long battleId) {
         Battle battle = battleRepository.findById(battleId)
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_NOT_FOUND));
 
@@ -87,9 +86,9 @@ public class BattleServiceImpl implements BattleService {
     }
 
     @Override
-    public List<TodayBattleResponse> getNewBattles(List<UUID> excludeIds) {
-        List<UUID> finalExcludeIds = (excludeIds == null || excludeIds.isEmpty())
-                ? List.of(UUID.randomUUID()) : excludeIds;
+    public List<TodayBattleResponse> getNewBattles(List<Long> excludeIds) {
+        List<Long> finalExcludeIds = (excludeIds == null || excludeIds.isEmpty())
+                ? List.of(-1L) : excludeIds;
         List<Battle> battles = battleRepository.findNewBattlesExcluding(finalExcludeIds, PageRequest.of(0, 10));
         return convertToTodayResponses(battles);
     }
@@ -105,7 +104,7 @@ public class BattleServiceImpl implements BattleService {
     }
 
     @Override
-    public BattleUserDetailResponse getBattleDetail(UUID battleId) {
+    public BattleUserDetailResponse getBattleDetail(Long battleId) {
         Battle battle = findById(battleId);
         battle.increaseViewCount();
 
@@ -121,7 +120,7 @@ public class BattleServiceImpl implements BattleService {
 
     @Override
     @Transactional
-    public BattleVoteResponse vote(UUID battleId, UUID optionId) {
+    public BattleVoteResponse vote(Long battleId, Long optionId) {
         Battle battle = findById(battleId);
         BattleOption option = battleOptionRepository.findById(optionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));
@@ -174,7 +173,7 @@ public class BattleServiceImpl implements BattleService {
         return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), savedOptions);
     }
 
-    private void saveBattleOptionTags(BattleOption option, List<UUID> tagIds) {
+    private void saveBattleOptionTags(BattleOption option, List<Long> tagIds) {
         tagRepository.findAllById(tagIds).stream()
                 .filter(t -> t.getDeletedAt() == null)
                 .forEach(t -> battleOptionTagRepository.save(
@@ -185,7 +184,7 @@ public class BattleServiceImpl implements BattleService {
     @Override
     @Transactional
     @PreAuthorize("hasRole('ADMIN')")
-    public AdminBattleDetailResponse updateBattle(UUID battleId, AdminBattleUpdateRequest request) {
+    public AdminBattleDetailResponse updateBattle(Long battleId, AdminBattleUpdateRequest request) {
         Battle battle = findById(battleId);
         battle.update(request.title(), request.summary(), request.description(),
                 request.thumbnailUrl(), request.targetDate(), request.audioDuration(), request.status());
@@ -201,7 +200,7 @@ public class BattleServiceImpl implements BattleService {
     @Override
     @Transactional
     @PreAuthorize("hasRole('ADMIN')")
-    public AdminBattleDeleteResponse deleteBattle(UUID battleId) {
+    public AdminBattleDeleteResponse deleteBattle(Long battleId) {
         Battle battle = findById(battleId);
         battle.delete();
         return new AdminBattleDeleteResponse(true, LocalDateTime.now());
@@ -224,20 +223,20 @@ public class BattleServiceImpl implements BattleService {
                 .toList();
     }
 
-    private void saveBattleTags(Battle b, List<UUID> ids) {
+    private void saveBattleTags(Battle b, List<Long> ids) {
         tagRepository.findAllById(ids).stream()
                 .filter(t -> t.getDeletedAt() == null)
                 .forEach(t -> battleTagRepository.save(BattleTag.builder().battle(b).tag(t).build()));
     }
 
     @Override
-    public BattleOption findOptionById(UUID optionId) {
+    public BattleOption findOptionById(Long optionId) {
         return battleOptionRepository.findById(optionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));
     }
 
     @Override
-    public BattleOption findOptionByBattleIdAndLabel(UUID battleId, BattleOptionLabel label) {
+    public BattleOption findOptionByBattleIdAndLabel(Long battleId, BattleOptionLabel label) {
         Battle b = findById(battleId);
         return battleOptionRepository.findByBattleAndLabel(b, label)
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));

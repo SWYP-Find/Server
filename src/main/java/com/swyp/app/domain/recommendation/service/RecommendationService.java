@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -18,7 +17,7 @@ public class RecommendationService {
     private final BattleService battleService;
     private final TagService tagService;
 
-    public RecommendationListResponse getInterestingBattles(UUID battleId, String cursor, Integer size) {
+    public RecommendationListResponse getInterestingBattles(Long battleId, String cursor, Integer size) {
         battleService.findById(battleId);
 
         // TODO: 흥미 기반 배틀 추천 정책 미확정 (추후 구현)

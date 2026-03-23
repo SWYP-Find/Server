@@ -13,8 +13,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.UUID;
-
 @Tag(name = "태그 (Tag)", description = "태그 조회 및 관리 API")
 @RestController
 @RequiredArgsConstructor
@@ -47,8 +45,8 @@ public class TagController {
     @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/admin/tags/{tag_id}")
     public ApiResponse<TagResponse> updateTag(
-            @Parameter(description = "수정할 태그의 UUID", example = "123e4567-e89b-12d3-a456-426614174000")
-            @PathVariable("tag_id") UUID tagId,
+            @Parameter(description = "수정할 태그의 ID", example = "1")
+            @PathVariable("tag_id") Long tagId,
             @Valid @RequestBody TagRequest request) {
 
         TagResponse response = tagService.updateTag(tagId, request);
@@ -59,8 +57,8 @@ public class TagController {
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/admin/tags/{tag_id}")
     public ApiResponse<TagDeleteResponse> deleteTag(
-            @Parameter(description = "삭제할 태그의 UUID", example = "123e4567-e89b-12d3-a456-426614174000")
-            @PathVariable("tag_id") UUID tagId) {
+            @Parameter(description = "삭제할 태그의 ID", example = "1")
+            @PathVariable("tag_id") Long tagId) {
 
         TagDeleteResponse response = tagService.deleteTag(tagId);
         return ApiResponse.onSuccess(response);

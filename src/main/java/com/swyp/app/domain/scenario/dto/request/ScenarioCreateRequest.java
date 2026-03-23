@@ -1,10 +1,9 @@
 package com.swyp.app.domain.scenario.dto.request;
 
 import java.util.List;
-import java.util.UUID;
 
 public record ScenarioCreateRequest(
-        UUID battleId,
+        Long battleId,
         Boolean isInteractive,
         List<NodeRequest> nodes
 ) {}

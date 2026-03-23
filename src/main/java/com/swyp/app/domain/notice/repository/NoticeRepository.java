@@ -1,8 +1,8 @@
 package com.swyp.app.domain.notice.repository;
 
 import com.swyp.app.domain.notice.entity.Notice;
-import com.swyp.app.domain.notice.entity.NoticePlacement;
-import com.swyp.app.domain.notice.entity.NoticeType;
+import com.swyp.app.domain.notice.enums.NoticePlacement;
+import com.swyp.app.domain.notice.enums.NoticeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -11,9 +11,8 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
-public interface NoticeRepository extends JpaRepository<Notice, UUID> {
+public interface NoticeRepository extends JpaRepository<Notice, Long> {
 
     @Query("SELECT notice FROM Notice notice " +
             "WHERE notice.deletedAt IS NULL " +
@@ -32,5 +31,5 @@ public interface NoticeRepository extends JpaRepository<Notice, UUID> {
             "AND notice.deletedAt IS NULL " +
             "AND notice.startsAt <= :now " +
             "AND (notice.endsAt IS NULL OR notice.endsAt >= :now)")
-    Optional<Notice> findActiveById(@Param("noticeId") UUID noticeId, @Param("now") LocalDateTime now);
+    Optional<Notice> findActiveById(@Param("noticeId") Long noticeId, @Param("now") LocalDateTime now);
 }

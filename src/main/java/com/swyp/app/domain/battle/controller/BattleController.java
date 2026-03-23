@@ -9,8 +9,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.UUID;
-
 @Tag(name = "배틀 API (사용자)", description = "배틀 조회")
 @RestController
 @RequestMapping("/api/v1/battles")
@@ -28,7 +26,7 @@ public class BattleController {
     @Operation(summary = "배틀 상세 조회")
     @GetMapping("/{battleId}")
     public ApiResponse<BattleUserDetailResponse> getBattleDetail(
-            @PathVariable UUID battleId
+            @PathVariable Long battleId
     ) {
         return ApiResponse.onSuccess(battleService.getBattleDetail(battleId));
     }

@@ -12,7 +12,6 @@ import com.swyp.app.domain.scenario.enums.AudioPathType;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Component
@@ -26,7 +25,7 @@ public class ScenarioConverter {
     public UserScenarioResponse toUserResponse(Scenario scenario, AudioPathType recommendedPathKey) {
 
         // 1. 시작 노드 ID 찾기
-        UUID startNodeId = scenario.getNodes().stream()
+        Long startNodeId = scenario.getNodes().stream()
                 .filter(node -> Boolean.TRUE.equals(node.getIsStartNode()))
                 .map(ScenarioNode::getId)
                 .findFirst()

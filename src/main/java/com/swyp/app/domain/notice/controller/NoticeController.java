@@ -2,8 +2,8 @@ package com.swyp.app.domain.notice.controller;
 
 import com.swyp.app.domain.notice.dto.response.NoticeDetailResponse;
 import com.swyp.app.domain.notice.dto.response.NoticeListResponse;
-import com.swyp.app.domain.notice.entity.NoticePlacement;
-import com.swyp.app.domain.notice.entity.NoticeType;
+import com.swyp.app.domain.notice.enums.NoticePlacement;
+import com.swyp.app.domain.notice.enums.NoticeType;
 import com.swyp.app.domain.notice.service.NoticeService;
 import com.swyp.app.global.common.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -14,8 +14,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.UUID;
 
 @Tag(name = "공지 API", description = "공지사항 조회")
 @RestController
@@ -37,7 +35,7 @@ public class NoticeController {
 
     @Operation(summary = "활성 공지 상세 조회")
     @GetMapping("/{noticeId}")
-    public ApiResponse<NoticeDetailResponse> getNoticeDetail(@PathVariable UUID noticeId) {
+    public ApiResponse<NoticeDetailResponse> getNoticeDetail(@PathVariable Long noticeId) {
         return ApiResponse.onSuccess(noticeService.getNoticeDetail(noticeId));
     }
 }

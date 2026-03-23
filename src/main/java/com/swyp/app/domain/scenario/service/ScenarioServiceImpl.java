@@ -33,7 +33,6 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -47,7 +46,7 @@ public class ScenarioServiceImpl implements ScenarioService {
     private final ScenarioAudioPipelineService audioPipelineService;
 
     @Override
-    public UserScenarioResponse getScenarioForUser(UUID battleId, Long userId) {
+    public UserScenarioResponse getScenarioForUser(Long battleId, Long userId) {
         Scenario scenario = scenarioRepository.findByBattleIdAndStatus(battleId, ScenarioStatus.PUBLISHED)
                 .orElseThrow(() -> new CustomException(ErrorCode.SCENARIO_NOT_FOUND));
 
@@ -71,7 +70,7 @@ public class ScenarioServiceImpl implements ScenarioService {
     @Override
     @Transactional
     @PreAuthorize("hasRole('ADMIN')")
-    public UUID createScenario(ScenarioCreateRequest request) {
+    public Long createScenario(ScenarioCreateRequest request) {
         if (scenarioRepository.existsByBattleId(request.battleId())) {
             throw new CustomException(ErrorCode.SCENARIO_ALREADY_EXISTS);
         }
@@ -94,7 +93,7 @@ public class ScenarioServiceImpl implements ScenarioService {
     @Override
     @Transactional
     @PreAuthorize("hasRole('ADMIN')")
-    public void updateScenarioContent(UUID scenarioId, ScenarioCreateRequest request) {
+    public void updateScenarioContent(Long scenarioId, ScenarioCreateRequest request) {
         Scenario scenario = scenarioRepository.findById(scenarioId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SCENARIO_NOT_FOUND));
 
@@ -111,7 +110,7 @@ public class ScenarioServiceImpl implements ScenarioService {
     @Override
     @Transactional
     @PreAuthorize("hasRole('ADMIN')")
-    public AdminScenarioResponse updateScenarioStatus(UUID scenarioId, ScenarioStatus status) {
+    public AdminScenarioResponse updateScenarioStatus(Long scenarioId, ScenarioStatus status) {
         Scenario scenario = scenarioRepository.findById(scenarioId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SCENARIO_NOT_FOUND));
 
@@ -141,7 +140,7 @@ public class ScenarioServiceImpl implements ScenarioService {
     @Override
     @Transactional
     @PreAuthorize("hasRole('ADMIN')")
-    public AdminDeleteResponse deleteScenario(UUID scenarioId) {
+    public AdminDeleteResponse deleteScenario(Long scenarioId) {
         Scenario scenario = scenarioRepository.findById(scenarioId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SCENARIO_NOT_FOUND));
 
@@ -176,7 +175,7 @@ public class ScenarioServiceImpl implements ScenarioService {
             scenario.addNode(node);
         }
 
-        // DB에 저장해서 모든 노드의 UUID를 발급받습니다.
+        // DB에 저장해서 모든 노드의 ID를 발급받습니다.
         scenarioRepository.saveAndFlush(scenario);
 
         // 발급받은 ID를 가진 노드들로 nodeMap을 다시 만듭니다.

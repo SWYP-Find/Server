@@ -21,8 +21,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.UUID;
-
 @Tag(name = "관점 댓글 (Comment)", description = "관점 댓글 생성, 조회, 수정, 삭제 API")
 @RestController
 @RequestMapping("/api/v1")
@@ -34,7 +32,7 @@ public class PerspectiveCommentController {
     @Operation(summary = "댓글 생성", description = "특정 관점에 댓글을 작성합니다.")
     @PostMapping("/perspectives/{perspectiveId}/comments")
     public ApiResponse<CreateCommentResponse> createComment(
-            @PathVariable UUID perspectiveId,
+            @PathVariable Long perspectiveId,
             @RequestBody @Valid CreateCommentRequest request
     ) {
         // TODO: Security 적용 후 @AuthenticationPrincipal로 userId 교체
@@ -45,7 +43,7 @@ public class PerspectiveCommentController {
     @Operation(summary = "댓글 목록 조회", description = "특정 관점의 댓글 목록을 커서 기반 페이지네이션으로 조회합니다.")
     @GetMapping("/perspectives/{perspectiveId}/comments")
     public ApiResponse<CommentListResponse> getComments(
-            @PathVariable UUID perspectiveId,
+            @PathVariable Long perspectiveId,
             @RequestParam(required = false) String cursor,
             @RequestParam(required = false) Integer size
     ) {
@@ -57,8 +55,8 @@ public class PerspectiveCommentController {
     @Operation(summary = "댓글 삭제", description = "본인이 작성한 댓글을 삭제합니다.")
     @DeleteMapping("/perspectives/{perspectiveId}/comments/{commentId}")
     public ApiResponse<Void> deleteComment(
-            @PathVariable UUID perspectiveId,
-            @PathVariable UUID commentId
+            @PathVariable Long perspectiveId,
+            @PathVariable Long commentId
     ) {
         // TODO: Security 적용 후 @AuthenticationPrincipal로 userId 교체
         Long userId = 1L;
@@ -69,8 +67,8 @@ public class PerspectiveCommentController {
     @Operation(summary = "댓글 수정", description = "본인이 작성한 댓글의 내용을 수정합니다.")
     @PatchMapping("/perspectives/{perspectiveId}/comments/{commentId}")
     public ApiResponse<UpdateCommentResponse> updateComment(
-            @PathVariable UUID perspectiveId,
-            @PathVariable UUID commentId,
+            @PathVariable Long perspectiveId,
+            @PathVariable Long commentId,
             @RequestBody @Valid UpdateCommentRequest request
     ) {
         // TODO: Security 적용 후 @AuthenticationPrincipal로 userId 교체

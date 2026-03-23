@@ -9,18 +9,12 @@ import lombok.NoArgsConstructor;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 @Entity
 @Table(name = "scenario_nodes")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ScenarioNode extends BaseEntity {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "node_id", updatable = false, nullable = false)
-    private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "scenario_id")
@@ -36,7 +30,7 @@ public class ScenarioNode extends BaseEntity {
     private Integer audioDuration;
 
     @Column(name = "auto_next_node_id")
-    private UUID autoNextNodeId;
+    private Long autoNextNodeId;
 
     @OneToMany(mappedBy = "node", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Script> scripts = new ArrayList<>();
@@ -45,7 +39,7 @@ public class ScenarioNode extends BaseEntity {
     private List<InteractiveOption> options = new ArrayList<>();
 
     @Builder
-    public ScenarioNode(String nodeName, Boolean isStartNode, Integer audioDuration, UUID autoNextNodeId) {
+    public ScenarioNode(String nodeName, Boolean isStartNode, Integer audioDuration, Long autoNextNodeId) {
         this.nodeName = nodeName;
         this.isStartNode = isStartNode;
         this.audioDuration = audioDuration;
@@ -66,7 +60,7 @@ public class ScenarioNode extends BaseEntity {
         option.assignNode(this);
     }
 
-    public void updateAutoNextNodeId(UUID autoNextNodeId) {
+    public void updateAutoNextNodeId(Long autoNextNodeId) {
         this.autoNextNodeId = autoNextNodeId;
     }
 

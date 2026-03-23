@@ -19,11 +19,6 @@ import java.util.*;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Scenario extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "scenario_id", updatable = false, nullable = false)
-    private UUID id;
-
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "battle_id", nullable = false)
     private Battle battle;

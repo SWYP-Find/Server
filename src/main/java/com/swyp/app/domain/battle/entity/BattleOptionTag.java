@@ -1,13 +1,12 @@
 package com.swyp.app.domain.battle.entity;
 
 import com.swyp.app.domain.tag.entity.Tag;
+import com.swyp.app.global.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.util.UUID;
 
 @Getter
 @Entity
@@ -16,11 +15,7 @@ import java.util.UUID;
         uniqueConstraints = @UniqueConstraint(columnNames = {"battle_option_id", "tag_id"})
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class BattleOptionTag {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+public class BattleOptionTag extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "battle_option_id", nullable = false)

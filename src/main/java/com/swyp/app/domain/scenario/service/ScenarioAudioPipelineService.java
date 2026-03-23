@@ -28,7 +28,7 @@ public class ScenarioAudioPipelineService {
 
     @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW) // 비동기 전용 독립 트랜잭션 보장
-    public void generateAndMergeAudioAsync(UUID scenarioId) {
+    public void generateAndMergeAudioAsync(Long scenarioId) {
         // 부모 트랜잭션이 커밋된 후에 도는 것이므로 데이터가 완벽하게 보입니다.
         Scenario scenario = scenarioRepository.findById(scenarioId).orElseThrow();
 
@@ -38,7 +38,7 @@ public class ScenarioAudioPipelineService {
 
         try {
             log.info("--- [1단계] TTS API 호출 및 캐싱 ---");
-            Map<UUID, File> ttsCache = new HashMap<>();
+            Map<Long, File> ttsCache = new HashMap<>();
             int apiCallCount = 0;
 
             for (ScenarioNode node : scenario.getNodes()) {
@@ -73,7 +73,7 @@ public class ScenarioAudioPipelineService {
         }
     }
 
-    private void processPathAndMerge(Scenario scenario, List<ScenarioNode> path, Map<UUID, File> cache, File silence) throws Exception {
+    private void processPathAndMerge(Scenario scenario, List<ScenarioNode> path, Map<Long, File> cache, File silence) throws Exception {
         List<File> segments = new ArrayList<>();
         int currentTimeMs = 0;
 
@@ -140,7 +140,7 @@ public class ScenarioAudioPipelineService {
         return AudioPathType.COMMON;
     }
 
-    private void cleanUpFiles(Map<UUID, File> cache, File silence) {
+    private void cleanUpFiles(Map<Long, File> cache, File silence) {
         cache.values().forEach(File::delete);
         if (silence != null) silence.delete();
     }

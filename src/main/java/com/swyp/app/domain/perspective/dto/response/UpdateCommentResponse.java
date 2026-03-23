@@ -1,10 +1,9 @@
 package com.swyp.app.domain.perspective.dto.response;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 public record UpdateCommentResponse(
-        UUID commentId,
+        Long commentId,
         String content,
         LocalDateTime updatedAt
 ) {}

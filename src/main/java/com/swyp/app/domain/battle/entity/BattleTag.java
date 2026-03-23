@@ -1,11 +1,9 @@
 package com.swyp.app.domain.battle.entity;
 
 import com.swyp.app.domain.tag.entity.Tag;
+import com.swyp.app.global.common.BaseEntity;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -15,8 +13,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.util.UUID;
-
 @Getter
 @Entity
 @Table(
@@ -24,11 +20,7 @@ import java.util.UUID;
         uniqueConstraints = @UniqueConstraint(columnNames = {"battle_id", "tag_id"})
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class BattleTag {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+public class BattleTag extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "battle_id", nullable = false)

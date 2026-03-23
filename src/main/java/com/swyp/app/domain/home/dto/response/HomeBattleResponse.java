@@ -4,10 +4,9 @@ import com.swyp.app.domain.battle.dto.response.BattleTagResponse;
 import com.swyp.app.domain.battle.enums.BattleType;
 
 import java.util.List;
-import java.util.UUID;
 
 public record HomeBattleResponse(
-        UUID battleId,
+        Long battleId,
         String title,
         String summary,
         String thumbnailUrl,

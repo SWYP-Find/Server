@@ -14,8 +14,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.UUID;
-
 @Tag(name = "관점 좋아요 (Like)", description = "관점 좋아요 조회, 등록, 취소 API")
 @RestController
 @RequestMapping("/api/v1")
@@ -26,13 +24,13 @@ public class PerspectiveLikeController {
 
     @Operation(summary = "좋아요 수 조회", description = "특정 관점의 좋아요 수를 조회합니다.")
     @GetMapping("/perspectives/{perspectiveId}/likes")
-    public ApiResponse<LikeCountResponse> getLikeCount(@PathVariable UUID perspectiveId) {
+    public ApiResponse<LikeCountResponse> getLikeCount(@PathVariable Long perspectiveId) {
         return ApiResponse.onSuccess(likeService.getLikeCount(perspectiveId));
     }
 
     @Operation(summary = "좋아요 등록", description = "특정 관점에 좋아요를 등록합니다.")
     @PostMapping("/perspectives/{perspectiveId}/likes")
-    public ApiResponse<LikeResponse> addLike(@PathVariable UUID perspectiveId) {
+    public ApiResponse<LikeResponse> addLike(@PathVariable Long perspectiveId) {
         // TODO: Security 적용 후 @AuthenticationPrincipal로 userId 교체
         Long userId = 1L;
         return ApiResponse.onSuccess(likeService.addLike(perspectiveId, userId));
@@ -40,7 +38,7 @@ public class PerspectiveLikeController {
 
     @Operation(summary = "좋아요 취소", description = "특정 관점에 등록한 좋아요를 취소합니다.")
     @DeleteMapping("/perspectives/{perspectiveId}/likes")
-    public ApiResponse<LikeResponse> removeLike(@PathVariable UUID perspectiveId) {
+    public ApiResponse<LikeResponse> removeLike(@PathVariable Long perspectiveId) {
         // TODO: Security 적용 후 @AuthenticationPrincipal로 userId 교체
         Long userId = 1L;
         return ApiResponse.onSuccess(likeService.removeLike(perspectiveId, userId));

@@ -8,18 +8,11 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.util.UUID;
-
 @Entity
 @Table(name = "scenario_scripts")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Script extends BaseEntity {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "script_id", updatable = false, nullable = false)
-    private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "node_id")

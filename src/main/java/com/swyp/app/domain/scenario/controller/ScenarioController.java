@@ -15,7 +15,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
-import java.util.UUID;
 
 @Tag(name = "시나리오 (Scenario)", description = "시나리오 API")
 @RestController
@@ -28,7 +27,7 @@ public class ScenarioController {
     @Operation(summary = "배틀 - 시나리오 조회")
     @GetMapping("/battles/{battleId}/scenario")
     public ApiResponse<UserScenarioResponse> getBattleScenario(
-            @PathVariable UUID battleId,
+            @PathVariable Long battleId,
             @RequestAttribute(value = "userId", required = false) Long userId
     ) {
         return ApiResponse.onSuccess(scenarioService.getScenarioForUser(battleId, userId));
@@ -41,7 +40,7 @@ public class ScenarioController {
     public ApiResponse<Map<String, Object>> createScenario(
             @RequestBody ScenarioCreateRequest request) {
 
-        UUID scenarioId = scenarioService.createScenario(request);
+        Long scenarioId = scenarioService.createScenario(request);
         return ApiResponse.onSuccess(Map.of("scenarioId", scenarioId, "status", "DRAFT"));
     }
 
@@ -49,7 +48,7 @@ public class ScenarioController {
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/admin/scenarios/{scenarioId}")
     public ApiResponse<Void> updateScenarioContent(
-            @PathVariable UUID scenarioId,
+            @PathVariable Long scenarioId,
             @RequestBody ScenarioCreateRequest request) {
 
         scenarioService.updateScenarioContent(scenarioId, request);
@@ -60,7 +59,7 @@ public class ScenarioController {
     @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/admin/scenarios/{scenarioId}")
     public ApiResponse<AdminScenarioResponse> updateScenarioStatus(
-            @PathVariable UUID scenarioId,
+            @PathVariable Long scenarioId,
             @RequestBody ScenarioStatusUpdateRequest request) {
 
         scenarioService.updateScenarioStatus(scenarioId, request.status());
@@ -71,7 +70,7 @@ public class ScenarioController {
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/admin/scenarios/{scenarioId}")
     public ApiResponse<AdminDeleteResponse> deleteScenario(
-            @PathVariable UUID scenarioId) {
+            @PathVariable Long scenarioId) {
 
         scenarioService.deleteScenario(scenarioId);
         return ApiResponse.onSuccess(scenarioService.deleteScenario(scenarioId));

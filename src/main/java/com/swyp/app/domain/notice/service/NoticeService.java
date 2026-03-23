@@ -4,8 +4,8 @@ import com.swyp.app.domain.notice.dto.response.NoticeDetailResponse;
 import com.swyp.app.domain.notice.dto.response.NoticeListResponse;
 import com.swyp.app.domain.notice.dto.response.NoticeSummaryResponse;
 import com.swyp.app.domain.notice.entity.Notice;
-import com.swyp.app.domain.notice.entity.NoticePlacement;
-import com.swyp.app.domain.notice.entity.NoticeType;
+import com.swyp.app.domain.notice.enums.NoticePlacement;
+import com.swyp.app.domain.notice.enums.NoticeType;
 import com.swyp.app.domain.notice.repository.NoticeRepository;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
@@ -16,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -40,7 +39,7 @@ public class NoticeService {
         return new NoticeListResponse(items, items.size());
     }
 
-    public NoticeDetailResponse getNoticeDetail(UUID noticeId) {
+    public NoticeDetailResponse getNoticeDetail(Long noticeId) {
         Notice notice = noticeRepository.findActiveById(noticeId, LocalDateTime.now())
                 .orElseThrow(() -> new CustomException(ErrorCode.NOTICE_NOT_FOUND));
 

@@ -2,7 +2,6 @@ package com.swyp.app.domain.perspective.dto.response;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 public record PerspectiveListResponse(
         List<Item> items,
@@ -10,7 +9,7 @@ public record PerspectiveListResponse(
         boolean hasNext
 ) {
     public record Item(
-            UUID perspectiveId,
+            Long perspectiveId,
             UserSummary user,
             OptionSummary option,
             String content,
@@ -27,7 +26,7 @@ public record PerspectiveListResponse(
     ) {}
 
     public record OptionSummary(
-            UUID optionId,
+            Long optionId,
             String label,
             String title
     ) {}

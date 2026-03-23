@@ -12,8 +12,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.UUID;
-
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -22,14 +20,14 @@ public class PerspectiveLikeService {
     private final PerspectiveRepository perspectiveRepository;
     private final PerspectiveLikeRepository likeRepository;
 
-    public LikeCountResponse getLikeCount(UUID perspectiveId) {
+    public LikeCountResponse getLikeCount(Long perspectiveId) {
         Perspective perspective = findPerspectiveById(perspectiveId);
         long likeCount = likeRepository.countByPerspective(perspective);
         return new LikeCountResponse(perspective.getId(), likeCount);
     }
 
     @Transactional
-    public LikeResponse addLike(UUID perspectiveId, Long userId) {
+    public LikeResponse addLike(Long perspectiveId, Long userId) {
         Perspective perspective = findPerspectiveById(perspectiveId);
 
         if (perspective.getUserId().equals(userId)) {
@@ -50,7 +48,7 @@ public class PerspectiveLikeService {
     }
 
     @Transactional
-    public LikeResponse removeLike(UUID perspectiveId, Long userId) {
+    public LikeResponse removeLike(Long perspectiveId, Long userId) {
         Perspective perspective = findPerspectiveById(perspectiveId);
 
         PerspectiveLike like = likeRepository.findByPerspectiveAndUserId(perspective, userId)
@@ -62,7 +60,7 @@ public class PerspectiveLikeService {
         return new LikeResponse(perspective.getId(), perspective.getLikeCount(), false);
     }
 
-    private Perspective findPerspectiveById(UUID perspectiveId) {
+    private Perspective findPerspectiveById(Long perspectiveId) {
         return perspectiveRepository.findById(perspectiveId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PERSPECTIVE_NOT_FOUND));
     }

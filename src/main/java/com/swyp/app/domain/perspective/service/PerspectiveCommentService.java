@@ -20,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -34,7 +33,7 @@ public class PerspectiveCommentService {
     private final UserService userQueryService;
 
     @Transactional
-    public CreateCommentResponse createComment(UUID perspectiveId, Long userId, CreateCommentRequest request) {
+    public CreateCommentResponse createComment(Long perspectiveId, Long userId, CreateCommentRequest request) {
         Perspective perspective = findPerspectiveById(perspectiveId);
 
         PerspectiveComment comment = PerspectiveComment.builder()
@@ -55,7 +54,7 @@ public class PerspectiveCommentService {
         );
     }
 
-    public CommentListResponse getComments(UUID perspectiveId, Long userId, String cursor, Integer size) {
+    public CommentListResponse getComments(Long perspectiveId, Long userId, String cursor, Integer size) {
         Perspective perspective = findPerspectiveById(perspectiveId);
 
         int pageSize = (size == null || size <= 0) ? DEFAULT_PAGE_SIZE : size;
@@ -87,7 +86,7 @@ public class PerspectiveCommentService {
     }
 
     @Transactional
-    public void deleteComment(UUID perspectiveId, UUID commentId, Long userId) {
+    public void deleteComment(Long perspectiveId, Long commentId, Long userId) {
         Perspective perspective = findPerspectiveById(perspectiveId);
         PerspectiveComment comment = findCommentById(commentId);
         validateOwnership(comment, userId);
@@ -97,7 +96,7 @@ public class PerspectiveCommentService {
     }
 
     @Transactional
-    public UpdateCommentResponse updateComment(UUID perspectiveId, UUID commentId, Long userId, UpdateCommentRequest request) {
+    public UpdateCommentResponse updateComment(Long perspectiveId, Long commentId, Long userId, UpdateCommentRequest request) {
         findPerspectiveById(perspectiveId);
         PerspectiveComment comment = findCommentById(commentId);
         validateOwnership(comment, userId);
@@ -106,12 +105,12 @@ public class PerspectiveCommentService {
         return new UpdateCommentResponse(comment.getId(), comment.getContent(), comment.getUpdatedAt());
     }
 
-    private Perspective findPerspectiveById(UUID perspectiveId) {
+    private Perspective findPerspectiveById(Long perspectiveId) {
         return perspectiveRepository.findById(perspectiveId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PERSPECTIVE_NOT_FOUND));
     }
 
-    private PerspectiveComment findCommentById(UUID commentId) {
+    private PerspectiveComment findCommentById(Long commentId) {
         return commentRepository.findById(commentId)
                 .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
     }

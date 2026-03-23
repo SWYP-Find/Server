@@ -7,7 +7,7 @@ import com.swyp.app.domain.battle.service.BattleService;
 import com.swyp.app.domain.home.dto.response.HomeBattleOptionResponse;
 import com.swyp.app.domain.home.dto.response.HomeBattleResponse;
 import com.swyp.app.domain.home.dto.response.HomeResponse;
-import com.swyp.app.domain.notice.entity.NoticePlacement;
+import com.swyp.app.domain.notice.enums.NoticePlacement;
 import com.swyp.app.domain.notice.service.NoticeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -38,7 +37,7 @@ public class HomeService {
         todayPicks.addAll(toHomeBattles(battleService.getTodayPicks(BattleType.VOTE)));
         todayPicks.addAll(toHomeBattles(battleService.getTodayPicks(BattleType.QUIZ)));
 
-        List<UUID> excludeIds = collectBattleIds(editorPicks, trendingBattles, bestBattles, todayPicks);
+        List<Long> excludeIds = collectBattleIds(editorPicks, trendingBattles, bestBattles, todayPicks);
         List<HomeBattleResponse> newBattles = toHomeBattles(battleService.getNewBattles(excludeIds));
 
         return new HomeResponse(
@@ -79,7 +78,7 @@ public class HomeService {
     }
 
     @SafeVarargs
-    private List<UUID> collectBattleIds(List<HomeBattleResponse>... groups) {
+    private List<Long> collectBattleIds(List<HomeBattleResponse>... groups) {
         return List.of(groups).stream()
                 .flatMap(List::stream)
                 .map(HomeBattleResponse::battleId)

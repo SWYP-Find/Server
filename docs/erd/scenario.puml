@@ -20,7 +20,7 @@ entity "users\n사용자" as users {
 }
 
 entity "BATTLES\n배틀(주제)" as battles {
-  * id : UUID <<PK>>
+  * id : Long <<PK>>
   --
   title : VARCHAR(255)
   summary : VARCHAR(500)
@@ -37,9 +37,9 @@ entity "BATTLES\n배틀(주제)" as battles {
 
 
 entity "SCENARIOS\n시나리오 마스터" as scenarios {
-  * id : UUID <<PK>>
+  * id : Long <<PK>>
   --
-  battle_id : UUID <<FK>>
+  battle_id : Long <<FK>>
   creator_type : ENUM('ADMIN', 'USER', 'AI')
   creator_id : BIGINT <<FK>> (nullable)
   is_interactive : BOOLEAN
@@ -50,9 +50,9 @@ entity "SCENARIOS\n시나리오 마스터" as scenarios {
 }
 
 entity "SCENARIO_NODES\n시나리오 노드 (오디오/분기 통합)" as scenario_nodes {
-  * id : UUID <<PK>>
+  * id : Long <<PK>>
   --
-  scenario_id : UUID <<FK>>
+  scenario_id : Long <<FK>>
   node_name : VARCHAR(100)
   audio_url : VARCHAR(500)
   audio_duration : INT
@@ -61,9 +61,9 @@ entity "SCENARIO_NODES\n시나리오 노드 (오디오/분기 통합)" as scenar
 }
 
 entity "SCENARIO_SCRIPTS\n대본(말풍선)" as scenario_scripts {
-  * id : UUID <<PK>>
+  * id : Long <<PK>>
   --
-  node_id : UUID <<FK>>
+  node_id : Long <<FK>>
   start_time : INT
   speaker_name : VARCHAR(100)
   speaker_side : ENUM('A', 'B', 'NONE')

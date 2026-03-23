@@ -1,5 +1,3 @@
 package com.swyp.app.domain.perspective.dto.response;
 
-import java.util.UUID;
-
-public record LikeResponse(UUID perspectiveId, int likeCount, boolean isLiked) {}
+public record LikeResponse(Long perspectiveId, int likeCount, boolean isLiked) {}

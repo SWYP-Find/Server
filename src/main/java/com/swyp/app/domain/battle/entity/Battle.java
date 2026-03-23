@@ -13,17 +13,12 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Getter
 @Entity
 @Table(name = "battles")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Battle extends BaseEntity {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
 
     @Column(nullable = false)
     private String title;

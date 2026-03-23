@@ -7,7 +7,6 @@ import com.swyp.app.domain.battle.enums.BattleType;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * 관리자 - 배틀 상세 상세 조회 응답
@@ -15,7 +14,7 @@ import java.util.UUID;
  */
 
 public record AdminBattleDetailResponse(
-        UUID battleId,                  // 배틀 고유 ID
+        Long battleId,                  // 배틀 고유 ID
         String title,                   // 배틀 제목
         String summary,                 // 배틀 요약 문구
         String description,             // 배틀 상세 설명

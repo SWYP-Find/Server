@@ -2,7 +2,6 @@ package com.swyp.app.domain.perspective.dto.response;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 public record CommentListResponse(
         List<Item> items,
@@ -10,7 +9,7 @@ public record CommentListResponse(
         boolean hasNext
 ) {
     public record Item(
-            UUID commentId,
+            Long commentId,
             UserSummary user,
             String content,
             boolean isMine,

@@ -1,6 +1,7 @@
 package com.swyp.app.domain.battle.entity;
 
 import com.swyp.app.domain.battle.enums.BattleOptionLabel;
+import com.swyp.app.global.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -8,17 +9,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
-import java.util.UUID;
 
 @Getter
 @Entity
 @Table(name = "battle_options")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class BattleOption {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+public class BattleOption extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "battle_id", nullable = false)

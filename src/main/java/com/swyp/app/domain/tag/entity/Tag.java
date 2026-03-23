@@ -9,18 +9,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Getter
 @Entity
 @Table(name = "tags")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Tag extends BaseEntity {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "tag_id", updatable = false, nullable = false)
-    private UUID id;
 
     @Column(nullable = false, length = 50)
     private String name;

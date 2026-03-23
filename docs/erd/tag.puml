@@ -8,7 +8,7 @@ skinparam linetype ortho
 ' ───────────────────────────────
 
 entity "BATTLES\n배틀(주제)" as battles {
-  * id : UUID <<PK>>
+  * id : Long <<PK>>
   --
   title : VARCHAR(255)
   summary : VARCHAR(500)
@@ -24,15 +24,15 @@ entity "BATTLES\n배틀(주제)" as battles {
 }
 
 entity "TAGS\n태그" as tags {
-  * id : UUID <<PK>>
+  * id : Long <<PK>>
   --
   name : VARCHAR(50) <<UNIQUE>>
   created_at : TIMESTAMP
 }
 
 entity "BATTLE_TAGS\n배틀-태그 매핑" as battle_tags {
-  * battle_id : UUID <<FK>>
-  * tag_id : UUID <<FK>>
+  * battle_id : Long <<FK>>
+  * tag_id : Long <<FK>>
 }
 
 ' ───────────────────────────────

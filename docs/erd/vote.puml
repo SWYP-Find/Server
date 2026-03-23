@@ -20,7 +20,7 @@ entity "users\n사용자" as users {
 }
 
 entity "BATTLES\n배틀(주제)" as battles {
-  * id : UUID <<PK>>
+  * id : Long <<PK>>
   --
   title : VARCHAR(255)
   summary : VARCHAR(500)
@@ -36,9 +36,9 @@ entity "BATTLES\n배틀(주제)" as battles {
 }
 
 entity "BATTLE_OPTIONS\n선택지" as battle_options {
-  * id : UUID <<PK>>
+  * id : Long <<PK>>
   --
-  battle_id : UUID <<FK>>
+  battle_id : Long <<FK>>
   label : ENUM('A', 'B')
   title : VARCHAR(100)
   stance : VARCHAR(255)
@@ -48,12 +48,12 @@ entity "BATTLE_OPTIONS\n선택지" as battle_options {
 }
 
 entity "VOTES\n투표 이력" as votes {
-  * id : UUID <<PK>>
+  * id : Long <<PK>>
   --
   user_id : BIGINT <<FK>>
-  battle_id : UUID <<FK>>
-  pre_vote_option_id : UUID <<FK>> (nullable)
-  post_vote_option_id : UUID <<FK>> (nullable)
+  battle_id : Long <<FK>>
+  pre_vote_option_id : Long <<FK>> (nullable)
+  post_vote_option_id : Long <<FK>> (nullable)
   mind_changed : BOOLEAN
   reward_credits : INT
   status : ENUM('NONE', 'PRE_VOTED', 'POST_VOTED')

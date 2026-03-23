@@ -1,13 +1,12 @@
 package com.swyp.app.domain.notice.dto.response;
 
-import com.swyp.app.domain.notice.entity.NoticePlacement;
-import com.swyp.app.domain.notice.entity.NoticeType;
+import com.swyp.app.domain.notice.enums.NoticePlacement;
+import com.swyp.app.domain.notice.enums.NoticeType;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 public record NoticeSummaryResponse(
-        UUID noticeId,
+        Long noticeId,
         String title,
         String body,
         NoticeType type,

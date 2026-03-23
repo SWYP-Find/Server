@@ -1,6 +1,6 @@
 package com.swyp.app.domain.perspective.service;
 
-import com.swyp.app.domain.perspective.entity.PerspectiveStatus;
+import com.swyp.app.domain.perspective.enums.PerspectiveStatus;
 import com.swyp.app.domain.perspective.repository.PerspectiveRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,7 +12,6 @@ import org.springframework.web.client.RestClient;
 
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -41,7 +40,7 @@ public class GptModerationService {
     private String model;
 
     @Async
-    public void moderate(UUID perspectiveId, String content) {
+    public void moderate(Long perspectiveId, String content) {
         Exception lastException = null;
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             try {

@@ -21,10 +21,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class UserProfile extends BaseEntity {
 
-    @Id
-    private Long userId;
-
-    @MapsId
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;

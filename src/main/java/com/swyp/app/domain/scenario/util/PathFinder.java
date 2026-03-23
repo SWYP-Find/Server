@@ -3,7 +3,6 @@ package com.swyp.app.domain.scenario.util;
 import com.swyp.app.domain.scenario.entity.ScenarioNode;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 public class PathFinder {
 
@@ -63,7 +62,7 @@ public class PathFinder {
         }
     }
 
-    private static ScenarioNode findNodeById(List<ScenarioNode> nodes, UUID id) {
+    private static ScenarioNode findNodeById(List<ScenarioNode> nodes, Long id) {
         return nodes.stream()
                 .filter(n -> n.getId().equals(id))
                 .findFirst()

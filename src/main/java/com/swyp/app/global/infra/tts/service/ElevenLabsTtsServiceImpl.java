@@ -1,4 +1,4 @@
-package com.swyp.app.domain.scenario.service;
+package com.swyp.app.global.infra.tts.service;
 
 import com.swyp.app.domain.scenario.enums.SpeakerType;
 import lombok.extern.slf4j.Slf4j;
@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
-// @Primary - 사용할 때 주석 지울 예정
+// @Primary - 사용할 때 주석 삭제
 @Service
 public class ElevenLabsTtsServiceImpl implements TtsService {
 

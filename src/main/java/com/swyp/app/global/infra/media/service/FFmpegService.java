@@ -1,4 +1,4 @@
-package com.swyp.app.domain.scenario.service;
+package com.swyp.app.global.infra.media.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -12,12 +12,12 @@ import java.util.List;
  */
 @Slf4j
 @Component
-public class FFmpegService {
+public class FFmpegService implements AudioProcessor {
 
     /**
      * 오디오 파일의 길이를 밀리초(ms) 단위로 반환합니다.
      */
-    public int getAudioDurationMs(File audioFile) throws Exception {
+    public Integer getAudioDurationMs(File audioFile) throws Exception {
         String[] cmd = {
                 "ffprobe", "-v", "error", "-show_entries", "format=duration",
                 "-of", "default=noprint_wrappers=1:nokey=1", audioFile.getAbsolutePath()

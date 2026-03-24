@@ -1,4 +1,4 @@
-package com.swyp.app.domain.scenario.util;
+package com.swyp.app.global.util;
 
 import com.swyp.app.domain.scenario.entity.ScenarioNode;
 import java.util.ArrayList;

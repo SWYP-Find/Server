@@ -1,4 +1,4 @@
-package com.swyp.app.domain.scenario.service;
+package com.swyp.app.global.infra.tts.service;
 
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.texttospeech.v1.*;

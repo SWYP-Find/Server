@@ -3,7 +3,11 @@ package com.swyp.app.domain.scenario.service;
 import com.swyp.app.domain.scenario.entity.*;
 import com.swyp.app.domain.scenario.enums.*;
 import com.swyp.app.domain.scenario.repository.ScenarioRepository;
-import com.swyp.app.domain.scenario.util.PathFinder;
+import com.swyp.app.global.util.PathFinder;
+import com.swyp.app.global.infra.media.service.FFmpegService;
+import com.swyp.app.global.infra.s3.enums.FileCategory;
+import com.swyp.app.global.infra.s3.service.S3UploadService;
+import com.swyp.app.global.infra.tts.service.TtsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -29,7 +33,7 @@ public class ScenarioAudioPipelineService {
     @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW) // 비동기 전용 독립 트랜잭션 보장
     public void generateAndMergeAudioAsync(Long scenarioId) {
-        // 부모 트랜잭션이 커밋된 후에 도는 것이므로 데이터가 완벽하게 보입니다.
+        // 부모 트랜잭션이 커밋된 후에 도는 것이므로 데이터가 완벽하게 보임
         Scenario scenario = scenarioRepository.findById(scenarioId).orElseThrow();
 
         log.info("\n==================================================");
@@ -118,17 +122,12 @@ public class ScenarioAudioPipelineService {
         }
 
         File merged = ffmpegService.mergeAudioFiles(segments);
-        String url = s3UploadService.uploadFile("scenarios/" + scenario.getId() + "/" + type + ".mp3", merged);
+        String s3Key = FileCategory.SCENARIO.getPath() + "/" + scenario.getId() + "/" + type + ".mp3";
+        String url = s3UploadService.uploadFile(s3Key, merged);
 
         log.info("[S3 업로드 완료] {} 오디오 주소: {}", type, url);
 
         scenario.addAudioUrl(type, url);
-
-        // 파일 즉각 삭제 (필요 시 사용 예정)
-        // merged.delete();
-
-        // MP3 파일이 생성된 내 컴퓨터의 절대 경로 (음성 확인 가능)
-        log.info("🎧 [테스트용] 실제 생성된 오디오 파일 위치: {}", merged.getAbsolutePath());
     }
 
     private AudioPathType determineType(List<ScenarioNode> path, boolean isInteractive) {

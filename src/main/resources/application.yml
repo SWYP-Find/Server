@@ -1,18 +1,19 @@
-# 1. 서버 및 파일 업로드 설정
-server:
+# 1. Spring 핵심 설정
+spring:
   servlet:
     multipart:
+      enabled: true
       max-file-size: 50MB
       max-request-size: 50MB
 
-# 2. 데이터베이스 및 클라우드(인프라) 설정
-spring:
+  # 2. 데이터베이스 설정 (PostgreSQL)
   datasource:
     url: ${DB_URL}
     username: ${DB_USER}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
+  # 3. JPA/Hibernate 설정
   jpa:
     hibernate:
       ddl-auto: update
@@ -22,20 +23,21 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+  # 4. 클라우드 인프라 설정 (AWS, GCP)
   cloud:
-    # GCP TTS 인증 파일 경로
-    gcp:
-      credentials:
-        location: ${GCP_CREDENTIALS_PATH}
-    # AWS S3 설정 (Mock 사용 시에도 필드는 필요)
+    # AWS S3 설정
     aws:
+      s3:
+        bucket: ${AWS_S3_BUCKET}
       region:
         static: ${AWS_REGION}
       credentials:
         access-key: ${AWS_ACCESS_KEY}
         secret-key: ${AWS_SECRET_KEY}
-      s3:
-        bucket: ${AWS_S3_BUCKET}
+    # GCP TTS 인증
+    gcp:
+      credentials:
+        location: ${GCP_CREDENTIALS_PATH}
 
 # 3. 인증 및 보안 설정 (OAuth2, JWT)
 oauth:
@@ -46,21 +48,24 @@ oauth:
     client-id: ${GOOGLE_CLIENT_ID}
     client-secret: ${GOOGLE_CLIENT_SECRET}
 
-jwt:
-  secret: ${JWT_SECRET}
-  access-token-expiration: 1800000     # 30분 (밀리초)
-  refresh-token-expiration: 2592000000 # 30일 (밀리초)
-
-# 4. 외부 API 키 설정 (OpenAI / ElevenLabs)
+# 6. 외부 API 설정 (OpenAI, Fish Audio, ElevenLabs)
 openai:
   api-key: ${OPENAI_API_KEY}
-  # 검수 모델
   url: https://api.openai.com/v1/chat/completions
   model: gpt-4o-mini
-  # TTS 모델
   tts:
     url: https://api.openai.com/v1/audio/speech
     model: gpt-4o-mini-tts
+
+fishaudio:
+  api-key: ${FISHAUDIO_API_KEY}
+  tts:
+    url: https://api.fish.audio/v1/tts
+  voice-id:
+    a: ${FISHAUDIO_VOICE_A}
+    b: ${FISHAUDIO_VOICE_B}
+    user: ${FISHAUDIO_VOICE_USER}
+    narrator: ${FISHAUDIO_VOICE_NARRATOR}
 
 elevenlabs:
   api-key: ${ELEVENLABS_API_KEY}
@@ -71,7 +76,7 @@ elevenlabs:
     user: ${ELEVENLABS_VOICE_USER}
     narrator: ${ELEVENLABS_VOICE_NARRATOR}
 
-# 5. Swagger 문서 설정
+# 7. Swagger 문서 설정
 springdoc:
   default-consumes-media-type: application/json
   default-produces-media-type: application/json

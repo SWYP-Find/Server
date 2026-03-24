@@ -63,12 +63,21 @@ public class ScenarioConverter {
     }
 
     private ScriptResponse toScriptResponse(Script script) {
+
+        // 1. 정규식 사용
+        // \\[.*?\\] : 대괄호로 묶인 모든 문자열 찾기 (예: [pause], [angry])
+        String cleanText = script.getText()
+                .replaceAll("\\[.*?\\]", "") // 태그 제거
+                .replaceAll("\\s+", " ")     // 태그가 빠진 자리에 남은 중복 공백들을 하나로 합침
+                .trim();                     // 양끝 공백 제거
+
         return ScriptResponse.builder()
                 .scriptId(script.getId())
-                .startTimeMs(script.getStartTimeMs()) // 자막 띄우는 핵심 싱크 타이밍
+                .startTimeMs(script.getStartTimeMs())
                 .speakerType(script.getSpeakerType())
                 .speakerName(script.getSpeakerName())
-                .text(script.getText())
+                // 2. 정제된 cleanText
+                .text(cleanText)
                 .build();
     }
 

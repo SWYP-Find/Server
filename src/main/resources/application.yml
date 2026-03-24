@@ -29,13 +29,13 @@ spring:
         location: ${GCP_CREDENTIALS_PATH}
     # AWS S3 설정 (Mock 사용 시에도 필드는 필요)
     aws:
-      s3:
-        bucket: ${AWS_S3_BUCKET}
       region:
         static: ${AWS_REGION}
       credentials:
         access-key: ${AWS_ACCESS_KEY}
         secret-key: ${AWS_SECRET_KEY}
+      s3:
+        bucket: ${AWS_S3_BUCKET}
 
 # 3. 인증 및 보안 설정 (OAuth2, JWT)
 oauth:

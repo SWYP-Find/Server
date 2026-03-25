@@ -23,6 +23,7 @@ import com.swyp.app.domain.vote.repository.VoteRepository;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -94,6 +95,31 @@ public class BattleServiceImpl implements BattleService {
     }
 
     // [사용자용 - 기본 API]
+
+    @Override
+    public BattleListResponse getBattles(int page, int size, String type) {
+        int pageNumber = Math.max(0, page - 1);
+        PageRequest pageRequest = PageRequest.of(pageNumber, size);
+        Page<Battle> battlePage;
+
+        // type이 ALL이거나 없으면 전체 조회, 아니면 타입별 조회
+        if (type == null || type.equals("ALL")) {
+            battlePage = battleRepository.findByDeletedAtIsNullOrderByCreatedAtDesc(pageRequest);
+        } else {
+            battlePage = battleRepository.findByTypeAndDeletedAtIsNullOrderByCreatedAtDesc(BattleType.valueOf(type), pageRequest);
+        }
+
+        List<BattleSimpleResponse> items = battlePage.getContent().stream()
+                .map(battleConverter::toSimpleResponse)
+                .toList();
+
+        return new BattleListResponse(
+                items,
+                battlePage.getNumber() + 1,
+                battlePage.getTotalPages(),
+                battlePage.getTotalElements()
+        );
+    }
 
     @Override
     public TodayBattleListResponse getTodayBattles() {
@@ -185,16 +211,56 @@ public class BattleServiceImpl implements BattleService {
     @Transactional
     @PreAuthorize("hasRole('ADMIN')")
     public AdminBattleDetailResponse updateBattle(Long battleId, AdminBattleUpdateRequest request) {
-        Battle battle = findById(battleId);
-        battle.update(request.title(), request.summary(), request.description(),
-                request.thumbnailUrl(), request.targetDate(), request.audioDuration(), request.status());
+        // [STEP 2] 서버 터미널에 출력
+        System.out.println("====== [백엔드 수신 로그] ======");
+        System.out.println("ID: " + battleId);
+        System.out.println("제목: " + request.title());
+        System.out.println("공연A: " + request.itemA());
+        System.out.println("A설명: " + request.itemADesc());
+        System.out.println("선택지A: " + (request.options() != null ? request.options().get(0).title() : "null"));
+        System.out.println("==============================");
 
+        Battle battle = findById(battleId);
+
+        // 1. 배틀 필드 업데이트
+        battle.update(
+                request.title(),
+                request.titlePrefix(),
+                request.titleSuffix(),
+                request.itemA(),
+                request.itemADesc(),
+                request.itemB(),
+                request.itemBDesc(),
+                request.summary(),
+                request.description(),
+                request.thumbnailUrl(),
+                request.targetDate(),
+                request.audioDuration(),
+                request.status()
+        );
+
+        // 2. 태그 업데이트
         if (request.tagIds() != null) {
             battleTagRepository.deleteByBattle(battle);
             saveBattleTags(battle, request.tagIds());
         }
 
-        return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), battleOptionRepository.findByBattle(battle));
+        // 3. 선택지 업데이트
+        if (request.options() != null) {
+            List<BattleOption> existingOptions = battleOptionRepository.findByBattle(battle);
+            for (var optReq : request.options()) {
+                existingOptions.stream()
+                        .filter(o -> o.getLabel() == optReq.label())
+                        .findFirst()
+                        .ifPresent(o -> {
+                            o.update(optReq.title(), optReq.stance(), optReq.representative(), optReq.quote(), optReq.imageUrl());
+                        });
+            }
+        }
+
+        // 변경된 옵션 다시 조회해서 응답 포함
+        List<BattleOption> updatedOptions = battleOptionRepository.findByBattle(battle);
+        return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), updatedOptions);
     }
 
     @Override

@@ -39,7 +39,9 @@ public class TagServiceImpl implements TagService {
 
     @Override
     public TagListResponse getTags(TagType type) {
-        List<Tag> tags = (type != null) ? tagRepository.findAllByType(type) : tagRepository.findAll();
+        List<Tag> tags = (type != null)
+                ? tagRepository.findAllByTypeAndDeletedAtIsNull(type)
+                : tagRepository.findAllByDeletedAtIsNull();
         return TagConverter.toListResponse(tags);
     }
 
@@ -84,12 +86,12 @@ public class TagServiceImpl implements TagService {
     }
 
     private Tag findTagById(Long tagId) {
-        return tagRepository.findById(tagId)
+        return tagRepository.findByIdAndDeletedAtIsNull(tagId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TAG_NOT_FOUND));
     }
 
     private void validateDuplicateTag(String name, TagType type) {
-        if (tagRepository.existsByNameAndType(name, type)) {
+        if (tagRepository.existsByNameAndTypeAndDeletedAtIsNull(name, type)) {
             throw new CustomException(ErrorCode.TAG_DUPLICATED);
         }
     }

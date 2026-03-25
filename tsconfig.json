@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES6",
+    "module": "ESNext",
+    "outDir": "./src/main/resources/static/js/admin",
+    "rootDir": "./src/main/resources/frontend/ts/admin",
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": [
+    "src/main/resources/frontend/ts/admin/**/*"
+  ]
+}

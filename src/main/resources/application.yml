@@ -87,3 +87,9 @@ springdoc:
     display-request-duration: true
   api-docs:
     path: /v3/api-docs
+
+# 8. JWT 설정
+jwt:
+  secret: ${JWT_SECRET} # 환경 변수 혹은 실제 비밀키 문자열
+  access-token-expiration: 3600000 # 1시간 (밀리초)
+  refresh-token-expiration: 1209600000 # 14일

@@ -8,8 +8,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @Getter
 @Entity
 @Table(name = "battle_options")
@@ -44,7 +42,7 @@ public class BattleOption extends BaseEntity {
 
     @Builder
     public BattleOption(Battle battle, BattleOptionLabel label, String title, String stance,
-                        String representative, String quote, List<String> keywords, String imageUrl) {
+                        String representative, String quote, String imageUrl) {
         this.battle = battle;
         this.label = label;
         this.title = title;
@@ -57,5 +55,13 @@ public class BattleOption extends BaseEntity {
 
     public void increaseVoteCount() {
         this.voteCount = (this.voteCount == null ? 0L : this.voteCount) + 1;
+    }
+
+    public void update(String title, String stance, String representative, String quote, String imageUrl) {
+        if (title != null) this.title = title;
+        if (stance != null) this.stance = stance;
+        if (representative != null) this.representative = representative;
+        if (quote != null) this.quote = quote;
+        if (imageUrl != null) this.imageUrl = imageUrl;
     }
 }

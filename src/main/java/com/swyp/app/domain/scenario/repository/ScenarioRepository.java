@@ -8,5 +8,6 @@ import java.util.Optional;
 
 public interface ScenarioRepository extends JpaRepository<Scenario, Long> {
     Optional<Scenario> findByBattleIdAndStatus(Long battleId, ScenarioStatus status);
+    Optional<Scenario> findByBattleId(Long battleId);
     boolean existsByBattleId(Long battleId);
 }

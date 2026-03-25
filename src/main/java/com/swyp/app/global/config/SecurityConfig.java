@@ -2,13 +2,10 @@ package com.swyp.app.global.config;
 
 import com.swyp.app.domain.oauth.jwt.JwtFilter;
 import com.swyp.app.domain.oauth.jwt.JwtProvider;
-import io.swagger.v3.oas.models.Components;
-import io.swagger.v3.oas.models.OpenAPI;
-import io.swagger.v3.oas.models.security.SecurityRequirement;
-import io.swagger.v3.oas.models.security.SecurityScheme;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -30,19 +27,27 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session ->
-                                           session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/api/v1/auth/**",
-                                "/api/v1/home",
-                                "/api/v1/notices/**",
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**"
+                                "/", "/api/v1/auth/**", "/api/v1/home",
+                                "/swagger-ui/**", "/v3/api-docs/**",
+                                "/js/**", "/css/**", "/images/**", "/favicon.ico",
+                                "/api/v1/admin/login", "/api/v1/admin"
                         ).permitAll()
+
+                        // 2. 관리자 HTML 화면 렌더링 요청
+                        .requestMatchers(HttpMethod.GET, "/api/v1/admin/picke/**").permitAll()
+
+                        // 3. 단순 조회성 REST API (JS가 헤더에 토큰 실어서 요청)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/tags", "/api/v1/battles/**").authenticated()
+
+                        // 4. 관리자 전용 데이터 조작 REST API (생성, 수정, 삭제)
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(new JwtFilter(jwtProvider),
-                                 UsernamePasswordAuthenticationFilter.class);
+                        UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

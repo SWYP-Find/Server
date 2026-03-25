@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pické Admin - 로그인</title>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>body { font-family: 'Noto Sans KR', sans-serif; }</style>
+</head>
+<body class="bg-[#7A402D] text-white flex items-center justify-center min-h-screen">
+
+<div id="loading-overlay" class="fixed inset-0 bg-[#7A402D]/90 z-50 hidden flex flex-col items-center justify-center">
+    <div class="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin mb-4"></div>
+    <p class="font-bold text-sm text-white">관리자 권한 확인 중...</p>
+</div>
+
+<div class="w-full max-w-md h-screen max-h-[900px] flex flex-col justify-between p-10">
+    <div class="flex-1 flex flex-col items-center justify-center mb-20">
+        <p class="text-white/80 text-sm font-medium mb-3 tracking-widest">당신의 생각을</p>
+        <h1 class="text-7xl font-serif italic font-bold tracking-tighter">Pické</h1>
+    </div>
+
+    <div class="space-y-4 pb-10 w-full px-4">
+
+        <a th:href="@{'https://kauth.kakao.com/oauth/authorize?client_id=' + ${kakaoClientId}
+                      + '&redirect_uri=' + ${redirectUri} + '&response_type=code&prompt=login'}"
+           onclick="sessionStorage.setItem('provider', 'KAKAO')"
+           class="flex items-center justify-center w-full py-4 bg-[#FEE500] text-black rounded-xl text-sm font-bold hover:brightness-95 shadow-lg transition">
+            <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 3C6.477 3 2 6.42 2 10.644C2 13.364 3.754 15.748 6.426 17.067L5.56 20.245C5.467 20.584 5.86 20.846 6.155 20.654L10.026 18.125C10.662 18.23 11.32 18.288 12 18.288C17.523 18.288 22 14.868 22 10.644C22 6.42 17.523 3 12 3Z"/>
+            </svg>
+            카카오로 로그인
+        </a>
+
+        <a th:href="@{'https://accounts.google.com/o/oauth2/v2/auth?client_id=' + ${googleClientId}
+                      + '&redirect_uri=' + ${redirectUri} + '&response_type=code&scope=email profile'}"
+           onclick="sessionStorage.setItem('provider', 'GOOGLE')"
+           class="flex items-center justify-center w-full py-4 bg-white text-gray-700 rounded-xl text-sm font-bold hover:bg-gray-50 shadow-lg transition">
+            <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            Google로 로그인
+        </a>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", async function () {
+        const overlay = document.getElementById('loading-overlay');
+        const urlParams = new URLSearchParams(window.location.search);
+        const authCode  = urlParams.get('code');
+
+        if (authCode) {
+            if(overlay) overlay.classList.remove('hidden');
+            const provider = (sessionStorage.getItem('provider') || 'KAKAO').toLowerCase();
+
+            console.log("1. 서버로 인증 코드 전송 시작...", authCode);
+
+            try {
+                const response = await fetch(`/api/v1/auth/login/${provider}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        authorizationCode: authCode,
+                        redirectUri: window.location.origin + window.location.pathname
+                    })
+                });
+
+                console.log("2. 서버 응답 도착! 상태 코드:", response.status);
+
+                const text = await response.text();
+                console.log("3. 서버가 보낸 실제 데이터:", text);
+
+                let json;
+                try {
+                    json = JSON.parse(text);
+                } catch (e) {
+                    throw new Error("서버에서 올바른 JSON 데이터를 보내지 않았습니다. 백엔드 에러입니다.");
+                }
+
+                if (!response.ok) {
+                    throw new Error(json.message || `서버 에러 (상태코드: ${response.status})`);
+                }
+
+                const accessToken = json.result?.access_token ?? json.data?.access_token;
+                if (!accessToken) {
+                    throw new Error("정상 응답이지만 access_token이 없습니다.");
+                }
+
+                // 토큰 해독
+                const payload = JSON.parse(atob(accessToken.split('.')[1]));
+                const userRole = payload.role || payload.auth || "UNKNOWN";
+                console.log("4. 해독된 유저 권한:", userRole);
+
+                if (userRole === 'ADMIN' || userRole === 'ROLE_ADMIN') {
+                    localStorage.setItem("adminToken", accessToken);
+                    alert("관리자 로그인 성공!");
+                    window.location.replace("/api/v1/admin/picke/list");
+                } else {
+                    alert(`권한 부족: 현재 권한은 [${userRole}] 입니다. PostgreSQL DB에서 해당 유저의 role을 ADMIN으로 변경한 뒤 다시 로그인하세요.`);
+                    if(overlay) overlay.classList.add('hidden');
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
+            } catch (e) {
+                console.error("치명적 오류 발생:", e);
+                alert("에러 발생: " + e.message + "\n(F12 콘솔창을 확인해주세요)");
+                if(overlay) overlay.classList.add('hidden'); // 에러 시 로딩창 닫기
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        }
+    });
+</script>
+</body>
+</html>

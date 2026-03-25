@@ -17,7 +17,6 @@ public interface BattleService {
     BattleOption findOptionById(Long optionId);
     BattleOption findOptionByBattleIdAndLabel(Long battleId, BattleOptionLabel label);
 
-
     // === [사용자용 - 홈 화면 5단 로직 지원 API] ===
 
     // 1. 에디터 픽 조회 (isEditorPick = true)
@@ -37,6 +36,9 @@ public interface BattleService {
 
 
     // === [사용자용 - 기본 API] ===
+
+    // 전체 배틀 목록 페이징 조회
+    BattleListResponse getBattles(int page, int size, String type);
 
     // 오늘의 배틀 (기존 로직 유지용)
     TodayBattleListResponse getTodayBattles();

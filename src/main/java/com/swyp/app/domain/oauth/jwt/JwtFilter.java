@@ -27,6 +27,16 @@ public class JwtFilter extends OncePerRequestFilter {
 
     // 1. 스웨거 및 인증 관련 경로를 더 넓게 잡았습니다.
     private static final List<String> WHITELIST = List.of(
+            "/api/v1/auth/login",
+            "/api/v1/auth/refresh",
+            "/swagger-ui",
+            "/v3/api-docs",
+            "/api/v1/admin/login",
+            "/api/v1/admin/picke",
+            "/js",
+            "/css",
+            "/images",
+            "/favicon.ico",
             "/api/v1/auth",      // 로그인, 리프레시 등 인증 관련 전체
             "/swagger-ui",       // 스웨거 UI 리소스 전체
             "/v3/api-docs",      // OpenAPI 스펙 전체

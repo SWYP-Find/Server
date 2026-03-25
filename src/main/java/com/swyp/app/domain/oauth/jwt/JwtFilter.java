@@ -1,7 +1,6 @@
 package com.swyp.app.domain.oauth.jwt;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
 import com.swyp.app.global.common.response.ApiResponse;
 import jakarta.servlet.FilterChain;
@@ -26,11 +25,13 @@ public class JwtFilter extends OncePerRequestFilter {
     private final JwtProvider jwtProvider;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    // 1. 스웨거 및 인증 관련 경로를 더 넓게 잡았습니다.
     private static final List<String> WHITELIST = List.of(
-            "/api/v1/auth/login",
-            "/api/v1/auth/refresh",
-            "/swagger-ui",
-            "/v3/api-docs"
+            "/api/v1/auth",      // 로그인, 리프레시 등 인증 관련 전체
+            "/swagger-ui",       // 스웨거 UI 리소스 전체
+            "/v3/api-docs",      // OpenAPI 스펙 전체
+            "/api/v1/home",      // 홈 화면
+            "/api/v1/notices"    // 공지사항
     );
 
     @Override
@@ -40,6 +41,7 @@ public class JwtFilter extends OncePerRequestFilter {
 
         String requestUri = request.getRequestURI();
 
+        // 화이트리스트 확인
         if (isWhitelisted(requestUri)) {
             filterChain.doFilter(request, response);
             return;
@@ -48,8 +50,9 @@ public class JwtFilter extends OncePerRequestFilter {
         try {
             String token = resolveToken(request);
 
+            // 토큰이 없는 경우 에러 로그를 남기고 401 반환
             if (token == null) {
-                log.error("[JwtFilter] Token missing for URI: {}", requestUri);
+                log.warn("[JwtFilter] Token missing for URI: {}", requestUri);
                 setErrorResponse(response, ErrorCode.AUTH_UNAUTHORIZED);
                 return;
             }
@@ -103,6 +106,7 @@ public class JwtFilter extends OncePerRequestFilter {
     }
 
     private boolean isWhitelisted(String uri) {
+        // 1. URI가 화이트리스트의 어떤 값으로든 시작하면 true
         return WHITELIST.stream().anyMatch(uri::startsWith);
     }
 }

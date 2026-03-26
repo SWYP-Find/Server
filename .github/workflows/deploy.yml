@@ -3,6 +3,7 @@ name: Java CI/CD with Gradle
 on:
   push:
     branches: [ "dev" ] # dev 브랜치에 푸시할 때 작동
+  workflow_dispatch: #
 
 jobs:
   deploy:

@@ -64,6 +64,8 @@ class MypageServiceTest {
     @Mock
     private NoticeService noticeService;
     @Mock
+    private CreditService creditService;
+    @Mock
     private VoteQueryService voteQueryService;
     @Mock
     private BattleQueryService battleQueryService;
@@ -87,6 +89,7 @@ class MypageServiceTest {
 
         when(userService.findCurrentUser()).thenReturn(user);
         when(userService.findUserProfile(1L)).thenReturn(profile);
+        when(creditService.getTotalPoints(1L)).thenReturn(0);
 
         MypageResponse response = mypageService.getMypage();
 

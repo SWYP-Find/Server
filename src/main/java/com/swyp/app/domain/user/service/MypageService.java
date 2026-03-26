@@ -50,6 +50,7 @@ public class MypageService {
 
     private final UserService userService;
     private final NoticeService noticeService;
+    private final CreditService creditService;
     private final VoteQueryService voteQueryService;
     private final BattleQueryService battleQueryService;
     private final PerspectiveQueryService perspectiveQueryService;
@@ -70,11 +71,12 @@ public class MypageService {
                 PhilosopherType.SOCRATES
         );
 
-        // TODO: 포인트 계산 - 타 도메인(vote) 연동 필요, 현재는 WANDERER / 0P
+        int currentPoint = creditService.getTotalPoints(user.getId());
+        TierCode tierCode = TierCode.fromPoints(currentPoint);
         MypageResponse.TierInfo tierInfo = new MypageResponse.TierInfo(
-                TierCode.WANDERER,
-                TierCode.WANDERER.getLabel(),
-                0
+                tierCode,
+                tierCode.getLabel(),
+                currentPoint
         );
 
         return new MypageResponse(profileInfo, philosopherInfo, tierInfo);

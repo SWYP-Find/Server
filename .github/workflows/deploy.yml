@@ -25,7 +25,9 @@ jobs:
 
       - name: Create .env file from Secret
         run: |
-          echo "${{ secrets.ENV_VARIABLES }}" > .env
+          cat <<'EOF' > .env
+          ${{ secrets.ENV_VARIABLES }}
+          EOF
 
       - name: Copy JAR and .env to EC2
         uses: appleboy/scp-action@v0.1.7

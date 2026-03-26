@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pické Admin - 콘텐츠 등록</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; height: 100vh; overflow: hidden; margin: 0; }
+        .form-scrollbar::-webkit-scrollbar { width: 6px; }
+        .form-scrollbar::-webkit-scrollbar-thumb { background-color: #e5e7eb; border-radius: 10px; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-[#F9F8F6] text-gray-800 flex flex-col">
+
+<div th:replace="~{admin/fragments/header :: header}" class="flex-none"></div>
+
+<main class="flex-1 overflow-hidden w-full max-w-[1600px] mx-auto" style="display: grid; grid-template-columns: 1fr 450px;">
+
+    <div id="form-scroll-area" class="overflow-y-auto form-scrollbar p-8 pb-32">
+        <div class="w-full max-w-[900px] mx-auto space-y-8 min-w-0">
+
+            <div class="flex bg-gray-200/60 p-1.5 rounded-xl w-fit mx-auto shadow-inner mb-6">
+                <button type="button" class="type-toggle active w-24 py-2 rounded-lg text-sm font-bold bg-white text-black shadow-sm transition-all" data-target="form-battle">⚔️ 배틀</button>
+                <button type="button" class="type-toggle w-24 py-2 rounded-lg text-sm font-bold text-gray-500 hover:text-black transition-all" data-target="form-quiz">🔍 퀴즈</button>
+                <button type="button" class="type-toggle w-24 py-2 rounded-lg text-sm font-bold text-gray-500 hover:text-black transition-all" data-target="form-vote">📊 투표</button>
+            </div>
+
+            <div id="form-battle" class="content-form">
+                <div th:replace="~{admin/components/form-battle :: battleForm}"></div>
+            </div>
+
+            <div id="form-quiz" class="content-form hidden">
+                <div th:replace="~{admin/components/form-quiz :: quizForm}"></div>
+            </div>
+
+            <div id="form-vote" class="content-form hidden">
+                <div th:replace="~{admin/components/form-vote :: voteForm}"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="bg-[#F9F8F6] border-l border-gray-200 flex items-start justify-center pt-6 overflow-y-auto no-scrollbar">
+        <div th:replace="~{admin/fragments/preview :: mobilePreview}"></div>
+    </div>
+
+</main>
+
+<div class="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 py-4 px-8 flex justify-end items-center space-x-4 z-40 shadow-lg">
+    <button type="button" onclick="saveContent('PENDING')" class="px-6 py-2.5 border border-gray-300 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50">임시저장</button>
+    <button type="button" onclick="saveContent('PUBLISHED')" class="px-8 py-2.5 bg-black text-white rounded-lg text-sm font-bold hover:bg-gray-800 transition-all">✓ 만들기</button>
+</div>
+
+<div id="tag-select-modal" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center">
+    <div class="bg-white rounded-2xl p-6 w-[500px] shadow-xl flex flex-col max-h-[80vh]">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-bold">태그 선택</h2>
+            <button onclick="closeTagSelectModal()" class="text-gray-400 hover:text-black text-xl">&times;</button>
+        </div>
+        <input type="text" id="tag-search-input" placeholder="태그 이름으로 검색..." class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none mb-4">
+        <div class="flex-1 overflow-y-auto pr-2 space-y-6 form-scrollbar" id="tag-list-container"></div>
+        <div class="flex justify-between items-center mt-6 pt-4 border-t border-gray-100">
+            <button type="button" onclick="openTagCreateModal()" class="text-sm font-bold text-purple-600 hover:underline">+ 새 태그 직접 만들기</button>
+            <button type="button" onclick="confirmTagSelection()" class="px-6 py-2 bg-black text-white rounded-lg text-sm font-bold">선택 완료</button>
+        </div>
+    </div>
+</div>
+
+<div id="tag-modal" class="fixed inset-0 bg-black/60 z-[70] hidden flex items-center justify-center">
+    <div class="bg-white rounded-2xl p-8 w-[400px] shadow-xl relative">
+        <h2 class="text-lg font-bold mb-6">새 태그 추가</h2>
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-bold mb-2 text-gray-600">태그 이름</label>
+                <input type="text" id="tag-name-input" placeholder="예: 소크라테스" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-purple-500">
+            </div>
+            <div>
+                <label class="block text-sm font-bold mb-2 text-gray-600">태그 타입</label>
+                <select id="tag-type-select" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm outline-none">
+                    <option value="CATEGORY">카테고리</option>
+                    <option value="PHILOSOPHER">철학자</option>
+                    <option value="VALUE">가치관</option>
+                </select>
+            </div>
+        </div>
+        <div class="flex justify-end space-x-2 mt-8">
+            <button type="button" onclick="document.getElementById('tag-modal').classList.add('hidden'); document.getElementById('tag-select-modal').classList.remove('hidden');" class="px-4 py-2 border rounded-lg text-sm font-bold text-gray-400">취소</button>
+            <button type="button" onclick="submitNewTag()" class="px-6 py-2 bg-purple-600 text-white rounded-lg text-sm font-bold hover:bg-purple-700">생성하기</button>
+        </div>
+    </div>
+</div>
+
+<div id="custom-modal" class="fixed inset-0 bg-black/50 z-[100] hidden flex items-center justify-center opacity-0 transition-opacity duration-200">
+    <div class="bg-white rounded-2xl p-6 w-[360px] shadow-xl transform scale-95 transition-transform duration-200 text-center" id="custom-modal-content">
+        <h3 class="text-lg font-black text-gray-900 mb-2" id="custom-modal-title">알림</h3>
+        <p class="text-sm text-gray-600 mb-6 font-medium leading-relaxed break-keep" id="custom-modal-message">메시지 내용</p>
+        <div class="flex justify-center gap-2" id="custom-modal-buttons">
+            <button id="custom-modal-cancel" class="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl text-sm font-bold hover:bg-gray-200 hidden transition-colors">취소</button>
+            <button id="custom-modal-confirm" class="flex-1 py-3 bg-purple-600 text-white rounded-xl text-sm font-bold hover:bg-purple-700 transition-colors">확인</button>
+        </div>
+    </div>
+</div>
+
+<div id="global-loader" class="fixed inset-0 bg-black/40 z-[9999] hidden flex-col items-center justify-center backdrop-blur-sm transition-opacity">
+    <svg class="animate-spin -ml-1 mr-3 h-10 w-10 text-white mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+    <p class="text-white font-bold text-sm tracking-widest" id="loader-text">저장 중입니다...</p>
+</div>
+
+<script th:src="@{/js/admin/core.js}"></script>
+
+<script th:src="@{/js/admin/tag/tags-controller.js}"></script>
+<script th:src="@{/js/admin/tag/tags-ui.js}"></script>
+
+<script th:src="@{/js/admin/ui/ui-sync.js}"></script>
+<script th:src="@{/js/admin/ui/ui-interaction.js}"></script>
+<script th:src="@{/js/admin/chat/chat-editor.js}"></script>
+<script th:src="@{/js/admin/chat/chat-preview.js}"></script>
+<script th:src="@{/js/admin/chat/chat-audio.js}"></script>
+
+<script th:src="@{/js/admin/api/api-common.js}"></script>
+<script th:src="@{/js/admin/api/api-load.js}"></script>
+<script th:src="@{/js/admin/api/api-save.js}"></script>
+
+</body>
+</html>

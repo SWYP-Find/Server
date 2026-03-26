@@ -5,17 +5,15 @@ import com.swyp.app.domain.vote.dto.response.MyVoteResponse;
 import com.swyp.app.domain.vote.dto.response.VoteResultResponse;
 import com.swyp.app.domain.vote.dto.response.VoteStatsResponse;
 
-import java.util.UUID;
-
 public interface VoteService {
 
-    UUID findPreVoteOptionId(UUID battleId, Long userId);
+    Long findPreVoteOptionId(Long battleId, Long userId);
 
-    VoteStatsResponse getVoteStats(UUID battleId);
+    VoteStatsResponse getVoteStats(Long battleId);
 
-    MyVoteResponse getMyVote(UUID battleId, Long userId);
+    MyVoteResponse getMyVote(Long battleId, Long userId);
 
-    VoteResultResponse preVote(UUID battleId, Long userId, VoteRequest request);
+    VoteResultResponse preVote(Long battleId, Long userId, VoteRequest request);
 
-    VoteResultResponse postVote(UUID battleId, Long userId, VoteRequest request);
+    VoteResultResponse postVote(Long battleId, Long userId, VoteRequest request);
 }

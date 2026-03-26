@@ -8,13 +8,13 @@ entity "users\n사용자" as users {
 }
 
 entity "PERSPECTIVES\n관점" as perspectives {
-  * id : UUID <<PK>>
+  * id : Long <<PK>>
 }
 
 entity "PERSPECTIVE_COMMENTS\n관점 댓글" as perspective_comments {
-  * id : UUID <<PK>>
+  * id : Long <<PK>>
   --
-  perspective_id : UUID <<FK>>
+  perspective_id : Long <<FK>>
   user_id : BIGINT <<FK>>
   content : TEXT
   created_at : TIMESTAMP

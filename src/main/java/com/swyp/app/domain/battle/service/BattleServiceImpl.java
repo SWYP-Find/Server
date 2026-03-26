@@ -23,6 +23,7 @@ import com.swyp.app.domain.vote.repository.VoteRepository;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -32,7 +33,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -49,7 +49,7 @@ public class BattleServiceImpl implements BattleService {
     private final BattleConverter battleConverter;
 
     @Override
-    public Battle findById(UUID battleId) {
+    public Battle findById(Long battleId) {
         Battle battle = battleRepository.findById(battleId)
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_NOT_FOUND));
 
@@ -87,14 +87,39 @@ public class BattleServiceImpl implements BattleService {
     }
 
     @Override
-    public List<TodayBattleResponse> getNewBattles(List<UUID> excludeIds) {
-        List<UUID> finalExcludeIds = (excludeIds == null || excludeIds.isEmpty())
-                ? List.of(UUID.randomUUID()) : excludeIds;
+    public List<TodayBattleResponse> getNewBattles(List<Long> excludeIds) {
+        List<Long> finalExcludeIds = (excludeIds == null || excludeIds.isEmpty())
+                ? List.of(-1L) : excludeIds;
         List<Battle> battles = battleRepository.findNewBattlesExcluding(finalExcludeIds, PageRequest.of(0, 10));
         return convertToTodayResponses(battles);
     }
 
     // [사용자용 - 기본 API]
+
+    @Override
+    public BattleListResponse getBattles(int page, int size, String type) {
+        int pageNumber = Math.max(0, page - 1);
+        PageRequest pageRequest = PageRequest.of(pageNumber, size);
+        Page<Battle> battlePage;
+
+        // type이 ALL이거나 없으면 전체 조회, 아니면 타입별 조회
+        if (type == null || type.equals("ALL")) {
+            battlePage = battleRepository.findByDeletedAtIsNullOrderByCreatedAtDesc(pageRequest);
+        } else {
+            battlePage = battleRepository.findByTypeAndDeletedAtIsNullOrderByCreatedAtDesc(BattleType.valueOf(type), pageRequest);
+        }
+
+        List<BattleSimpleResponse> items = battlePage.getContent().stream()
+                .map(battleConverter::toSimpleResponse)
+                .toList();
+
+        return new BattleListResponse(
+                items,
+                battlePage.getNumber() + 1,
+                battlePage.getTotalPages(),
+                battlePage.getTotalElements()
+        );
+    }
 
     @Override
     public TodayBattleListResponse getTodayBattles() {
@@ -105,7 +130,7 @@ public class BattleServiceImpl implements BattleService {
     }
 
     @Override
-    public BattleUserDetailResponse getBattleDetail(UUID battleId) {
+    public BattleUserDetailResponse getBattleDetail(Long battleId) {
         Battle battle = findById(battleId);
         battle.increaseViewCount();
 
@@ -121,7 +146,7 @@ public class BattleServiceImpl implements BattleService {
 
     @Override
     @Transactional
-    public BattleVoteResponse vote(UUID battleId, UUID optionId) {
+    public BattleVoteResponse vote(Long battleId, Long optionId) {
         Battle battle = findById(battleId);
         BattleOption option = battleOptionRepository.findById(optionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));
@@ -174,7 +199,7 @@ public class BattleServiceImpl implements BattleService {
         return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), savedOptions);
     }
 
-    private void saveBattleOptionTags(BattleOption option, List<UUID> tagIds) {
+    private void saveBattleOptionTags(BattleOption option, List<Long> tagIds) {
         tagRepository.findAllById(tagIds).stream()
                 .filter(t -> t.getDeletedAt() == null)
                 .forEach(t -> battleOptionTagRepository.save(
@@ -185,23 +210,63 @@ public class BattleServiceImpl implements BattleService {
     @Override
     @Transactional
     @PreAuthorize("hasRole('ADMIN')")
-    public AdminBattleDetailResponse updateBattle(UUID battleId, AdminBattleUpdateRequest request) {
-        Battle battle = findById(battleId);
-        battle.update(request.title(), request.summary(), request.description(),
-                request.thumbnailUrl(), request.targetDate(), request.audioDuration(), request.status());
+    public AdminBattleDetailResponse updateBattle(Long battleId, AdminBattleUpdateRequest request) {
+        // [STEP 2] 서버 터미널에 출력
+        System.out.println("====== [백엔드 수신 로그] ======");
+        System.out.println("ID: " + battleId);
+        System.out.println("제목: " + request.title());
+        System.out.println("공연A: " + request.itemA());
+        System.out.println("A설명: " + request.itemADesc());
+        System.out.println("선택지A: " + (request.options() != null ? request.options().get(0).title() : "null"));
+        System.out.println("==============================");
 
+        Battle battle = findById(battleId);
+
+        // 1. 배틀 필드 업데이트
+        battle.update(
+                request.title(),
+                request.titlePrefix(),
+                request.titleSuffix(),
+                request.itemA(),
+                request.itemADesc(),
+                request.itemB(),
+                request.itemBDesc(),
+                request.summary(),
+                request.description(),
+                request.thumbnailUrl(),
+                request.targetDate(),
+                request.audioDuration(),
+                request.status()
+        );
+
+        // 2. 태그 업데이트
         if (request.tagIds() != null) {
             battleTagRepository.deleteByBattle(battle);
             saveBattleTags(battle, request.tagIds());
         }
 
-        return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), battleOptionRepository.findByBattle(battle));
+        // 3. 선택지 업데이트
+        if (request.options() != null) {
+            List<BattleOption> existingOptions = battleOptionRepository.findByBattle(battle);
+            for (var optReq : request.options()) {
+                existingOptions.stream()
+                        .filter(o -> o.getLabel() == optReq.label())
+                        .findFirst()
+                        .ifPresent(o -> {
+                            o.update(optReq.title(), optReq.stance(), optReq.representative(), optReq.quote(), optReq.imageUrl());
+                        });
+            }
+        }
+
+        // 변경된 옵션 다시 조회해서 응답 포함
+        List<BattleOption> updatedOptions = battleOptionRepository.findByBattle(battle);
+        return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), updatedOptions);
     }
 
     @Override
     @Transactional
     @PreAuthorize("hasRole('ADMIN')")
-    public AdminBattleDeleteResponse deleteBattle(UUID battleId) {
+    public AdminBattleDeleteResponse deleteBattle(Long battleId) {
         Battle battle = findById(battleId);
         battle.delete();
         return new AdminBattleDeleteResponse(true, LocalDateTime.now());
@@ -224,20 +289,20 @@ public class BattleServiceImpl implements BattleService {
                 .toList();
     }
 
-    private void saveBattleTags(Battle b, List<UUID> ids) {
+    private void saveBattleTags(Battle b, List<Long> ids) {
         tagRepository.findAllById(ids).stream()
                 .filter(t -> t.getDeletedAt() == null)
                 .forEach(t -> battleTagRepository.save(BattleTag.builder().battle(b).tag(t).build()));
     }
 
     @Override
-    public BattleOption findOptionById(UUID optionId) {
+    public BattleOption findOptionById(Long optionId) {
         return battleOptionRepository.findById(optionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));
     }
 
     @Override
-    public BattleOption findOptionByBattleIdAndLabel(UUID battleId, BattleOptionLabel label) {
+    public BattleOption findOptionByBattleIdAndLabel(Long battleId, BattleOptionLabel label) {
         Battle b = findById(battleId);
         return battleOptionRepository.findByBattleAndLabel(b, label)
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));

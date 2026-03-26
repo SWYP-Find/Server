@@ -1,4 +1,4 @@
-package com.swyp.app.domain.scenario.service;
+package com.swyp.app.global.infra.tts.service;
 
 import com.swyp.app.domain.scenario.enums.SpeakerType;
 import java.io.File;

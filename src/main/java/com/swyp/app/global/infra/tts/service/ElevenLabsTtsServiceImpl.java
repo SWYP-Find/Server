@@ -1,9 +1,8 @@
-package com.swyp.app.domain.scenario.service;
+package com.swyp.app.global.infra.tts.service;
 
 import com.swyp.app.domain.scenario.enums.SpeakerType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Primary;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -15,16 +14,14 @@ import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
-// @Primary - 사용할 때 주석 지울 예정
+// @Primary - 사용할 때 주석 삭제
 @Service
 public class ElevenLabsTtsServiceImpl implements TtsService {
 
     @Value("${elevenlabs.api-key}")
     private String apiKey;
-
     @Value("${elevenlabs.model}")
     private String ttsModel;
-
     @Value("${elevenlabs.voice-id.a}")
     private String voiceA;
     @Value("${elevenlabs.voice-id.b}")

@@ -14,8 +14,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.UUID;
-
 @Tag(name = "배틀 API (관리자)", description = "배틀 생성/수정/삭제 (관리자 전용)")
 @RestController
 @RequestMapping("/api/v1/admin/battles")
@@ -37,7 +35,7 @@ public class AdminBattleController {
     @Operation(summary = "배틀 수정 (변경 필드만 포함)")
     @PatchMapping("/{battleId}")
     public ApiResponse<AdminBattleDetailResponse> updateBattle(
-            @PathVariable UUID battleId,
+            @PathVariable Long battleId,
             @RequestBody @Valid AdminBattleUpdateRequest request
     ) {
         return ApiResponse.onSuccess(battleService.updateBattle(battleId, request));
@@ -46,7 +44,7 @@ public class AdminBattleController {
     @Operation(summary = "배틀 삭제")
     @DeleteMapping("/{battleId}")
     public ApiResponse<AdminBattleDeleteResponse> deleteBattle(
-            @PathVariable UUID battleId
+            @PathVariable Long battleId
     ) {
         return ApiResponse.onSuccess(battleService.deleteBattle(battleId));
     }

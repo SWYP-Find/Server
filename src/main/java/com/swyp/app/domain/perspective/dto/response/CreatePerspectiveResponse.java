@@ -1,12 +1,11 @@
 package com.swyp.app.domain.perspective.dto.response;
 
-import com.swyp.app.domain.perspective.entity.PerspectiveStatus;
+import com.swyp.app.domain.perspective.enums.PerspectiveStatus;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 public record CreatePerspectiveResponse(
-        UUID perspectiveId,
+        Long perspectiveId,
         PerspectiveStatus status,
         LocalDateTime createdAt
 ) {}

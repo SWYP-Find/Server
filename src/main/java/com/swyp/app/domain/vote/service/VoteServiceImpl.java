@@ -20,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -32,7 +31,7 @@ public class VoteServiceImpl implements VoteService {
     private final BattleOptionRepository battleOptionRepository;
 
     @Override
-    public UUID findPreVoteOptionId(UUID battleId, Long userId) {
+    public Long findPreVoteOptionId(Long battleId, Long userId) {
         Battle battle = battleService.findById(battleId);
 
         Vote vote = voteRepository.findByBattleAndUserId(battle, userId)
@@ -45,7 +44,7 @@ public class VoteServiceImpl implements VoteService {
     }
 
     @Override
-    public VoteStatsResponse getVoteStats(UUID battleId) {
+    public VoteStatsResponse getVoteStats(Long battleId) {
         Battle battle = battleService.findById(battleId);
         List<BattleOption> options = battleOptionRepository.findByBattle(battle);
         long totalCount = voteRepository.countByBattle(battle);
@@ -69,7 +68,7 @@ public class VoteServiceImpl implements VoteService {
     }
 
     @Override
-    public MyVoteResponse getMyVote(UUID battleId, Long userId) {
+    public MyVoteResponse getMyVote(Long battleId, Long userId) {
         Battle battle = battleService.findById(battleId);
 
         Vote vote = voteRepository.findByBattleAndUserId(battle, userId)
@@ -80,7 +79,7 @@ public class VoteServiceImpl implements VoteService {
 
     @Override
     @Transactional
-    public VoteResultResponse preVote(UUID battleId, Long userId, VoteRequest request) {
+    public VoteResultResponse preVote(Long battleId, Long userId, VoteRequest request) {
         Battle battle = battleService.findById(battleId);
         BattleOption option = battleOptionRepository.findById(request.optionId())
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));
@@ -98,7 +97,7 @@ public class VoteServiceImpl implements VoteService {
 
     @Override
     @Transactional
-    public VoteResultResponse postVote(UUID battleId, Long userId, VoteRequest request) {
+    public VoteResultResponse postVote(Long battleId, Long userId, VoteRequest request) {
         Battle battle = battleService.findById(battleId);
         BattleOption option = battleOptionRepository.findById(request.optionId())
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));

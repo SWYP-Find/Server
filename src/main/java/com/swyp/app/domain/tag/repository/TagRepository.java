@@ -5,11 +5,11 @@ import com.swyp.app.domain.tag.enums.TagType;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
-import java.util.UUID;
+import java.util.Optional;
 
-public interface TagRepository extends JpaRepository<Tag, UUID> {
-
-    List<Tag> findAllByType(TagType type);
-
-    Boolean existsByNameAndType(String name, TagType type);
+public interface TagRepository extends JpaRepository<Tag, Long> {
+    List<Tag> findAllByTypeAndDeletedAtIsNull(TagType type);
+    List<Tag> findAllByDeletedAtIsNull();
+    Boolean existsByNameAndTypeAndDeletedAtIsNull(String name, TagType type);
+    Optional<Tag> findByIdAndDeletedAtIsNull(Long id);
 }

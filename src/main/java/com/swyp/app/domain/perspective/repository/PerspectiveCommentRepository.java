@@ -9,9 +9,8 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
-public interface PerspectiveCommentRepository extends JpaRepository<PerspectiveComment, UUID> {
+public interface PerspectiveCommentRepository extends JpaRepository<PerspectiveComment, Long> {
 
     List<PerspectiveComment> findByPerspectiveOrderByCreatedAtDesc(Perspective perspective, Pageable pageable);
 

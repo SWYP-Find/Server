@@ -1,4 +1,4 @@
-package com.swyp.app.domain.scenario.service;
+package com.swyp.app.global.infra.tts.service;
 
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.texttospeech.v1.*;
@@ -6,7 +6,6 @@ import com.google.protobuf.ByteString;
 import com.swyp.app.domain.scenario.enums.SpeakerType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
 import java.io.File;

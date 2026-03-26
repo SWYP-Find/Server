@@ -8,19 +8,19 @@ entity "users\n사용자" as users {
 }
 
 entity "BATTLES\n배틀(주제)" as battles {
-  * id : UUID <<PK>>
+  * id : Long <<PK>>
 }
 
 entity "BATTLE_OPTIONS\n선택지" as battle_options {
-  * id : UUID <<PK>>
+  * id : Long <<PK>>
 }
 
 entity "PERSPECTIVES\n관점" as perspectives {
-  * id : UUID <<PK>>
+  * id : Long <<PK>>
   --
-  battle_id : UUID <<FK>>
+  battle_id : Long <<FK>>
   user_id : BIGINT <<FK>>
-  option_id : UUID <<FK>>
+  option_id : Long <<FK>>
   content : TEXT
   like_count : INT default 0
   comment_count : INT default 0
@@ -30,9 +30,9 @@ entity "PERSPECTIVES\n관점" as perspectives {
 }
 
 entity "COMMENTS\n관점 댓글" as perspective_comments {
-  * id : UUID <<PK>>
+  * id : Long <<PK>>
   --
-  perspective_id : UUID <<FK>>
+  perspective_id : Long <<FK>>
   user_id : BIGINT <<FK>>
   content : TEXT
   created_at : TIMESTAMP
@@ -40,7 +40,7 @@ entity "COMMENTS\n관점 댓글" as perspective_comments {
 }
 
 entity "LIKES\n관점 좋아요" as perspective_likes {
-  * perspective_id : UUID <<FK>>
+  * perspective_id : Long <<FK>>
   * user_id : BIGINT <<FK>>
   --
   created_at : TIMESTAMP

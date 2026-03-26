@@ -17,7 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +28,7 @@ public class TagServiceImpl implements TagService {
     private final BattleRepository battleRepository;
 
     @Override
-    public List<Tag> findByBattleId(UUID battleId) {
+    public List<Tag> findByBattleId(Long battleId) {
         Battle battle = battleRepository.findById(battleId)
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_NOT_FOUND));
 
@@ -40,7 +39,9 @@ public class TagServiceImpl implements TagService {
 
     @Override
     public TagListResponse getTags(TagType type) {
-        List<Tag> tags = (type != null) ? tagRepository.findAllByType(type) : tagRepository.findAll();
+        List<Tag> tags = (type != null)
+                ? tagRepository.findAllByTypeAndDeletedAtIsNull(type)
+                : tagRepository.findAllByDeletedAtIsNull();
         return TagConverter.toListResponse(tags);
     }
 
@@ -59,7 +60,7 @@ public class TagServiceImpl implements TagService {
     @Override
     @Transactional
     @PreAuthorize("hasRole('ADMIN')")
-    public TagResponse updateTag(UUID tagId, TagRequest request) {
+    public TagResponse updateTag(Long tagId, TagRequest request) {
         Tag tag = findTagById(tagId);
 
         if (!tag.getName().equals(request.name()) || tag.getType() != request.type()) {
@@ -73,7 +74,7 @@ public class TagServiceImpl implements TagService {
     @Override
     @Transactional
     @PreAuthorize("hasRole('ADMIN')")
-    public TagDeleteResponse deleteTag(UUID tagId) {
+    public TagDeleteResponse deleteTag(Long tagId) {
         Tag tag = findTagById(tagId);
 
         if (battleTagRepository.existsByTag(tag)) {
@@ -84,13 +85,13 @@ public class TagServiceImpl implements TagService {
         return TagConverter.toDeleteResponse();
     }
 
-    private Tag findTagById(UUID tagId) {
-        return tagRepository.findById(tagId)
+    private Tag findTagById(Long tagId) {
+        return tagRepository.findByIdAndDeletedAtIsNull(tagId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TAG_NOT_FOUND));
     }
 
     private void validateDuplicateTag(String name, TagType type) {
-        if (tagRepository.existsByNameAndType(name, type)) {
+        if (tagRepository.existsByNameAndTypeAndDeletedAtIsNull(name, type)) {
             throw new CustomException(ErrorCode.TAG_DUPLICATED);
         }
     }

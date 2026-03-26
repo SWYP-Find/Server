@@ -8,14 +8,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
-import java.util.UUID;
 
-public interface BattleTagRepository extends JpaRepository<BattleTag, UUID> {
+public interface BattleTagRepository extends JpaRepository<BattleTag, Long> {
     List<BattleTag> findByBattle(Battle battle);
     void deleteByBattle(Battle battle);
     boolean existsByTag(Tag tag);
 
     // MypageService (recap): 여러 배틀의 태그를 한번에 조회
     @Query("SELECT bt FROM BattleTag bt JOIN FETCH bt.tag WHERE bt.battle.id IN :battleIds")
-    List<BattleTag> findByBattleIdIn(@Param("battleIds") List<UUID> battleIds);
+    List<BattleTag> findByBattleIdIn(@Param("battleIds") List<Long> battleIds);
 }

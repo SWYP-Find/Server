@@ -13,6 +13,13 @@ public enum ErrorCode {
     BAD_REQUEST(HttpStatus.BAD_REQUEST, "COMMON_400", "잘못된 요청입니다."),
     COMMON_INVALID_PARAMETER(HttpStatus.BAD_REQUEST, "COMMON_400", "요청 파라미터가 잘못되었습니다."),
 
+    // File & S3
+    FILE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "FILE_500", "파일 업로드 중 오류가 발생했습니다."),
+    FILE_SIZE_EXCEEDED(HttpStatus.BAD_REQUEST, "FILE_400_SIZE", "파일 용량이 제한(10MB)을 초과하였습니다."),
+    FILE_NOT_FOUND(HttpStatus.NOT_FOUND, "FILE_404", "업로드할 파일이 존재하지 않습니다."),
+    FILE_CONVERSION_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "FILE_500_CONV", "파일 변환 중 오류가 발생했습니다."),
+    INVALID_FILE_EXTENSION(HttpStatus.BAD_REQUEST, "FILE_400_EXT", "지원하지 않는 파일 확장자입니다."),
+
     // Auth (Token)
     AUTH_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "AUTH_401", "인증이 필요합니다."),
     AUTH_INVALID_CODE(HttpStatus.UNAUTHORIZED, "AUTH_401_CODE", "유효하지 않은 소셜 인가 코드입니다."),

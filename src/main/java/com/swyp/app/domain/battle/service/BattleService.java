@@ -9,15 +9,13 @@ import com.swyp.app.domain.battle.enums.BattleOptionLabel;
 import com.swyp.app.domain.battle.enums.BattleType;
 
 import java.util.List;
-import java.util.UUID;
 
 public interface BattleService {
 
     // === [내부 공통/조회 메서드] ===
-    Battle findById(UUID battleId);
-    BattleOption findOptionById(UUID optionId);
-    BattleOption findOptionByBattleIdAndLabel(UUID battleId, BattleOptionLabel label);
-
+    Battle findById(Long battleId);
+    BattleOption findOptionById(Long optionId);
+    BattleOption findOptionByBattleIdAndLabel(Long battleId, BattleOptionLabel label);
 
     // === [사용자용 - 홈 화면 5단 로직 지원 API] ===
 
@@ -34,19 +32,22 @@ public interface BattleService {
     List<TodayBattleResponse> getTodayPicks(BattleType type);
 
     // 5. 새로운 배틀 조회 (중복 제외 리스트)
-    List<TodayBattleResponse> getNewBattles(List<UUID> excludeIds);
+    List<TodayBattleResponse> getNewBattles(List<Long> excludeIds);
 
 
     // === [사용자용 - 기본 API] ===
+
+    // 전체 배틀 목록 페이징 조회
+    BattleListResponse getBattles(int page, int size, String type);
 
     // 오늘의 배틀 (기존 로직 유지용)
     TodayBattleListResponse getTodayBattles();
 
     // 배틀 상세 정보
-    BattleUserDetailResponse getBattleDetail(UUID battleId);
+    BattleUserDetailResponse getBattleDetail(Long battleId);
 
     // 투표 실행 및 실시간 통계 결과 반환
-    BattleVoteResponse vote(UUID battleId, UUID optionId);
+    BattleVoteResponse vote(Long battleId, Long optionId);
 
 
     // === [관리자용 API] ===
@@ -55,8 +56,8 @@ public interface BattleService {
     AdminBattleDetailResponse createBattle(AdminBattleCreateRequest request, Long adminUserId);
 
     // 배틀 수정
-    AdminBattleDetailResponse updateBattle(UUID battleId, AdminBattleUpdateRequest request);
+    AdminBattleDetailResponse updateBattle(Long battleId, AdminBattleUpdateRequest request);
 
     // 배틀 삭제 (DB에서 지우지 않고 소프트 딜리트/상태변경을 수행합니다)
-    AdminBattleDeleteResponse deleteBattle(UUID battleId);
+    AdminBattleDeleteResponse deleteBattle(Long battleId);
 }

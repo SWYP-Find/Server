@@ -12,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -25,12 +24,12 @@ public class BattleQueryService {
     private final BattleOptionRepository battleOptionRepository;
     private final BattleTagRepository battleTagRepository;
 
-    public Map<UUID, Battle> findBattlesByIds(List<UUID> battleIds) {
+    public Map<Long, Battle> findBattlesByIds(List<Long> battleIds) {
         return battleRepository.findAllById(battleIds).stream()
                 .collect(Collectors.toMap(Battle::getId, Function.identity()));
     }
 
-    public Map<UUID, BattleOption> findOptionsByIds(List<UUID> optionIds) {
+    public Map<Long, BattleOption> findOptionsByIds(List<Long> optionIds) {
         return battleOptionRepository.findAllById(optionIds).stream()
                 .collect(Collectors.toMap(BattleOption::getId, Function.identity()));
     }
@@ -39,7 +38,7 @@ public class BattleQueryService {
      * 주어진 배틀 ID 목록에 대해 태그별 빈도를 집계하여 상위 limit개를 반환한다.
      * @return Map<태그명, 빈도수> (상위 limit개)
      */
-    public Map<String, Long> getTopTagsByBattleIds(List<UUID> battleIds, int limit) {
+    public Map<String, Long> getTopTagsByBattleIds(List<Long> battleIds, int limit) {
         if (battleIds.isEmpty()) return Map.of();
 
         List<BattleTag> battleTags = battleTagRepository.findByBattleIdIn(battleIds);

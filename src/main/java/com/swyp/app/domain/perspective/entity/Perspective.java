@@ -1,5 +1,6 @@
 package com.swyp.app.domain.perspective.entity;
 
+import com.swyp.app.domain.perspective.enums.PerspectiveStatus;
 import com.swyp.app.global.common.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -15,8 +16,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.util.UUID;
-
 @Getter
 @Entity
 @Table(
@@ -26,13 +25,9 @@ import java.util.UUID;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Perspective extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
-
     // TODO: Battle 엔티티 병합 후 @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "battle_id") 로 교체
     @Column(name = "battle_id", nullable = false)
-    private UUID battleId;
+    private Long battleId;
 
     // TODO: User 엔티티 병합 후 @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "user_id") 로 교체
     @Column(name = "user_id", nullable = false)
@@ -40,7 +35,7 @@ public class Perspective extends BaseEntity {
 
     // TODO: BattleOption 엔티티 병합 후 @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "option_id") 로 교체
     @Column(name = "option_id", nullable = false)
-    private UUID optionId;
+    private Long optionId;
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
@@ -56,7 +51,7 @@ public class Perspective extends BaseEntity {
     private PerspectiveStatus status;
 
     @Builder
-    private Perspective(UUID battleId, Long userId, UUID optionId, String content) {
+    private Perspective(Long battleId, Long userId, Long optionId, String content) {
         this.battleId = battleId;
         this.userId = userId;
         this.optionId = optionId;

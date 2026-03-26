@@ -1,24 +1,18 @@
 package com.swyp.app.domain.battle.entity;
 
 import com.swyp.app.domain.battle.enums.BattleOptionLabel;
+import com.swyp.app.global.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-import java.util.UUID;
-
 @Getter
 @Entity
 @Table(name = "battle_options")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class BattleOption {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+public class BattleOption extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "battle_id", nullable = false)
@@ -48,7 +42,7 @@ public class BattleOption {
 
     @Builder
     public BattleOption(Battle battle, BattleOptionLabel label, String title, String stance,
-                        String representative, String quote, List<String> keywords, String imageUrl) {
+                        String representative, String quote, String imageUrl) {
         this.battle = battle;
         this.label = label;
         this.title = title;
@@ -61,5 +55,13 @@ public class BattleOption {
 
     public void increaseVoteCount() {
         this.voteCount = (this.voteCount == null ? 0L : this.voteCount) + 1;
+    }
+
+    public void update(String title, String stance, String representative, String quote, String imageUrl) {
+        if (title != null) this.title = title;
+        if (stance != null) this.stance = stance;
+        if (representative != null) this.representative = representative;
+        if (quote != null) this.quote = quote;
+        if (imageUrl != null) this.imageUrl = imageUrl;
     }
 }

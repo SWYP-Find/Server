@@ -20,7 +20,7 @@ entity "users\n사용자" as users {
 }
 
 entity "BATTLES\n배틀(주제)" as battles {
-  * id : UUID <<PK>>
+  * id : Long <<PK>>
   --
   title : VARCHAR(255)
   summary : VARCHAR(500)
@@ -36,9 +36,9 @@ entity "BATTLES\n배틀(주제)" as battles {
 }
 
 entity "BATTLE_OPTIONS\n선택지" as battle_options {
-  * id : UUID <<PK>>
+  * id : Long <<PK>>
   --
-  battle_id : UUID <<FK>>
+  battle_id : Long <<FK>>
   label : ENUM('A', 'B')
   title : VARCHAR(100)
   stance : VARCHAR(255)

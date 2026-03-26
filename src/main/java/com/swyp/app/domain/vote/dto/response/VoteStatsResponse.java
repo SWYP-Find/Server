@@ -2,7 +2,6 @@ package com.swyp.app.domain.vote.dto.response;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 public record VoteStatsResponse(
         List<OptionStat> options,
@@ -10,7 +9,7 @@ public record VoteStatsResponse(
         LocalDateTime updatedAt
 ) {
     public record OptionStat(
-            UUID optionId,
+            Long optionId,
             String label,
             String title,
             long voteCount,

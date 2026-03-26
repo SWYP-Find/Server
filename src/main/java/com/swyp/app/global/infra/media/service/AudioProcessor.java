@@ -1,4 +1,4 @@
-package com.swyp.app.domain.scenario.service;
+package com.swyp.app.global.infra.media.service;
 
 import java.io.File;
 import java.util.List;

@@ -4,11 +4,11 @@ hide methods
 skinparam linetype ortho
 
 entity "USERS\n사용자" as users {
-  * id : uuid <<PK>>
+  * id : Long <<PK>>
 }
 
 entity "NOTICES\n전체 공지" as notices {
-  * id : uuid <<PK>>
+  * id : Long <<PK>>
   --
   title : string
   body : text
@@ -20,9 +20,9 @@ entity "NOTICES\n전체 공지" as notices {
 }
 
 entity "NOTIFICATIONS\n알림 발송 이력" as notifications {
-  * id : uuid <<PK>>
+  * id : Long <<PK>>
   --
-  user_id : uuid <<FK>>
+  user_id : Long <<FK>>
   notification_type : string
   title : string
   body : text

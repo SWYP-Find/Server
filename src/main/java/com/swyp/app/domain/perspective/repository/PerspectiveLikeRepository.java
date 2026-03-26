@@ -9,9 +9,8 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
-public interface PerspectiveLikeRepository extends JpaRepository<PerspectiveLike, UUID> {
+public interface PerspectiveLikeRepository extends JpaRepository<PerspectiveLike, Long> {
 
     boolean existsByPerspectiveAndUserId(Perspective perspective, Long userId);
 

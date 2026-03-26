@@ -1,26 +1,25 @@
 package com.swyp.app.domain.perspective.repository;
 
 import com.swyp.app.domain.perspective.entity.Perspective;
-import com.swyp.app.domain.perspective.entity.PerspectiveStatus;
+import com.swyp.app.domain.perspective.enums.PerspectiveStatus;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
-public interface PerspectiveRepository extends JpaRepository<Perspective, UUID> {
+public interface PerspectiveRepository extends JpaRepository<Perspective, Long> {
 
-    boolean existsByBattleIdAndUserId(UUID battleId, Long userId);
+    boolean existsByBattleIdAndUserId(Long battleId, Long userId);
 
-    Optional<Perspective> findByBattleIdAndUserId(UUID battleId, Long userId);
+    Optional<Perspective> findByBattleIdAndUserId(Long battleId, Long userId);
 
-    List<Perspective> findByBattleIdAndStatusOrderByCreatedAtDesc(UUID battleId, PerspectiveStatus status, Pageable pageable);
+    List<Perspective> findByBattleIdAndStatusOrderByCreatedAtDesc(Long battleId, PerspectiveStatus status, Pageable pageable);
 
-    List<Perspective> findByBattleIdAndStatusAndCreatedAtBeforeOrderByCreatedAtDesc(UUID battleId, PerspectiveStatus status, LocalDateTime cursor, Pageable pageable);
+    List<Perspective> findByBattleIdAndStatusAndCreatedAtBeforeOrderByCreatedAtDesc(Long battleId, PerspectiveStatus status, LocalDateTime cursor, Pageable pageable);
 
-    List<Perspective> findByBattleIdAndOptionIdAndStatusOrderByCreatedAtDesc(UUID battleId, UUID optionId, PerspectiveStatus status, Pageable pageable);
+    List<Perspective> findByBattleIdAndOptionIdAndStatusOrderByCreatedAtDesc(Long battleId, Long optionId, PerspectiveStatus status, Pageable pageable);
 
-    List<Perspective> findByBattleIdAndOptionIdAndStatusAndCreatedAtBeforeOrderByCreatedAtDesc(UUID battleId, UUID optionId, PerspectiveStatus status, LocalDateTime cursor, Pageable pageable);
+    List<Perspective> findByBattleIdAndOptionIdAndStatusAndCreatedAtBeforeOrderByCreatedAtDesc(Long battleId, Long optionId, PerspectiveStatus status, LocalDateTime cursor, Pageable pageable);
 }

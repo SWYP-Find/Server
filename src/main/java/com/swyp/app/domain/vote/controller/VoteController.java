@@ -11,8 +11,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.UUID;
-
 @Tag(name = "투표 (Vote)", description = "사전/사후 투표 실행 및 통계, 내 투표 내역 조회 API")
 @RestController
 @RequestMapping("/api/v1")
@@ -24,7 +22,7 @@ public class VoteController {
     @Operation(summary = "사전 투표 실행", description = "배틀 진입 시 첫 투표(사전 투표)를 진행합니다.")
     @PostMapping("/battles/{battleId}/votes/pre")
     public ApiResponse<VoteResultResponse> preVote(
-            @PathVariable UUID battleId,
+            @PathVariable Long battleId,
             @RequestBody VoteRequest request) {
         // TODO: Security 적용 후 @AuthenticationPrincipal로 userId 교체
         Long userId = 1L;
@@ -34,7 +32,7 @@ public class VoteController {
     @Operation(summary = "사후 투표 실행", description = "콘텐츠 소비 후 최종 투표(사후 투표)를 진행합니다.")
     @PostMapping("/battles/{battleId}/votes/post")
     public ApiResponse<VoteResultResponse> postVote(
-            @PathVariable UUID battleId,
+            @PathVariable Long battleId,
             @RequestBody VoteRequest request) {
         // TODO: Security 적용 후 @AuthenticationPrincipal로 userId 교체
         Long userId = 1L;
@@ -43,13 +41,13 @@ public class VoteController {
 
     @Operation(summary = "투표 통계 조회", description = "특정 배틀의 옵션별 투표 수와 비율을 조회합니다.")
     @GetMapping("/battles/{battleId}/vote-stats")
-    public ApiResponse<VoteStatsResponse> getVoteStats(@PathVariable UUID battleId) {
+    public ApiResponse<VoteStatsResponse> getVoteStats(@PathVariable Long battleId) {
         return ApiResponse.onSuccess(voteService.getVoteStats(battleId));
     }
 
     @Operation(summary = "내 투표 내역 조회", description = "특정 배틀에 대한 내 사전/사후 투표 내역과 현재 상태를 조회합니다.")
     @GetMapping("/battles/{battleId}/votes/me")
-    public ApiResponse<MyVoteResponse> getMyVote(@PathVariable UUID battleId) {
+    public ApiResponse<MyVoteResponse> getMyVote(@PathVariable Long battleId) {
         // TODO: Security 적용 후 @AuthenticationPrincipal로 userId 교체
         Long userId = 1L;
         return ApiResponse.onSuccess(voteService.getMyVote(battleId, userId));

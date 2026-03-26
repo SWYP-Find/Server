@@ -3,14 +3,13 @@ package com.swyp.app.domain.battle.dto.response;
 import com.swyp.app.domain.battle.enums.BattleType;
 
 import java.util.List;
-import java.util.UUID;
 
 /**
  * 유저 - 오늘의 배틀 상세 응답 (시안 6번)
  * 역할: 어두운 배경의 풀스크린 UI에 필요한 배경 이미지, 시간 등을 담습니다.
  */
 public record TodayBattleResponse(
-        UUID battleId,          // 배틀 고유 ID
+        Long battleId,          // 배틀 고유 ID
         String title,           // 배틀 제목
         String summary,         // 중간 요약 문구
         String thumbnailUrl,    // 풀스크린 배경 이미지 URL

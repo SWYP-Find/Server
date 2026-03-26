@@ -8,13 +8,12 @@ import com.swyp.app.domain.tag.entity.Tag;
 import com.swyp.app.domain.tag.enums.TagType;
 
 import java.util.List;
-import java.util.UUID;
 
 public interface TagService {
-    List<Tag> findByBattleId(UUID battleId);
+    List<Tag> findByBattleId(Long battleId);
 
     TagListResponse getTags(TagType type);
     TagResponse createTag(TagRequest request);
-    TagResponse updateTag(UUID tagId, TagRequest request);
-    TagDeleteResponse deleteTag(UUID tagId);
+    TagResponse updateTag(Long tagId, TagRequest request);
+    TagDeleteResponse deleteTag(Long tagId);
 }

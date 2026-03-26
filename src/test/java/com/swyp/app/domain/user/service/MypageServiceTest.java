@@ -7,8 +7,8 @@ import com.swyp.app.domain.battle.enums.BattleStatus;
 import com.swyp.app.domain.battle.enums.BattleType;
 import com.swyp.app.domain.battle.service.BattleQueryService;
 import com.swyp.app.domain.notice.dto.response.NoticeSummaryResponse;
-import com.swyp.app.domain.notice.entity.NoticePlacement;
-import com.swyp.app.domain.notice.entity.NoticeType;
+import com.swyp.app.domain.notice.enums.NoticePlacement;
+import com.swyp.app.domain.notice.enums.NoticeType;
 import com.swyp.app.domain.notice.service.NoticeService;
 import com.swyp.app.domain.perspective.entity.Perspective;
 import com.swyp.app.domain.perspective.entity.PerspectiveComment;
@@ -49,7 +49,7 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -72,6 +72,12 @@ class MypageServiceTest {
 
     @InjectMocks
     private MypageService mypageService;
+
+    private final AtomicLong idGenerator = new AtomicLong(100L);
+
+    private Long generateId() {
+        return idGenerator.getAndIncrement();
+    }
 
     @Test
     @DisplayName("프로필, 철학자, 티어 정보를 반환한다")
@@ -109,7 +115,7 @@ class MypageServiceTest {
         when(voteQueryService.countOpinionChanges(1L)).thenReturn(3L);
         when(voteQueryService.calculateBattleWinRate(1L)).thenReturn(70);
 
-        List<UUID> battleIds = List.of(UUID.randomUUID());
+        List<Long> battleIds = List.of(generateId());
         when(voteQueryService.findParticipatedBattleIds(1L)).thenReturn(battleIds);
 
         LinkedHashMap<String, Long> topTags = new LinkedHashMap<>();
@@ -168,7 +174,7 @@ class MypageServiceTest {
                 .battle(battle)
                 .preVoteOption(optionA)
                 .build();
-        ReflectionTestUtils.setField(vote, "id", UUID.randomUUID());
+        ReflectionTestUtils.setField(vote, "id", generateId());
         ReflectionTestUtils.setField(vote, "createdAt", LocalDateTime.now());
 
         when(userService.findCurrentUser()).thenReturn(user);
@@ -194,7 +200,7 @@ class MypageServiceTest {
                 .battle(battle)
                 .preVoteOption(optionA)
                 .build();
-        ReflectionTestUtils.setField(vote, "id", UUID.randomUUID());
+        ReflectionTestUtils.setField(vote, "id", generateId());
         ReflectionTestUtils.setField(vote, "createdAt", LocalDateTime.now());
 
         when(userService.findCurrentUser()).thenReturn(user);
@@ -225,22 +231,22 @@ class MypageServiceTest {
     @DisplayName("COMMENT 타입으로 댓글활동을 반환한다")
     void getContentActivities_returns_comments() {
         User user = createUser(1L, "tag");
-        UUID battleId = UUID.randomUUID();
-        UUID optionId = UUID.randomUUID();
+        Long battleId = generateId();
+        Long optionId = generateId();
         Perspective perspective = Perspective.builder()
                 .battleId(battleId)
                 .userId(1L)
                 .optionId(optionId)
                 .content("관점 내용")
                 .build();
-        ReflectionTestUtils.setField(perspective, "id", UUID.randomUUID());
+        ReflectionTestUtils.setField(perspective, "id", generateId());
 
         PerspectiveComment comment = PerspectiveComment.builder()
                 .perspective(perspective)
                 .userId(1L)
                 .content("댓글")
                 .build();
-        ReflectionTestUtils.setField(comment, "id", UUID.randomUUID());
+        ReflectionTestUtils.setField(comment, "id", generateId());
         ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.now());
 
         Battle battle = createBattle("배틀");
@@ -266,21 +272,21 @@ class MypageServiceTest {
     @DisplayName("LIKE 타입으로 좋아요활동을 반환한다")
     void getContentActivities_returns_likes() {
         User user = createUser(1L, "tag");
-        UUID battleId = UUID.randomUUID();
-        UUID optionId = UUID.randomUUID();
+        Long battleId = generateId();
+        Long optionId = generateId();
         Perspective perspective = Perspective.builder()
                 .battleId(battleId)
                 .userId(1L)
                 .optionId(optionId)
                 .content("관점 내용")
                 .build();
-        ReflectionTestUtils.setField(perspective, "id", UUID.randomUUID());
+        ReflectionTestUtils.setField(perspective, "id", generateId());
 
         PerspectiveLike like = PerspectiveLike.builder()
                 .perspective(perspective)
                 .userId(1L)
                 .build();
-        ReflectionTestUtils.setField(like, "id", UUID.randomUUID());
+        ReflectionTestUtils.setField(like, "id", generateId());
         ReflectionTestUtils.setField(like, "createdAt", LocalDateTime.now());
 
         Battle battle = createBattle("배틀");
@@ -361,7 +367,7 @@ class MypageServiceTest {
     @DisplayName("공지사항 목록을 반환한다")
     void getNotices_returns_notice_list() {
         NoticeSummaryResponse notice = new NoticeSummaryResponse(
-                UUID.randomUUID(), "공지 제목", "본문",
+                1L, "공지 제목", "본문",
                 NoticeType.ANNOUNCEMENT, NoticePlacement.NOTICE_BOARD,
                 true, LocalDateTime.now().minusDays(1), null
         );
@@ -379,7 +385,7 @@ class MypageServiceTest {
     @Test
     @DisplayName("공지사항 상세를 반환한다")
     void getNoticeDetail_returns_notice_detail() {
-        UUID noticeId = UUID.randomUUID();
+        Long noticeId = 1L;
         com.swyp.app.domain.notice.dto.response.NoticeDetailResponse noticeDetail =
                 new com.swyp.app.domain.notice.dto.response.NoticeDetailResponse(
                         noticeId, "상세 제목", "상세 본문",
@@ -424,7 +430,7 @@ class MypageServiceTest {
                 .type(BattleType.BATTLE)
                 .status(BattleStatus.PUBLISHED)
                 .build();
-        ReflectionTestUtils.setField(battle, "id", UUID.randomUUID());
+        ReflectionTestUtils.setField(battle, "id", generateId());
         return battle;
     }
 
@@ -435,7 +441,7 @@ class MypageServiceTest {
                 .title(label.name())
                 .stance("stance-" + label.name())
                 .build();
-        ReflectionTestUtils.setField(option, "id", UUID.randomUUID());
+        ReflectionTestUtils.setField(option, "id", generateId());
         return option;
     }
 }

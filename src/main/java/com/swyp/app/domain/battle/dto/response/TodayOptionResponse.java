@@ -2,15 +2,13 @@ package com.swyp.app.domain.battle.dto.response;
 
 import com.swyp.app.domain.battle.enums.BattleOptionLabel;
 
-import java.util.UUID;
-
 /**
  * 유저 - 오늘의 배틀 전용 옵션 응답
  * 역할: 오늘의 배틀 시안의 세로형 카드에 들어가는 인물, 입장, 아바타 정보를 담습니다.
  */
 
 public record TodayOptionResponse(
-        UUID optionId,          // 옵션 ID
+        Long optionId,          // 옵션 ID
         BattleOptionLabel label,// 라벨 (A, B)
         String title,           // 제목 (예: 찬성한다)
         String representative,  // 인물 (예: 피터 싱어)

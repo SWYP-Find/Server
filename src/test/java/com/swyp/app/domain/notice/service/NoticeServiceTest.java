@@ -1,8 +1,8 @@
 package com.swyp.app.domain.notice.service;
 
 import com.swyp.app.domain.notice.entity.Notice;
-import com.swyp.app.domain.notice.entity.NoticePlacement;
-import com.swyp.app.domain.notice.entity.NoticeType;
+import com.swyp.app.domain.notice.enums.NoticePlacement;
+import com.swyp.app.domain.notice.enums.NoticeType;
 import com.swyp.app.domain.notice.repository.NoticeRepository;
 import com.swyp.app.global.common.exception.CustomException;
 import org.junit.jupiter.api.DisplayName;
@@ -16,7 +16,6 @@ import org.springframework.data.domain.Pageable;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -59,7 +58,7 @@ class NoticeServiceTest {
     @Test
     @DisplayName("활성공지가 없으면 예외를 던진다")
     void getNoticeDetail_throws_when_no_active_notice() {
-        UUID noticeId = UUID.randomUUID();
+        Long noticeId = 1L;
         when(noticeRepository.findActiveById(eq(noticeId), any(LocalDateTime.class))).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> noticeService.getNoticeDetail(noticeId))

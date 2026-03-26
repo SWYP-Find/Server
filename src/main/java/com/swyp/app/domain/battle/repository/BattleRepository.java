@@ -7,13 +7,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Page;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
-public interface BattleRepository extends JpaRepository<Battle, UUID> {
+public interface BattleRepository extends JpaRepository<Battle, Long> {
 
     // 1. EDITOR PICK
     @Query("SELECT battle FROM Battle battle " +
@@ -46,7 +46,11 @@ public interface BattleRepository extends JpaRepository<Battle, UUID> {
             "WHERE battle.id NOT IN :excludeIds AND battle.status = 'PUBLISHED' " +
             "AND battle.deletedAt IS NULL " +
             "ORDER BY battle.createdAt DESC")
-    List<Battle> findNewBattlesExcluding(@Param("excludeIds") List<UUID> excludeIds, Pageable pageable);
+    List<Battle> findNewBattlesExcluding(@Param("excludeIds") List<Long> excludeIds, Pageable pageable);
+
+    // 6. 전체 배틀 목록 조회 (페이징, 삭제된 항목 제외, 최신순)
+    Page<Battle> findByDeletedAtIsNullOrderByCreatedAtDesc(Pageable pageable);
+    Page<Battle> findByTypeAndDeletedAtIsNullOrderByCreatedAtDesc(BattleType type, Pageable pageable);
 
     // 기본 조회용
     List<Battle> findByTargetDateAndStatusAndDeletedAtIsNull(LocalDate date, BattleStatus status);

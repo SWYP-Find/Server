@@ -13,8 +13,8 @@ import com.swyp.app.domain.user.dto.response.BattleRecordListResponse;
 import com.swyp.app.domain.user.dto.response.ContentActivityListResponse;
 import com.swyp.app.domain.user.dto.response.MypageResponse;
 import com.swyp.app.domain.notice.dto.response.NoticeSummaryResponse;
-import com.swyp.app.domain.notice.entity.NoticePlacement;
-import com.swyp.app.domain.notice.entity.NoticeType;
+import com.swyp.app.domain.notice.enums.NoticePlacement;
+import com.swyp.app.domain.notice.enums.NoticeType;
 import com.swyp.app.domain.notice.service.NoticeService;
 import com.swyp.app.domain.user.dto.response.NoticeDetailResponse;
 import com.swyp.app.domain.user.dto.response.NoticeListResponse;
@@ -40,7 +40,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -109,7 +108,7 @@ public class MypageService {
         long opinionChanges = voteQueryService.countOpinionChanges(userId);
         int battleWinRate = voteQueryService.calculateBattleWinRate(userId);
 
-        List<UUID> battleIds = voteQueryService.findParticipatedBattleIds(userId);
+        List<Long> battleIds = voteQueryService.findParticipatedBattleIds(userId);
         Map<String, Long> topTags = battleQueryService.getTopTagsByBattleIds(battleIds, 4);
 
         List<RecapResponse.FavoriteTopic> favoriteTopics = new ArrayList<>();
@@ -168,8 +167,8 @@ public class MypageService {
         long totalCount = perspectiveQueryService.countUserComments(user.getId());
 
         List<Perspective> perspectives = comments.stream().map(PerspectiveComment::getPerspective).toList();
-        Map<UUID, Battle> battleMap = loadBattles(perspectives);
-        Map<UUID, BattleOption> optionMap = loadOptions(perspectives);
+        Map<Long, Battle> battleMap = loadBattles(perspectives);
+        Map<Long, BattleOption> optionMap = loadOptions(perspectives);
 
         List<ContentActivityListResponse.ContentActivityItem> items = comments.stream()
                 .map(comment -> {
@@ -190,8 +189,8 @@ public class MypageService {
         long totalCount = perspectiveQueryService.countUserLikes(user.getId());
 
         List<Perspective> perspectives = likes.stream().map(PerspectiveLike::getPerspective).toList();
-        Map<UUID, Battle> battleMap = loadBattles(perspectives);
-        Map<UUID, BattleOption> optionMap = loadOptions(perspectives);
+        Map<Long, Battle> battleMap = loadBattles(perspectives);
+        Map<Long, BattleOption> optionMap = loadOptions(perspectives);
 
         List<ContentActivityListResponse.ContentActivityItem> items = likes.stream()
                 .map(like -> {
@@ -229,13 +228,13 @@ public class MypageService {
         );
     }
 
-    private Map<UUID, Battle> loadBattles(List<Perspective> perspectives) {
-        List<UUID> battleIds = perspectives.stream().map(Perspective::getBattleId).distinct().toList();
+    private Map<Long, Battle> loadBattles(List<Perspective> perspectives) {
+        List<Long> battleIds = perspectives.stream().map(Perspective::getBattleId).distinct().toList();
         return battleQueryService.findBattlesByIds(battleIds);
     }
 
-    private Map<UUID, BattleOption> loadOptions(List<Perspective> perspectives) {
-        List<UUID> optionIds = perspectives.stream().map(Perspective::getOptionId).distinct().toList();
+    private Map<Long, BattleOption> loadOptions(List<Perspective> perspectives) {
+        List<Long> optionIds = perspectives.stream().map(Perspective::getOptionId).distinct().toList();
         return battleQueryService.findOptionsByIds(optionIds);
     }
 
@@ -275,7 +274,7 @@ public class MypageService {
         return new NoticeListResponse(items);
     }
 
-    public NoticeDetailResponse getNoticeDetail(UUID noticeId) {
+    public NoticeDetailResponse getNoticeDetail(Long noticeId) {
         com.swyp.app.domain.notice.dto.response.NoticeDetailResponse notice =
                 noticeService.getNoticeDetail(noticeId);
         return new NoticeDetailResponse(

@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -63,7 +62,7 @@ public class VoteQueryService {
         return (int) (wins * 100 / postVotes.size());
     }
 
-    public List<UUID> findParticipatedBattleIds(Long userId) {
+    public List<Long> findParticipatedBattleIds(Long userId) {
         return voteRepository.findByUserId(userId).stream()
                 .map(v -> v.getBattle().getId())
                 .distinct()

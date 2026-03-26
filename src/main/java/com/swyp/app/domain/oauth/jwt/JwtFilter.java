@@ -1,7 +1,8 @@
 package com.swyp.app.domain.oauth.jwt;
 
-import com.swyp.app.global.common.exception.CustomException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.swyp.app.global.common.exception.ErrorCode;
+import com.swyp.app.global.common.response.ApiResponse;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,13 +23,23 @@ import java.util.List;
 public class JwtFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // 인증 제외 경로
+    // 1. 스웨거 및 인증 관련 경로를 더 넓게 잡았습니다.
     private static final List<String> WHITELIST = List.of(
-            "/api/v1/auth/login",
-            "/api/v1/auth/refresh",
             "/swagger-ui",
-            "/v3/api-docs"
+            "/v3/api-docs",
+            "/api/v1/admin/login",
+            "/api/v1/admin/picke",
+            "/js",
+            "/css",
+            "/images",
+            "/favicon.ico",
+            "/api/v1/auth",      // 로그인, 리프레시 등 인증 관련 전체
+            "/swagger-ui",       // 스웨거 UI 리소스 전체
+            "/v3/api-docs",      // OpenAPI 스펙 전체
+            "/api/v1/home",      // 홈 화면
+            "/api/v1/notices"    // 공지사항
     );
 
     @Override
@@ -38,41 +49,60 @@ public class JwtFilter extends OncePerRequestFilter {
 
         String requestUri = request.getRequestURI();
 
-        // 화이트리스트 경로는 토큰 검증 스킵
+        // 화이트리스트 확인
         if (isWhitelisted(requestUri)) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // Authorization 헤더에서 토큰 추출
-        String token = resolveToken(request);
+        try {
+            String token = resolveToken(request);
 
-        if (token == null) {
-            throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED);
+            // 토큰이 없는 경우 에러 로그를 남기고 401 반환
+            if (token == null) {
+                log.warn("[JwtFilter] Token missing for URI: {}", requestUri);
+                setErrorResponse(response, ErrorCode.AUTH_UNAUTHORIZED);
+                return;
+            }
+
+            if (!jwtProvider.validateToken(token)) {
+                log.error("[JwtFilter] Invalid or Expired token for URI: {}", requestUri);
+                setErrorResponse(response, ErrorCode.AUTH_ACCESS_TOKEN_EXPIRED);
+                return;
+            }
+
+            Long userId = jwtProvider.getUserId(token);
+            String role = jwtProvider.getRole(token);
+            String authorityName = (role != null && role.startsWith("ROLE_")) ? role : "ROLE_" + role;
+
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(
+                            userId,
+                            null,
+                            role != null ? List.of(new SimpleGrantedAuthority(authorityName)) : List.of()
+                    );
+
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+            filterChain.doFilter(request, response);
+
+        } catch (Exception e) {
+            log.error("[JwtFilter] Filter Error: {}", e.getMessage());
+            setErrorResponse(response, ErrorCode.INTERNAL_SERVER_ERROR);
         }
+    }
 
-        if (!jwtProvider.validateToken(token)) {
-            throw new CustomException(ErrorCode.AUTH_ACCESS_TOKEN_EXPIRED);
-        }
+    private void setErrorResponse(HttpServletResponse response, ErrorCode errorCode) throws IOException {
+        response.setContentType("application/json;charset=UTF-8");
+        response.setStatus(errorCode.getHttpStatus().value());
 
-        // 토큰에서 userId와 role 추출
-        Long userId = jwtProvider.getUserId(token);
-        String role = jwtProvider.getRole(token);
+        ApiResponse<Void> errorResponse = ApiResponse.onFailure(
+                errorCode.getHttpStatus().value(),
+                errorCode.getCode(),
+                errorCode.getMessage()
+        );
 
-        // 권한 문자열에 "ROLE_" 접두사가 없으면 붙여줌 (스프링 시큐리티 규칙)
-        String authorityName = (role != null && role.startsWith("ROLE_")) ? role : "ROLE_" + role;
-
-        // 추출한 권한을 SecurityContext 에 주입
-        UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(
-                        userId,
-                        null,
-                        role != null ? List.of(new SimpleGrantedAuthority(authorityName)) : List.of()
-                );
-
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-
-        filterChain.doFilter(request, response);
+        String result = objectMapper.writeValueAsString(errorResponse);
+        response.getWriter().write(result);
     }
 
     private String resolveToken(HttpServletRequest request) {
@@ -84,6 +114,7 @@ public class JwtFilter extends OncePerRequestFilter {
     }
 
     private boolean isWhitelisted(String uri) {
+        // 1. URI가 화이트리스트의 어떤 값으로든 시작하면 true
         return WHITELIST.stream().anyMatch(uri::startsWith);
     }
 }

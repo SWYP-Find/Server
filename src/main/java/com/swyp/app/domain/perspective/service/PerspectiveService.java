@@ -3,7 +3,7 @@ package com.swyp.app.domain.perspective.service;
 import com.swyp.app.domain.battle.entity.BattleOption;
 import com.swyp.app.domain.battle.enums.BattleOptionLabel;
 import com.swyp.app.domain.battle.service.BattleService;
-import com.swyp.app.domain.perspective.entity.PerspectiveStatus;
+import com.swyp.app.domain.perspective.enums.PerspectiveStatus;
 import com.swyp.app.domain.perspective.dto.request.CreatePerspectiveRequest;
 import com.swyp.app.domain.perspective.dto.request.UpdatePerspectiveRequest;
 import com.swyp.app.domain.perspective.dto.response.CreatePerspectiveResponse;
@@ -25,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -42,14 +41,14 @@ public class PerspectiveService {
     private final GptModerationService gptModerationService;
 
     @Transactional
-    public CreatePerspectiveResponse createPerspective(UUID battleId, Long userId, CreatePerspectiveRequest request) {
+    public CreatePerspectiveResponse createPerspective(Long battleId, Long userId, CreatePerspectiveRequest request) {
         battleService.findById(battleId);
 
         if (perspectiveRepository.existsByBattleIdAndUserId(battleId, userId)) {
             throw new CustomException(ErrorCode.PERSPECTIVE_ALREADY_EXISTS);
         }
 
-        UUID optionId = voteService.findPreVoteOptionId(battleId, userId);
+        Long optionId = voteService.findPreVoteOptionId(battleId, userId);
 
         Perspective perspective = Perspective.builder()
                 .battleId(battleId)
@@ -63,7 +62,7 @@ public class PerspectiveService {
         return new CreatePerspectiveResponse(saved.getId(), saved.getStatus(), saved.getCreatedAt());
     }
 
-    public PerspectiveListResponse getPerspectives(UUID battleId, Long userId, String cursor, Integer size, String optionLabel) {
+    public PerspectiveListResponse getPerspectives(Long battleId, Long userId, String cursor, Integer size, String optionLabel) {
         battleService.findById(battleId);
 
         int pageSize = (size == null || size <= 0) ? DEFAULT_PAGE_SIZE : size;
@@ -109,14 +108,14 @@ public class PerspectiveService {
     }
 
     @Transactional
-    public void deletePerspective(UUID perspectiveId, Long userId) {
+    public void deletePerspective(Long perspectiveId, Long userId) {
         Perspective perspective = findPerspectiveById(perspectiveId);
         validateOwnership(perspective, userId);
         perspectiveRepository.delete(perspective);
     }
 
     @Transactional
-    public UpdatePerspectiveResponse updatePerspective(UUID perspectiveId, Long userId, UpdatePerspectiveRequest request) {
+    public UpdatePerspectiveResponse updatePerspective(Long perspectiveId, Long userId, UpdatePerspectiveRequest request) {
         Perspective perspective = findPerspectiveById(perspectiveId);
         validateOwnership(perspective, userId);
         perspective.updateContent(request.content());
@@ -125,7 +124,7 @@ public class PerspectiveService {
         return new UpdatePerspectiveResponse(perspective.getId(), perspective.getContent(), perspective.getUpdatedAt());
     }
 
-    public MyPerspectiveResponse getMyPendingPerspective(UUID battleId, Long userId) {
+    public MyPerspectiveResponse getMyPendingPerspective(Long battleId, Long userId) {
         battleService.findById(battleId);
         Perspective perspective = perspectiveRepository.findByBattleIdAndUserId(battleId, userId)
                 .filter(p -> p.getStatus() == PerspectiveStatus.PENDING)
@@ -139,7 +138,7 @@ public class PerspectiveService {
     }
 
     @Transactional
-    public void retryModeration(UUID perspectiveId, Long userId) {
+    public void retryModeration(Long perspectiveId, Long userId) {
         Perspective perspective = findPerspectiveById(perspectiveId);
         validateOwnership(perspective, userId);
         if (perspective.getStatus() != PerspectiveStatus.MODERATION_FAILED) {
@@ -149,7 +148,7 @@ public class PerspectiveService {
         gptModerationService.moderate(perspectiveId, perspective.getContent());
     }
 
-    private Perspective findPerspectiveById(UUID perspectiveId) {
+    private Perspective findPerspectiveById(Long perspectiveId) {
         return perspectiveRepository.findById(perspectiveId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PERSPECTIVE_NOT_FOUND));
     }

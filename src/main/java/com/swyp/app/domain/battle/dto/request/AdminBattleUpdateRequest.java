@@ -1,18 +1,23 @@
 package com.swyp.app.domain.battle.dto.request;
 
 import com.swyp.app.domain.battle.enums.BattleStatus;
-
 import java.time.LocalDate;
 import java.util.List;
-import java.util.UUID;
 
 public record AdminBattleUpdateRequest(
         String title,
+        String titlePrefix,
+        String titleSuffix,
         String summary,
         String description,
         String thumbnailUrl,
+        String itemA,
+        String itemADesc,
+        String itemB,
+        String itemBDesc,
         LocalDate targetDate,
         Integer audioDuration,
         BattleStatus status,
-        List<UUID> tagIds // 배틀 공통 태그 수정용 (카테고리, 가치관, 철학자)
+        List<Long> tagIds,
+        List<AdminBattleOptionRequest> options
 ) {}

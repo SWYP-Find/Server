@@ -7,18 +7,11 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.util.UUID;
-
 @Entity
 @Table(name = "scenario_options")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class InteractiveOption extends BaseEntity {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "option_id", updatable = false, nullable = false)
-    private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "node_id")
@@ -27,10 +20,10 @@ public class InteractiveOption extends BaseEntity {
     private String label;
 
     @Column(name = "next_node_id")
-    private UUID nextNodeId;
+    private Long nextNodeId;
 
     @Builder
-    public InteractiveOption(String label, UUID nextNodeId) {
+    public InteractiveOption(String label, Long nextNodeId) {
         this.label = label;
         this.nextNodeId = nextNodeId;
     }

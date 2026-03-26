@@ -7,7 +7,7 @@ import com.swyp.app.domain.battle.enums.BattleType;
 import com.swyp.app.domain.battle.service.BattleService;
 import com.swyp.app.domain.home.dto.response.HomeBattleResponse;
 import com.swyp.app.domain.notice.dto.response.NoticeSummaryResponse;
-import com.swyp.app.domain.notice.entity.NoticePlacement;
+import com.swyp.app.domain.notice.enums.NoticePlacement;
 import com.swyp.app.domain.notice.service.NoticeService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,7 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.swyp.app.domain.battle.enums.BattleType.BATTLE;
 import static com.swyp.app.domain.battle.enums.BattleType.QUIZ;
@@ -39,6 +39,12 @@ class HomeServiceTest {
     @InjectMocks
     private HomeService homeService;
 
+    private final AtomicLong idGenerator = new AtomicLong(1L);
+
+    private Long generateId() {
+        return idGenerator.getAndIncrement();
+    }
+
     @Test
     @DisplayName("명세기준으로 섹션별 데이터를 조합한다")
     void getHome_aggregates_sections_by_spec() {
@@ -50,7 +56,7 @@ class HomeServiceTest {
         TodayBattleResponse newBattle = battle("new-id", BATTLE);
 
         NoticeSummaryResponse notice = new NoticeSummaryResponse(
-                UUID.randomUUID(),
+                generateId(),
                 "notice",
                 "body",
                 null,
@@ -137,7 +143,7 @@ class HomeServiceTest {
     @DisplayName("공지가 여러개여도 newNotice는 true이다")
     void getHome_newNotice_true_with_multiple_notices() {
         NoticeSummaryResponse notice1 = new NoticeSummaryResponse(
-                UUID.randomUUID(), "notice1", "body1", null,
+                generateId(), "notice1", "body1", null,
                 NoticePlacement.HOME_TOP, true, LocalDateTime.now().minusDays(1), null
         );
 
@@ -156,7 +162,7 @@ class HomeServiceTest {
 
     private TodayBattleResponse battle(String title, BattleType type) {
         return new TodayBattleResponse(
-                UUID.randomUUID(),
+                generateId(),
                 title,
                 "summary",
                 "thumbnail",
@@ -166,15 +172,15 @@ class HomeServiceTest {
                 90,
                 List.of(),
                 List.of(
-                        new TodayOptionResponse(UUID.randomUUID(), BattleOptionLabel.A, "A", "rep-a", "stance-a", "image-a"),
-                        new TodayOptionResponse(UUID.randomUUID(), BattleOptionLabel.B, "B", "rep-b", "stance-b", "image-b")
+                        new TodayOptionResponse(generateId(), BattleOptionLabel.A, "A", "rep-a", "stance-a", "image-a"),
+                        new TodayOptionResponse(generateId(), BattleOptionLabel.B, "B", "rep-b", "stance-b", "image-b")
                 )
         );
     }
 
     private TodayBattleResponse quiz(String title) {
         return new TodayBattleResponse(
-                UUID.randomUUID(),
+                generateId(),
                 title,
                 "summary",
                 "thumbnail",
@@ -184,10 +190,10 @@ class HomeServiceTest {
                 60,
                 List.of(),
                 List.of(
-                        new TodayOptionResponse(UUID.randomUUID(), BattleOptionLabel.A, "A", "rep-a", "stance-a", "image-a"),
-                        new TodayOptionResponse(UUID.randomUUID(), BattleOptionLabel.B, "B", "rep-b", "stance-b", "image-b"),
-                        new TodayOptionResponse(UUID.randomUUID(), BattleOptionLabel.C, "C", "rep-c", "stance-c", "image-c"),
-                        new TodayOptionResponse(UUID.randomUUID(), BattleOptionLabel.D, "D", "rep-d", "stance-d", "image-d")
+                        new TodayOptionResponse(generateId(), BattleOptionLabel.A, "A", "rep-a", "stance-a", "image-a"),
+                        new TodayOptionResponse(generateId(), BattleOptionLabel.B, "B", "rep-b", "stance-b", "image-b"),
+                        new TodayOptionResponse(generateId(), BattleOptionLabel.C, "C", "rep-c", "stance-c", "image-c"),
+                        new TodayOptionResponse(generateId(), BattleOptionLabel.D, "D", "rep-d", "stance-d", "image-d")
                 )
         );
     }

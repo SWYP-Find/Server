@@ -23,17 +23,21 @@ public class BattleConverter {
     private final BattleOptionTagRepository optionTagRepository;
     private static final String BASE_SHARE_URL = "https://pique.app/battles/";
 
-    // 모든 메서드에서 static 키워드를 제거합니다!!
-
     public Battle toEntity(AdminBattleCreateRequest request, User admin) {
         return Battle.builder()
                 .title(request.title())
+                .titlePrefix(request.titlePrefix())
+                .titleSuffix(request.titleSuffix())
+                .itemA(request.itemA())
+                .itemADesc(request.itemADesc())
+                .itemB(request.itemB())
+                .itemBDesc(request.itemBDesc())
                 .summary(request.summary())
                 .description(request.description())
                 .thumbnailUrl(request.thumbnailUrl())
                 .type(request.type())
                 .targetDate(request.targetDate())
-                .status(BattleStatus.DRAFT)
+                .status(BattleStatus.PENDING)
                 .creatorType(BattleCreatorType.ADMIN)
                 .creator(admin)
                 .build();
@@ -54,20 +58,37 @@ public class BattleConverter {
         );
     }
 
+    public BattleSimpleResponse toSimpleResponse(Battle b) {
+        return new BattleSimpleResponse(
+                b.getId(),
+                b.getTitle(),
+                b.getType() != null ? b.getType().name() : "BATTLE",
+                b.getStatus() != null ? b.getStatus().name() : "DRAFT",
+                b.getCreatedAt()
+        );
+    }
+
     public AdminBattleDetailResponse toAdminDetailResponse(Battle b, List<Tag> tags, List<BattleOption> opts) {
         return new AdminBattleDetailResponse(
                 b.getId(),
                 b.getTitle(),
+                b.getTitlePrefix(),
+                b.getTitleSuffix(),
                 b.getSummary(),
                 b.getDescription(),
                 b.getThumbnailUrl(),
                 b.getType(),
+                b.getItemA(),
+                b.getItemADesc(),
+                b.getItemB(),
+                b.getItemBDesc(),
                 b.getTargetDate(),
                 b.getStatus(),
                 b.getCreatorType(),
                 toTagResponses(tags, null),
                 toOptionResponses(opts),
-                b.getCreatedAt(), b.getUpdatedAt()
+                b.getCreatedAt(),
+                b.getUpdatedAt()
         );
     }
 
@@ -82,7 +103,16 @@ public class BattleConverter {
         );
 
         return new BattleUserDetailResponse(
-                summary, b.getDescription(), BASE_SHARE_URL + b.getId(), voteStatus,
+                summary,
+                b.getTitlePrefix(),
+                b.getTitleSuffix(),
+                b.getItemA(),
+                b.getItemADesc(),
+                b.getItemB(),
+                b.getItemBDesc(),
+                b.getDescription(),
+                BASE_SHARE_URL + b.getId(),
+                voteStatus,
                 toTagResponses(tags, TagType.CATEGORY),
                 toTagResponses(tags, TagType.PHILOSOPHER),
                 toTagResponses(tags, TagType.VALUE)

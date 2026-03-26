@@ -1,0 +1,87 @@
+<div th:fragment="quizForm" class="space-y-6" xmlns:th="http://www.thymeleaf.org">
+    <section class="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-lg font-bold flex items-center"><span class="bg-black text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-2">1</span> 퀴즈 등록</h2>
+            <span class="text-xs text-gray-400 font-mono">QUIZ</span>
+        </div>
+
+        <div class="space-y-6">
+            <div>
+                <label class="block text-[13px] font-bold text-gray-700 mb-2">질문 <span class="text-red-500 ml-0.5">*</span></label>
+                <input type="text" id="quiz-question" placeholder="예: 선의의 거짓말은 정당화될 수 있는가?" class="w-full bg-[#FBFBFA] border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none transition placeholder:text-gray-400">
+            </div>
+
+            <div>
+                <label class="block text-[13px] font-bold text-gray-700 mb-2">설명</label>
+                <textarea id="quiz-desc" rows="3" placeholder="예: 결과가 좋다면 과정에서의 속임수는 용납될 수 있을까요? 당신의 윤리적 잣대를 들려주세요." class="w-full bg-[#FBFBFA] border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none transition resize-none placeholder:text-gray-400"></textarea>
+            </div>
+
+            <div>
+                <label class="block text-[13px] font-bold text-gray-700 mb-2">A</label>
+                <input type="text" id="quiz-perf-a" placeholder="예: 결과가 중요하다 (결과주의)" class="w-full bg-[#FBFBFA] border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none transition placeholder:text-gray-400">
+            </div>
+
+            <div>
+                <label class="flex items-center text-[13px] font-bold text-gray-700 mb-2">
+                    A 상세 <span class="ml-2 px-2 py-0.5 bg-[#FDF8EE] text-[#B08955] text-[10px] font-bold rounded border border-[#EBE2D5]">null 값 가능</span>
+                </label>
+                <input type="text" id="quiz-detail-a" placeholder="더 큰 선을 위해 사소한 거짓말은 필요하다." class="w-full bg-[#FBFBFA] border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none transition placeholder:text-gray-400">
+            </div>
+
+            <div>
+                <label class="block text-[13px] font-bold text-gray-700 mb-2">B</label>
+                <input type="text" id="quiz-perf-b" placeholder="원칙이 중요하다 (의무론)" class="w-full bg-[#FBFBFA] border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none transition placeholder:text-gray-400">
+            </div>
+
+            <div>
+                <label class="flex items-center text-[13px] font-bold text-gray-700 mb-2">
+                    B 상세 <span class="ml-2 px-2 py-0.5 bg-[#FDF8EE] text-[#B08955] text-[10px] font-bold rounded border border-[#EBE2D5]">null 값 가능</span>
+                </label>
+                <input type="text" id="quiz-detail-b" placeholder="어떤 상황에서도 진실함이라는 가치는 지켜져야 한다." class="w-full bg-[#FBFBFA] border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none transition placeholder:text-gray-400">
+            </div>
+
+            <hr class="border-gray-100 my-8">
+
+            <div>
+                <label class="block text-[14px] font-bold text-gray-800 mb-4">선택지 구성</label>
+                <div class="flex gap-4">
+                    <div class="flex-1 bg-[#F5F4F2] p-6 rounded-xl border border-[#EAE9E6]">
+                        <span class="text-[#059669] bg-[#ECFDF5] text-[10px] font-bold px-2 py-1 rounded inline-flex items-center mb-4 border border-[#D1FAE5]">
+                            O 정답
+                        </span>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1.5">제목</label>
+                                <input type="text" id="quiz-o-text" placeholder="현실적인 평화주의자" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none placeholder:text-gray-400">
+                            </div>
+                            <div>
+                                <label class="flex items-center text-[12px] font-bold text-gray-600 mb-1.5">
+                                    설명 <span class="ml-2 px-1.5 py-0.5 bg-[#FDF8EE] text-[#B08955] text-[9px] font-bold rounded border border-[#EBE2D5]">null 값 가능</span>
+                                </label>
+                                <input type="text" id="quiz-o-desc" placeholder="타인의 상처를 막기 위한 배려를 가치 있게 여깁니다." class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none placeholder:text-gray-400">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex-1 bg-[#F5F4F2] p-6 rounded-xl border border-[#EAE9E6]">
+                        <span class="text-[#DC2626] bg-[#FEF2F2] text-[10px] font-bold px-2 py-1 rounded inline-flex items-center mb-4 border border-[#FEE2E2]">
+                            X 오답
+                        </span>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-[12px] font-bold text-gray-600 mb-1.5">제목</label>
+                                <input type="text" id="quiz-x-text" placeholder="강직한 진실주의자" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none placeholder:text-gray-400">
+                            </div>
+                            <div>
+                                <label class="flex items-center text-[12px] font-bold text-gray-600 mb-1.5">
+                                    설명 <span class="ml-2 px-1.5 py-0.5 bg-[#FDF8EE] text-[#B08955] text-[9px] font-bold rounded border border-[#EBE2D5]">null 값 가능</span>
+                                </label>
+                                <input type="text" id="quiz-x-desc" placeholder="투명함이야말로 모든 신뢰의 기본이라고 믿습니다." class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none placeholder:text-gray-400">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>

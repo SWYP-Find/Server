@@ -3,6 +3,7 @@ package com.swyp.app.domain.scenario.controller;
 import com.swyp.app.domain.scenario.dto.request.ScenarioCreateRequest;
 import com.swyp.app.domain.scenario.dto.request.ScenarioStatusUpdateRequest;
 import com.swyp.app.domain.scenario.dto.response.AdminDeleteResponse;
+import com.swyp.app.domain.scenario.dto.response.AdminScenarioDetailResponse; // 🚀 추가 (상세 조회용)
 import com.swyp.app.domain.scenario.dto.response.AdminScenarioResponse;
 import com.swyp.app.domain.scenario.dto.response.UserScenarioResponse;
 import com.swyp.app.domain.scenario.service.ScenarioService;
@@ -31,6 +32,14 @@ public class ScenarioController {
             @RequestAttribute(value = "userId", required = false) Long userId
     ) {
         return ApiResponse.onSuccess(scenarioService.getScenarioForUser(battleId, userId));
+    }
+
+    @Operation(summary = "관리자용 배틀 시나리오 조회 (수정용)")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/admin/battles/{battleId}/scenario")
+    public ApiResponse<AdminScenarioDetailResponse> getAdminBattleScenario(
+                                                                            @PathVariable Long battleId) {
+        return ApiResponse.onSuccess(scenarioService.getScenarioForAdmin(battleId));
     }
 
     @Operation(summary = "시나리오 생성")
@@ -62,7 +71,6 @@ public class ScenarioController {
             @PathVariable Long scenarioId,
             @RequestBody ScenarioStatusUpdateRequest request) {
 
-        scenarioService.updateScenarioStatus(scenarioId, request.status());
         return ApiResponse.onSuccess(scenarioService.updateScenarioStatus(scenarioId, request.status()));
     }
 
@@ -72,7 +80,6 @@ public class ScenarioController {
     public ApiResponse<AdminDeleteResponse> deleteScenario(
             @PathVariable Long scenarioId) {
 
-        scenarioService.deleteScenario(scenarioId);
         return ApiResponse.onSuccess(scenarioService.deleteScenario(scenarioId));
     }
 }

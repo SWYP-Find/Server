@@ -1,0 +1,54 @@
+<div th:fragment="voteForm" class="space-y-6" xmlns:th="http://www.thymeleaf.org">
+    <section class="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-lg font-bold flex items-center"><span class="bg-black text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-2">1</span> 투표 등록</h2>
+            <span class="text-xs text-gray-400 font-mono">VOTE</span>
+        </div>
+
+        <div class="space-y-6">
+            <div>
+                <label class="block text-[13px] font-bold text-gray-700 mb-2">질문 앞 <span class="text-red-500 ml-0.5">*</span></label>
+                <input type="text" id="vote-q-prefix" placeholder="예: 도덕의 기준은" class="w-full bg-[#FBFBFA] border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none transition placeholder:text-gray-400">
+            </div>
+
+            <div>
+                <label class="flex items-center text-[13px] font-bold text-gray-700 mb-2">
+                    질문 뒤 <span class="ml-2 px-2 py-0.5 bg-[#FDF8EE] text-[#B08955] text-[10px] font-bold rounded border border-[#EBE2D5]">null 값 가능</span>
+                </label>
+                <input type="text" id="vote-q-suffix" placeholder="예: 이다" class="w-full bg-[#FBFBFA] border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none transition placeholder:text-gray-400">
+            </div>
+
+            <hr class="border-gray-100 my-8">
+
+            <div>
+                <label class="block text-[14px] font-bold text-gray-800 mb-4">선택지 구성 설명</label>
+                <div class="mb-6">
+                    <label class="flex items-center text-[13px] font-bold text-gray-700 mb-2">
+                        설명 텍스트 <span class="ml-2 px-1.5 py-0.5 bg-[#FDF8EE] text-[#B08955] text-[9px] font-bold rounded border border-[#EBE2D5]">null 값 가능</span>
+                    </label>
+                    <textarea id="vote-desc" rows="3" placeholder="예: 빈칸에 들어갈 가장 적절한 답을 골라주세요." class="w-full bg-[#FBFBFA] border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none transition resize-none placeholder:text-gray-400"></textarea>
+                </div>
+
+                <label class="block text-[13px] font-bold text-gray-700 mb-3">보기 1-4</label>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="flex items-center bg-[#FBFBFA] border border-gray-200 rounded-xl p-2.5 px-3 transition-colors focus-within:border-black">
+                        <span class="w-6 h-6 bg-[#222] text-white text-[11px] font-bold rounded-full flex items-center justify-center flex-none mr-3">1</span>
+                        <input type="text" id="vote-opt-1" placeholder="ㄷ" class="w-full bg-transparent text-sm outline-none placeholder:text-gray-400">
+                    </div>
+                    <div class="flex items-center bg-[#FBFBFA] border border-gray-200 rounded-xl p-2.5 px-3 transition-colors focus-within:border-black">
+                        <span class="w-6 h-6 bg-[#222] text-white text-[11px] font-bold rounded-full flex items-center justify-center flex-none mr-3">2</span>
+                        <input type="text" id="vote-opt-2" placeholder="ㄷ" class="w-full bg-transparent text-sm outline-none placeholder:text-gray-400">
+                    </div>
+                    <div class="flex items-center bg-[#FBFBFA] border border-gray-200 rounded-xl p-2.5 px-3 transition-colors focus-within:border-black">
+                        <span class="w-6 h-6 bg-[#222] text-white text-[11px] font-bold rounded-full flex items-center justify-center flex-none mr-3">3</span>
+                        <input type="text" id="vote-opt-3" placeholder="ㄷ" class="w-full bg-transparent text-sm outline-none placeholder:text-gray-400">
+                    </div>
+                    <div class="flex items-center bg-[#FBFBFA] border border-gray-200 rounded-xl p-2.5 px-3 transition-colors focus-within:border-black">
+                        <span class="w-6 h-6 bg-[#222] text-white text-[11px] font-bold rounded-full flex items-center justify-center flex-none mr-3">4</span>
+                        <input type="text" id="vote-opt-4" placeholder="ㄷ" class="w-full bg-transparent text-sm outline-none placeholder:text-gray-400">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>

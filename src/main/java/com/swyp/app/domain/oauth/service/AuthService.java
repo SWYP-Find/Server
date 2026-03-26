@@ -41,15 +41,18 @@ public class AuthService {
 
     public LoginResponse login(String provider, LoginRequest request) {
 
-        // 1. provider에 따라 소셜 사용자 정보 조회
-        OAuthUserInfo oAuthUserInfo = getOAuthUserInfo(provider,
-                                                       request.getAuthorizationCode(), request.getRedirectUri());
+        // 0. Provider를 미리 대문자로 통일
+        String providerUpper = provider.toUpperCase();
 
-        // 2. 기존 소셜 계정 조회 → 없으면 신규 유저 생성
-        boolean isNewUser = false;
+        // 1. 소셜 사용자 정보 조회
+        OAuthUserInfo oAuthUserInfo = getOAuthUserInfo(providerUpper, request.getAuthorizationCode(), request.getRedirectUri());
+
+        // 2. 기존 소셜 계정 조회
         UserSocialAccount socialAccount = socialAccountRepository
-                .findByProviderAndProviderUserId(provider, oAuthUserInfo.getProviderUserId())
+                .findByProviderAndProviderUserId(providerUpper, oAuthUserInfo.getProviderUserId())
                 .orElse(null);
+
+        boolean isNewUser = false;
 
         User user;
         if (socialAccount == null) {
@@ -65,7 +68,7 @@ public class AuthService {
             // 소셜 계정 연결
             socialAccount = UserSocialAccount.builder()
                     .user(user)
-                    .provider(provider.toUpperCase())
+                    .provider(providerUpper)
                     .providerUserId(oAuthUserInfo.getProviderUserId())
                     .providerEmail(oAuthUserInfo.getEmail())
                     .build();

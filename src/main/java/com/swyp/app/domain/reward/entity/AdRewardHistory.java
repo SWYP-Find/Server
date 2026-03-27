@@ -1,6 +1,6 @@
 package com.swyp.app.domain.reward.entity;
 
-import com.swyp.app.domain.reward.enums.RewardType;
+import com.swyp.app.domain.reward.enums.RewardItem;
 import com.swyp.app.domain.user.entity.User;
 import com.swyp.app.global.common.BaseEntity;
 import jakarta.persistence.*;
@@ -23,14 +23,14 @@ public class AdRewardHistory extends BaseEntity {
     private int rewardAmount;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "reward_type", nullable = false)
-    private RewardType rewardType;
+    @Column(name = "reward_item", nullable = false)
+    private RewardItem rewardItem;
 
     @Builder
-    public AdRewardHistory(User user, String transactionId, int rewardAmount, RewardType rewardType) {
+    public AdRewardHistory(User user, String transactionId, int rewardAmount, RewardItem rewardItem) {
         this.user = user;
         this.transactionId = transactionId;
         this.rewardAmount = rewardAmount;
-        this.rewardType = rewardType;
+        this.rewardItem = rewardItem;
     }
 }

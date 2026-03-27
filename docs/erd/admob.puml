@@ -1,0 +1,29 @@
+@startuml
+!theme plain
+skinparam Linetype ortho
+
+' 1. 서비스 사용자 참조
+entity "users" {
+  * id : LONG <<PK>>
+  --
+  user_tag : VARCHAR(30) <<UNIQUE>>
+  status : ENUM('PENDING', 'ACTIVE', 'DELETED', 'BANNED')
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+' 2. 사용자 광고 이력 테이블
+entity "ad_reward_history" {
+  * id : LONG <<PK>>
+  --
+  user_id : LONG <<FK>>
+  transaction_id : VARCHAR(255) UNIQUE
+  reward_amount : INT NOT NULL
+  reward_type : enum('POINT', 'ITEM')
+  created_at : TIMESTAMP
+}
+
+' 관계 설정
+users ||--o{ ad_reward_history : "사용자 보상 이력"
+
+@enduml

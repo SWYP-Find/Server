@@ -5,11 +5,11 @@ import lombok.RequiredArgsConstructor;
 
 @Getter
 @RequiredArgsConstructor
-public enum RewardType {
+public enum RewardItem {
     POINT, ITEM;
 
-    public static RewardType from(String value) {
-        for (RewardType type : RewardType.values()) {
+    public static RewardItem from(String value) {
+        for (RewardItem type : RewardItem.values()) {
             if (type.name().equalsIgnoreCase(value)) return type;
         }
 

@@ -11,6 +11,7 @@ import com.swyp.app.domain.perspective.dto.request.CreatePerspectiveRequest;
 import com.swyp.app.domain.perspective.dto.request.UpdatePerspectiveRequest;
 import com.swyp.app.domain.perspective.dto.response.CreatePerspectiveResponse;
 import com.swyp.app.domain.perspective.dto.response.MyPerspectiveResponse;
+import com.swyp.app.domain.perspective.dto.response.PerspectiveDetailResponse;
 import com.swyp.app.domain.perspective.dto.response.PerspectiveListResponse;
 import com.swyp.app.domain.perspective.dto.response.UpdatePerspectiveResponse;
 import com.swyp.app.domain.perspective.entity.Perspective;
@@ -43,6 +44,24 @@ public class PerspectiveService {
     private final UserService userQueryService;
     private final UserRepository userRepository;
     private final GptModerationService gptModerationService;
+
+    public PerspectiveDetailResponse getPerspectiveDetail(Long perspectiveId, Long userId) {
+        Perspective perspective = findPerspectiveById(perspectiveId);
+        UserSummary user = userQueryService.findSummaryById(perspective.getUser().getId());
+        BattleOption option = perspective.getOption();
+        boolean isLiked = perspectiveLikeRepository.existsByPerspectiveAndUserId(perspective, userId);
+        return new PerspectiveDetailResponse(
+                perspective.getId(),
+                new PerspectiveDetailResponse.UserSummary(user.userTag(), user.nickname(), user.characterType()),
+                new PerspectiveDetailResponse.OptionSummary(option.getId(), option.getLabel().name(), option.getTitle(), option.getStance()),
+                perspective.getContent(),
+                perspective.getLikeCount(),
+                perspective.getCommentCount(),
+                isLiked,
+                perspective.getUser().getId().equals(userId),
+                perspective.getCreatedAt()
+        );
+    }
 
     @Transactional
     public CreatePerspectiveResponse createPerspective(Long battleId, Long userId, CreatePerspectiveRequest request) {
@@ -106,7 +125,7 @@ public class PerspectiveService {
                             p.getLikeCount(),
                             p.getCommentCount(),
                             isLiked,
-                            p.getUserId().equals(userId),
+                            p.getUser().getId().equals(userId),
                             p.getCreatedAt()
                     );
                 })

@@ -11,7 +11,10 @@ public record CommentListResponse(
     public record Item(
             Long commentId,
             UserSummary user,
+            String stance,
             String content,
+            int likeCount,
+            boolean isLiked,
             boolean isMine,
             LocalDateTime createdAt
     ) {}

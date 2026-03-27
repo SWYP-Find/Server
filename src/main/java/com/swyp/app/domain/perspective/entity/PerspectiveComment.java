@@ -30,14 +30,26 @@ public class PerspectiveComment extends BaseEntity {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
+    @Column(name = "like_count", nullable = false)
+    private int likeCount = 0;
+
     @Builder
     private PerspectiveComment(Perspective perspective, User user, String content) {
         this.perspective = perspective;
         this.user = user;
         this.content = content;
+        this.likeCount = 0;
     }
 
     public void updateContent(String content) {
         this.content = content;
+    }
+
+    public void incrementLikeCount() {
+        this.likeCount++;
+    }
+
+    public void decrementLikeCount() {
+        if (this.likeCount > 0) this.likeCount--;
     }
 }

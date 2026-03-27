@@ -4,6 +4,7 @@ import com.swyp.app.domain.perspective.dto.request.CreatePerspectiveRequest;
 import com.swyp.app.domain.perspective.dto.request.UpdatePerspectiveRequest;
 import com.swyp.app.domain.perspective.dto.response.CreatePerspectiveResponse;
 import com.swyp.app.domain.perspective.dto.response.MyPerspectiveResponse;
+import com.swyp.app.domain.perspective.dto.response.PerspectiveDetailResponse;
 import com.swyp.app.domain.perspective.dto.response.PerspectiveListResponse;
 import com.swyp.app.domain.perspective.dto.response.UpdatePerspectiveResponse;
 import com.swyp.app.domain.perspective.service.PerspectiveService;
@@ -31,6 +32,15 @@ public class PerspectiveController {
 
     private final PerspectiveService perspectiveService;
 
+    @Operation(summary = "관점 단건 조회", description = "특정 관점의 상세 정보를 조회합니다.")
+    @GetMapping("/perspectives/{perspectiveId}")
+    public ApiResponse<PerspectiveDetailResponse> getPerspectiveDetail(
+            @PathVariable Long perspectiveId,
+            @AuthenticationPrincipal Long userId) {
+        return ApiResponse.onSuccess(perspectiveService.getPerspectiveDetail(perspectiveId, userId));
+    }
+
+    // TODO: Prevote 의 여부를  Vote 도메인 개발 이후 교체
     @Operation(summary = "관점 생성", description = "특정 배틀에 대한 관점을 생성합니다. 사전 투표가 완료된 경우에만 가능합니다.")
     @PostMapping("/battles/{battleId}/perspectives")
     public ApiResponse<CreatePerspectiveResponse> createPerspective(

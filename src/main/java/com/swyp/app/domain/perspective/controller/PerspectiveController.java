@@ -41,16 +41,17 @@ public class PerspectiveController {
         return ApiResponse.onSuccess(perspectiveService.createPerspective(battleId, userId, request));
     }
 
-    @Operation(summary = "관점 리스트 조회", description = "특정 배틀의 관점 목록을 커서 기반 페이지네이션으로 조회합니다. optionLabel(A/B)로 필터링 가능합니다.")
+    @Operation(summary = "관점 리스트 조회", description = "특정 배틀의 관점 목록을 커서 기반 페이지네이션으로 조회합니다. optionLabel(A/B)로 필터링, sort(latest/popular)로 정렬 가능합니다.")
     @GetMapping("/battles/{battleId}/perspectives")
     public ApiResponse<PerspectiveListResponse> getPerspectives(
             @PathVariable Long battleId,
             @AuthenticationPrincipal Long userId,
             @RequestParam(required = false) String cursor,
             @RequestParam(required = false) Integer size,
-            @RequestParam(required = false) String optionLabel
+            @RequestParam(required = false) String optionLabel,
+            @RequestParam(required = false, defaultValue = "latest") String sort
     ) {
-        return ApiResponse.onSuccess(perspectiveService.getPerspectives(battleId, userId, cursor, size, optionLabel));
+        return ApiResponse.onSuccess(perspectiveService.getPerspectives(battleId, userId, cursor, size, optionLabel, sort));
     }
 
     @Operation(summary = "내 PENDING 관점 조회", description = "특정 배틀에서 내가 작성한 관점이 PENDING 상태인 경우 반환합니다. PENDING 관점이 없으면 404를 반환합니다.")

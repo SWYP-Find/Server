@@ -68,24 +68,29 @@ public class PerspectiveService {
         return new CreatePerspectiveResponse(saved.getId(), saved.getStatus(), saved.getCreatedAt());
     }
 
-    public PerspectiveListResponse getPerspectives(Long battleId, Long userId, String cursor, Integer size, String optionLabel) {
+    public PerspectiveListResponse getPerspectives(Long battleId, Long userId, String cursor, Integer size, String optionLabel, String sort) {
         battleService.findById(battleId);
 
         int pageSize = (size == null || size <= 0) ? DEFAULT_PAGE_SIZE : size;
         PageRequest pageable = PageRequest.of(0, pageSize);
 
+        boolean isPopular = "popular".equalsIgnoreCase(sort);
         List<Perspective> perspectives;
 
         if (optionLabel != null) {
             BattleOptionLabel label = BattleOptionLabel.valueOf(optionLabel.toUpperCase());
             BattleOption option = battleService.findOptionByBattleIdAndLabel(battleId, label);
-            perspectives = cursor == null
-                    ? perspectiveRepository.findByBattleIdAndOptionIdAndStatusOrderByCreatedAtDesc(battleId, option.getId(), PerspectiveStatus.PUBLISHED, pageable)
-                    : perspectiveRepository.findByBattleIdAndOptionIdAndStatusAndCreatedAtBeforeOrderByCreatedAtDesc(battleId, option.getId(), PerspectiveStatus.PUBLISHED, LocalDateTime.parse(cursor), pageable);
+            perspectives = isPopular
+                    ? perspectiveRepository.findByBattleIdAndOptionIdAndStatusOrderByLikeCountDescCreatedAtDesc(battleId, option.getId(), PerspectiveStatus.PUBLISHED, pageable)
+                    : cursor == null
+                        ? perspectiveRepository.findByBattleIdAndOptionIdAndStatusOrderByCreatedAtDesc(battleId, option.getId(), PerspectiveStatus.PUBLISHED, pageable)
+                        : perspectiveRepository.findByBattleIdAndOptionIdAndStatusAndCreatedAtBeforeOrderByCreatedAtDesc(battleId, option.getId(), PerspectiveStatus.PUBLISHED, LocalDateTime.parse(cursor), pageable);
         } else {
-            perspectives = cursor == null
-                    ? perspectiveRepository.findByBattleIdAndStatusOrderByCreatedAtDesc(battleId, PerspectiveStatus.PUBLISHED, pageable)
-                    : perspectiveRepository.findByBattleIdAndStatusAndCreatedAtBeforeOrderByCreatedAtDesc(battleId, PerspectiveStatus.PUBLISHED, LocalDateTime.parse(cursor), pageable);
+            perspectives = isPopular
+                    ? perspectiveRepository.findByBattleIdAndStatusOrderByLikeCountDescCreatedAtDesc(battleId, PerspectiveStatus.PUBLISHED, pageable)
+                    : cursor == null
+                        ? perspectiveRepository.findByBattleIdAndStatusOrderByCreatedAtDesc(battleId, PerspectiveStatus.PUBLISHED, pageable)
+                        : perspectiveRepository.findByBattleIdAndStatusAndCreatedAtBeforeOrderByCreatedAtDesc(battleId, PerspectiveStatus.PUBLISHED, LocalDateTime.parse(cursor), pageable);
         }
 
         List<PerspectiveListResponse.Item> items = perspectives.stream()
@@ -101,6 +106,7 @@ public class PerspectiveService {
                             p.getLikeCount(),
                             p.getCommentCount(),
                             isLiked,
+                            p.getUserId().equals(userId),
                             p.getCreatedAt()
                     );
                 })

@@ -16,6 +16,7 @@ public record PerspectiveListResponse(
             int likeCount,
             int commentCount,
             boolean isLiked,
+            boolean isMyPerspective,
             LocalDateTime createdAt
     ) {}
 

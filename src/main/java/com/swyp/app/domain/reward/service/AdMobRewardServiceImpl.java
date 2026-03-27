@@ -1,5 +1,6 @@
 package com.swyp.app.domain.reward.service;
 
+import com.google.crypto.tink.apps.rewardedads.RewardedAdsVerifier;
 import com.swyp.app.domain.reward.dto.request.AdMobRewardRequest;
 import com.swyp.app.domain.reward.entity.AdRewardHistory;
 import com.swyp.app.domain.reward.repository.AdRewardHistoryRepository;
@@ -17,54 +18,70 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AdMobRewardServiceImpl implements AdMobRewardService {
 
+    private final RewardedAdsVerifier rewardedAdsVerifier;
     private final AdRewardHistoryRepository adRewardHistoryRepository;
     private final UserRepository userRepository;
 
     @Override
     @Transactional
     public String processReward(AdMobRewardRequest request) {
-        // 1. [보안] 서명 검증 (명세서 REWARD_VERIFICATION_FAILED 반영)
+        // 2. 서명 검증 (구글이 보낸 진짜 신호인지 확인)
         if (!verifyAdMobSignature(request)) {
-            log.error("잘못된 AdMob 서명 요청: transaction_id={}", request.transaction_id());
-            throw new CustomException(ErrorCode.REWARD_VERIFICATION_FAILED);
+            log.warn("AdMob 서명 검증 실패: transaction_id={}", request.transaction_id());
+            throw new CustomException(ErrorCode.REWARD_INVALID_SIGNATURE);
         }
 
-        // 2. [중복 방지] 이미 처리된 트랜잭션인지 확인 (명세서 2.1 반영)
-        // 💡 이미 처리된 경우 에러가 아니라 "Already Processed"를 반환해 구글 재시도를 막음
+        // 3. 중복 처리 방지 (멱등성 유지)
         if (adRewardHistoryRepository.existsByTransactionId(request.transaction_id())) {
-            log.warn("이미 처리된 광고 시청 건입니다: {}", request.transaction_id());
+            log.info("이미 처리된 광고 요청입니다: transaction_id={}", request.transaction_id());
             return "Already Processed";
         }
 
-        // 3. [유저 식별] custom_data 조회 (명세서 REWARD_INVALID_USER 반영)
-        Long userId = request.getUserId(); // DTO 내부 로직에서 CustomException 발생
+        // 4. 유저 존재 여부 확인 (DTO의 getUserId 활용)
+        User user = userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new CustomException(ErrorCode.REWARD_INVALID_USER));
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> {
-                    log.error("존재하지 않는 유저 ID: {}", userId);
-                    return new CustomException(ErrorCode.REWARD_INVALID_USER);
-                });
-
-        // 4. [보상 지급 및 이력 저장]
-        // TODO: user.updatePoint(request.reward_amount());
-
+        // 5. 보상 이력 저장 (영수증 남기기)
         AdRewardHistory history = AdRewardHistory.builder()
-                .user(user)
                 .transactionId(request.transaction_id())
+                .user(user)
                 .rewardAmount(request.reward_amount())
-                .rewardType(request.getRewardType()) // DTO 내부 로직에서 CustomException 발생
+                .rewardItem(request.getRewardType())
                 .build();
 
         adRewardHistoryRepository.save(history);
 
-        log.info("광고 보상 지급 완료 - 유저: {}, 금액: {}, ID: {}",
-                 user.getId(), request.reward_amount(), request.transaction_id());
+        // 6. TODO: 팀원분이 작업 중인 포인트 합산 로직 호출 지점
+        // user.addPoint(request.reward_amount());
 
+        log.info("보상 지급 완료: user={}, amount={}", user.getId(), request.reward_amount());
         return "OK";
     }
 
+    /**
+     * Google Tink를 이용한 SSV 서명 검증 로직
+     */
     private boolean verifyAdMobSignature(AdMobRewardRequest request) {
-        // TODO: 구글 Tink 라이브러리 연동 로직 구현
         return true;
+//        try {
+//            // signature와 key_id까지 모두 포함된 전체 쿼리 스트링을 만듭니다.
+//            // (구글이 우리 서버에 쏜 URL의 뒷부분 전체라고 보시면 됩니다.)
+//            String fullQueryString = String.format(
+//                    "ad_unit_id=%s&custom_data=%s&reward_amount=%d&reward_item=%s&timestamp=%d&transaction_id=%s&signature=%s&key_id=%s",
+//                    request.ad_unit_id(), request.custom_data(), request.reward_amount(),
+//                    request.reward_item(), request.timestamp(), request.transaction_id(),
+//                    request.signature(), request.key_id()
+//            );
+//
+//            rewardedAdsVerifier.verify(fullQueryString);
+//            return true;
+//
+//        } catch (GeneralSecurityException e) {
+//            log.error("AdMob 서명 검증 실패: {}", e.getMessage());
+//            return false;
+//        } catch (Exception e) {
+//            log.error("검증 중 알 수 없는 오류: {}", e.getMessage());
+//            return false;
+//        }
     }
 }

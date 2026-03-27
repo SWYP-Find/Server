@@ -80,7 +80,12 @@ public enum ErrorCode {
     VOTE_ALREADY_SUBMITTED(HttpStatus.CONFLICT,    "VOTE_409_SUB", "이미 투표가 완료되었습니다."),
     INVALID_VOTE_STATUS   (HttpStatus.BAD_REQUEST, "VOTE_400_INV", "사전 투표를 진행해야 하거나, 이미 사후 투표가 완료되었습니다."),
     PRE_VOTE_REQUIRED     (HttpStatus.CONFLICT,    "VOTE_409_PRE", "사전 투표가 필요합니다."),
-    POST_VOTE_REQUIRED    (HttpStatus.CONFLICT,    "VOTE_409_PST", "사후 투표가 필요합니다.");
+    POST_VOTE_REQUIRED    (HttpStatus.CONFLICT,    "VOTE_409_PST", "사후 투표가 필요합니다."),
+
+    // Reward
+    REWARD_INVALID_USER(HttpStatus.NOT_FOUND, "REWARD_404", "해당 유저를 찾을 수 없습니다."),
+    REWARD_INVALID_TYPE(HttpStatus.BAD_REQUEST, "REWARD_400", "지원하지 않는 보상 아이템 타입입니다."),
+    REWARD_VERIFICATION_FAILED(HttpStatus.UNAUTHORIZED, "REWARD_401", "AdMob 서명 검증에 실패하였습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

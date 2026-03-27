@@ -1,6 +1,6 @@
 package com.swyp.app.domain.reward.dto.request;
 
-import com.swyp.app.domain.reward.enums.RewardType;
+import com.swyp.app.domain.reward.enums.RewardItem;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
 
@@ -24,9 +24,9 @@ public record AdMobRewardRequest(
     }
 
     // 실제 우리가 제공하는 보상 유형이랑 동일한지 확인 enum에서!
-    public RewardType getRewardType() {
+    public RewardItem getRewardType() {
         try {
-            return RewardType.valueOf(this.reward_item.toUpperCase());
+            return RewardItem.valueOf(this.reward_item.toUpperCase());
         } catch (IllegalArgumentException | NullPointerException e) {
             throw new CustomException(ErrorCode.REWARD_INVALID_TYPE);
         }

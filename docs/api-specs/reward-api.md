@@ -35,18 +35,21 @@
 ```json
 {
   "statusCode": 200,
-  "data": "OK",
-  "error": null
+  "data": {
+    "reward_status": "OK"
+  }
 }
 ```
 
 **응답 (중복 요청 시):**
 
 ```JSON
+
 {
-    "statusCode": 200,
-    "data": "Already Processed",
-    "error": null
+  "statusCode": 200,
+  "data": {
+    "reward_status": "Already Processed"
+  }
 }
 ```
 
@@ -116,7 +119,7 @@
   "statusCode": 401,
   "data": null,
   "error": {
-    "code": "REWARD_VERIFICATION_FAILED",
+    "code": "REWARD_INVALID_SIGNATURE",
     "message": "AdMob 서명 검증에 실패하였습니다. 요청의 유효성을 확인하세요."
   }
 }
@@ -127,8 +130,7 @@
 
 | Error Code | HTTP Status | 설명                                  |
 |------------|:-----------:|-------------------------------------|
-| `REWARD_INVALID_USER` | `404` | custom_data에 해당하는 유저가 존재하지 않음       |
-| `REWARD_INVALID_TYPE` | `400` | 지원하지 않는 reward_item 타입 (Enum 미매칭)   |
-| `REWARD_VERIFICATION_FAILED` | `401` | AdMob 서명(Signature) 검증 실패           |
-
+| `REWARD_INVALID_USER` |    `404`    | custom_data에 해당하는 유저가 존재하지 않음       |
+| `REWARD_INVALID_TYPE` |    `400`    | 지원하지 않는 reward_item 타입 (Enum 미매칭)   |
+| `REWARD_INVALID_SIGNATURE` |    `401`    | AdMob 서명(Signature) 검증 실패 또는 위변조 의심      |
 ---

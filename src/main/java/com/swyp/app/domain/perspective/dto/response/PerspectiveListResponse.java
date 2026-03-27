@@ -29,6 +29,7 @@ public record PerspectiveListResponse(
     public record OptionSummary(
             Long optionId,
             String label,
-            String title
+            String title,
+            String stance
     ) {}
 }

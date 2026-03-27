@@ -101,7 +101,7 @@ public class PerspectiveService {
                     return new PerspectiveListResponse.Item(
                             p.getId(),
                             new PerspectiveListResponse.UserSummary(user.userTag(), user.nickname(), user.characterType()),
-                            new PerspectiveListResponse.OptionSummary(option.getId(), option.getLabel().name(), option.getTitle()),
+                            new PerspectiveListResponse.OptionSummary(option.getId(), option.getLabel().name(), option.getTitle(), option.getStance()),
                             p.getContent(),
                             p.getLikeCount(),
                             p.getCommentCount(),

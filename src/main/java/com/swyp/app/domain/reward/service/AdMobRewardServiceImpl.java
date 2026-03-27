@@ -9,6 +9,7 @@ import com.swyp.app.domain.user.repository.UserRepository;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
 import jakarta.transaction.Transactional;
+import java.security.GeneralSecurityException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -51,7 +52,7 @@ public class AdMobRewardServiceImpl implements AdMobRewardService {
 
         adRewardHistoryRepository.save(history);
 
-        // 6. TODO: 팀원분이 작업 중인 포인트 합산 로직 호출 지점
+        // 6. TODO: 작업 중인 포인트 합산 로직 호출 지점
         // user.addPoint(request.reward_amount());
 
         log.info("보상 지급 완료: user={}, amount={}", user.getId(), request.reward_amount());
@@ -62,26 +63,25 @@ public class AdMobRewardServiceImpl implements AdMobRewardService {
      * Google Tink를 이용한 SSV 서명 검증 로직
      */
     private boolean verifyAdMobSignature(AdMobRewardRequest request) {
-        return true;
-//        try {
-//            // signature와 key_id까지 모두 포함된 전체 쿼리 스트링을 만듭니다.
-//            // (구글이 우리 서버에 쏜 URL의 뒷부분 전체라고 보시면 됩니다.)
-//            String fullQueryString = String.format(
-//                    "ad_unit_id=%s&custom_data=%s&reward_amount=%d&reward_item=%s&timestamp=%d&transaction_id=%s&signature=%s&key_id=%s",
-//                    request.ad_unit_id(), request.custom_data(), request.reward_amount(),
-//                    request.reward_item(), request.timestamp(), request.transaction_id(),
-//                    request.signature(), request.key_id()
-//            );
-//
-//            rewardedAdsVerifier.verify(fullQueryString);
-//            return true;
-//
-//        } catch (GeneralSecurityException e) {
-//            log.error("AdMob 서명 검증 실패: {}", e.getMessage());
-//            return false;
-//        } catch (Exception e) {
-//            log.error("검증 중 알 수 없는 오류: {}", e.getMessage());
-//            return false;
-//        }
+        try {
+            // signature와 key_id까지 모두 포함된 전체 쿼리 스트링을 만듭니다.
+            // (구글이 우리 서버에 쏜 URL의 뒷부분 전체라고 보시면 됩니다.)
+            String fullQueryString = String.format(
+                    "ad_unit_id=%s&custom_data=%s&reward_amount=%d&reward_item=%s&timestamp=%d&transaction_id=%s&signature=%s&key_id=%s",
+                    request.ad_unit_id(), request.custom_data(), request.reward_amount(),
+                    request.reward_item(), request.timestamp(), request.transaction_id(),
+                    request.signature(), request.key_id()
+            );
+
+            rewardedAdsVerifier.verify(fullQueryString);
+            return true;
+
+        } catch (GeneralSecurityException e) {
+            log.error("AdMob 서명 검증 실패: {}", e.getMessage());
+            return false;
+        } catch (Exception e) {
+            log.error("검증 중 알 수 없는 오류: {}", e.getMessage());
+            return false;
+        }
     }
 }

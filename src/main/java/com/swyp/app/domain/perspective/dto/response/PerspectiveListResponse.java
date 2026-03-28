@@ -23,7 +23,8 @@ public record PerspectiveListResponse(
     public record UserSummary(
             String userTag,
             String nickname,
-            String characterType
+            String characterType,
+            String characterImageUrl
     ) {}
 
     public record OptionSummary(

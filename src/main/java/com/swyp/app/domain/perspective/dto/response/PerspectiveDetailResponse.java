@@ -13,7 +13,7 @@ public record PerspectiveDetailResponse(
         boolean isMyPerspective,
         LocalDateTime createdAt
 ) {
-    public record UserSummary(String userTag, String nickname, String characterType) {}
+    public record UserSummary(String userTag, String nickname, String characterType, String characterImageUrl) {}
 
     public record OptionSummary(Long optionId, String label, String title, String stance) {}
 }

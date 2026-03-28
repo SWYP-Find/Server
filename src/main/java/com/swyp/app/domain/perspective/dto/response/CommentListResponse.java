@@ -19,5 +19,5 @@ public record CommentListResponse(
             LocalDateTime createdAt
     ) {}
 
-    public record UserSummary(String userTag, String nickname, String characterType) {}
+    public record UserSummary(String userTag, String nickname, String characterType, String characterImageUrl) {}
 }

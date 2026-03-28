@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ReportService {
 
-    private static final int REPORT_THRESHOLD = 2;
+    private static final int REPORT_THRESHOLD = 10;
 
     private final PerspectiveRepository perspectiveRepository;
     private final PerspectiveCommentRepository commentRepository;

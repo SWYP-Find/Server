@@ -15,10 +15,12 @@ import com.swyp.app.domain.perspective.repository.PerspectiveRepository;
 import com.swyp.app.domain.user.dto.response.UserSummary;
 import com.swyp.app.domain.user.entity.User;
 import com.swyp.app.domain.user.repository.UserRepository;
+import com.swyp.app.domain.user.entity.CharacterType;
 import com.swyp.app.domain.user.service.UserService;
 import com.swyp.app.domain.vote.service.VoteService;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
+import com.swyp.app.global.infra.s3.service.S3PresignedUrlService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -41,6 +43,7 @@ public class PerspectiveCommentService {
     private final UserService userQueryService;
     private final VoteService voteService;
     private final BattleService battleService;
+    private final S3PresignedUrlService s3PresignedUrlService;
 
     @Transactional
     public CreateCommentResponse createComment(Long perspectiveId, Long userId, CreateCommentRequest request) {
@@ -58,6 +61,8 @@ public class PerspectiveCommentService {
         perspective.incrementCommentCount();
 
         UserSummary userSummary = userQueryService.findSummaryById(userId);
+        String characterImageUrl = s3PresignedUrlService.generatePresignedUrl(
+                CharacterType.from(userSummary.characterType()).getImageKey());
         Long postVoteOptionId = voteService.findPostVoteOptionId(perspective.getBattle().getId(), userId);
         String stance = null;
         if (postVoteOptionId != null) {
@@ -65,7 +70,7 @@ public class PerspectiveCommentService {
         }
         return new CreateCommentResponse(
                 comment.getId(),
-                new CreateCommentResponse.UserSummary(userSummary.userTag(), userSummary.nickname(), userSummary.characterType()),
+                new CreateCommentResponse.UserSummary(userSummary.userTag(), userSummary.nickname(), userSummary.characterType(), characterImageUrl),
                 stance,
                 comment.getContent(),
                 0,
@@ -91,6 +96,8 @@ public class PerspectiveCommentService {
                 .filter(c -> !c.isHidden())
                 .map(c -> {
                     UserSummary user = userQueryService.findSummaryById(c.getUser().getId());
+                    String characterImageUrl = s3PresignedUrlService.generatePresignedUrl(
+                            CharacterType.from(user.characterType()).getImageKey());
                     Long postVoteOptionId = voteService.findPostVoteOptionId(battleId, c.getUser().getId());
                     String stance = null;
                     if (postVoteOptionId != null) {
@@ -100,7 +107,7 @@ public class PerspectiveCommentService {
                     boolean isLiked = commentLikeRepository.existsByCommentAndUserId(c, userId);
                     return new CommentListResponse.Item(
                             c.getId(),
-                            new CommentListResponse.UserSummary(user.userTag(), user.nickname(), user.characterType()),
+                            new CommentListResponse.UserSummary(user.userTag(), user.nickname(), user.characterType(), characterImageUrl),
                             stance,
                             c.getContent(),
                             c.getLikeCount(),

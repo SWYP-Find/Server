@@ -72,4 +72,26 @@ public interface BattleRepository extends JpaRepository<Battle, Long> {
            "WHERE t.type = 'CATEGORY' AND t.name = :categoryName " +
            "AND b.status = 'PUBLISHED' AND b.deletedAt IS NULL")
     long countSearchByCategory(@Param("categoryName") String categoryName);
+
+    // 추천 폴백용: 전체 배틀 대상 인기 점수순 조회 (철학자 유형 로직 미구현 시 사용)
+    // Score = V*1.0 + C*1.5 + Vw*0.2
+    @Query("SELECT b FROM Battle b " +
+            "WHERE b.id NOT IN :excludeBattleIds " +
+            "AND b.status = 'PUBLISHED' AND b.deletedAt IS NULL " +
+            "ORDER BY (b.totalParticipantsCount * 1.0 + b.commentCount * 1.5 + b.viewCount * 0.2) DESC")
+    List<Battle> findPopularBattlesExcluding(
+            @Param("excludeBattleIds") List<Long> excludeBattleIds,
+            Pageable pageable);
+
+    // 추천용: 특정 유저들이 참여한 배틀 중 이미 참여한 배틀 제외하고 인기 점수순 조회
+    // Score = V*1.0 + C*1.5 + Vw*0.2 (R은 추후 반영 예정)
+    @Query("SELECT b FROM Battle b " +
+            "WHERE b.id IN :candidateBattleIds " +
+            "AND b.id NOT IN :excludeBattleIds " +
+            "AND b.status = 'PUBLISHED' AND b.deletedAt IS NULL " +
+            "ORDER BY (b.totalParticipantsCount * 1.0 + b.commentCount * 1.5 + b.viewCount * 0.2) DESC")
+    List<Battle> findRecommendedBattles(
+            @Param("candidateBattleIds") List<Long> candidateBattleIds,
+            @Param("excludeBattleIds") List<Long> excludeBattleIds,
+            Pageable pageable);
 }

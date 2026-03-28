@@ -7,8 +7,11 @@ public record RecommendationListResponse(List<Item> items, String nextCursor, bo
     public record Item(
             Long battleId,
             String title,
+            String summary,
+            Integer audioDuration,
+            Integer viewCount,
             List<TagSummary> tags,
-            int participantsCount,
+            long participantsCount,
             List<OptionSummary> options
     ) {}
 
@@ -18,6 +21,7 @@ public record RecommendationListResponse(List<Item> items, String nextCursor, bo
             Long optionId,
             String label,
             String title,
+            String stance,
             String representative,
             String imageUrl
     ) {}

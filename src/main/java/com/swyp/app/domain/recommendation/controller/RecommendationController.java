@@ -20,12 +20,11 @@ public class RecommendationController {
 
     private final RecommendationService recommendationService;
 
-    @Operation(summary = "흥미 기반 배틀 추천 조회", description = "특정 배틀 기반으로 흥미로운 배틀 목록을 추천합니다. (추천 정책 미확정)")
+    @Operation(summary = "흥미 기반 배틀 추천 조회", description = "특정 배틀 기반으로 흥미로운 배틀 목록을 추천합니다.")
     @GetMapping("/battles/{battleId}/recommendations/interesting")
     public ApiResponse<RecommendationListResponse> getInterestingBattles(
             @PathVariable Long battleId,
-            @RequestParam(required = false) String cursor,
-            @RequestParam(required = false) Integer size) {
-        return ApiResponse.onSuccess(recommendationService.getInterestingBattles(battleId, cursor, size));
+            @RequestParam Long userId) {
+        return ApiResponse.onSuccess(recommendationService.getInterestingBattles(battleId, userId));
     }
 }

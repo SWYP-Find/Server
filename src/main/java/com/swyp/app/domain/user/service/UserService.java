@@ -3,6 +3,7 @@ package com.swyp.app.domain.user.service;
 import com.swyp.app.domain.user.dto.request.UpdateUserProfileRequest;
 import com.swyp.app.domain.user.dto.response.MyProfileResponse;
 import com.swyp.app.domain.user.dto.response.UserSummary;
+import com.swyp.app.domain.user.entity.PhilosopherType;
 import com.swyp.app.domain.user.entity.User;
 import com.swyp.app.domain.user.entity.UserProfile;
 import com.swyp.app.domain.user.entity.UserSettings;
@@ -39,6 +40,16 @@ public class UserService {
                 profile.getUpdatedAt()
         );
     }
+
+    /**
+     * TODO: 사후투표 기반 철학자 유형 산출 로직 구현 필요
+     * - 유저가 선택한 옵션의 BattleOptionTag(PHILOSOPHER 타입) 누적 점수 중 최고값 철학자를 반환
+     * - 현재는 임시로 SOCRATES 반환
+     */
+    public PhilosopherType getPhilosopherType(Long userId) {
+        return PhilosopherType.SOCRATES;
+    }
+
 
     public UserSummary findSummaryById(Long userId) {
         User user = userRepository.findById(userId)

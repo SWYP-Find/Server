@@ -64,12 +64,12 @@ public class PerspectiveController {
         return ApiResponse.onSuccess(perspectiveService.getPerspectives(battleId, userId, cursor, size, optionLabel, sort));
     }
 
-    @Operation(summary = "내 PENDING 관점 조회", description = "특정 배틀에서 내가 작성한 관점이 PENDING 상태인 경우 반환합니다. PENDING 관점이 없으면 404를 반환합니다.")
-    @GetMapping("/battles/{battleId}/perspectives/me/pending")
-    public ApiResponse<MyPerspectiveResponse> getMyPendingPerspective(
+    @Operation(summary = "내 관점 조회", description = "특정 배틀에서 내가 작성한 관점을 조회합니다. 상태(PENDING/PUBLISHED/REJECTED 등)와 무관하게 반환하며, 작성한 관점이 없으면 404를 반환합니다.")
+    @GetMapping("/battles/{battleId}/perspectives/me")
+    public ApiResponse<MyPerspectiveResponse> getMyPerspective(
             @PathVariable Long battleId,
             @AuthenticationPrincipal Long userId) {
-        return ApiResponse.onSuccess(perspectiveService.getMyPendingPerspective(battleId, userId));
+        return ApiResponse.onSuccess(perspectiveService.getMyPerspective(battleId, userId));
     }
 
     @Operation(summary = "관점 삭제", description = "본인이 작성한 관점을 삭제합니다.")

@@ -165,14 +165,25 @@ public class PerspectiveService {
         return new UpdatePerspectiveResponse(perspective.getId(), perspective.getContent(), perspective.getUpdatedAt());
     }
 
-    public MyPerspectiveResponse getMyPendingPerspective(Long battleId, Long userId) {
+    public MyPerspectiveResponse getMyPerspective(Long battleId, Long userId) {
         battleService.findById(battleId);
         Perspective perspective = perspectiveRepository.findByBattleIdAndUserId(battleId, userId)
-                .filter(p -> p.getStatus() == PerspectiveStatus.PENDING)
                 .orElseThrow(() -> new CustomException(ErrorCode.PERSPECTIVE_NOT_FOUND));
+
+        UserSummary user = userQueryService.findSummaryById(userId);
+        String characterImageUrl = s3PresignedUrlService.generatePresignedUrl(
+                CharacterType.from(user.characterType()).getImageKey());
+        BattleOption option = perspective.getOption();
+        boolean isLiked = perspectiveLikeRepository.existsByPerspectiveAndUserId(perspective, userId);
+
         return new MyPerspectiveResponse(
                 perspective.getId(),
+                new MyPerspectiveResponse.UserSummary(user.userTag(), user.nickname(), user.characterType(), characterImageUrl),
+                new MyPerspectiveResponse.OptionSummary(option.getId(), option.getLabel().name(), option.getTitle(), option.getStance()),
                 perspective.getContent(),
+                perspective.getLikeCount(),
+                perspective.getCommentCount(),
+                isLiked,
                 perspective.getStatus(),
                 perspective.getCreatedAt()
         );

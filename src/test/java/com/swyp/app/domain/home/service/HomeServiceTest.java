@@ -5,7 +5,7 @@ import com.swyp.app.domain.battle.dto.response.TodayOptionResponse;
 import com.swyp.app.domain.battle.enums.BattleOptionLabel;
 import com.swyp.app.domain.battle.enums.BattleType;
 import com.swyp.app.domain.battle.service.BattleService;
-import com.swyp.app.domain.home.dto.response.HomeBattleResponse;
+import com.swyp.app.domain.home.dto.response.*;
 import com.swyp.app.domain.notice.dto.response.NoticeSummaryResponse;
 import com.swyp.app.domain.notice.enums.NoticePlacement;
 import com.swyp.app.domain.notice.service.NoticeService;
@@ -51,8 +51,8 @@ class HomeServiceTest {
         TodayBattleResponse editorPick = battle("editor-id", BATTLE);
         TodayBattleResponse trendingBattle = battle("trending-id", BATTLE);
         TodayBattleResponse bestBattle = battle("best-id", BATTLE);
-        TodayBattleResponse todayVotePick = battle("today-vote-id", VOTE);
-        TodayBattleResponse quizBattle = quiz("quiz-id");
+        TodayBattleResponse todayVote = vote("vote-id");
+        TodayBattleResponse todayQuiz = quiz("quiz-id");
         TodayBattleResponse newBattle = battle("new-id", BATTLE);
 
         NoticeSummaryResponse notice = new NoticeSummaryResponse(
@@ -70,33 +70,36 @@ class HomeServiceTest {
         when(battleService.getEditorPicks()).thenReturn(List.of(editorPick));
         when(battleService.getTrendingBattles()).thenReturn(List.of(trendingBattle));
         when(battleService.getBestBattles()).thenReturn(List.of(bestBattle));
-        when(battleService.getTodayPicks(VOTE)).thenReturn(List.of(todayVotePick));
-        when(battleService.getTodayPicks(QUIZ)).thenReturn(List.of(quizBattle));
+        when(battleService.getTodayPicks(VOTE)).thenReturn(List.of(todayVote));
+        when(battleService.getTodayPicks(QUIZ)).thenReturn(List.of(todayQuiz));
         when(battleService.getNewBattles(List.of(
                 editorPick.battleId(),
                 trendingBattle.battleId(),
                 bestBattle.battleId(),
-                todayVotePick.battleId(),
-                quizBattle.battleId()
+                todayVote.battleId(),
+                todayQuiz.battleId()
         ))).thenReturn(List.of(newBattle));
 
         var response = homeService.getHome();
 
         assertThat(response.newNotice()).isTrue();
-        assertThat(response.editorPicks()).extracting(HomeBattleResponse::title).containsExactly("editor-id");
-        assertThat(response.trendingBattles()).extracting(HomeBattleResponse::title).containsExactly("trending-id");
-        assertThat(response.bestBattles()).extracting(HomeBattleResponse::title).containsExactly("best-id");
-        assertThat(response.todayPicks()).extracting(HomeBattleResponse::title).containsExactly("today-vote-id", "quiz-id");
-        assertThat(response.newBattles()).extracting(HomeBattleResponse::title).containsExactly("new-id");
-        assertThat(response.todayPicks().get(0).options()).extracting(option -> option.text()).containsExactly("A", "B");
-        assertThat(response.todayPicks().get(1).options()).extracting(option -> option.text()).containsExactly("A", "B", "C", "D");
+        assertThat(response.editorPicks()).extracting(HomeEditorPickResponse::title).containsExactly("editor-id");
+        assertThat(response.trendingBattles()).extracting(HomeTrendingResponse::title).containsExactly("trending-id");
+        assertThat(response.bestBattles()).extracting(HomeBestBattleResponse::title).containsExactly("best-id");
+        assertThat(response.todayQuizzes()).extracting(HomeTodayQuizResponse::title).containsExactly("quiz-id");
+        assertThat(response.todayVotes()).hasSize(1);
+        assertThat(response.todayVotes().get(0).titlePrefix()).isEqualTo("도덕의 기준은");
+        assertThat(response.todayVotes().get(0).options()).extracting(HomeTodayVoteOptionResponse::title)
+                .containsExactly("결과", "의도", "규칙", "덕");
+        assertThat(response.todayQuizzes().get(0).itemA()).isEqualTo("정답");
+        assertThat(response.newBattles()).extracting(HomeNewBattleResponse::title).containsExactly("new-id");
 
         verify(battleService).getNewBattles(argThat(ids -> ids.equals(List.of(
                 editorPick.battleId(),
                 trendingBattle.battleId(),
                 bestBattle.battleId(),
-                todayVotePick.battleId(),
-                quizBattle.battleId()
+                todayVote.battleId(),
+                todayQuiz.battleId()
         ))));
     }
 
@@ -117,7 +120,8 @@ class HomeServiceTest {
         assertThat(response.editorPicks()).isEmpty();
         assertThat(response.trendingBattles()).isEmpty();
         assertThat(response.bestBattles()).isEmpty();
-        assertThat(response.todayPicks()).isEmpty();
+        assertThat(response.todayQuizzes()).isEmpty();
+        assertThat(response.todayVotes()).isEmpty();
         assertThat(response.newBattles()).isEmpty();
     }
 
@@ -162,39 +166,39 @@ class HomeServiceTest {
 
     private TodayBattleResponse battle(String title, BattleType type) {
         return new TodayBattleResponse(
-                generateId(),
-                title,
-                "summary",
-                "thumbnail",
-                type,
-                10,
-                20L,
-                90,
+                generateId(), title, "summary", "thumbnail", type,
+                10, 20L, 90,
                 List.of(),
                 List.of(
                         new TodayOptionResponse(generateId(), BattleOptionLabel.A, "A", "rep-a", "stance-a", "image-a"),
                         new TodayOptionResponse(generateId(), BattleOptionLabel.B, "B", "rep-b", "stance-b", "image-b")
-                )
+                ),
+                null, null, null, null, null, null
         );
     }
 
     private TodayBattleResponse quiz(String title) {
         return new TodayBattleResponse(
-                generateId(),
-                title,
-                "summary",
-                "thumbnail",
-                QUIZ,
-                30,
-                40L,
-                60,
+                generateId(), title, "summary", "thumbnail", QUIZ,
+                30, 40L, 60,
+                List.of(),
+                List.of(),
+                null, null, "정답", "정답 설명", "오답", "오답 설명"
+        );
+    }
+
+    private TodayBattleResponse vote(String title) {
+        return new TodayBattleResponse(
+                generateId(), title, "summary", "thumbnail", VOTE,
+                50, 60L, 0,
                 List.of(),
                 List.of(
-                        new TodayOptionResponse(generateId(), BattleOptionLabel.A, "A", "rep-a", "stance-a", "image-a"),
-                        new TodayOptionResponse(generateId(), BattleOptionLabel.B, "B", "rep-b", "stance-b", "image-b"),
-                        new TodayOptionResponse(generateId(), BattleOptionLabel.C, "C", "rep-c", "stance-c", "image-c"),
-                        new TodayOptionResponse(generateId(), BattleOptionLabel.D, "D", "rep-d", "stance-d", "image-d")
-                )
+                        new TodayOptionResponse(generateId(), BattleOptionLabel.A, "결과", null, null, null),
+                        new TodayOptionResponse(generateId(), BattleOptionLabel.B, "의도", null, null, null),
+                        new TodayOptionResponse(generateId(), BattleOptionLabel.C, "규칙", null, null, null),
+                        new TodayOptionResponse(generateId(), BattleOptionLabel.D, "덕", null, null, null)
+                ),
+                "도덕의 기준은", "이다", null, null, null, null
         );
     }
 }

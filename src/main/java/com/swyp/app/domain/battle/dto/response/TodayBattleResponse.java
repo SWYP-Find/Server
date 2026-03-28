@@ -18,5 +18,12 @@ public record TodayBattleResponse(
         Long participantsCount, // 누적 참여자 수
         Integer audioDuration,  // 소요 시간 (분:초 변환용 데이터)
         List<BattleTagResponse> tags,       // 상단 태그 리스트
-        List<TodayOptionResponse> options   // 중앙 세로형 대결 카드 데이터
+        List<TodayOptionResponse> options,  // 중앙 세로형 대결 카드 데이터
+        // 퀴즈·투표 전용 필드
+        String titlePrefix,     // 투표 접두사 (예: "도덕의 기준은")
+        String titleSuffix,     // 투표 접미사 (예: "이다")
+        String itemA,           // 퀴즈 O 선택지
+        String itemADesc,       // 퀴즈 O 설명
+        String itemB,           // 퀴즈 X 선택지
+        String itemBDesc        // 퀴즈 X 설명
 ) {}

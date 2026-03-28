@@ -54,7 +54,13 @@ public class BattleConverter {
                 b.getTotalParticipantsCount() == null ? 0L : b.getTotalParticipantsCount(),
                 b.getAudioDuration() == null ? 0 : b.getAudioDuration(),
                 toTagResponses(tags, null),
-                toTodayOptionResponses(opts)
+                toTodayOptionResponses(opts),
+                b.getTitlePrefix(),
+                b.getTitleSuffix(),
+                b.getItemA(),
+                b.getItemADesc(),
+                b.getItemB(),
+                b.getItemBDesc()
         );
     }
 

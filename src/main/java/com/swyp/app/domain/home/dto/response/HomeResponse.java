@@ -4,10 +4,10 @@ import java.util.List;
 
 public record HomeResponse(
         boolean newNotice,
-        List<HomeBattleResponse> editorPicks,
-        List<HomeBattleResponse> trendingBattles,
-        List<HomeBattleResponse> bestBattles,
-        List<HomeBattleResponse> todayPicks,
-        List<HomeBattleResponse> newBattles
-) {
-}
+        List<HomeEditorPickResponse> editorPicks,
+        List<HomeTrendingResponse> trendingBattles,
+        List<HomeBestBattleResponse> bestBattles,
+        List<HomeTodayQuizResponse> todayQuizzes,
+        List<HomeTodayVoteResponse> todayVotes,
+        List<HomeNewBattleResponse> newBattles
+) {}

@@ -53,17 +53,17 @@ public class UserService {
     }
 
     public UserProfile findUserProfile(Long userId) {
-        return userProfileRepository.findById(userId)
+        return userProfileRepository.findByUserId(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 
     public UserSettings findUserSettings(Long userId) {
-        return userSettingsRepository.findById(userId)
+        return userSettingsRepository.findByUserId(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 
     public UserTendencyScore findUserTendencyScore(Long userId) {
-        return userTendencyScoreRepository.findById(userId)
+        return userTendencyScoreRepository.findByUserId(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 }

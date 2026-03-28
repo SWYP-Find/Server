@@ -6,10 +6,6 @@ import com.swyp.app.domain.battle.enums.BattleOptionLabel;
 import com.swyp.app.domain.battle.enums.BattleStatus;
 import com.swyp.app.domain.battle.enums.BattleType;
 import com.swyp.app.domain.battle.service.BattleQueryService;
-import com.swyp.app.domain.notice.dto.response.NoticeSummaryResponse;
-import com.swyp.app.domain.notice.enums.NoticePlacement;
-import com.swyp.app.domain.notice.enums.NoticeType;
-import com.swyp.app.domain.notice.service.NoticeService;
 import com.swyp.app.domain.perspective.entity.Perspective;
 import com.swyp.app.domain.perspective.entity.PerspectiveComment;
 import com.swyp.app.domain.perspective.entity.PerspectiveLike;
@@ -18,8 +14,6 @@ import com.swyp.app.domain.user.dto.request.UpdateNotificationSettingsRequest;
 import com.swyp.app.domain.user.dto.response.BattleRecordListResponse;
 import com.swyp.app.domain.user.dto.response.ContentActivityListResponse;
 import com.swyp.app.domain.user.dto.response.MypageResponse;
-import com.swyp.app.domain.user.dto.response.NoticeDetailResponse;
-import com.swyp.app.domain.user.dto.response.NoticeListResponse;
 import com.swyp.app.domain.user.dto.response.NotificationSettingsResponse;
 import com.swyp.app.domain.user.dto.response.RecapResponse;
 import com.swyp.app.domain.user.dto.response.UserSummary;
@@ -62,8 +56,6 @@ class MypageServiceTest {
 
     @Mock
     private UserService userService;
-    @Mock
-    private NoticeService noticeService;
     @Mock
     private CreditService creditService;
     @Mock
@@ -353,46 +345,6 @@ class MypageServiceTest {
         assertThat(response.battleResultEnabled()).isFalse();
         assertThat(response.commentReplyEnabled()).isTrue();
         assertThat(response.marketingEventEnabled()).isTrue();
-    }
-
-    @Test
-    @DisplayName("공지사항 목록을 반환한다")
-    void getNotices_returns_notice_list() {
-        NoticeSummaryResponse notice = new NoticeSummaryResponse(
-                1L, "공지 제목", "본문",
-                NoticeType.ANNOUNCEMENT, NoticePlacement.NOTICE_BOARD,
-                true, LocalDateTime.now().minusDays(1), null
-        );
-
-        when(noticeService.getActiveNotices(NoticePlacement.NOTICE_BOARD, NoticeType.ANNOUNCEMENT, null))
-                .thenReturn(List.of(notice));
-
-        NoticeListResponse response = mypageService.getNotices(NoticeType.ANNOUNCEMENT);
-
-        assertThat(response.items()).hasSize(1);
-        assertThat(response.items().get(0).title()).isEqualTo("공지 제목");
-        assertThat(response.items().get(0).isPinned()).isTrue();
-    }
-
-    @Test
-    @DisplayName("공지사항 상세를 반환한다")
-    void getNoticeDetail_returns_notice_detail() {
-        Long noticeId = 1L;
-        com.swyp.app.domain.notice.dto.response.NoticeDetailResponse noticeDetail =
-                new com.swyp.app.domain.notice.dto.response.NoticeDetailResponse(
-                        noticeId, "상세 제목", "상세 본문",
-                        NoticeType.EVENT, NoticePlacement.NOTICE_BOARD,
-                        false, LocalDateTime.now(), null, LocalDateTime.now()
-                );
-
-        when(noticeService.getNoticeDetail(noticeId)).thenReturn(noticeDetail);
-
-        NoticeDetailResponse response = mypageService.getNoticeDetail(noticeId);
-
-        assertThat(response.noticeId()).isEqualTo(noticeId);
-        assertThat(response.title()).isEqualTo("상세 제목");
-        assertThat(response.type()).isEqualTo(NoticeType.EVENT);
-        assertThat(response.isPinned()).isFalse();
     }
 
     private User createUser(Long id, String userTag) {

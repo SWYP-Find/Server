@@ -8,7 +8,6 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
-// TODO: S3 Presigned URL 정식 구현 시 교체 필요 (임시 구현)
 @Configuration
 public class S3Config {
 

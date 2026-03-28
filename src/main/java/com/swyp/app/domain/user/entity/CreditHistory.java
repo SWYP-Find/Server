@@ -6,7 +6,10 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -22,8 +25,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CreditHistory extends BaseEntity {
 
-    @Column(name = "user_id", nullable = false)
-    private Long userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "credit_type", nullable = false, length = 30)
@@ -36,8 +40,8 @@ public class CreditHistory extends BaseEntity {
     private Long referenceId;
 
     @Builder
-    private CreditHistory(Long userId, CreditType creditType, int amount, Long referenceId) {
-        this.userId = userId;
+    private CreditHistory(User user, CreditType creditType, int amount, Long referenceId) {
+        this.user = user;
         this.creditType = creditType;
         this.amount = amount;
         this.referenceId = referenceId;

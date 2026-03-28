@@ -193,7 +193,7 @@ public class MypageService {
                 .map(comment -> {
                     Perspective p = comment.getPerspective();
                     return toActivityItem(comment.getId().toString(), ActivityType.COMMENT, p,
-                            battleMap.get(p.getBattleId()), optionMap.get(p.getOptionId()),
+                            battleMap.get(p.getBattle().getId()), optionMap.get(p.getOption().getId()),
                             comment.getContent(), comment.getCreatedAt());
                 })
                 .toList();
@@ -215,7 +215,7 @@ public class MypageService {
                 .map(like -> {
                     Perspective p = like.getPerspective();
                     return toActivityItem(like.getId().toString(), ActivityType.LIKE, p,
-                            battleMap.get(p.getBattleId()), optionMap.get(p.getOptionId()),
+                            battleMap.get(p.getBattle().getId()), optionMap.get(p.getOption().getId()),
                             p.getContent(), like.getCreatedAt());
                 })
                 .toList();
@@ -229,7 +229,7 @@ public class MypageService {
             String activityId, ActivityType activityType, Perspective perspective,
             Battle battle, BattleOption option, String content, LocalDateTime createdAt) {
 
-        UserSummary author = userService.findSummaryById(perspective.getUserId());
+        UserSummary author = userService.findSummaryById(perspective.getUser().getId());
         ContentActivityListResponse.AuthorInfo authorInfo = new ContentActivityListResponse.AuthorInfo(
                 author.userTag(), author.nickname(), CharacterType.from(author.characterType())
         );
@@ -237,7 +237,7 @@ public class MypageService {
         return new ContentActivityListResponse.ContentActivityItem(
                 activityId, activityType,
                 perspective.getId().toString(),
-                perspective.getBattleId().toString(),
+                perspective.getBattle().getId().toString(),
                 battle != null ? battle.getTitle() : null,
                 authorInfo,
                 option != null ? option.getStance() : null,
@@ -248,12 +248,12 @@ public class MypageService {
     }
 
     private Map<Long, Battle> loadBattles(List<Perspective> perspectives) {
-        List<Long> battleIds = perspectives.stream().map(Perspective::getBattleId).distinct().toList();
+        List<Long> battleIds = perspectives.stream().map(p -> p.getBattle().getId()).distinct().toList();
         return battleQueryService.findBattlesByIds(battleIds);
     }
 
     private Map<Long, BattleOption> loadOptions(List<Perspective> perspectives) {
-        List<Long> optionIds = perspectives.stream().map(Perspective::getOptionId).distinct().toList();
+        List<Long> optionIds = perspectives.stream().map(p -> p.getOption().getId()).distinct().toList();
         return battleQueryService.findOptionsByIds(optionIds);
     }
 

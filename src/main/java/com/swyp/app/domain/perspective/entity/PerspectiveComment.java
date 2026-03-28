@@ -1,5 +1,6 @@
 package com.swyp.app.domain.perspective.entity;
 
+import com.swyp.app.domain.user.entity.User;
 import com.swyp.app.global.common.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -22,17 +23,17 @@ public class PerspectiveComment extends BaseEntity {
     @JoinColumn(name = "perspective_id", nullable = false)
     private Perspective perspective;
 
-    // TODO: User 엔티티 병합 후 @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "user_id") 로 교체
-    @Column(name = "user_id", nullable = false)
-    private Long userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
     @Builder
-    private PerspectiveComment(Perspective perspective, Long userId, String content) {
+    private PerspectiveComment(Perspective perspective, User user, String content) {
         this.perspective = perspective;
-        this.userId = userId;
+        this.user = user;
         this.content = content;
     }
 

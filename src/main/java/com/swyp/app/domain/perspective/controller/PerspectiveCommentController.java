@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -33,10 +34,9 @@ public class PerspectiveCommentController {
     @PostMapping("/perspectives/{perspectiveId}/comments")
     public ApiResponse<CreateCommentResponse> createComment(
             @PathVariable Long perspectiveId,
+            @AuthenticationPrincipal Long userId,
             @RequestBody @Valid CreateCommentRequest request
     ) {
-        // TODO: Security 적용 후 @AuthenticationPrincipal로 userId 교체
-        Long userId = 1L;
         return ApiResponse.onSuccess(commentService.createComment(perspectiveId, userId, request));
     }
 
@@ -44,11 +44,10 @@ public class PerspectiveCommentController {
     @GetMapping("/perspectives/{perspectiveId}/comments")
     public ApiResponse<CommentListResponse> getComments(
             @PathVariable Long perspectiveId,
+            @AuthenticationPrincipal Long userId,
             @RequestParam(required = false) String cursor,
             @RequestParam(required = false) Integer size
     ) {
-        // TODO: Security 적용 후 @AuthenticationPrincipal로 userId 교체
-        Long userId = 1L;
         return ApiResponse.onSuccess(commentService.getComments(perspectiveId, userId, cursor, size));
     }
 
@@ -56,10 +55,9 @@ public class PerspectiveCommentController {
     @DeleteMapping("/perspectives/{perspectiveId}/comments/{commentId}")
     public ApiResponse<Void> deleteComment(
             @PathVariable Long perspectiveId,
-            @PathVariable Long commentId
+            @PathVariable Long commentId,
+            @AuthenticationPrincipal Long userId
     ) {
-        // TODO: Security 적용 후 @AuthenticationPrincipal로 userId 교체
-        Long userId = 1L;
         commentService.deleteComment(perspectiveId, commentId, userId);
         return ApiResponse.onSuccess(null);
     }
@@ -69,10 +67,9 @@ public class PerspectiveCommentController {
     public ApiResponse<UpdateCommentResponse> updateComment(
             @PathVariable Long perspectiveId,
             @PathVariable Long commentId,
+            @AuthenticationPrincipal Long userId,
             @RequestBody @Valid UpdateCommentRequest request
     ) {
-        // TODO: Security 적용 후 @AuthenticationPrincipal로 userId 교체
-        Long userId = 1L;
         return ApiResponse.onSuccess(commentService.updateComment(perspectiveId, commentId, userId, request));
     }
 }

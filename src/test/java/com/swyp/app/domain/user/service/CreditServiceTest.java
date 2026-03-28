@@ -5,6 +5,7 @@ import com.swyp.app.domain.user.entity.TierCode;
 import com.swyp.app.domain.user.entity.User;
 import com.swyp.app.domain.user.enums.CreditType;
 import com.swyp.app.domain.user.repository.CreditHistoryRepository;
+import com.swyp.app.domain.user.repository.UserRepository;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
@@ -15,6 +16,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -31,6 +34,9 @@ class CreditServiceTest {
     private CreditHistoryRepository creditHistoryRepository;
 
     @Mock
+    private UserRepository userRepository;
+
+    @Mock
     private UserService userService;
 
     @InjectMocks
@@ -42,6 +48,7 @@ class CreditServiceTest {
         User user = org.mockito.Mockito.mock(User.class);
         when(user.getId()).thenReturn(1L);
         when(userService.findCurrentUser()).thenReturn(user);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         creditService.addCredit(CreditType.BATTLE_VOTE, 10L);
 
@@ -49,7 +56,7 @@ class CreditServiceTest {
         verify(creditHistoryRepository).saveAndFlush(captor.capture());
 
         CreditHistory saved = captor.getValue();
-        assertThat(saved.getUserId()).isEqualTo(1L);
+        assertThat(saved.getUser().getId()).isEqualTo(1L);
         assertThat(saved.getCreditType()).isEqualTo(CreditType.BATTLE_VOTE);
         assertThat(saved.getAmount()).isEqualTo(CreditType.BATTLE_VOTE.getDefaultAmount());
         assertThat(saved.getReferenceId()).isEqualTo(10L);
@@ -69,6 +76,8 @@ class CreditServiceTest {
     @Test
     @DisplayName("중복 적립 충돌이면 조용히 무시한다")
     void addCredit_duplicateInsert_ignoresConflict() {
+        User user = org.mockito.Mockito.mock(User.class);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(creditHistoryRepository.saveAndFlush(any(CreditHistory.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate"));
         when(creditHistoryRepository.existsByUserIdAndCreditTypeAndReferenceId(1L, CreditType.BATTLE_VOTE, 10L))
@@ -82,6 +91,8 @@ class CreditServiceTest {
     @Test
     @DisplayName("중복이 아닌 데이터 무결성 오류는 그대로 던진다")
     void addCredit_nonDuplicateIntegrityFailure_rethrows() {
+        User user = org.mockito.Mockito.mock(User.class);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(creditHistoryRepository.saveAndFlush(any(CreditHistory.class)))
                 .thenThrow(new DataIntegrityViolationException("broken"));
         when(creditHistoryRepository.existsByUserIdAndCreditTypeAndReferenceId(1L, CreditType.BATTLE_VOTE, 10L))

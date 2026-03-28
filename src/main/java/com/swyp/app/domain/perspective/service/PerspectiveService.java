@@ -1,9 +1,12 @@
 package com.swyp.app.domain.perspective.service;
 
+import com.swyp.app.domain.battle.entity.Battle;
 import com.swyp.app.domain.battle.entity.BattleOption;
 import com.swyp.app.domain.battle.enums.BattleOptionLabel;
 import com.swyp.app.domain.battle.service.BattleService;
 import com.swyp.app.domain.perspective.enums.PerspectiveStatus;
+import com.swyp.app.domain.user.entity.User;
+import com.swyp.app.domain.user.repository.UserRepository;
 import com.swyp.app.domain.perspective.dto.request.CreatePerspectiveRequest;
 import com.swyp.app.domain.perspective.dto.request.UpdatePerspectiveRequest;
 import com.swyp.app.domain.perspective.dto.response.CreatePerspectiveResponse;
@@ -38,22 +41,25 @@ public class PerspectiveService {
     private final BattleService battleService;
     private final VoteService voteService;
     private final UserService userQueryService;
+    private final UserRepository userRepository;
     private final GptModerationService gptModerationService;
 
     @Transactional
     public CreatePerspectiveResponse createPerspective(Long battleId, Long userId, CreatePerspectiveRequest request) {
-        battleService.findById(battleId);
+        Battle battle = battleService.findById(battleId);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         if (perspectiveRepository.existsByBattleIdAndUserId(battleId, userId)) {
             throw new CustomException(ErrorCode.PERSPECTIVE_ALREADY_EXISTS);
         }
 
-        Long optionId = voteService.findPreVoteOptionId(battleId, userId);
+        BattleOption option = voteService.findPreVoteOption(battleId, userId);
 
         Perspective perspective = Perspective.builder()
-                .battleId(battleId)
-                .userId(userId)
-                .optionId(optionId)
+                .battle(battle)
+                .user(user)
+                .option(option)
                 .content(request.content())
                 .build();
 
@@ -84,8 +90,8 @@ public class PerspectiveService {
 
         List<PerspectiveListResponse.Item> items = perspectives.stream()
                 .map(p -> {
-                    UserSummary user = userQueryService.findSummaryById(p.getUserId());
-                    BattleOption option = battleService.findOptionById(p.getOptionId());
+                    UserSummary user = userQueryService.findSummaryById(p.getUser().getId());
+                    BattleOption option = p.getOption();
                     boolean isLiked = perspectiveLikeRepository.existsByPerspectiveAndUserId(p, userId);
                     return new PerspectiveListResponse.Item(
                             p.getId(),
@@ -154,7 +160,7 @@ public class PerspectiveService {
     }
 
     private void validateOwnership(Perspective perspective, Long userId) {
-        if (!perspective.getUserId().equals(userId)) {
+        if (!perspective.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.PERSPECTIVE_FORBIDDEN);
         }
     }

@@ -5,6 +5,7 @@ import com.swyp.app.domain.user.entity.TierCode;
 import com.swyp.app.domain.user.entity.User;
 import com.swyp.app.domain.user.enums.CreditType;
 import com.swyp.app.domain.user.repository.CreditHistoryRepository;
+import com.swyp.app.domain.user.repository.UserRepository;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CreditService {
 
     private final CreditHistoryRepository creditHistoryRepository;
+    private final UserRepository userRepository;
     private final UserService userService;
 
     /**
@@ -50,8 +52,11 @@ public class CreditService {
     public void addCredit(Long userId, CreditType creditType, int amount, Long referenceId) {
         validateReferenceId(referenceId);
 
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
         CreditHistory history = CreditHistory.builder()
-                .userId(userId)
+                .user(user)
                 .creditType(creditType)
                 .amount(amount)
                 .referenceId(referenceId)

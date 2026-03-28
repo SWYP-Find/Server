@@ -8,7 +8,7 @@ import com.swyp.app.domain.scenario.dto.request.OptionRequest;
 import com.swyp.app.domain.scenario.dto.request.ScenarioCreateRequest;
 import com.swyp.app.domain.scenario.dto.request.ScriptRequest;
 import com.swyp.app.domain.scenario.dto.response.AdminDeleteResponse;
-import com.swyp.app.domain.scenario.dto.response.AdminScenarioDetailResponse; // 🚀 추가
+import com.swyp.app.domain.scenario.dto.response.AdminScenarioDetailResponse;
 import com.swyp.app.domain.scenario.dto.response.AdminScenarioResponse;
 import com.swyp.app.domain.scenario.dto.response.UserScenarioResponse;
 import com.swyp.app.domain.scenario.entity.InteractiveOption;

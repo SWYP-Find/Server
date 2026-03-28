@@ -1,14 +1,17 @@
 package com.swyp.app.domain.perspective.entity;
 
+import com.swyp.app.domain.battle.entity.Battle;
+import com.swyp.app.domain.battle.entity.BattleOption;
 import com.swyp.app.domain.perspective.enums.PerspectiveStatus;
+import com.swyp.app.domain.user.entity.User;
 import com.swyp.app.global.common.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
@@ -25,17 +28,17 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Perspective extends BaseEntity {
 
-    // TODO: Battle 엔티티 병합 후 @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "battle_id") 로 교체
-    @Column(name = "battle_id", nullable = false)
-    private Long battleId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "battle_id", nullable = false)
+    private Battle battle;
 
-    // TODO: User 엔티티 병합 후 @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "user_id") 로 교체
-    @Column(name = "user_id", nullable = false)
-    private Long userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
-    // TODO: BattleOption 엔티티 병합 후 @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "option_id") 로 교체
-    @Column(name = "option_id", nullable = false)
-    private Long optionId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "option_id", nullable = false)
+    private BattleOption option;
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
@@ -51,10 +54,10 @@ public class Perspective extends BaseEntity {
     private PerspectiveStatus status;
 
     @Builder
-    private Perspective(Long battleId, Long userId, Long optionId, String content) {
-        this.battleId = battleId;
-        this.userId = userId;
-        this.optionId = optionId;
+    private Perspective(Battle battle, User user, BattleOption option, String content) {
+        this.battle = battle;
+        this.user = user;
+        this.option = option;
         this.content = content;
         this.likeCount = 0;
         this.commentCount = 0;

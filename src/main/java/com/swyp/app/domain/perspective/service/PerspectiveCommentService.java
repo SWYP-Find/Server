@@ -10,6 +10,8 @@ import com.swyp.app.domain.perspective.entity.PerspectiveComment;
 import com.swyp.app.domain.perspective.repository.PerspectiveCommentRepository;
 import com.swyp.app.domain.perspective.repository.PerspectiveRepository;
 import com.swyp.app.domain.user.dto.response.UserSummary;
+import com.swyp.app.domain.user.entity.User;
+import com.swyp.app.domain.user.repository.UserRepository;
 import com.swyp.app.domain.user.service.UserService;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
@@ -30,25 +32,28 @@ public class PerspectiveCommentService {
 
     private final PerspectiveRepository perspectiveRepository;
     private final PerspectiveCommentRepository commentRepository;
+    private final UserRepository userRepository;
     private final UserService userQueryService;
 
     @Transactional
     public CreateCommentResponse createComment(Long perspectiveId, Long userId, CreateCommentRequest request) {
         Perspective perspective = findPerspectiveById(perspectiveId);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         PerspectiveComment comment = PerspectiveComment.builder()
                 .perspective(perspective)
-                .userId(userId)
+                .user(user)
                 .content(request.content())
                 .build();
 
         commentRepository.save(comment);
         perspective.incrementCommentCount();
 
-        UserSummary user = userQueryService.findSummaryById(userId);
+        UserSummary userSummary = userQueryService.findSummaryById(userId);
         return new CreateCommentResponse(
                 comment.getId(),
-                new CreateCommentResponse.UserSummary(user.userTag(), user.nickname(), user.characterType()),
+                new CreateCommentResponse.UserSummary(userSummary.userTag(), userSummary.nickname(), userSummary.characterType()),
                 comment.getContent(),
                 comment.getCreatedAt()
         );
@@ -67,12 +72,12 @@ public class PerspectiveCommentService {
 
         List<CommentListResponse.Item> items = comments.stream()
                 .map(c -> {
-                    UserSummary user = userQueryService.findSummaryById(c.getUserId());
+                    UserSummary author = userQueryService.findSummaryById(c.getUser().getId());
                     return new CommentListResponse.Item(
                             c.getId(),
-                            new CommentListResponse.UserSummary(user.userTag(), user.nickname(), user.characterType()),
+                            new CommentListResponse.UserSummary(author.userTag(), author.nickname(), author.characterType()),
                             c.getContent(),
-                            c.getUserId().equals(userId),
+                            c.getUser().getId().equals(userId),
                             c.getCreatedAt()
                     );
                 })
@@ -116,7 +121,7 @@ public class PerspectiveCommentService {
     }
 
     private void validateOwnership(PerspectiveComment comment, Long userId) {
-        if (!comment.getUserId().equals(userId)) {
+        if (!comment.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.COMMENT_FORBIDDEN);
         }
     }

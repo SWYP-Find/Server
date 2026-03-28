@@ -6,6 +6,8 @@ import com.swyp.app.domain.perspective.entity.Perspective;
 import com.swyp.app.domain.perspective.entity.PerspectiveLike;
 import com.swyp.app.domain.perspective.repository.PerspectiveLikeRepository;
 import com.swyp.app.domain.perspective.repository.PerspectiveRepository;
+import com.swyp.app.domain.user.entity.User;
+import com.swyp.app.domain.user.repository.UserRepository;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +21,7 @@ public class PerspectiveLikeService {
 
     private final PerspectiveRepository perspectiveRepository;
     private final PerspectiveLikeRepository likeRepository;
+    private final UserRepository userRepository;
 
     public LikeCountResponse getLikeCount(Long perspectiveId) {
         Perspective perspective = findPerspectiveById(perspectiveId);
@@ -29,8 +32,10 @@ public class PerspectiveLikeService {
     @Transactional
     public LikeResponse addLike(Long perspectiveId, Long userId) {
         Perspective perspective = findPerspectiveById(perspectiveId);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        if (perspective.getUserId().equals(userId)) {
+        if (perspective.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.LIKE_SELF_FORBIDDEN);
         }
 
@@ -40,7 +45,7 @@ public class PerspectiveLikeService {
 
         likeRepository.save(PerspectiveLike.builder()
                 .perspective(perspective)
-                .userId(userId)
+                .user(user)
                 .build());
         perspective.incrementLikeCount();
 

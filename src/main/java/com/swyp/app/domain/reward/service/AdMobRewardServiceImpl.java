@@ -52,9 +52,6 @@ public class AdMobRewardServiceImpl implements AdMobRewardService {
 
         adRewardHistoryRepository.save(history);
 
-        // 6. TODO: 작업 중인 포인트 합산 로직 호출 지점
-        // user.addPoint(request.reward_amount());
-
         log.info("보상 지급 완료: user={}, amount={}", user.getId(), request.reward_amount());
         return "OK";
     }

@@ -47,6 +47,9 @@ public class PerspectiveService {
 
     public PerspectiveDetailResponse getPerspectiveDetail(Long perspectiveId, Long userId) {
         Perspective perspective = findPerspectiveById(perspectiveId);
+        if (perspective.getStatus() == PerspectiveStatus.HIDDEN) {
+            throw new CustomException(ErrorCode.PERSPECTIVE_NOT_FOUND);
+        }
         UserSummary user = userQueryService.findSummaryById(perspective.getUser().getId());
         BattleOption option = perspective.getOption();
         boolean isLiked = perspectiveLikeRepository.existsByPerspectiveAndUserId(perspective, userId);

@@ -80,6 +80,10 @@ public enum ErrorCode {
     LIKE_NOT_FOUND     (HttpStatus.NOT_FOUND, "LIKE_404", "좋아요를 누른 적 없는 관점입니다."),
     LIKE_SELF_FORBIDDEN(HttpStatus.FORBIDDEN, "LIKE_403", "본인 관점에는 좋아요를 누를 수 없습니다."),
 
+    // Report
+    REPORT_ALREADY_EXISTS(HttpStatus.CONFLICT,  "REPORT_409", "이미 신고한 항목입니다."),
+    REPORT_SELF_FORBIDDEN(HttpStatus.FORBIDDEN, "REPORT_403", "본인 글은 신고할 수 없습니다."),
+
     // Vote
     VOTE_NOT_FOUND        (HttpStatus.NOT_FOUND,   "VOTE_404",     "투표 내역이 없습니다."),
     VOTE_ALREADY_SUBMITTED(HttpStatus.CONFLICT,    "VOTE_409_SUB", "이미 투표가 완료되었습니다."),

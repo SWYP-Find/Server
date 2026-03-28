@@ -88,6 +88,7 @@ public class PerspectiveCommentService {
 
         Long battleId = perspective.getBattle().getId();
         List<CommentListResponse.Item> items = comments.stream()
+                .filter(c -> !c.isHidden())
                 .map(c -> {
                     UserSummary user = userQueryService.findSummaryById(c.getUser().getId());
                     Long postVoteOptionId = voteService.findPostVoteOptionId(battleId, c.getUser().getId());

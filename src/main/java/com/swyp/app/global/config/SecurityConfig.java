@@ -36,7 +36,8 @@ SecurityConfig {
                                 "/api/test/**",
                                 "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**",
                                 "/js/**", "/css/**", "/images/**", "/favicon.ico",
-                                "/api/v1/admin/login", "/api/v1/admin"
+                                "/api/v1/admin/login", "/api/v1/admin",
+                                "/result/**"
                         ).permitAll()
 
                         // 2. 관리자 HTML 화면 렌더링 요청

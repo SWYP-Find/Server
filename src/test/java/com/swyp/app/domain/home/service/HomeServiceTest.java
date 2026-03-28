@@ -6,9 +6,8 @@ import com.swyp.app.domain.battle.enums.BattleOptionLabel;
 import com.swyp.app.domain.battle.enums.BattleType;
 import com.swyp.app.domain.battle.service.BattleService;
 import com.swyp.app.domain.home.dto.response.*;
-import com.swyp.app.domain.notice.dto.response.NoticeSummaryResponse;
-import com.swyp.app.domain.notice.enums.NoticePlacement;
-import com.swyp.app.domain.notice.service.NoticeService;
+import com.swyp.app.domain.notification.enums.NotificationCategory;
+import com.swyp.app.domain.notification.service.NotificationService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,7 +15,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -34,7 +32,7 @@ class HomeServiceTest {
     @Mock
     private BattleService battleService;
     @Mock
-    private NoticeService noticeService;
+    private NotificationService notificationService;
 
     @InjectMocks
     private HomeService homeService;
@@ -55,18 +53,7 @@ class HomeServiceTest {
         TodayBattleResponse todayQuiz = quiz("quiz-id");
         TodayBattleResponse newBattle = battle("new-id", BATTLE);
 
-        NoticeSummaryResponse notice = new NoticeSummaryResponse(
-                generateId(),
-                "notice",
-                "body",
-                null,
-                NoticePlacement.HOME_TOP,
-                true,
-                LocalDateTime.now().minusDays(1),
-                null
-        );
-
-        when(noticeService.getActiveNotices(NoticePlacement.HOME_TOP, null, 1)).thenReturn(List.of(notice));
+        when(notificationService.hasNewBroadcast(NotificationCategory.NOTICE)).thenReturn(true);
         when(battleService.getEditorPicks()).thenReturn(List.of(editorPick));
         when(battleService.getTrendingBattles()).thenReturn(List.of(trendingBattle));
         when(battleService.getBestBattles()).thenReturn(List.of(bestBattle));
@@ -106,7 +93,7 @@ class HomeServiceTest {
     @Test
     @DisplayName("데이터가 없으면 false와 빈리스트를 반환한다")
     void getHome_returns_false_and_empty_lists_when_no_data() {
-        when(noticeService.getActiveNotices(NoticePlacement.HOME_TOP, null, 1)).thenReturn(List.of());
+        when(notificationService.hasNewBroadcast(NotificationCategory.NOTICE)).thenReturn(false);
         when(battleService.getEditorPicks()).thenReturn(List.of());
         when(battleService.getTrendingBattles()).thenReturn(List.of());
         when(battleService.getBestBattles()).thenReturn(List.of());
@@ -130,7 +117,7 @@ class HomeServiceTest {
     void getHome_excludes_only_editor_pick_ids() {
         TodayBattleResponse editorPick = battle("editor-only", BATTLE);
 
-        when(noticeService.getActiveNotices(NoticePlacement.HOME_TOP, null, 1)).thenReturn(List.of());
+        when(notificationService.hasNewBroadcast(NotificationCategory.NOTICE)).thenReturn(false);
         when(battleService.getEditorPicks()).thenReturn(List.of(editorPick));
         when(battleService.getTrendingBattles()).thenReturn(List.of());
         when(battleService.getBestBattles()).thenReturn(List.of());
@@ -144,14 +131,9 @@ class HomeServiceTest {
     }
 
     @Test
-    @DisplayName("공지가 여러개여도 newNotice는 true이다")
-    void getHome_newNotice_true_with_multiple_notices() {
-        NoticeSummaryResponse notice1 = new NoticeSummaryResponse(
-                generateId(), "notice1", "body1", null,
-                NoticePlacement.HOME_TOP, true, LocalDateTime.now().minusDays(1), null
-        );
-
-        when(noticeService.getActiveNotices(NoticePlacement.HOME_TOP, null, 1)).thenReturn(List.of(notice1));
+    @DisplayName("공지 브로드캐스트가 있으면 newNotice는 true이다")
+    void getHome_newNotice_true_with_broadcast() {
+        when(notificationService.hasNewBroadcast(NotificationCategory.NOTICE)).thenReturn(true);
         when(battleService.getEditorPicks()).thenReturn(List.of());
         when(battleService.getTrendingBattles()).thenReturn(List.of());
         when(battleService.getBestBattles()).thenReturn(List.of());

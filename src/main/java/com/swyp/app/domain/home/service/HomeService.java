@@ -8,8 +8,8 @@ import com.swyp.app.domain.battle.enums.BattleType;
 import com.swyp.app.domain.tag.enums.TagType;
 import com.swyp.app.domain.battle.service.BattleService;
 import com.swyp.app.domain.home.dto.response.*;
-import com.swyp.app.domain.notice.enums.NoticePlacement;
-import com.swyp.app.domain.notice.service.NoticeService;
+import com.swyp.app.domain.notification.enums.NotificationCategory;
+import com.swyp.app.domain.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,13 +22,11 @@ import java.util.Optional;
 @Transactional(readOnly = true)
 public class HomeService {
 
-    private static final int NOTICE_EXISTS_LIMIT = 1;
-
     private final BattleService battleService;
-    private final NoticeService noticeService;
+    private final NotificationService notificationService;
 
     public HomeResponse getHome() {
-        boolean newNotice = !noticeService.getActiveNotices(NoticePlacement.HOME_TOP, null, NOTICE_EXISTS_LIMIT).isEmpty();
+        boolean newNotice = notificationService.hasNewBroadcast(NotificationCategory.NOTICE);
 
         List<TodayBattleResponse> editorPickRaw = battleService.getEditorPicks();
         List<TodayBattleResponse> trendingRaw = battleService.getTrendingBattles();

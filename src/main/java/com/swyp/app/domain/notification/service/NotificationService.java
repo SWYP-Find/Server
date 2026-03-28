@@ -89,6 +89,10 @@ public class NotificationService {
         return notificationRepository.markAllAsReadByUserId(userId);
     }
 
+    public boolean hasNewBroadcast(NotificationCategory category) {
+        return notificationRepository.existsByUserIsNullAndCategory(category);
+    }
+
     private NotificationSummaryResponse toSummaryResponse(Notification notification) {
         return new NotificationSummaryResponse(
                 notification.getId(),

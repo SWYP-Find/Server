@@ -23,6 +23,8 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
             Pageable pageable
     );
 
+    boolean existsByUserIsNullAndCategory(NotificationCategory category);
+
     @Modifying
     @Query("""
             UPDATE Notification n SET n.read = true, n.readAt = CURRENT_TIMESTAMP

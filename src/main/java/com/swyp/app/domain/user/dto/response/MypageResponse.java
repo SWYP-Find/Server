@@ -25,6 +25,8 @@ public record MypageResponse(
     public record PhilosopherInfo(
             PhilosopherType philosopherType,
             String philosopherLabel,
+            String typeName,
+            String description,
             String imageUrl
     ) {
     }

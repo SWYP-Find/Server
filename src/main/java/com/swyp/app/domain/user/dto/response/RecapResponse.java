@@ -15,6 +15,8 @@ public record RecapResponse(
     public record PhilosopherCard(
             PhilosopherType philosopherType,
             String philosopherLabel,
+            String typeName,
+            String description,
             String imageUrl
     ) {
     }

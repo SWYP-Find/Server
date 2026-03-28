@@ -32,7 +32,6 @@ import com.swyp.app.domain.user.entity.UserProfile;
 import com.swyp.app.domain.user.entity.UserRole;
 import com.swyp.app.domain.user.entity.UserSettings;
 import com.swyp.app.domain.user.entity.UserStatus;
-import com.swyp.app.domain.user.entity.UserTendencyScore;
 import com.swyp.app.domain.user.entity.VoteSide;
 import com.swyp.app.domain.vote.entity.Vote;
 import com.swyp.app.domain.vote.service.VoteQueryService;
@@ -90,6 +89,7 @@ class MypageServiceTest {
     void getMypage_returns_profile_philosopher_tier() {
         User user = createUser(1L, "myTag");
         UserProfile profile = createProfile(user, "nick", CharacterType.OWL);
+        profile.updatePhilosopherType(PhilosopherType.KANT);
 
         when(userService.findCurrentUser()).thenReturn(user);
         when(userService.findUserProfile(1L)).thenReturn(profile);
@@ -102,7 +102,9 @@ class MypageServiceTest {
         assertThat(response.profile().nickname()).isEqualTo("nick");
         assertThat(response.profile().characterType()).isEqualTo(CharacterType.OWL);
         assertThat(response.profile().mannerTemperature()).isEqualByComparingTo(BigDecimal.valueOf(36.5));
-        assertThat(response.philosopher().philosopherType()).isEqualTo(PhilosopherType.SOCRATES);
+        assertThat(response.philosopher().philosopherType()).isEqualTo(PhilosopherType.KANT);
+        assertThat(response.philosopher().typeName()).isEqualTo("원칙형");
+        assertThat(response.philosopher().description()).isNotNull();
         assertThat(response.tier().tierCode()).isEqualTo(TierCode.WANDERER);
         assertThat(response.tier().currentPoint()).isZero();
     }
@@ -111,14 +113,11 @@ class MypageServiceTest {
     @DisplayName("철학자카드와 성향점수와 선호보고서를 반환한다")
     void getRecap_returns_cards_scores_report() {
         User user = createUser(1L, "tag");
-        UserTendencyScore score = UserTendencyScore.builder()
-                .user(user)
-                .principle(10).reason(20).individual(30)
-                .change(40).inner(50).ideal(60)
-                .build();
+        UserProfile profile = createProfile(user, "nick", CharacterType.OWL);
+        profile.updatePhilosopherType(PhilosopherType.KANT);
 
         when(userService.findCurrentUser()).thenReturn(user);
-        when(userService.findUserTendencyScore(1L)).thenReturn(score);
+        when(userService.findUserProfile(1L)).thenReturn(profile);
         when(s3PresignedUrlService.generatePresignedUrl(anyString())).thenReturn("https://presigned-url");
         when(voteQueryService.countTotalParticipation(1L)).thenReturn(15L);
         when(voteQueryService.countOpinionChanges(1L)).thenReturn(3L);
@@ -134,11 +133,11 @@ class MypageServiceTest {
 
         RecapResponse response = mypageService.getRecap();
 
-        assertThat(response.myCard().philosopherType()).isEqualTo(PhilosopherType.SOCRATES);
-        assertThat(response.bestMatchCard().philosopherType()).isEqualTo(PhilosopherType.PLATO);
-        assertThat(response.worstMatchCard().philosopherType()).isEqualTo(PhilosopherType.MARX);
-        assertThat(response.scores().principle()).isEqualTo(10);
-        assertThat(response.scores().ideal()).isEqualTo(60);
+        assertThat(response.myCard().philosopherType()).isEqualTo(PhilosopherType.KANT);
+        assertThat(response.bestMatchCard().philosopherType()).isEqualTo(PhilosopherType.CONFUCIUS);
+        assertThat(response.worstMatchCard().philosopherType()).isEqualTo(PhilosopherType.NIETZSCHE);
+        assertThat(response.scores().principle()).isEqualTo(92);
+        assertThat(response.scores().ideal()).isEqualTo(45);
         assertThat(response.preferenceReport().totalParticipation()).isEqualTo(15);
         assertThat(response.preferenceReport().opinionChanges()).isEqualTo(3);
         assertThat(response.preferenceReport().battleWinRate()).isEqualTo(70);
@@ -147,30 +146,17 @@ class MypageServiceTest {
     }
 
     @Test
-    @DisplayName("투표이력이 없으면 선호보고서가 0값이다")
-    void getRecap_returns_zero_report_when_no_votes() {
+    @DisplayName("철학자유형이 미산출이면 recap은 null이다")
+    void getRecap_returns_null_when_no_philosopher() {
         User user = createUser(1L, "tag");
-        UserTendencyScore score = UserTendencyScore.builder()
-                .user(user)
-                .principle(0).reason(0).individual(0)
-                .change(0).inner(0).ideal(0)
-                .build();
+        UserProfile profile = createProfile(user, "nick", CharacterType.OWL);
 
         when(userService.findCurrentUser()).thenReturn(user);
-        when(userService.findUserTendencyScore(1L)).thenReturn(score);
-        when(s3PresignedUrlService.generatePresignedUrl(anyString())).thenReturn("https://presigned-url");
-        when(voteQueryService.countTotalParticipation(1L)).thenReturn(0L);
-        when(voteQueryService.countOpinionChanges(1L)).thenReturn(0L);
-        when(voteQueryService.calculateBattleWinRate(1L)).thenReturn(0);
-        when(voteQueryService.findParticipatedBattleIds(1L)).thenReturn(List.of());
-        when(battleQueryService.getTopTagsByBattleIds(List.of(), 4)).thenReturn(new LinkedHashMap<>());
+        when(userService.findUserProfile(1L)).thenReturn(profile);
 
         RecapResponse response = mypageService.getRecap();
 
-        assertThat(response.preferenceReport().totalParticipation()).isZero();
-        assertThat(response.preferenceReport().opinionChanges()).isZero();
-        assertThat(response.preferenceReport().battleWinRate()).isZero();
-        assertThat(response.preferenceReport().favoriteTopics()).isEmpty();
+        assertThat(response).isNull();
     }
 
     @Test

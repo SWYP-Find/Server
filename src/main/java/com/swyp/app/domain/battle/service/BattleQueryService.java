@@ -10,8 +10,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.swyp.app.domain.tag.enums.TagType;
+
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -57,5 +60,21 @@ public class BattleQueryService {
                         (a, b) -> a,
                         java.util.LinkedHashMap::new
                 ));
+    }
+
+    public Optional<String> getTopPhilosopherTagName(List<Long> battleIds) {
+        if (battleIds.isEmpty()) return Optional.empty();
+
+        List<BattleTag> battleTags = battleTagRepository.findByBattleIdIn(battleIds);
+
+        return battleTags.stream()
+                .filter(bt -> bt.getTag().getType() == TagType.PHILOSOPHER)
+                .collect(Collectors.groupingBy(
+                        bt -> bt.getTag().getName(),
+                        Collectors.counting()
+                ))
+                .entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey);
     }
 }

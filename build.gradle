@@ -22,6 +22,7 @@ configurations {
 
 repositories {
     mavenCentral()
+    google()
 }
 
 dependencies {
@@ -42,6 +43,10 @@ dependencies {
 
     // HTTP Client (소셜 API 호출용)
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
+    // AdMob SSV 검증을 위한 Tink 라이브러리
+    implementation 'com.google.crypto.tink:apps-rewardedads:1.9.1'
+    testImplementation 'com.google.crypto.tink:apps-rewardedads:1.9.1'
 
     // Swagger
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.16'

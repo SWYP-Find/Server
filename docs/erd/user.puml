@@ -7,9 +7,10 @@ entity "USERS\n서비스 사용자" as users {
   * id : BIGINT <<PK>>
   --
   user_tag : VARCHAR(30) <<UNIQUE>>
+  nickname : VARCHAR(50)
+  character_url : TEXT
   role : ENUM('USER', 'ADMIN')
-  status : ENUM('PENDING', 'ACTIVE', 'DELETED', 'BANNED')
-  onboarding_completed : boolean
+  status : ENUM('PENDING', 'ACTIVE', 'SUSPENDED', 'BANNED', 'DELETED')
   created_at : timestamp
   updated_at : timestamp
   deleted_at : timestamp (nullable)
@@ -27,12 +28,12 @@ entity "USER_PROFILES\n사용자 프로필" as user_profiles {
 entity "USER_TENDENCY_SCORES\n사용자 성향 점수 현재값" as user_tendency_scores {
   * user_id : BIGINT <<PK, FK>>
   --
-  score_1 : int
-  score_2 : int
-  score_3 : int
-  score_4 : int
-  score_5 : int
-  score_6 : int
+  principle : int
+  reason : int
+  individual : int
+  change : int
+  inner : int
+  ideal : int
   updated_at : timestamp
 }
 
@@ -40,12 +41,12 @@ entity "USER_TENDENCY_SCORE_HISTORIES\n사용자 성향 점수 변경 이력" as
   * id : BIGINT <<PK>>
   --
   user_id : BIGINT <<FK>>
-  score_1 : int
-  score_2 : int
-  score_3 : int
-  score_4 : int
-  score_5 : int
-  score_6 : int
+  principle : int
+  reason : int
+  individual : int
+  change : int
+  inner : int
+  ideal : int
   created_at : timestamp
 }
 

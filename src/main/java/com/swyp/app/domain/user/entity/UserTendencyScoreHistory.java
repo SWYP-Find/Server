@@ -24,21 +24,27 @@ public class UserTendencyScoreHistory extends BaseEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    private int score1;
-    private int score2;
-    private int score3;
-    private int score4;
-    private int score5;
-    private int score6;
+    private int principle;
+
+    private int reason;
+
+    private int individual;
+
+    private int change;
+
+    private int inner;
+
+    private int ideal;
 
     @Builder
-    private UserTendencyScoreHistory(User user, int score1, int score2, int score3, int score4, int score5, int score6) {
+    private UserTendencyScoreHistory(User user, int principle, int reason, int individual,
+                                     int change, int inner, int ideal) {
         this.user = user;
-        this.score1 = score1;
-        this.score2 = score2;
-        this.score3 = score3;
-        this.score4 = score4;
-        this.score5 = score5;
-        this.score6 = score6;
+        this.principle = principle;
+        this.reason = reason;
+        this.individual = individual;
+        this.change = change;
+        this.inner = inner;
+        this.ideal = ideal;
     }
 }

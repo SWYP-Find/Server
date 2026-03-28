@@ -39,25 +39,16 @@ public class User extends BaseEntity {
     @Column(nullable = false, length = 20)
     private UserStatus status;
 
-    @Column(name = "onboarding_completed", nullable = false)
-    private boolean onboardingCompleted;
-
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
     @Builder
-    private User(String userTag, String nickname, String characterUrl, UserRole role, UserStatus status, boolean onboardingCompleted) {
+    private User(String userTag, String nickname, String characterUrl, UserRole role, UserStatus status) {
         this.userTag = userTag;
         this.nickname = nickname;
         this.characterUrl = characterUrl;
         this.role = role;
         this.status = status;
-        this.onboardingCompleted = onboardingCompleted;
-    }
-
-    public void completeOnboarding() {
-        this.status = UserStatus.ACTIVE;
-        this.onboardingCompleted = true;
     }
 
     public void delete() {

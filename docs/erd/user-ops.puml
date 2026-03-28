@@ -7,7 +7,7 @@ entity "USERS\n서비스 사용자" as users {
   * id : BIGINT <<PK>>
   --
   user_tag : VARCHAR(30) <<UNIQUE>>
-  status : ENUM('PENDING', 'ACTIVE', 'DELETED', 'BANNED')
+  status : ENUM('PENDING', 'ACTIVE', 'SUSPENDED', 'BANNED', 'DELETED')
   created_at : timestamp
   updated_at : timestamp
 }
@@ -15,10 +15,12 @@ entity "USERS\n서비스 사용자" as users {
 entity "USER_SETTINGS\n사용자 설정" as user_settings {
   * user_id : BIGINT <<PK, FK>>
   --
-  push_enabled : boolean
-  email_enabled : boolean
-  debate_request_enabled : boolean
-  profile_public : boolean
+  new_battle_enabled : boolean
+  battle_result_enabled : boolean
+  comment_reply_enabled : boolean
+  new_comment_enabled : boolean
+  content_like_enabled : boolean
+  marketing_event_enabled : boolean
   updated_at : timestamp
 }
 

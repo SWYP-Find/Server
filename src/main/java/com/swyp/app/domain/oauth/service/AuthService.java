@@ -60,8 +60,7 @@ public class AuthService {
             user = User.builder()
                     .userTag(generateUserTag())
                     .role(UserRole.USER)
-                    .status(UserStatus.PENDING)
-                    .onboardingCompleted(false)
+                    .status(UserStatus.ACTIVE)
                     .build();
             userRepository.save(user);
 

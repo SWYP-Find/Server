@@ -33,6 +33,10 @@ public enum ErrorCode {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_404", "존재하지 않는 사용자입니다."),
     ONBOARDING_ALREADY_COMPLETED(HttpStatus.CONFLICT, "USER_409", "이미 온보딩이 완료된 사용자입니다."),
 
+    // Credit
+    CREDIT_REFERENCE_REQUIRED(HttpStatus.BAD_REQUEST, "CREDIT_400_REF", "크레딧 적립 referenceId는 필수입니다."),
+    CREDIT_SAVE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "CREDIT_500_SAVE", "크레딧 적립 처리 중 오류가 발생했습니다."),
+
     // OAuth (Social Login)
     INVALID_PROVIDER(HttpStatus.BAD_REQUEST, "AUTH_400_PROVIDER", "지원하지 않는 소셜 로그인 provider입니다."),
 

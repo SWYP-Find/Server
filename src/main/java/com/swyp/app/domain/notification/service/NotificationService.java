@@ -59,8 +59,9 @@ public class NotificationService {
 
     public NotificationListResponse getNotifications(Long userId, NotificationCategory category, int page, int size) {
         int pageSize = size <= 0 ? DEFAULT_PAGE_SIZE : size;
+        NotificationCategory filterCategory = (category == NotificationCategory.ALL) ? null : category;
         Slice<Notification> slice = notificationRepository.findByUserOrBroadcast(
-                userId, category, PageRequest.of(page, pageSize));
+                userId, filterCategory, PageRequest.of(page, pageSize));
 
         return new NotificationListResponse(
                 slice.getContent().stream().map(this::toSummaryResponse).toList(),

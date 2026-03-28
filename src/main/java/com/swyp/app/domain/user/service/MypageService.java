@@ -12,12 +12,6 @@ import com.swyp.app.domain.user.dto.request.UpdateNotificationSettingsRequest;
 import com.swyp.app.domain.user.dto.response.BattleRecordListResponse;
 import com.swyp.app.domain.user.dto.response.ContentActivityListResponse;
 import com.swyp.app.domain.user.dto.response.MypageResponse;
-import com.swyp.app.domain.notice.dto.response.NoticeSummaryResponse;
-import com.swyp.app.domain.notice.enums.NoticePlacement;
-import com.swyp.app.domain.notice.enums.NoticeType;
-import com.swyp.app.domain.notice.service.NoticeService;
-import com.swyp.app.domain.user.dto.response.NoticeDetailResponse;
-import com.swyp.app.domain.user.dto.response.NoticeListResponse;
 import com.swyp.app.domain.user.dto.response.NotificationSettingsResponse;
 import com.swyp.app.domain.user.dto.response.RecapResponse;
 import com.swyp.app.domain.user.dto.response.UserSummary;
@@ -49,7 +43,6 @@ public class MypageService {
     private static final int DEFAULT_PAGE_SIZE = 20;
 
     private final UserService userService;
-    private final NoticeService noticeService;
     private final CreditService creditService;
     private final VoteQueryService voteQueryService;
     private final BattleQueryService battleQueryService;
@@ -276,30 +269,6 @@ public class MypageService {
                 request.marketingEventEnabled()
         );
         return toNotificationSettingsResponse(settings);
-    }
-
-    public NoticeListResponse getNotices(NoticeType type) {
-        List<NoticeSummaryResponse> notices = noticeService.getActiveNotices(
-                NoticePlacement.NOTICE_BOARD, type, null
-        );
-
-        List<NoticeListResponse.NoticeItem> items = notices.stream()
-                .map(notice -> new NoticeListResponse.NoticeItem(
-                        notice.noticeId(), notice.type(), notice.title(),
-                        notice.body(), notice.pinned(), notice.startsAt()
-                ))
-                .toList();
-
-        return new NoticeListResponse(items);
-    }
-
-    public NoticeDetailResponse getNoticeDetail(Long noticeId) {
-        com.swyp.app.domain.notice.dto.response.NoticeDetailResponse notice =
-                noticeService.getNoticeDetail(noticeId);
-        return new NoticeDetailResponse(
-                notice.noticeId(), notice.type(), notice.title(),
-                notice.body(), notice.pinned(), notice.startsAt()
-        );
     }
 
     private static final int PHILOSOPHER_CALC_THRESHOLD = 5;

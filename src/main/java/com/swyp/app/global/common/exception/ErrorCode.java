@@ -43,6 +43,9 @@ public enum ErrorCode {
     // Notice
     NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTICE_404", "존재하지 않는 공지사항입니다."),
 
+    // Notification
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTIFICATION_404", "존재하지 않는 알림입니다."),
+
     // Battle
     BATTLE_NOT_FOUND        (HttpStatus.NOT_FOUND, "BATTLE_404",     "존재하지 않는 배틀입니다."),
     BATTLE_CLOSED           (HttpStatus.CONFLICT,  "BATTLE_409_CLS", "종료된 배틀입니다."),

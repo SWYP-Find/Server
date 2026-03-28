@@ -1,7 +1,9 @@
 package com.swyp.app.global.infra.s3.controller;
 
 import com.swyp.app.global.common.response.ApiResponse;
+import com.swyp.app.global.infra.s3.dto.FileUploadResponse;
 import com.swyp.app.global.infra.s3.enums.FileCategory;
+import com.swyp.app.global.infra.s3.service.S3PresignedUrlService;
 import com.swyp.app.global.infra.s3.service.S3UploadService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -26,10 +28,11 @@ import java.util.UUID;
 public class FileUploadController {
 
     private final S3UploadService s3UploadService;
+    private final S3PresignedUrlService s3PresignedUrlService;
 
     @Operation(summary = "S3 파일 업로드", description = "도메인 카테고리(PHILOSOPHER, BATTLE, SCENARIO)에 맞춰 파일을 업로드합니다.")
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ApiResponse<String> uploadFile(
+    public ApiResponse<FileUploadResponse> uploadFile(
             @Parameter(description = "업로드할 파일", content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE))
             @RequestParam("file") MultipartFile multipartFile,
 
@@ -42,10 +45,13 @@ public class FileUploadController {
         // 2. 경로 생성 (예: images/battles/UUID_thumb.png)
         String fileName = category.getPath() + "/" + UUID.randomUUID() + "_" + multipartFile.getOriginalFilename();
 
-        // 3. S3 업로드
-        String s3Url = s3UploadService.uploadFile(fileName, tempFile);
+        // 3. S3 업로드 (S3 키 반환)
+        String s3Key = s3UploadService.uploadFile(fileName, tempFile);
 
-        return ApiResponse.onSuccess(s3Url);
+        // 4. 미리보기용 Presigned URL 생성
+        String presignedUrl = s3PresignedUrlService.generatePresignedUrl(s3Key);
+
+        return ApiResponse.onSuccess(new FileUploadResponse(s3Key, presignedUrl));
     }
 
     private File convertMultiPartToFile(MultipartFile file) throws IOException {

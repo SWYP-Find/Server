@@ -96,3 +96,6 @@ jwt:
 
 app:
   baseUrl: http://localhost:8080
+  s3:
+    presigned-url:
+      expiration-hours: 6

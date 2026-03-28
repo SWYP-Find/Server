@@ -24,9 +24,6 @@ public class S3UploadServiceImpl implements S3UploadService {
     @Value("${spring.cloud.aws.s3.bucket}")
     private String bucketName;
 
-    @Value("${spring.cloud.aws.region.static}")
-    private String region;
-
     @Override
     public String uploadFile(String key, File file) {
         if (file == null || !file.exists()) {
@@ -49,10 +46,9 @@ public class S3UploadServiceImpl implements S3UploadService {
 
             s3Client.putObject(putObjectRequest, RequestBody.fromFile(file));
 
-            String fileUrl = String.format("https://%s.s3.%s.amazonaws.com/%s", bucketName, region, key);
-            log.info("[AWS S3] 업로드 완료! 실제 URL: {}, Content-Type: {}", fileUrl, contentType);
+            log.info("[AWS S3] 업로드 완료! 키: {}, Content-Type: {}", key, contentType);
 
-            return fileUrl;
+            return key;
 
         } catch (Exception e) {
             log.error("[AWS S3] 파일 업로드 실패 - 키: {}", key, e);

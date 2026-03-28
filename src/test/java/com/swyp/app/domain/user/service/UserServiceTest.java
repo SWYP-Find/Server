@@ -74,7 +74,7 @@ class UserServiceTest {
         UserProfile profile = createProfile(user, "nick", CharacterType.OWL);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userProfileRepository.findById(1L)).thenReturn(Optional.of(profile));
+        when(userProfileRepository.findByUserId(1L)).thenReturn(Optional.of(profile));
 
         UserSummary summary = userService.findSummaryById(1L);
 
@@ -100,7 +100,7 @@ class UserServiceTest {
         UserProfile profile = createProfile(user, "oldNick", CharacterType.OWL);
 
         when(userRepository.findTopByOrderByIdDesc()).thenReturn(Optional.of(user));
-        when(userProfileRepository.findById(1L)).thenReturn(Optional.of(profile));
+        when(userProfileRepository.findByUserId(1L)).thenReturn(Optional.of(profile));
 
         UpdateUserProfileRequest request = new UpdateUserProfileRequest("newNick", CharacterType.FOX);
         MyProfileResponse response = userService.updateMyProfile(request);
@@ -116,7 +116,7 @@ class UserServiceTest {
         User user = createUser(1L, "tag");
         UserProfile profile = createProfile(user, "nick", CharacterType.BEAR);
 
-        when(userProfileRepository.findById(1L)).thenReturn(Optional.of(profile));
+        when(userProfileRepository.findByUserId(1L)).thenReturn(Optional.of(profile));
 
         UserProfile result = userService.findUserProfile(1L);
 
@@ -138,7 +138,7 @@ class UserServiceTest {
                 .marketingEventEnabled(false)
                 .build();
 
-        when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(settings));
+        when(userSettingsRepository.findByUserId(1L)).thenReturn(Optional.of(settings));
 
         UserSettings result = userService.findUserSettings(1L);
 
@@ -160,7 +160,7 @@ class UserServiceTest {
                 .ideal(60)
                 .build();
 
-        when(userTendencyScoreRepository.findById(1L)).thenReturn(Optional.of(score));
+        when(userTendencyScoreRepository.findByUserId(1L)).thenReturn(Optional.of(score));
 
         UserTendencyScore result = userService.findUserTendencyScore(1L);
 

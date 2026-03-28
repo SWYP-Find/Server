@@ -11,7 +11,10 @@ import com.swyp.app.domain.oauth.jwt.JwtProvider;
 import com.swyp.app.domain.user.entity.User;
 import com.swyp.app.domain.user.entity.UserRole;
 import com.swyp.app.domain.user.entity.UserStatus;
+import com.swyp.app.domain.user.repository.UserProfileRepository;
 import com.swyp.app.domain.user.repository.UserRepository;
+import com.swyp.app.domain.user.repository.UserSettingsRepository;
+import com.swyp.app.domain.user.repository.UserTendencyScoreRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,6 +36,9 @@ class OAuthServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private UserSocialAccountRepository socialAccountRepository;
     @Mock private AuthRefreshTokenRepository refreshTokenRepository;
+    @Mock private UserProfileRepository userProfileRepository;
+    @Mock private UserSettingsRepository userSettingsRepository;
+    @Mock private UserTendencyScoreRepository userTendencyScoreRepository;
     @Mock private JwtProvider jwtProvider;
 
     private AuthService authService;
@@ -42,7 +48,9 @@ class OAuthServiceTest {
         // 수동 주입으로 안정성 확보
         authService = new AuthService(
                 kakaoOAuthClient, googleOAuthClient, userRepository,
-                socialAccountRepository, refreshTokenRepository, jwtProvider
+                socialAccountRepository, refreshTokenRepository,
+                userProfileRepository, userSettingsRepository, userTendencyScoreRepository,
+                jwtProvider
         );
     }
 
@@ -80,5 +88,33 @@ class OAuthServiceTest {
         assertThat(response.getAccessToken()).isEqualTo("jwt-access");
         assertThat(response.isNewUser()).isFalse();
         verify(refreshTokenRepository).save(any());
+    }
+
+    @Test
+    void login_구글_신규유저_기본_user_domain_초기화() {
+        String provider = "GOOGLE";
+        LoginRequest request = new LoginRequest("auth-code", "redirect-uri");
+        OAuthUserInfo userInfo = new OAuthUserInfo("google_123", "new@test.com", "profile_url");
+
+        User savedUser = User.builder()
+                .userTag("pique-test")
+                .role(UserRole.USER)
+                .status(UserStatus.ACTIVE)
+                .build();
+
+        when(googleOAuthClient.getAccessToken(anyString(), anyString())).thenReturn("mock-access-token");
+        when(googleOAuthClient.getUserInfo(anyString())).thenReturn(userInfo);
+        when(socialAccountRepository.findByProviderAndProviderUserId(anyString(), anyString()))
+                .thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenReturn(savedUser);
+        when(jwtProvider.createAccessToken(any(), anyString())).thenReturn("jwt-access");
+        when(jwtProvider.createRefreshToken()).thenReturn("jwt-refresh");
+
+        LoginResponse response = authService.login(provider, request);
+
+        assertThat(response.isNewUser()).isTrue();
+        verify(userProfileRepository).save(any());
+        verify(userSettingsRepository).save(any());
+        verify(userTendencyScoreRepository).save(any());
     }
 }

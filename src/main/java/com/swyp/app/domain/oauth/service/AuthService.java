@@ -12,14 +12,21 @@ import com.swyp.app.domain.oauth.repository.AuthRefreshTokenRepository;
 import com.swyp.app.domain.oauth.repository.UserSocialAccountRepository;
 import com.swyp.app.domain.user.entity.UserRole;
 import com.swyp.app.domain.user.entity.User;
+import com.swyp.app.domain.user.entity.UserProfile;
+import com.swyp.app.domain.user.entity.UserSettings;
 import com.swyp.app.domain.user.entity.UserStatus;
+import com.swyp.app.domain.user.entity.UserTendencyScore;
+import com.swyp.app.domain.user.repository.UserProfileRepository;
 import com.swyp.app.domain.user.repository.UserRepository;
+import com.swyp.app.domain.user.repository.UserSettingsRepository;
+import com.swyp.app.domain.user.repository.UserTendencyScoreRepository;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -37,6 +44,9 @@ public class AuthService {
     private final UserRepository userRepository;
     private final UserSocialAccountRepository socialAccountRepository;
     private final AuthRefreshTokenRepository refreshTokenRepository;
+    private final UserProfileRepository userProfileRepository;
+    private final UserSettingsRepository userSettingsRepository;
+    private final UserTendencyScoreRepository userTendencyScoreRepository;
     private final JwtProvider jwtProvider;
 
     public LoginResponse login(String provider, LoginRequest request) {
@@ -63,6 +73,7 @@ public class AuthService {
                     .status(UserStatus.ACTIVE)
                     .build();
             userRepository.save(user);
+            initializeUserDomain(user);
 
             // 소셜 계정 연결
             socialAccount = UserSocialAccount.builder()
@@ -175,6 +186,34 @@ public class AuthService {
     // user_tag 랜덤 생성
     private String generateUserTag() {
         return "pique-" + UUID.randomUUID().toString().substring(0, 8);
+    }
+
+    private void initializeUserDomain(User user) {
+        userProfileRepository.save(UserProfile.builder()
+                .user(user)
+                .nickname(user.getUserTag())
+                .mannerTemperature(BigDecimal.valueOf(36.5))
+                .build());
+
+        userSettingsRepository.save(UserSettings.builder()
+                .user(user)
+                .newBattleEnabled(false)
+                .battleResultEnabled(true)
+                .commentReplyEnabled(true)
+                .newCommentEnabled(false)
+                .contentLikeEnabled(false)
+                .marketingEventEnabled(true)
+                .build());
+
+        userTendencyScoreRepository.save(UserTendencyScore.builder()
+                .user(user)
+                .principle(0)
+                .reason(0)
+                .individual(0)
+                .change(0)
+                .inner(0)
+                .ideal(0)
+                .build());
     }
 
     // refresh token 해시

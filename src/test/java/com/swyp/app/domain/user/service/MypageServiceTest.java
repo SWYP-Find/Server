@@ -36,6 +36,7 @@ import com.swyp.app.domain.user.entity.UserTendencyScore;
 import com.swyp.app.domain.user.entity.VoteSide;
 import com.swyp.app.domain.vote.entity.Vote;
 import com.swyp.app.domain.vote.service.VoteQueryService;
+import com.swyp.app.global.infra.s3.service.S3PresignedUrlService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -52,6 +53,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -71,6 +73,8 @@ class MypageServiceTest {
     private BattleQueryService battleQueryService;
     @Mock
     private PerspectiveQueryService perspectiveQueryService;
+    @Mock
+    private S3PresignedUrlService s3PresignedUrlService;
 
     @InjectMocks
     private MypageService mypageService;
@@ -90,6 +94,7 @@ class MypageServiceTest {
         when(userService.findCurrentUser()).thenReturn(user);
         when(userService.findUserProfile(1L)).thenReturn(profile);
         when(creditService.getTotalPoints(1L)).thenReturn(0);
+        when(s3PresignedUrlService.generatePresignedUrl(anyString())).thenReturn("https://presigned-url");
 
         MypageResponse response = mypageService.getMypage();
 
@@ -114,6 +119,7 @@ class MypageServiceTest {
 
         when(userService.findCurrentUser()).thenReturn(user);
         when(userService.findUserTendencyScore(1L)).thenReturn(score);
+        when(s3PresignedUrlService.generatePresignedUrl(anyString())).thenReturn("https://presigned-url");
         when(voteQueryService.countTotalParticipation(1L)).thenReturn(15L);
         when(voteQueryService.countOpinionChanges(1L)).thenReturn(3L);
         when(voteQueryService.calculateBattleWinRate(1L)).thenReturn(70);
@@ -152,6 +158,7 @@ class MypageServiceTest {
 
         when(userService.findCurrentUser()).thenReturn(user);
         when(userService.findUserTendencyScore(1L)).thenReturn(score);
+        when(s3PresignedUrlService.generatePresignedUrl(anyString())).thenReturn("https://presigned-url");
         when(voteQueryService.countTotalParticipation(1L)).thenReturn(0L);
         when(voteQueryService.countOpinionChanges(1L)).thenReturn(0L);
         when(voteQueryService.calculateBattleWinRate(1L)).thenReturn(0);

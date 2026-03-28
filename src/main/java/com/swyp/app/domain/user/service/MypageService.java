@@ -32,6 +32,7 @@ import com.swyp.app.domain.user.entity.UserTendencyScore;
 import com.swyp.app.domain.user.entity.VoteSide;
 import com.swyp.app.domain.vote.entity.Vote;
 import com.swyp.app.domain.vote.service.VoteQueryService;
+import com.swyp.app.global.infra.s3.service.S3PresignedUrlService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,21 +55,31 @@ public class MypageService {
     private final VoteQueryService voteQueryService;
     private final BattleQueryService battleQueryService;
     private final PerspectiveQueryService perspectiveQueryService;
+    private final S3PresignedUrlService s3PresignedUrlService;
 
     public MypageResponse getMypage() {
         User user = userService.findCurrentUser();
         UserProfile profile = userService.findUserProfile(user.getId());
 
+        CharacterType characterType = profile.getCharacterType();
+        String characterImageUrl = characterType != null
+                ? s3PresignedUrlService.generatePresignedUrl(characterType.getImageKey()) : null;
+
         MypageResponse.ProfileInfo profileInfo = new MypageResponse.ProfileInfo(
                 user.getUserTag(),
                 profile.getNickname(),
-                profile.getCharacterType(),
+                characterType,
+                characterType != null ? characterType.getLabel() : null,
+                characterImageUrl,
                 profile.getMannerTemperature()
         );
 
         // TODO: 철학자 산출 로직 확정 후 구현, 현재는 임시로 SOCRATES 반환
+        PhilosopherType philosopherType = PhilosopherType.SOCRATES;
         MypageResponse.PhilosopherInfo philosopherInfo = new MypageResponse.PhilosopherInfo(
-                PhilosopherType.SOCRATES
+                philosopherType,
+                philosopherType.getLabel(),
+                s3PresignedUrlService.generatePresignedUrl(philosopherType.getImageKey())
         );
 
         int currentPoint = creditService.getTotalPoints(user.getId());
@@ -87,9 +98,9 @@ public class MypageService {
         UserTendencyScore score = userService.findUserTendencyScore(user.getId());
 
         // TODO: 철학자 산출 로직 확정 후 구현, 현재는 임시 값 반환
-        RecapResponse.PhilosopherCard myCard = new RecapResponse.PhilosopherCard(PhilosopherType.SOCRATES);
-        RecapResponse.PhilosopherCard bestMatchCard = new RecapResponse.PhilosopherCard(PhilosopherType.PLATO);
-        RecapResponse.PhilosopherCard worstMatchCard = new RecapResponse.PhilosopherCard(PhilosopherType.MARX);
+        RecapResponse.PhilosopherCard myCard = toPhilosopherCard(PhilosopherType.SOCRATES);
+        RecapResponse.PhilosopherCard bestMatchCard = toPhilosopherCard(PhilosopherType.PLATO);
+        RecapResponse.PhilosopherCard worstMatchCard = toPhilosopherCard(PhilosopherType.MARX);
 
         RecapResponse.Scores scores = new RecapResponse.Scores(
                 score.getPrinciple(),
@@ -282,6 +293,14 @@ public class MypageService {
         return new NoticeDetailResponse(
                 notice.noticeId(), notice.type(), notice.title(),
                 notice.body(), notice.pinned(), notice.startsAt()
+        );
+    }
+
+    private RecapResponse.PhilosopherCard toPhilosopherCard(PhilosopherType type) {
+        return new RecapResponse.PhilosopherCard(
+                type,
+                type.getLabel(),
+                s3PresignedUrlService.generatePresignedUrl(type.getImageKey())
         );
     }
 

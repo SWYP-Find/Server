@@ -1,36 +1,32 @@
 package com.swyp.app.domain.user.entity;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonValue;
+import lombok.Getter;
 
 import java.util.Arrays;
 
+@Getter
 public enum CharacterType {
-    OWL("owl"),
-    FOX("fox"),
-    WOLF("wolf"),
-    LION("lion"),
-    PENGUIN("penguin"),
-    BEAR("bear"),
-    RABBIT("rabbit"),
-    CAT("cat");
+    OWL("부엉이", "images/characters/owl.png"),
+    FOX("여우", "images/characters/fox.png"),
+    WOLF("늑대", "images/characters/wolf.png"),
+    LION("사자", "images/characters/lion.png"),
+    PENGUIN("펭귄", "images/characters/penguin.png"),
+    BEAR("곰", "images/characters/bear.png"),
+    RABBIT("토끼", "images/characters/rabbit.png"),
+    CAT("고양이", "images/characters/cat.png");
 
-    private final String value;
+    private final String label;
+    private final String imageKey;
 
-    CharacterType(String value) {
-        this.value = value;
+    CharacterType(String label, String imageKey) {
+        this.label = label;
+        this.imageKey = imageKey;
     }
 
-    @JsonValue
-    public String getValue() {
-        return value;
-    }
-
-    @JsonCreator
-    public static CharacterType from(String value) {
+    public static CharacterType from(String input) {
         return Arrays.stream(values())
-                .filter(type -> type.value.equalsIgnoreCase(value))
+                .filter(type -> type.name().equalsIgnoreCase(input) || type.label.equals(input))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Unknown character type: " + value));
+                .orElseThrow(() -> new IllegalArgumentException("Unknown character type: " + input));
     }
 }

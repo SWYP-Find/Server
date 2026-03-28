@@ -9,6 +9,7 @@ import com.swyp.app.global.common.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "투표 (Vote)", description = "사전/사후 투표 실행 및 통계, 내 투표 내역 조회 API")
@@ -23,9 +24,8 @@ public class VoteController {
     @PostMapping("/battles/{battleId}/votes/pre")
     public ApiResponse<VoteResultResponse> preVote(
             @PathVariable Long battleId,
+            @AuthenticationPrincipal Long userId,
             @RequestBody VoteRequest request) {
-        // TODO: Security 적용 후 @AuthenticationPrincipal로 userId 교체
-        Long userId = 1L;
         return ApiResponse.onSuccess(voteService.preVote(battleId, userId, request));
     }
 
@@ -33,9 +33,8 @@ public class VoteController {
     @PostMapping("/battles/{battleId}/votes/post")
     public ApiResponse<VoteResultResponse> postVote(
             @PathVariable Long battleId,
+            @AuthenticationPrincipal Long userId,
             @RequestBody VoteRequest request) {
-        // TODO: Security 적용 후 @AuthenticationPrincipal로 userId 교체
-        Long userId = 1L;
         return ApiResponse.onSuccess(voteService.postVote(battleId, userId, request));
     }
 
@@ -47,9 +46,9 @@ public class VoteController {
 
     @Operation(summary = "내 투표 내역 조회", description = "특정 배틀에 대한 내 사전/사후 투표 내역과 현재 상태를 조회합니다.")
     @GetMapping("/battles/{battleId}/votes/me")
-    public ApiResponse<MyVoteResponse> getMyVote(@PathVariable Long battleId) {
-        // TODO: Security 적용 후 @AuthenticationPrincipal로 userId 교체
-        Long userId = 1L;
+    public ApiResponse<MyVoteResponse> getMyVote(
+            @PathVariable Long battleId,
+            @AuthenticationPrincipal Long userId) {
         return ApiResponse.onSuccess(voteService.getMyVote(battleId, userId));
     }
 }

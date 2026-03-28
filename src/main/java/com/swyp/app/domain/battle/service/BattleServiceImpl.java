@@ -137,7 +137,7 @@ public class BattleServiceImpl implements BattleService {
         List<Tag> allTags = getTagsByBattle(battle);
         List<BattleOption> options = battleOptionRepository.findByBattle(battle);
 
-        String voteStatus = voteRepository.findByBattleAndUserId(battle, 1L)
+        String voteStatus = voteRepository.findByBattleIdAndUserId(battleId, 1L)
                 .map(v -> v.getPostVoteOption() != null ? v.getPostVoteOption().getLabel().name() : "NONE")
                 .orElse("NONE");
 

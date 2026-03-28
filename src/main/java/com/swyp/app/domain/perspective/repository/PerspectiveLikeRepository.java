@@ -18,8 +18,7 @@ public interface PerspectiveLikeRepository extends JpaRepository<PerspectiveLike
 
     long countByPerspective(Perspective perspective);
 
-    // MypageService: 사용자 좋아요 활동 조회 (offset 페이지네이션)
-    @Query("SELECT l FROM PerspectiveLike l JOIN FETCH l.perspective WHERE l.userId = :userId ORDER BY l.createdAt DESC")
+    @Query("SELECT l FROM PerspectiveLike l JOIN FETCH l.perspective WHERE l.user.id = :userId ORDER BY l.createdAt DESC")
     List<PerspectiveLike> findByUserIdOrderByCreatedAtDesc(@Param("userId") Long userId, Pageable pageable);
 
     long countByUserId(Long userId);

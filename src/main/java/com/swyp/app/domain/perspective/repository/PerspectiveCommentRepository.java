@@ -16,8 +16,7 @@ public interface PerspectiveCommentRepository extends JpaRepository<PerspectiveC
 
     List<PerspectiveComment> findByPerspectiveAndCreatedAtBeforeOrderByCreatedAtDesc(Perspective perspective, LocalDateTime cursor, Pageable pageable);
 
-    // MypageService: 사용자 댓글 활동 조회 (offset 페이지네이션)
-    @Query("SELECT c FROM PerspectiveComment c JOIN FETCH c.perspective WHERE c.userId = :userId ORDER BY c.createdAt DESC")
+    @Query("SELECT c FROM PerspectiveComment c JOIN FETCH c.perspective WHERE c.user.id = :userId ORDER BY c.createdAt DESC")
     List<PerspectiveComment> findByUserIdOrderByCreatedAtDesc(@Param("userId") Long userId, Pageable pageable);
 
     long countByUserId(Long userId);

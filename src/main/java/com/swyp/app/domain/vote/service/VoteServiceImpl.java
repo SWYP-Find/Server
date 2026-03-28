@@ -4,6 +4,8 @@ import com.swyp.app.domain.battle.entity.Battle;
 import com.swyp.app.domain.battle.entity.BattleOption;
 import com.swyp.app.domain.battle.repository.BattleOptionRepository;
 import com.swyp.app.domain.battle.service.BattleService;
+import com.swyp.app.domain.user.entity.User;
+import com.swyp.app.domain.user.repository.UserRepository;
 import com.swyp.app.domain.vote.converter.VoteConverter;
 import com.swyp.app.domain.vote.dto.request.VoteRequest;
 import com.swyp.app.domain.vote.dto.response.MyVoteResponse;
@@ -29,18 +31,21 @@ public class VoteServiceImpl implements VoteService {
     private final VoteRepository voteRepository;
     private final BattleService battleService;
     private final BattleOptionRepository battleOptionRepository;
+    private final UserRepository userRepository;
 
     @Override
-    public Long findPreVoteOptionId(Long battleId, Long userId) {
+    public BattleOption findPreVoteOption(Long battleId, Long userId) {
         Battle battle = battleService.findById(battleId);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        Vote vote = voteRepository.findByBattleAndUserId(battle, userId)
+        Vote vote = voteRepository.findByBattleAndUser(battle, user)
                 .orElseThrow(() -> new CustomException(ErrorCode.VOTE_NOT_FOUND));
 
         if (vote.getPreVoteOption() == null) {
             throw new CustomException(ErrorCode.PRE_VOTE_REQUIRED);
         }
-        return vote.getPreVoteOption().getId();
+        return vote.getPreVoteOption();
     }
 
     @Override
@@ -70,8 +75,10 @@ public class VoteServiceImpl implements VoteService {
     @Override
     public MyVoteResponse getMyVote(Long battleId, Long userId) {
         Battle battle = battleService.findById(battleId);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        Vote vote = voteRepository.findByBattleAndUserId(battle, userId)
+        Vote vote = voteRepository.findByBattleAndUser(battle, user)
                 .orElseThrow(() -> new CustomException(ErrorCode.VOTE_NOT_FOUND));
 
         return VoteConverter.toMyVoteResponse(vote);
@@ -81,15 +88,16 @@ public class VoteServiceImpl implements VoteService {
     @Transactional
     public VoteResultResponse preVote(Long battleId, Long userId, VoteRequest request) {
         Battle battle = battleService.findById(battleId);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         BattleOption option = battleOptionRepository.findById(request.optionId())
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));
 
-        // 이미 투표 내역이 존재하는지 검증
-        if (voteRepository.findByBattleAndUserId(battle, userId).isPresent()) {
+        if (voteRepository.findByBattleAndUser(battle, user).isPresent()) {
             throw new CustomException(ErrorCode.VOTE_ALREADY_SUBMITTED);
         }
 
-        Vote vote = Vote.createPreVote(userId, battle, option);
+        Vote vote = Vote.createPreVote(user, battle, option);
         voteRepository.save(vote);
 
         return VoteConverter.toVoteResultResponse(vote);
@@ -99,13 +107,14 @@ public class VoteServiceImpl implements VoteService {
     @Transactional
     public VoteResultResponse postVote(Long battleId, Long userId, VoteRequest request) {
         Battle battle = battleService.findById(battleId);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         BattleOption option = battleOptionRepository.findById(request.optionId())
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));
 
-        Vote vote = voteRepository.findByBattleAndUserId(battle, userId)
+        Vote vote = voteRepository.findByBattleAndUser(battle, user)
                 .orElseThrow(() -> new CustomException(ErrorCode.VOTE_NOT_FOUND));
 
-        // 사전 투표 상태일 때만 사후 투표 가능
         if (vote.getStatus() != VoteStatus.PRE_VOTED) {
             throw new CustomException(ErrorCode.INVALID_VOTE_STATUS);
         }

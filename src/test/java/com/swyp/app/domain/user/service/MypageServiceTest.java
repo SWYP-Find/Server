@@ -166,7 +166,7 @@ class MypageServiceTest {
         Battle battle = createBattle("배틀 제목");
         BattleOption optionA = createOption(battle, BattleOptionLabel.A);
         Vote vote = Vote.builder()
-                .userId(1L)
+                .user(user)
                 .battle(battle)
                 .preVoteOption(optionA)
                 .build();
@@ -192,7 +192,7 @@ class MypageServiceTest {
         Battle battle = createBattle("제목");
         BattleOption optionA = createOption(battle, BattleOptionLabel.A);
         Vote vote = Vote.builder()
-                .userId(1L)
+                .user(user)
                 .battle(battle)
                 .preVoteOption(optionA)
                 .build();
@@ -227,28 +227,26 @@ class MypageServiceTest {
     @DisplayName("COMMENT 타입으로 댓글활동을 반환한다")
     void getContentActivities_returns_comments() {
         User user = createUser(1L, "tag");
-        Long battleId = generateId();
-        Long optionId = generateId();
+        Battle battle = createBattle("배틀");
+        Long battleId = battle.getId();
+        BattleOption option = createOption(battle, BattleOptionLabel.A);
+        Long optionId = option.getId();
+
         Perspective perspective = Perspective.builder()
-                .battleId(battleId)
-                .userId(1L)
-                .optionId(optionId)
+                .battle(battle)
+                .user(user)
+                .option(option)
                 .content("관점 내용")
                 .build();
         ReflectionTestUtils.setField(perspective, "id", generateId());
 
         PerspectiveComment comment = PerspectiveComment.builder()
                 .perspective(perspective)
-                .userId(1L)
+                .user(user)
                 .content("댓글")
                 .build();
         ReflectionTestUtils.setField(comment, "id", generateId());
         ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.now());
-
-        Battle battle = createBattle("배틀");
-        ReflectionTestUtils.setField(battle, "id", battleId);
-        BattleOption option = createOption(battle, BattleOptionLabel.A);
-        ReflectionTestUtils.setField(option, "id", optionId);
 
         when(userService.findCurrentUser()).thenReturn(user);
         when(perspectiveQueryService.findUserComments(1L, 0, 20)).thenReturn(List.of(comment));
@@ -268,27 +266,25 @@ class MypageServiceTest {
     @DisplayName("LIKE 타입으로 좋아요활동을 반환한다")
     void getContentActivities_returns_likes() {
         User user = createUser(1L, "tag");
-        Long battleId = generateId();
-        Long optionId = generateId();
+        Battle battle = createBattle("배틀");
+        Long battleId = battle.getId();
+        BattleOption option = createOption(battle, BattleOptionLabel.B);
+        Long optionId = option.getId();
+
         Perspective perspective = Perspective.builder()
-                .battleId(battleId)
-                .userId(1L)
-                .optionId(optionId)
+                .battle(battle)
+                .user(user)
+                .option(option)
                 .content("관점 내용")
                 .build();
         ReflectionTestUtils.setField(perspective, "id", generateId());
 
         PerspectiveLike like = PerspectiveLike.builder()
                 .perspective(perspective)
-                .userId(1L)
+                .user(user)
                 .build();
         ReflectionTestUtils.setField(like, "id", generateId());
         ReflectionTestUtils.setField(like, "createdAt", LocalDateTime.now());
-
-        Battle battle = createBattle("배틀");
-        ReflectionTestUtils.setField(battle, "id", battleId);
-        BattleOption option = createOption(battle, BattleOptionLabel.B);
-        ReflectionTestUtils.setField(option, "id", optionId);
 
         when(userService.findCurrentUser()).thenReturn(user);
         when(perspectiveQueryService.findUserLikes(1L, 0, 20)).thenReturn(List.of(like));

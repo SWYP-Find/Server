@@ -8,7 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface CreditHistoryRepository extends JpaRepository<CreditHistory, Long> {
 
-    @Query("SELECT COALESCE(SUM(c.amount), 0) FROM CreditHistory c WHERE c.userId = :userId")
+    @Query("SELECT COALESCE(SUM(c.amount), 0) FROM CreditHistory c WHERE c.user.id = :userId")
     int sumAmountByUserId(@Param("userId") Long userId);
 
     boolean existsByUserIdAndCreditTypeAndReferenceId(Long userId, CreditType creditType, Long referenceId);

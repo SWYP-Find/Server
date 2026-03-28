@@ -3,7 +3,7 @@ package com.swyp.app.domain.scenario.controller;
 import com.swyp.app.domain.scenario.dto.request.ScenarioCreateRequest;
 import com.swyp.app.domain.scenario.dto.request.ScenarioStatusUpdateRequest;
 import com.swyp.app.domain.scenario.dto.response.AdminDeleteResponse;
-import com.swyp.app.domain.scenario.dto.response.AdminScenarioDetailResponse; // 🚀 추가 (상세 조회용)
+import com.swyp.app.domain.scenario.dto.response.AdminScenarioDetailResponse;
 import com.swyp.app.domain.scenario.dto.response.AdminScenarioResponse;
 import com.swyp.app.domain.scenario.dto.response.UserScenarioResponse;
 import com.swyp.app.domain.scenario.service.ScenarioService;

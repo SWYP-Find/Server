@@ -55,4 +55,8 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
 
     // MypageService (recap): 사용자가 참여한 모든 투표 (배틀 목록 추출용)
     List<Vote> findByUserId(Long userId);
+
+    // MypageService: 철학자 유형 산출용 - 최초 N개 투표 조회 (생성순)
+    @Query("SELECT v FROM Vote v JOIN FETCH v.battle WHERE v.userId = :userId ORDER BY v.createdAt ASC")
+    List<Vote> findByUserIdOrderByCreatedAtAsc(@Param("userId") Long userId, Pageable pageable);
 }

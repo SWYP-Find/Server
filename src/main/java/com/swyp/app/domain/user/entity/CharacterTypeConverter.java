@@ -8,7 +8,7 @@ public class CharacterTypeConverter implements AttributeConverter<CharacterType,
 
     @Override
     public String convertToDatabaseColumn(CharacterType attribute) {
-        return attribute == null ? null : attribute.getValue();
+        return attribute == null ? null : attribute.name();
     }
 
     @Override

@@ -13,7 +13,11 @@ public record RecapResponse(
 ) {
 
     public record PhilosopherCard(
-            PhilosopherType philosopherType
+            PhilosopherType philosopherType,
+            String philosopherLabel,
+            String typeName,
+            String description,
+            String imageUrl
     ) {
     }
 

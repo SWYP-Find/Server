@@ -16,12 +16,18 @@ public record MypageResponse(
             String userTag,
             String nickname,
             CharacterType characterType,
+            String characterLabel,
+            String characterImageUrl,
             BigDecimal mannerTemperature
     ) {
     }
 
     public record PhilosopherInfo(
-            PhilosopherType philosopherType
+            PhilosopherType philosopherType,
+            String philosopherLabel,
+            String typeName,
+            String description,
+            String imageUrl
     ) {
     }
 

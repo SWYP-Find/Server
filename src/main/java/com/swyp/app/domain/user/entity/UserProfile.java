@@ -2,6 +2,8 @@ package com.swyp.app.domain.user.entity;
 
 import com.swyp.app.global.common.BaseEntity;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
@@ -29,6 +31,9 @@ public class UserProfile extends BaseEntity {
 
     private CharacterType characterType;
 
+    @Enumerated(EnumType.STRING)
+    private PhilosopherType philosopherType;
+
     private BigDecimal mannerTemperature;
 
     @Builder
@@ -46,5 +51,9 @@ public class UserProfile extends BaseEntity {
         if (characterType != null) {
             this.characterType = characterType;
         }
+    }
+
+    public void updatePhilosopherType(PhilosopherType philosopherType) {
+        this.philosopherType = philosopherType;
     }
 }

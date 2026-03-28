@@ -54,4 +54,22 @@ public interface BattleRepository extends JpaRepository<Battle, Long> {
 
     // 기본 조회용
     List<Battle> findByTargetDateAndStatusAndDeletedAtIsNull(LocalDate date, BattleStatus status);
+
+    // 탐색 탭: 전체 배틀 검색 (정렬은 Pageable Sort로 처리)
+    @Query("SELECT b FROM Battle b WHERE b.status = 'PUBLISHED' AND b.deletedAt IS NULL")
+    List<Battle> searchAll(Pageable pageable);
+
+    @Query("SELECT COUNT(b) FROM Battle b WHERE b.status = 'PUBLISHED' AND b.deletedAt IS NULL")
+    long countSearchAll();
+
+    // 탐색 탭: 카테고리 태그 필터 배틀 검색
+    @Query("SELECT DISTINCT b FROM Battle b JOIN BattleTag bt ON bt.battle = b JOIN bt.tag t " +
+           "WHERE t.type = 'CATEGORY' AND t.name = :categoryName " +
+           "AND b.status = 'PUBLISHED' AND b.deletedAt IS NULL")
+    List<Battle> searchByCategory(@Param("categoryName") String categoryName, Pageable pageable);
+
+    @Query("SELECT COUNT(DISTINCT b) FROM Battle b JOIN BattleTag bt ON bt.battle = b JOIN bt.tag t " +
+           "WHERE t.type = 'CATEGORY' AND t.name = :categoryName " +
+           "AND b.status = 'PUBLISHED' AND b.deletedAt IS NULL")
+    long countSearchByCategory(@Param("categoryName") String categoryName);
 }

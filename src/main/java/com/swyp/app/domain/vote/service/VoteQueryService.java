@@ -68,4 +68,11 @@ public class VoteQueryService {
                 .distinct()
                 .toList();
     }
+
+    public List<Long> findFirstNBattleIds(Long userId, int n) {
+        return voteRepository.findByUserIdOrderByCreatedAtAsc(userId, PageRequest.of(0, n)).stream()
+                .map(v -> v.getBattle().getId())
+                .distinct()
+                .toList();
+    }
 }

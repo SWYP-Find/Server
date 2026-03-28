@@ -28,10 +28,10 @@ import com.swyp.app.domain.user.entity.TierCode;
 import com.swyp.app.domain.user.entity.User;
 import com.swyp.app.domain.user.entity.UserProfile;
 import com.swyp.app.domain.user.entity.UserSettings;
-import com.swyp.app.domain.user.entity.UserTendencyScore;
 import com.swyp.app.domain.user.entity.VoteSide;
 import com.swyp.app.domain.vote.entity.Vote;
 import com.swyp.app.domain.vote.service.VoteQueryService;
+import com.swyp.app.global.infra.s3.service.S3PresignedUrlService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,22 +54,35 @@ public class MypageService {
     private final VoteQueryService voteQueryService;
     private final BattleQueryService battleQueryService;
     private final PerspectiveQueryService perspectiveQueryService;
+    private final S3PresignedUrlService s3PresignedUrlService;
 
+    @Transactional
     public MypageResponse getMypage() {
         User user = userService.findCurrentUser();
         UserProfile profile = userService.findUserProfile(user.getId());
 
+        CharacterType characterType = profile.getCharacterType();
+        String characterImageUrl = characterType != null
+                ? s3PresignedUrlService.generatePresignedUrl(characterType.getImageKey()) : null;
+
         MypageResponse.ProfileInfo profileInfo = new MypageResponse.ProfileInfo(
                 user.getUserTag(),
                 profile.getNickname(),
-                profile.getCharacterType(),
+                characterType,
+                characterType != null ? characterType.getLabel() : null,
+                characterImageUrl,
                 profile.getMannerTemperature()
         );
 
-        // TODO: 철학자 산출 로직 확정 후 구현, 현재는 임시로 SOCRATES 반환
-        MypageResponse.PhilosopherInfo philosopherInfo = new MypageResponse.PhilosopherInfo(
-                PhilosopherType.SOCRATES
-        );
+        PhilosopherType philosopherType = resolvePhilosopherType(user.getId(), profile);
+        MypageResponse.PhilosopherInfo philosopherInfo = philosopherType != null
+                ? new MypageResponse.PhilosopherInfo(
+                        philosopherType,
+                        philosopherType.getLabel(),
+                        philosopherType.getTypeName(),
+                        philosopherType.getDescription(),
+                        s3PresignedUrlService.generatePresignedUrl(philosopherType.getImageKey()))
+                : null;
 
         int currentPoint = creditService.getTotalPoints(user.getId());
         TierCode tierCode = TierCode.fromPoints(currentPoint);
@@ -84,20 +97,24 @@ public class MypageService {
 
     public RecapResponse getRecap() {
         User user = userService.findCurrentUser();
-        UserTendencyScore score = userService.findUserTendencyScore(user.getId());
+        UserProfile profile = userService.findUserProfile(user.getId());
 
-        // TODO: 철학자 산출 로직 확정 후 구현, 현재는 임시 값 반환
-        RecapResponse.PhilosopherCard myCard = new RecapResponse.PhilosopherCard(PhilosopherType.SOCRATES);
-        RecapResponse.PhilosopherCard bestMatchCard = new RecapResponse.PhilosopherCard(PhilosopherType.PLATO);
-        RecapResponse.PhilosopherCard worstMatchCard = new RecapResponse.PhilosopherCard(PhilosopherType.MARX);
+        PhilosopherType philosopherType = profile.getPhilosopherType();
+        if (philosopherType == null) {
+            return null;
+        }
+
+        RecapResponse.PhilosopherCard myCard = toPhilosopherCard(philosopherType);
+        RecapResponse.PhilosopherCard bestMatchCard = toPhilosopherCard(philosopherType.getBestMatch());
+        RecapResponse.PhilosopherCard worstMatchCard = toPhilosopherCard(philosopherType.getWorstMatch());
 
         RecapResponse.Scores scores = new RecapResponse.Scores(
-                score.getPrinciple(),
-                score.getReason(),
-                score.getIndividual(),
-                score.getChange(),
-                score.getInner(),
-                score.getIdeal()
+                philosopherType.getPrinciple(),
+                philosopherType.getReason(),
+                philosopherType.getIndividual(),
+                philosopherType.getChange(),
+                philosopherType.getInner(),
+                philosopherType.getIdeal()
         );
 
         RecapResponse.PreferenceReport preferenceReport = buildPreferenceReport(user.getId());
@@ -282,6 +299,38 @@ public class MypageService {
         return new NoticeDetailResponse(
                 notice.noticeId(), notice.type(), notice.title(),
                 notice.body(), notice.pinned(), notice.startsAt()
+        );
+    }
+
+    private static final int PHILOSOPHER_CALC_THRESHOLD = 5;
+
+    private PhilosopherType resolvePhilosopherType(Long userId, UserProfile profile) {
+        if (profile.getPhilosopherType() != null) {
+            return profile.getPhilosopherType();
+        }
+
+        long totalVotes = voteQueryService.countTotalParticipation(userId);
+        if (totalVotes < PHILOSOPHER_CALC_THRESHOLD) {
+            return null;
+        }
+
+        List<Long> battleIds = voteQueryService.findFirstNBattleIds(userId, PHILOSOPHER_CALC_THRESHOLD);
+        return battleQueryService.getTopPhilosopherTagName(battleIds)
+                .map(PhilosopherType::fromLabel)
+                .map(type -> {
+                    profile.updatePhilosopherType(type);
+                    return type;
+                })
+                .orElse(null);
+    }
+
+    private RecapResponse.PhilosopherCard toPhilosopherCard(PhilosopherType type) {
+        return new RecapResponse.PhilosopherCard(
+                type,
+                type.getLabel(),
+                type.getTypeName(),
+                type.getDescription(),
+                s3PresignedUrlService.generatePresignedUrl(type.getImageKey())
         );
     }
 

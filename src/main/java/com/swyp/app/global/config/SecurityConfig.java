@@ -18,7 +18,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 @EnableMethodSecurity
 @RequiredArgsConstructor
-public class SecurityConfig {
+public class
+SecurityConfig {
 
     private final JwtProvider jwtProvider;
 
@@ -32,6 +33,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/", "/api/v1/auth/**", "/api/v1/home",
                                 "/api/v1/notices/**",
+                                "/api/test/**",
                                 "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**",
                                 "/js/**", "/css/**", "/images/**", "/favicon.ico",
                                 "/api/v1/admin/login", "/api/v1/admin"

@@ -1,5 +1,6 @@
 package com.swyp.app.domain.user.service;
 
+import com.swyp.app.domain.battle.service.BattleQueryService;
 import com.swyp.app.domain.user.dto.request.UpdateUserProfileRequest;
 import com.swyp.app.domain.user.dto.response.MyProfileResponse;
 import com.swyp.app.domain.user.dto.response.UserSummary;
@@ -12,21 +13,28 @@ import com.swyp.app.domain.user.repository.UserProfileRepository;
 import com.swyp.app.domain.user.repository.UserRepository;
 import com.swyp.app.domain.user.repository.UserSettingsRepository;
 import com.swyp.app.domain.user.repository.UserTendencyScoreRepository;
+import com.swyp.app.domain.vote.service.VoteQueryService;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserService {
 
+    private static final int PHILOSOPHER_CALC_THRESHOLD = 5;
+
     private final UserRepository userRepository;
     private final UserProfileRepository userProfileRepository;
     private final UserSettingsRepository userSettingsRepository;
     private final UserTendencyScoreRepository userTendencyScoreRepository;
+    private final VoteQueryService voteQueryService;
+    private final BattleQueryService battleQueryService;
 
     @Transactional
     public MyProfileResponse updateMyProfile(UpdateUserProfileRequest request) {
@@ -41,13 +49,27 @@ public class UserService {
         );
     }
 
-    /**
-     * TODO: 사후투표 기반 철학자 유형 산출 로직 구현 필요
-     * - 유저가 선택한 옵션의 BattleOptionTag(PHILOSOPHER 타입) 누적 점수 중 최고값 철학자를 반환
-     * - 현재는 임시로 SOCRATES 반환
-     */
+    @Transactional
     public PhilosopherType getPhilosopherType(Long userId) {
-        return PhilosopherType.SOCRATES;
+        UserProfile profile = findUserProfile(userId);
+
+        if (profile.getPhilosopherType() != null) {
+            return profile.getPhilosopherType();
+        }
+
+        long totalVotes = voteQueryService.countTotalParticipation(userId);
+        if (totalVotes < PHILOSOPHER_CALC_THRESHOLD) {
+            return PhilosopherType.SOCRATES;
+        }
+
+        List<Long> battleIds = voteQueryService.findFirstNBattleIds(userId, PHILOSOPHER_CALC_THRESHOLD);
+        return battleQueryService.getTopPhilosopherTagName(battleIds)
+                .map(PhilosopherType::fromLabel)
+                .map(type -> {
+                    profile.updatePhilosopherType(type);
+                    return type;
+                })
+                .orElse(PhilosopherType.SOCRATES);
     }
 
 
@@ -64,7 +86,7 @@ public class UserService {
     }
 
     public UserProfile findUserProfile(Long userId) {
-        return userProfileRepository.findById(userId)
+        return userProfileRepository.findByUserId(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 

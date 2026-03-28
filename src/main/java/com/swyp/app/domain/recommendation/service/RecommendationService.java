@@ -47,8 +47,6 @@ public class RecommendationService {
         List<Long> excludeBattleIds = voteRepository.findParticipatedBattleIdsByUserId(userId);
         if (excludeBattleIds.isEmpty()) excludeBattleIds = List.of(-1L);
 
-        // TODO: 철학자 유형별 유저 ID 조회 로직 구현 필요
-        //  - PhilosopherType별 누적 점수 테이블이 구현되면 아래 TODO를 대체
         List<Long> sameTypeUserIds = findUserIdsByPhilosopherType(myType);
         List<Long> oppositeTypeUserIds = findUserIdsByPhilosopherType(oppositeType);
 

@@ -11,6 +11,7 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+// TODO: S3 Presigned URL 정식 구현 시 교체 필요 (임시 구현)
 @Service
 @RequiredArgsConstructor
 public class S3PresignedUrlService {

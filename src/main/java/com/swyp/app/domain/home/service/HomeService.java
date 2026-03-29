@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -136,6 +137,7 @@ public class HomeService {
         return Optional.ofNullable(options).orElse(List.of()).stream()
                 .filter(o -> o.label() == label)
                 .map(TodayOptionResponse::representative)
+                .filter(Objects::nonNull)
                 .findFirst()
                 .map(PhilosopherType::fromLabel)
                 .map(PhilosopherType::getImageKey)

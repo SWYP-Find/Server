@@ -72,6 +72,7 @@ public enum ErrorCode {
     PERSPECTIVE_FORBIDDEN             (HttpStatus.FORBIDDEN,  "PERSPECTIVE_403",      "본인 관점만 수정/삭제할 수 있습니다."),
     PERSPECTIVE_POST_VOTE_REQUIRED    (HttpStatus.CONFLICT,   "PERSPECTIVE_VOTE_409", "사후 투표가 완료되지 않았습니다."),
     PERSPECTIVE_MODERATION_NOT_FAILED (HttpStatus.BAD_REQUEST,"PERSPECTIVE_400",      "검수 실패 상태의 관점이 아닙니다."),
+    PERSPECTIVE_CONTENT_TOO_LONG      (HttpStatus.BAD_REQUEST,"PERSPECTIVE_400_LEN",  "관점 내용은 200자를 초과할 수 없습니다."),
 
     // Comment
     COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMENT_NOT_FOUND", "존재하지 않는 댓글입니다."),
@@ -81,6 +82,10 @@ public enum ErrorCode {
     LIKE_ALREADY_EXISTS(HttpStatus.CONFLICT,  "LIKE_409", "이미 좋아요를 누른 관점입니다."),
     LIKE_NOT_FOUND     (HttpStatus.NOT_FOUND, "LIKE_404", "좋아요를 누른 적 없는 관점입니다."),
     LIKE_SELF_FORBIDDEN(HttpStatus.FORBIDDEN, "LIKE_403", "본인 관점에는 좋아요를 누를 수 없습니다."),
+
+    // Report
+    REPORT_ALREADY_EXISTS(HttpStatus.CONFLICT,  "REPORT_409", "이미 신고한 항목입니다."),
+    REPORT_SELF_FORBIDDEN(HttpStatus.FORBIDDEN, "REPORT_403", "본인 글은 신고할 수 없습니다."),
 
     // Vote
     VOTE_NOT_FOUND        (HttpStatus.NOT_FOUND,   "VOTE_404",     "투표 내역이 없습니다."),

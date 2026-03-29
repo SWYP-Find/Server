@@ -80,6 +80,10 @@ public class Perspective extends BaseEntity {
         this.status = PerspectiveStatus.REJECTED;
     }
 
+    public void hide() {
+        this.status = PerspectiveStatus.HIDDEN;
+    }
+
     public void incrementLikeCount() {
         this.likeCount++;
     }

@@ -24,10 +24,22 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.onFailure(code.getHttpStatus().value(), code.getCode(), code.getMessage()));
     }
 
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException e) {
+        boolean isContentSizeViolation = e.getBindingResult().getFieldErrors().stream()
+                .anyMatch(fe -> "content".equals(fe.getField()) && "Size".equals(fe.getCode()));
+        ErrorCode code = isContentSizeViolation
+                ? ErrorCode.PERSPECTIVE_CONTENT_TOO_LONG
+                : ErrorCode.COMMON_INVALID_PARAMETER;
+        log.warn("Validation failed: {}", e.getMessage());
+        return ResponseEntity
+                .status(code.getHttpStatus())
+                .body(ApiResponse.onFailure(code.getHttpStatus().value(), code.getCode(), code.getMessage()));
+    }
+
     @ExceptionHandler({
             HttpMessageNotReadableException.class,
             MethodArgumentTypeMismatchException.class,
-            MethodArgumentNotValidException.class,
             ConstraintViolationException.class,
             IllegalArgumentException.class
     })

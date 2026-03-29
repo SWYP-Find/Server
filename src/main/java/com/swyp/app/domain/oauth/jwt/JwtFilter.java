@@ -39,7 +39,9 @@ public class JwtFilter extends OncePerRequestFilter {
             "/swagger-ui",       // 스웨거 UI 리소스 전체
             "/v3/api-docs",      // OpenAPI 스펙 전체
             "/api/v1/home",      // 홈 화면
-            "/api/v1/notices"    // 공지사항
+            "/api/v1/notices",   // 공지사항
+            "/api/test",         // 테스트용
+            "/result"            // 공유 링크 리다이렉트
     );
 
     @Override

@@ -49,6 +49,13 @@ public class VoteServiceImpl implements VoteService {
     }
 
     @Override
+    public Long findPostVoteOptionId(Long battleId, Long userId) {
+        return voteRepository.findByBattleIdAndUserId(battleId, userId)
+                .map(vote -> vote.getPostVoteOption() != null ? vote.getPostVoteOption().getId() : null)
+                .orElse(null);
+    }
+
+    @Override
     public VoteStatsResponse getVoteStats(Long battleId) {
         Battle battle = battleService.findById(battleId);
         List<BattleOption> options = battleOptionRepository.findByBattle(battle);

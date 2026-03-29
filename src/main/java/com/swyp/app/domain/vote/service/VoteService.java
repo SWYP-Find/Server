@@ -10,6 +10,8 @@ public interface VoteService {
 
     BattleOption findPreVoteOption(Long battleId, Long userId);
 
+    Long findPostVoteOptionId(Long battleId, Long userId);
+
     VoteStatsResponse getVoteStats(Long battleId);
 
     MyVoteResponse getMyVote(Long battleId, Long userId);

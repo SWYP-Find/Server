@@ -18,10 +18,15 @@ public class VoteConverter {
 
     // 내 투표 내역 변환
     public static MyVoteResponse toMyVoteResponse(Vote vote) {
+        boolean opinionChanged = vote.getPreVoteOption() != null
+                && vote.getPostVoteOption() != null
+                && !vote.getPreVoteOption().getId().equals(vote.getPostVoteOption().getId());
         return new MyVoteResponse(
+                vote.getBattle().getTitle(),
                 toOptionInfo(vote.getPreVoteOption()),
                 toOptionInfo(vote.getPostVoteOption()),
-                vote.getStatus()
+                vote.getStatus(),
+                opinionChanged
         );
     }
 

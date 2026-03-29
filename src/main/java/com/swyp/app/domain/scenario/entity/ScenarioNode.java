@@ -60,6 +60,15 @@ public class ScenarioNode extends BaseEntity {
         option.assignNode(this);
     }
 
+    public void updateBasicInfo(Boolean isStartNode) {
+        this.isStartNode = isStartNode;
+    }
+
+    public void clearOptionsAndLinks() {
+        this.autoNextNodeId = null;
+        this.options.clear();
+    }
+
     public void updateAutoNextNodeId(Long autoNextNodeId) {
         this.autoNextNodeId = autoNextNodeId;
     }

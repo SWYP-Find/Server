@@ -31,9 +31,9 @@ public class ScenarioAudioPipelineService {
     private static final int SILENCE_MS = 600;
 
     @Async
-    @Transactional(propagation = Propagation.REQUIRES_NEW) // 비동기 전용 독립 트랜잭션 보장
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void generateAndMergeAudioAsync(Long scenarioId) {
-        // 부모 트랜잭션이 커밋된 후에 도는 것이므로 데이터가 완벽하게 보임
+
         Scenario scenario = scenarioRepository.findById(scenarioId).orElseThrow();
 
         log.info("\n==================================================");
@@ -41,18 +41,38 @@ public class ScenarioAudioPipelineService {
         log.info("[시나리오 타입] 인터랙티브(분기) 여부: {}", scenario.getIsInteractive());
 
         try {
-            log.info("--- [1단계] TTS API 호출 및 캐싱 ---");
+            log.info("--- [1단계] TTS API 호출 및 캐싱 (S3 조각 활용) ---");
             Map<Long, File> ttsCache = new HashMap<>();
             int apiCallCount = 0;
 
             for (ScenarioNode node : scenario.getNodes()) {
                 for (Script script : node.getScripts()) {
-                    ttsCache.put(script.getId(), ttsService.generateTtsWithSsml(script.getText(), script.getSpeakerType()));
-                    apiCallCount++;
+                    File audioFile;
+
+                    // 1. 텍스트가 안 바뀌어서 DB에 S3 URL이 살아있다면? (재사용)
+                    if (script.getAudioUrl() != null) {
+                        log.info(">> 기존 오디오 재사용 (S3 다운로드): 스크립트 ID {}", script.getId());
+                        audioFile = s3UploadService.downloadFile(script.getAudioUrl());
+                    }
+                    // 2. 텍스트가 바뀌었거나 새로 추가되었다면? (새로 생성 후 S3에 저장)
+                    else {
+                        log.info(">> 새 오디오 생성 (TTS API 호출): 스크립트 ID {}", script.getId());
+                        audioFile = ttsService.generateTtsWithSsml(script.getText(), script.getSpeakerType());
+
+                        // 새로 만든 조각 파일을 다음 수정을 위해 S3에 업로드 (chunks 폴더)
+                        String chunkKey = FileCategory.SCENARIO.getPath() + "/chunks/" + UUID.randomUUID() + ".mp3";
+                        String chunkUrl = s3UploadService.uploadFile(chunkKey, audioFile);
+
+                        // DB 엔티티에 새로 만든 S3 주소 기록 (dirty checking으로 자동 저장됨)
+                        script.updateAudioUrl(chunkUrl);
+
+                        apiCallCount++;
+                    }
+
+                    ttsCache.put(script.getId(), audioFile);
                 }
             }
             log.info("[API 호출 통계] 💳 TTS API가 총 {}회 호출되어 캐시에 저장되었습니다.", apiCallCount);
-
             File silence = ffmpegService.createSilenceFile(SILENCE_MS);
 
             // 경로 탐색

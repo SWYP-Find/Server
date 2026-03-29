@@ -50,7 +50,15 @@ public class ScenarioController {
             @RequestBody ScenarioCreateRequest request) {
 
         Long scenarioId = scenarioService.createScenario(request);
-        return ApiResponse.onSuccess(Map.of("scenarioId", scenarioId, "status", "DRAFT"));
+
+        // Map.of 대신 null에도 안전한 HashMap 사용
+        Map<String, Object> response = new java.util.HashMap<>();
+        response.put("scenarioId", scenarioId);
+
+        // 고정값 대신 프론트에서 보낸 상태값(PENDING 등)을 그대로 반환!
+        response.put("status", request.status());
+
+        return ApiResponse.onSuccess(response);
     }
 
     @Operation(summary = "시나리오 내용 수정")

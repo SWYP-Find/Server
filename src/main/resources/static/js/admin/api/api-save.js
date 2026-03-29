@@ -1,8 +1,15 @@
-window.saveContent = async (status) => {
+// action 파라미터: 'PENDING'(임시저장), 'EDIT'(단순수정), 'PUBLISH'(발행 및 오디오생성)
+window.saveContent = async (action) => {
+    const targetStatus = action === 'PENDING' ? 'PENDING' : 'PUBLISHED';
+
     const loader = document.getElementById('global-loader');
     const loaderText = document.getElementById('loader-text');
     if (loader) {
-        if (loaderText) loaderText.innerText = status === 'PUBLISHED' ? "발행 및 오디오 생성 중..." : "임시저장 중...";
+        if (loaderText) {
+            if (action === 'PUBLISH') loaderText.innerText = "발행 및 오디오 생성 중...";
+            else if (action === 'EDIT') loaderText.innerText = "수정된 내용 저장 중...";
+            else loaderText.innerText = "임시저장 중...";
+        }
         loader.classList.remove('hidden');
         loader.classList.add('flex');
     }
@@ -18,9 +25,19 @@ window.saveContent = async (status) => {
             if (PickeData.uploadedFiles.charB) charBUrl = await window.uploadImageToServer(PickeData.uploadedFiles.charB, 'PHILOSOPHER');
         } catch (e) { throw new Error("이미지 업로드에 실패했습니다."); }
 
+        if (thumbnailUrl && typeof thumbnailUrl === 'object') {
+            thumbnailUrl = thumbnailUrl.s3Key || thumbnailUrl.presignedUrl || String(thumbnailUrl);
+        }
+        if (charAUrl && typeof charAUrl === 'object') {
+            charAUrl = charAUrl.s3Key || charAUrl.presignedUrl || String(charAUrl);
+        }
+        if (charBUrl && typeof charBUrl === 'object') {
+            charBUrl = charBUrl.s3Key || charBUrl.presignedUrl || String(charBUrl);
+        }
+
         // 1. 페이로드 구조
         let payload = {
-            status: status,
+            status: targetStatus,
             type: PickeData.currentContentType,
             tagIds: PickeData.selections.BASIC,
             thumbnailUrl: thumbnailUrl,
@@ -38,14 +55,13 @@ window.saveContent = async (status) => {
         };
 
         // 2. 타입별 데이터 매핑
-
         // [BATTLE]
         if (PickeData.currentContentType === 'BATTLE') {
             payload.title = document.getElementById('content-title')?.value || '';
             payload.summary = document.getElementById('content-summary')?.value || '';
             payload.description = document.getElementById('content-desc')?.value || '';
             payload.options = [
-                { label: 'A', title: document.getElementById('char-a-title')?.value || '', stance: document.getElementById('char-a-stance')?.value || '', representative: document.getElementById('char-a-rep')?.value || '', quote: document.getElementById('char-a-quote')?.value || '', imageUrl: charAUrl, tagIds: PickeData.selections.A },
+                { label: 'A', title: document.getElementById('char-a-title')?.value || '', stance: document.getElementById('char-a-stance')?.value || '', representative: document.getElementById('char-a-rep')?.value || '', /*quote: document.getElementById('char-a-quote')?.value || '',*/ imageUrl: charAUrl, tagIds: PickeData.selections.A },
                 { label: 'B', title: document.getElementById('char-b-title')?.value || '', stance: document.getElementById('char-b-stance')?.value || '', representative: document.getElementById('char-b-rep')?.value || '', quote: document.getElementById('char-b-quote')?.value || '', imageUrl: charBUrl, tagIds: PickeData.selections.B }
             ];
         }
@@ -91,8 +107,24 @@ window.saveContent = async (status) => {
             payload.options = voteOpts;
         }
 
-        // 3. 요청 및 시나리오 로직
+        // 백엔드 DTO(String)에 맞게 모든 이미지 URL 객체를 문자열로 변환
+        const extractUrlString = (urlObj) => {
+            if (!urlObj) return null;
+            if (typeof urlObj === 'string') return urlObj;
+            return urlObj.s3Key || urlObj.presignedUrl || String(urlObj);
+        };
 
+        // 1. 썸네일 변환
+        payload.thumbnailUrl = extractUrlString(payload.thumbnailUrl);
+
+        // 2. 선택지(options) 안의 모든 이미지 변환
+        if (payload.options && payload.options.length > 0) {
+            payload.options.forEach(opt => {
+                opt.imageUrl = extractUrlString(opt.imageUrl);
+            });
+        }
+
+        // 3. 요청 및 시나리오 로직
         const battleUrl = PickeData.isEditMode ? PickeData.API.BATTLE_UPDATE(PickeData.currentContentId) : PickeData.API.BATTLE_CREATE;
         console.log("[STEP 1] 서버로 보내는 데이터(Payload):", payload);
         const battleRes = await fetch(battleUrl, {
@@ -143,14 +175,16 @@ window.saveContent = async (status) => {
                 nodes.push({ nodeName: 'BRANCH_B', isStartNode: false, autoNextNode: 'CLOSING', scripts: extractScripts('branch-b-node-container'), interactiveOptions: [] });
             }
             nodes.push({ nodeName: 'CLOSING', isStartNode: false, autoNextNode: null, scripts: extractScripts('closing-node-container'), interactiveOptions: [] });
-            const scenarioPayload = { battleId: savedBattleId, isInteractive, nodes, status };
+            const scenarioPayload = { battleId: savedBattleId, isInteractive, nodes, status: targetStatus };
             const scenMethod = PickeData.scenarioId ? 'PUT' : 'POST';
             const scenUrl = PickeData.scenarioId ? `/api/v1/admin/scenarios/${PickeData.scenarioId}` : `/api/v1/admin/scenarios`;
             const scenRes = await fetch(scenUrl, { method: scenMethod, headers: PickeData.getAuthHeaders(), body: JSON.stringify(scenarioPayload) });
             if (!scenRes.ok) throw new Error("시나리오 데이터 저장 실패");
             const scenData = await scenRes.json();
             if (!PickeData.scenarioId) PickeData.scenarioId = scenData.result?.scenarioId || scenData.result?.id || scenData.data?.scenarioId || scenData.data?.id || null;
-            if (status === 'PUBLISHED' && PickeData.scenarioId) {
+
+            // 발행(PUBLISH) 버튼을 눌렀을 때만 오디오 생성
+            if (action === 'PUBLISH' && PickeData.scenarioId) {
                 await fetch(`/api/v1/admin/scenarios/${PickeData.scenarioId}`, {
                     method: 'PATCH', headers: PickeData.getAuthHeaders(), body: JSON.stringify({ status: 'PUBLISHED' })
                 });
@@ -161,7 +195,14 @@ window.saveContent = async (status) => {
         const modal = document.getElementById('custom-modal');
         if (modal) {
             document.getElementById('custom-modal-title').innerText = "저장 완료";
-            document.getElementById('custom-modal-message').innerText = status === 'PENDING' ? "임시저장 되었습니다." : "발행 되었습니다!\n(오디오 생성 처리됨)";
+
+            let resultMsg = "";
+            if (action === 'PENDING') resultMsg = "임시저장 되었습니다.";
+            else if (action === 'EDIT') resultMsg = "수정 내용이 저장되었습니다.\n(오디오 갱신 안 됨)";
+            else resultMsg = "발행 되었습니다!\n(새 오디오 생성 처리됨)";
+
+            document.getElementById('custom-modal-message').innerText = resultMsg;
+
             modal.classList.remove('hidden');
             setTimeout(() => { modal.classList.add('opacity-100'); modal.classList.remove('opacity-0'); }, 10);
             document.getElementById('custom-modal-confirm').onclick = () => { window.location.href = "/api/v1/admin/picke/list"; };

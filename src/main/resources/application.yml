@@ -39,7 +39,7 @@ spring:
       credentials:
         location: ${GCP_CREDENTIALS_PATH}
 
-# 3. 인증 및 보안 설정 (OAuth2, JWT)
+# 5. 인증 및 보안 설정 (OAuth2, JWT)
 oauth:
   kakao:
     client-id: ${KAKAO_CLIENT_ID}
@@ -95,7 +95,16 @@ jwt:
   refresh-token-expiration: 1209600000 # 14일
 
 app:
-  baseUrl: http://localhost:8080
+  baseUrl: ${APP_BASE_URL:http://localhost:8080}
   s3:
     presigned-url:
       expiration-hours: 6
+
+# 9. 미디어 처리 설정 (FFmpeg)
+media:
+  ffmpeg:
+    # 윈도우: 환경변수 FFMPEG_PATH에 경로 세팅 / 맥&서버: 환경변수 없이 기본값(ffmpeg) 사용
+    path: ${FFMPEG_PATH:ffmpeg}
+  ffprobe:
+    # 윈도우: 환경변수 FFPROBE_PATH에 경로 세팅 / 맥&서버: 환경변수 없이 기본값(ffprobe) 사용
+    path: ${FFPROBE_PATH:ffprobe}

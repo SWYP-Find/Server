@@ -11,16 +11,34 @@ window.addScriptBlock = (containerId, speaker) => {
             </select>
             <select class="border border-purple-200 rounded-lg text-[10px] p-2 font-bold bg-purple-50 emotion-insert-btn text-purple-600 outline-none">
                 <option value="">+ 태그 삽입</option>
-                <option value="pause">일시정지 [pause]</option>
-                <option value="breath">숨소리 [breath]</option>
-                <option value="sighing">한숨 [sighing]</option>
-                <option value="laughing">웃음 [laughing]</option>
-                <option value="angry">분노 [angry]</option>
-                <option value="excited">흥분 [excited]</option>
-                <option value="crying">울음 [crying]</option>
-                <option value="gasp">놀람 [gasp]</option>
-                <option value="clear_throat">헛기침 [clear_throat]</option>
-                <option value="smack">입맛다심 [smack]</option>
+                <optgroup label="오디오 효과 (기본)">
+                    <option value="pause">짧은 쉬기 [pause]</option>
+                    <option value="long pause">긴 쉬기 [long pause]</option>
+                    <option value="clear throat">헛기침 [clear throat]</option>
+                    <option value="sighing">한숨 [sighing]</option>
+                </optgroup>
+                <optgroup label="감성적인 톤">
+                    <option value="angry">분노 [angry]</option>
+                    <option value="sad">슬픔 [sad]</option>
+                    <option value="embarrassed">당황 [embarrassed]</option>
+                    <option value="emphasis">강조 [emphasis]</option>
+                    <option value="whispering">속삭임 [whispering]</option>
+                    <option value="soft">부드럽게 [soft]</option>
+                    <option value="breathy">숨소리 [breathy]</option>
+                    <option value="excited">흥분 [excited]</option>
+                </optgroup>
+                <optgroup label="다양한 소리/웃음">
+                    <option value="laughing">웃음 [laughing]</option>
+                    <option value="chuckling">가벼운 웃음 [chuckling]</option>
+                    <option value="moaning">신음 [moaning]</option>
+                    <option value="sobbing">흐느낌 [sobbing]</option>
+                    <option value="crying loudly">큰 울음 [crying loudly]</option>
+                    <option value="panting">헐떡임 [panting]</option>
+                    <option value="groaning">앓는 소리 [groaning]</option>
+                    <option value="crowd laughing">군중 웃음 [crowd laughing]</option>
+                    <option value="background laughter">배경 웃음 [background laughter]</option>
+                    <option value="audience laughing">관객 웃음 [audience laughing]</option>
+                </optgroup>
             </select>
         </div>
         <textarea rows="1" class="flex-1 text-sm script-text outline-none resize-none pt-2 leading-relaxed" placeholder="대사 입력..."></textarea>
@@ -69,8 +87,8 @@ window.updateChatPreview = function () {
     if (!chatContainer) return;
     chatContainer.innerHTML = '';
 
-    const nameA = document.getElementById('char-a-title')?.value || '인물 A';
-    const nameB = document.getElementById('char-b-title')?.value || '인물 B';
+    const nameA = document.getElementById('char-a-rep')?.value || '인물 A';
+    const nameB = document.getElementById('char-b-rep')?.value || '인물 B';
     const charAImg = document.getElementById('char-a-img-bg')?.style.backgroundImage || '';
     const charBImg = document.getElementById('char-b-img-bg')?.style.backgroundImage || '';
 

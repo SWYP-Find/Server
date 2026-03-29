@@ -19,10 +19,16 @@ document.addEventListener('input', (e) => {
         set('preview-title-intro', fv || '제목을 입력해주세요', true);
         set('preview-title-chat', val || '제목 없음');
     }
-    if (id === 'content-summary') set('preview-desc', fv || '설명이 여기에 표시됩니다.', true);
-    if (id === 'char-a-title')    set('preview-char-a-name', val || 'A 이름');
+    if (id === 'content-desc') set('preview-desc', fv || '설명이 여기에 표시됩니다.', true);
+
+    // A 인물 동기화
+    if (id === 'char-a-title')    set('preview-char-a-title', val || '주장');
+    if (id === 'char-a-rep')      set('preview-char-a-rep', val || '철학자');
     if (id === 'char-a-stance')   set('preview-char-a-stance', fv, true);
-    if (id === 'char-b-title')    set('preview-char-b-name', val || 'B 이름');
+
+    // B 인물 동기화
+    if (id === 'char-b-title')    set('preview-char-b-title', val || '주장');
+    if (id === 'char-b-rep')      set('preview-char-b-rep', val || '철학자');
     if (id === 'char-b-stance')   set('preview-char-b-stance', fv, true);
 
     // 퀴즈 실시간 동기화
@@ -42,7 +48,8 @@ document.addEventListener('input', (e) => {
         set(`pv-vote-opt${num}`, val || `보기${num}`);
     }
 
-    if (id === 'branch-a-label' || id === 'branch-b-label') {
+    // 채팅 미리보기 렌더링 즉시 업데이트
+    if (id === 'branch-a-label' || id === 'branch-b-label' || id === 'char-a-rep' || id === 'char-b-rep') {
         if (window.updateChatPreview) window.updateChatPreview();
     }
 });

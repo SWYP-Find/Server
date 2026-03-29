@@ -12,7 +12,31 @@ window.loadContent = async function() {
         document.querySelector(`[data-target="form-${actualType.toLowerCase()}"]`)?.click();
         PickeData.currentContentType = actualType;
 
-        const info = data.summary || data.battleInfo || data;
+        const info = data.battleInfo || {};
+
+        console.log("[DEBUG] 이미지 경로 확인:", info.thumbnailUrl);
+
+        // 배경 이미지 세팅 함수 (업로드 칸 + 모바일 미리보기 동시 적용)
+        const setBgImage = (uploadBgId, placeholderId, previewId, url) => {
+            if (!url) return;
+            const uploadBg = document.getElementById(uploadBgId);
+            const placeholder = document.getElementById(placeholderId);
+
+            if (uploadBg) {
+                uploadBg.style.backgroundImage = `url('${url}')`;
+                uploadBg.style.setProperty('opacity', '1', 'important');
+                uploadBg.style.setProperty('display', 'block', 'important');
+                uploadBg.classList.remove('opacity-0');
+
+                if (placeholder) {
+                    placeholder.style.display = 'none';
+                    placeholder.classList.add('hidden');
+                }
+            }
+            // 우측 모바일 미리보기 적용
+            const previewBg = document.getElementById(previewId);
+            if (previewBg) previewBg.style.backgroundImage = `url('${url}')`;
+        };
 
         const renderBadges = (type, containerId) => {
             const container = document.getElementById(containerId);
@@ -34,14 +58,16 @@ window.loadContent = async function() {
             PickeData.setValue('content-summary', summaryText);
             PickeData.setValue('content-desc', data.description || '');
 
-            const tagsArray = info.tags || data.tags || [];
-            if (tagsArray.length) {
-                PickeData.selections.BASIC = tagsArray.map(t => t.tagId || t.id);
+            const categoryTags = data.categoryTags || info.tags || [];
+            if (categoryTags.length) {
+                PickeData.selections.BASIC = categoryTags.map(t => t.tagId || t.id);
                 renderBadges('BASIC', 'basic-tags-container');
             }
+
+            // 썸네일 이미지 불러오기 & 미리보기 적용
             if (info.thumbnailUrl || data.thumbnailUrl) {
                 PickeData.existingUrls.thumbnail = info.thumbnailUrl || data.thumbnailUrl;
-                PickeData.setPreviewImage('thumbnail-preview-bg', 'thumbnail-placeholder', 'intro-bg-img', PickeData.existingUrls.thumbnail);
+                setBgImage('thumbnail-preview-bg', 'thumbnail-placeholder', 'intro-bg-img', PickeData.existingUrls.thumbnail);
             }
 
             const options = info.options || data.options || [];
@@ -51,10 +77,12 @@ window.loadContent = async function() {
                 PickeData.setValue('char-a-title', a.title);
                 PickeData.setValue('char-a-rep', a.representative);
                 PickeData.setValue('char-a-stance', a.stance);
-                PickeData.setValue('char-a-quote', a.quote);
+                /*PickeData.setValue('char-a-quote', a.quote);*/
+
+                // 인물 A 이미지 불러오기 & 미리보기 적용
                 if (a.imageUrl) {
                     PickeData.existingUrls.charA = a.imageUrl;
-                    PickeData.setPreviewImage('char-a-img-bg', 'char-a-img-placeholder', 'intro-char-a-img', a.imageUrl);
+                    setBgImage('char-a-img-bg', 'char-a-img-placeholder', 'intro-char-a-img', a.imageUrl);
                 }
                 if (a.tags) {
                     PickeData.selections.A = a.tags.map(t => t.tagId || t.id);
@@ -65,10 +93,12 @@ window.loadContent = async function() {
                 PickeData.setValue('char-b-title', b.title);
                 PickeData.setValue('char-b-rep', b.representative);
                 PickeData.setValue('char-b-stance', b.stance);
-                PickeData.setValue('char-b-quote', b.quote);
+                PickeData.setValue('char-b-quote', b.quote); // 복구 완료!
+
+                // 인물 B 이미지 불러오기 & 미리보기 적용
                 if (b.imageUrl) {
                     PickeData.existingUrls.charB = b.imageUrl;
-                    PickeData.setPreviewImage('char-b-img-bg', 'char-b-img-placeholder', 'intro-char-b-img', b.imageUrl);
+                    setBgImage('char-b-img-bg', 'char-b-img-placeholder', 'intro-char-b-img', b.imageUrl);
                 }
                 if (b.tags) {
                     PickeData.selections.B = b.tags.map(t => t.tagId || t.id);
@@ -119,43 +149,30 @@ window.loadContent = async function() {
             if (window.updateChatPreview) window.updateChatPreview();
 
         }
-
         // [QUIZ] 질문과 선택지 구성 로직
         else if (actualType === 'QUIZ') {
-            // 1. 데이터 근원지 확보 (battleInfo)
-            const info = data.battleInfo || data;
-
-            // 2. [질문] 로드 (battleInfo 안에 title이 있음)
             const question = info.title || data.title || '';
             PickeData.setValue('quiz-question', question);
-
-            // 3. [형식소개/설명] 로드 (로그상 description은 바깥에 있음)
             PickeData.setValue('quiz-desc', data.description || info.description || '');
-
-            // 4. [공연A/B] 로드 (추가하신 필드들)
             PickeData.setValue('quiz-perf-a', data.itemA || info.itemA || '');
             PickeData.setValue('quiz-detail-a', data.itemADesc || info.itemADesc || '');
             PickeData.setValue('quiz-perf-b', data.itemB || info.itemB || '');
             PickeData.setValue('quiz-detail-b', data.itemBDesc || info.itemBDesc || '');
 
-            // 5. [선택지 구성] 로드 (info.options 배열에서 label A, B를 찾아 매핑)
             const opts = info.options || data.options || [];
             const optA = opts.find(o => o.label === 'A');
             const optB = opts.find(o => o.label === 'B');
 
             if (optA) {
-                PickeData.setValue('quiz-o-text', optA.title || ''); // O 정답 텍스트
-                PickeData.setValue('quiz-o-desc', optA.stance || ''); // O 정답 설명
+                PickeData.setValue('quiz-o-text', optA.title || '');
+                PickeData.setValue('quiz-o-desc', optA.stance || '');
             }
             if (optB) {
-                PickeData.setValue('quiz-x-text', optB.title || ''); // X 오답 텍스트
-                PickeData.setValue('quiz-x-desc', optB.stance || ''); // X 오답 설명
+                PickeData.setValue('quiz-x-text', optB.title || '');
+                PickeData.setValue('quiz-x-desc', optB.stance || '');
             }
-
-            console.log("[최종 검증] 질문:", question, " / 선택지A:", optA?.title);
         }
-
-        // [VOTE]
+        // [VOTE] (복구 완료!)
         else if (actualType === 'VOTE') {
             PickeData.setValue('vote-q-prefix', data.titlePrefix || '');
             PickeData.setValue('vote-q-suffix', data.titleSuffix || '');
@@ -167,12 +184,72 @@ window.loadContent = async function() {
             });
         }
 
-        // UI 최종 갱신
-        if (window.refreshFormBadges) window.refreshFormBadges();
+        // UI 강제 업데이트 및 미리보기 동기화
+        document.querySelectorAll('textarea, input').forEach(el => {
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+
+        // 태그 및 채팅 미리보기 함수 호출
         if (window.updatePreviewTags) window.updatePreviewTags();
+        if (window.updateChatPreview) window.updateChatPreview();
+        if (window.refreshFormBadges) window.refreshFormBadges();
+
+        // 버튼 상태 업데이트
+        window.updateButtonStates(data.status || info.status);
         console.log(`${actualType} 로드 완료`);
 
     } catch (e) {
         console.error("loadContent 오류:", e);
+    }
+};
+
+// 버튼 상태 제어 함수 (PENDING 및 오디오 재발행 버튼 제어 포함)
+window.updateButtonStates = function(currentStatus) {
+    const btnPending = document.getElementById('btn-save-pending');
+    const btnPublish = document.getElementById('btn-save-publish');
+    const btnRepublish = document.getElementById('btn-republish-audio');
+
+    // 수정 모드 진입 시 (PENDING이든 PUBLISHED든 기본적으로 텍스트 수정 모드로 세팅)
+    if (PickeData.isEditMode && btnPublish) {
+        btnPublish.innerText = '수정하기 (텍스트)';
+        btnPublish.onclick = () => window.saveContent('EDIT');
+    }
+
+    if (currentStatus === 'PUBLISHED') {
+        // 1. 이미 발행된 상태면 PENDING(임시저장) 버튼 비활성화
+        if (btnPending) {
+            btnPending.disabled = true;
+            btnPending.classList.add('opacity-50', 'cursor-not-allowed', 'bg-gray-200', 'text-gray-400');
+            btnPending.title = "이미 발행된 콘텐츠는 임시저장할 수 없습니다.";
+        }
+        // 2. 오디오 재발행 버튼 노출
+        if (btnRepublish) {
+            btnRepublish.classList.remove('hidden');
+        }
+    } else if (currentStatus === 'PENDING') {
+        // 1. PENDING 상태면 오디오 재발행 버튼 숨김 처리
+        if (btnRepublish) {
+            btnRepublish.classList.add('hidden');
+        }
+        // 2. 혹시 비활성화되어 있을 수 있는 임시저장 버튼 활성화
+        if (btnPending) {
+            btnPending.disabled = false;
+            btnPending.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-gray-200', 'text-gray-400');
+            btnPending.title = "";
+        }
+    }
+};
+
+// 오디오 재발행 확인 창 (모달)
+window.confirmRepublish = function() {
+    const isConfirmed = confirm(
+        "정말 오디오를 다시 생성하시겠습니까?\n\n" +
+        "대본이 수정되었다면 새로운 내용으로 오디오가 덮어씌워지며, " +
+        "TTS API 생성 비용과 시간이 소요될 수 있습니다."
+    );
+
+    // 관리자가 '확인'을 눌렀을 때만 PUBLISH(오디오 생성) 실행
+    if (isConfirmed) {
+        window.saveContent('PUBLISH');
     }
 };

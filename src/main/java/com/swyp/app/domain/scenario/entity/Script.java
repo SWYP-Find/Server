@@ -31,12 +31,25 @@ public class Script extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String text; // SSML 태그가 포함된 텍스트
 
+    @Column(name = "audio_url")
+    private String audioUrl;
+
     @Builder
     public Script(Integer startTimeMs, SpeakerType speakerType, String speakerName, String text) {
         this.startTimeMs = startTimeMs;
         this.speakerType = speakerType;
         this.speakerName = speakerName;
         this.text = text;
+    }
+
+    public void updateAudioUrl(String audioUrl) {
+        this.audioUrl = audioUrl;
+    }
+
+    public void updateContent(SpeakerType speakerType, String speakerName, String newText) {
+        this.speakerType = speakerType;
+        this.speakerName = speakerName;
+        this.text = newText;
     }
 
     public void assignNode(ScenarioNode node) {

@@ -22,6 +22,7 @@ import com.swyp.app.domain.user.repository.UserRepository;
 import com.swyp.app.domain.vote.repository.VoteRepository;
 import com.swyp.app.global.common.exception.CustomException;
 import com.swyp.app.global.common.exception.ErrorCode;
+import com.swyp.app.global.infra.s3.service.S3UploadService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -29,10 +30,14 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -47,6 +52,7 @@ public class BattleServiceImpl implements BattleService {
     private final UserRepository userRepository;
     private final VoteRepository voteRepository;
     private final BattleConverter battleConverter;
+    private final S3UploadService s3UploadService;
 
     @Override
     public Battle findById(Long battleId) {
@@ -62,35 +68,36 @@ public class BattleServiceImpl implements BattleService {
     // [사용자용 - 홈 화면 5단 로직]
 
     @Override
-    public List<TodayBattleResponse> getEditorPicks() {
-        List<Battle> battles = battleRepository.findEditorPicks(BattleStatus.PUBLISHED, PageRequest.of(0, 10));
+    public List<TodayBattleResponse> getEditorPicks(int limit) {
+        List<Battle> battles = battleRepository.findEditorPicks(BattleStatus.PUBLISHED, PageRequest.of(0, limit));
         return convertToTodayResponses(battles);
     }
 
     @Override
-    public List<TodayBattleResponse> getTrendingBattles() {
+    public List<TodayBattleResponse> getTrendingBattles(int limit) {
         LocalDateTime yesterday = LocalDateTime.now().minusDays(1);
-        List<Battle> battles = battleRepository.findTrendingBattles(yesterday, PageRequest.of(0, 5));
+        List<Battle> battles = battleRepository.findTrendingBattles(yesterday, PageRequest.of(0, limit));
         return convertToTodayResponses(battles);
     }
 
     @Override
-    public List<TodayBattleResponse> getBestBattles() {
-        List<Battle> battles = battleRepository.findBestBattles(PageRequest.of(0, 5));
+    public List<TodayBattleResponse> getBestBattles(int limit) {
+        List<Battle> battles = battleRepository.findBestBattles(PageRequest.of(0, limit));
         return convertToTodayResponses(battles);
     }
 
     @Override
-    public List<TodayBattleResponse> getTodayPicks(BattleType type) {
-        List<Battle> battles = battleRepository.findTodayPicks(type, LocalDate.now());
+    public List<TodayBattleResponse> getTodayPicks(BattleType type, int limit) {
+        // findTodayPicks 레포지토리 메서드에 Pageable을 이미 추가하셨다면 문제없이 동작합니다!
+        List<Battle> battles = battleRepository.findTodayPicks(type, LocalDate.now(), PageRequest.of(0, limit));
         return convertToTodayResponses(battles);
     }
 
     @Override
-    public List<TodayBattleResponse> getNewBattles(List<Long> excludeIds) {
+    public List<TodayBattleResponse> getNewBattles(List<Long> excludeIds, int limit) {
         List<Long> finalExcludeIds = (excludeIds == null || excludeIds.isEmpty())
                 ? List.of(-1L) : excludeIds;
-        List<Battle> battles = battleRepository.findNewBattlesExcluding(finalExcludeIds, PageRequest.of(0, 10));
+        List<Battle> battles = battleRepository.findNewBattlesExcluding(finalExcludeIds, PageRequest.of(0, limit));
         return convertToTodayResponses(battles);
     }
 
@@ -129,19 +136,30 @@ public class BattleServiceImpl implements BattleService {
         return new TodayBattleListResponse(items, items.size());
     }
 
+    // [사용자용 상세 조회] - 썸네일 + 철학자 이미지 보안 처리
     @Override
+    @Transactional(readOnly = true)
     public BattleUserDetailResponse getBattleDetail(Long battleId) {
         Battle battle = findById(battleId);
-        battle.increaseViewCount();
-
-        List<Tag> allTags = getTagsByBattle(battle);
+        List<Tag> tags = getTagsByBattle(battle);
         List<BattleOption> options = battleOptionRepository.findByBattle(battle);
 
+        // 1. 썸네일 보안 URL 생성
+        String secureThumbnail = s3UploadService.getPresignedUrl(battle.getThumbnailUrl(), Duration.ofMinutes(10));
         String voteStatus = voteRepository.findByBattleIdAndUserId(battleId, 1L)
                 .map(v -> v.getPostVoteOption() != null ? v.getPostVoteOption().getLabel().name() : "NONE")
                 .orElse("NONE");
 
-        return battleConverter.toUserDetailResponse(battle, allTags, options, battle.getTotalParticipantsCount(), voteStatus);
+        // 2. 컨버터를 통해 전체 조립 (철학자 이미지는 컨버터 내부에서 s3UploadService로 처리)
+        return battleConverter.toUserDetailResponse(
+                battle,
+                tags,
+                options,
+                battle.getTotalParticipantsCount(),
+                "NONE",
+                secureThumbnail,
+                s3UploadService // 철학자 이미지 변환을 위해 전달
+        );
     }
 
     @Override
@@ -166,6 +184,7 @@ public class BattleServiceImpl implements BattleService {
 
     // [관리자용 API]
 
+    // [관리자용 생성] - 생성 직후 결과 화면에서도 이미지가 보이게 처리
     @Override
     @Transactional
     @PreAuthorize("hasRole('ADMIN')")
@@ -196,7 +215,9 @@ public class BattleServiceImpl implements BattleService {
             }
             savedOptions.add(option);
         }
-        return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), savedOptions);
+
+        // 생성 후 응답 시 s3UploadService 전달
+        return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), savedOptions, s3UploadService);
     }
 
     private void saveBattleOptionTags(BattleOption option, List<Long> tagIds) {
@@ -207,42 +228,33 @@ public class BattleServiceImpl implements BattleService {
                 ));
     }
 
+    // [관리자용 수정] - 수정 완료 후 결과 화면에서도 이미지가 보이게 처리
     @Override
     @Transactional
     @PreAuthorize("hasRole('ADMIN')")
     public AdminBattleDetailResponse updateBattle(Long battleId, AdminBattleUpdateRequest request) {
-        // [STEP 2] 서버 터미널에 출력
-        System.out.println("====== [백엔드 수신 로그] ======");
-        System.out.println("ID: " + battleId);
-        System.out.println("제목: " + request.title());
-        System.out.println("공연A: " + request.itemA());
-        System.out.println("A설명: " + request.itemADesc());
-        System.out.println("선택지A: " + (request.options() != null ? request.options().get(0).title() : "null"));
-        System.out.println("==============================");
-
         Battle battle = findById(battleId);
 
-        // 1. 배틀 필드 업데이트
+        // 썸네일 이미지가 변경되었다면 기존 S3 파일 삭제 (스토리지 낭비 방지)
+        if (battle.getThumbnailUrl() != null && !battle.getThumbnailUrl().equals(request.thumbnailUrl())) {
+            s3UploadService.deleteFile(battle.getThumbnailUrl());
+        }
+
+        // 배틀 필드 업데이트
         battle.update(
-                request.title(),
-                request.titlePrefix(),
-                request.titleSuffix(),
-                request.itemA(),
-                request.itemADesc(),
-                request.itemB(),
-                request.itemBDesc(),
-                request.summary(),
-                request.description(),
-                request.thumbnailUrl(),
-                request.targetDate(),
-                request.audioDuration(),
-                request.status()
+                request.title(), request.titlePrefix(), request.titleSuffix(),
+                request.itemA(), request.itemADesc(), request.itemB(), request.itemBDesc(),
+                request.summary(), request.description(), request.thumbnailUrl(),
+                request.targetDate(), request.audioDuration(), request.status()
         );
 
-        // 2. 태그 업데이트
+        // 태그 업데이트
         if (request.tagIds() != null) {
             battleTagRepository.deleteByBattle(battle);
-            saveBattleTags(battle, request.tagIds());
+            battleTagRepository.flush(); // DB에 DELETE 쿼리를 즉시 전송해서 완전히 비워버림
+
+            // request.tagIds()에 혹시 모를 중복값이 있으면 distinct()로 제거하고 저장
+            saveBattleTags(battle, request.tagIds().stream().distinct().toList());
         }
 
         // 3. 선택지 업데이트
@@ -253,14 +265,19 @@ public class BattleServiceImpl implements BattleService {
                         .filter(o -> o.getLabel() == optReq.label())
                         .findFirst()
                         .ifPresent(o -> {
+                            // 철학자/선택지 이미지가 변경되었다면 기존 S3 파일 삭제
+                            if (o.getImageUrl() != null && !o.getImageUrl().equals(optReq.imageUrl())) {
+                                s3UploadService.deleteFile(o.getImageUrl());
+                            }
+
                             o.update(optReq.title(), optReq.stance(), optReq.representative(), optReq.quote(), optReq.imageUrl());
                         });
             }
         }
 
-        // 변경된 옵션 다시 조회해서 응답 포함
         List<BattleOption> updatedOptions = battleOptionRepository.findByBattle(battle);
-        return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), updatedOptions);
+        // 업데이트 후 응답 시 s3UploadService 전달
+        return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), updatedOptions, s3UploadService);
     }
 
     @Override
@@ -274,10 +291,27 @@ public class BattleServiceImpl implements BattleService {
 
     // [공통 헬퍼 메서드]
 
+    // N+1 개선 버전
     private List<TodayBattleResponse> convertToTodayResponses(List<Battle> battles) {
+        if (battles == null || battles.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 1. IN 쿼리로 모든 옵션과 태그를 한 번에 가져와서 배틀 ID별로 그룹핑
+        Map<Long, List<BattleOption>> optionsMap = battleOptionRepository.findByBattleIn(battles)
+                .stream().collect(Collectors.groupingBy(battleOption -> battleOption.getBattle().getId()));
+
+        Map<Long, List<Tag>> tagsMap = battleTagRepository.findByBattleIn(battles)
+                .stream().collect(Collectors.groupingBy(
+                        battleTag -> battleTag.getBattle().getId(),
+                        Collectors.mapping(BattleTag::getTag, Collectors.toList())
+                ));
+
+        // 2. DB 쿼리 없이 메모리(Map)에서 꺼내서 조립만 수행
         return battles.stream().map(battle -> {
-            List<Tag> tags = getTagsByBattle(battle);
-            List<BattleOption> options = battleOptionRepository.findByBattle(battle);
+            List<Tag> tags = tagsMap.getOrDefault(battle.getId(), Collections.emptyList());
+            List<BattleOption> options = optionsMap.getOrDefault(battle.getId(), Collections.emptyList());
+
             return battleConverter.toTodayResponse(battle, tags, options);
         }).toList();
     }

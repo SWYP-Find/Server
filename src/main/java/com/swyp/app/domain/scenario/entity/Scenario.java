@@ -65,7 +65,7 @@ public class Scenario extends BaseEntity {
         node.assignScenario(this);
     }
 
-    public void clearNodes() {
-        this.nodes.clear();
+    public void clearAudios() {
+        this.audios.clear();
     }
 }

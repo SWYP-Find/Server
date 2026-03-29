@@ -12,5 +12,5 @@ public interface BattleOptionRepository extends JpaRepository<BattleOption, Long
 
     List<BattleOption> findByBattle(Battle battle);
     Optional<BattleOption> findByBattleAndLabel(Battle battle, BattleOptionLabel label);
-
+    List<BattleOption> findByBattleIn(List<Battle> battles);
 }

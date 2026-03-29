@@ -54,11 +54,11 @@
 
             <div class="bg-[#F8F9FA] p-6 rounded-2xl border border-gray-100 space-y-4">
                 <h3 class="text-blue-600 font-bold text-sm border-b border-blue-100 pb-2">등장인물 A</h3>
-                <textarea id="char-a-title" rows="1" placeholder="A 이름 (예: 플라톤)" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-blue-400 form-scrollbar"></textarea>
-                <textarea id="char-a-rep" rows="1" placeholder="유사 인물/직업 (예: 고대 철학자)" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-blue-400 form-scrollbar"></textarea>
-                <textarea id="char-a-stance" rows="2" placeholder="주장 요약 (예: 도발이다)" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-blue-400 form-scrollbar"></textarea>
-                <textarea id="char-a-quote" placeholder="대표 명언" rows="2" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-blue-400 form-scrollbar"></textarea>
-
+                <textarea id="char-a-title" rows="1" placeholder="주장 (예: 도발이다)" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-blue-400 form-scrollbar"></textarea>
+                <textarea id="char-a-rep" rows="1" placeholder="철학자 이름 (예: 플라톤)" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-blue-400 form-scrollbar"></textarea>
+                <textarea id="char-a-stance" rows="2" placeholder="주장 요약 (예: 문명이 인간을 타락시켰다)" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-blue-400 form-scrollbar"></textarea>
+                <!--<textarea id="char-a-quote" placeholder="대표 명언" rows="2" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-blue-400 form-scrollbar"></textarea>
+-->
                 <label class="cursor-pointer flex items-center justify-center w-full h-12 border border-gray-200 rounded-lg bg-white relative overflow-hidden group">
                     <div id="char-a-img-bg" class="absolute inset-0 bg-cover bg-center transition-all opacity-0"></div>
                     <span id="char-a-img-placeholder" class="text-xs font-bold text-gray-400 z-10">📷 인물 사진 업로드</span>
@@ -72,10 +72,10 @@
 
             <div class="bg-[#FFF8F8] p-6 rounded-2xl border border-gray-100 space-y-4">
                 <h3 class="text-red-600 font-bold text-sm border-b border-red-100 pb-2">등장인물 B</h3>
-                <textarea id="char-b-title" rows="1" placeholder="B 이름 (예: 사르트르)" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-red-400 form-scrollbar"></textarea>
-                <textarea id="char-b-rep" rows="1" placeholder="유사 인물/직업 (예: 실존주의자)" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-red-400 form-scrollbar"></textarea>
-                <textarea id="char-b-stance" rows="2" placeholder="주장 요약 (예: 예술이다)" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-red-400 form-scrollbar"></textarea>
-                <textarea id="char-b-quote" placeholder="대표 명언" rows="2" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-red-400 form-scrollbar"></textarea>
+                <textarea id="char-b-title" rows="1" placeholder="주장 (예: 예술이다)" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-red-400 form-scrollbar"></textarea>
+                <textarea id="char-b-rep" rows="1" placeholder="철학자 이름 (예: 사르트르)" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-red-400 form-scrollbar"></textarea>
+                <textarea id="char-b-stance" rows="2" placeholder="주장 요약 (예: 문명이 인간을 통제한다)" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-red-400 form-scrollbar"></textarea>
+                <!--<textarea id="char-b-quote" placeholder="대표 명언" rows="2" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-red-400 form-scrollbar"></textarea>-->
 
                 <label class="cursor-pointer flex items-center justify-center w-full h-12 border border-gray-200 rounded-lg bg-white relative overflow-hidden group">
                     <div id="char-b-img-bg" class="absolute inset-0 bg-cover bg-center transition-all opacity-0"></div>
@@ -105,16 +105,34 @@
                     </select>
                     <select class="border border-purple-200 rounded-lg text-[10px] p-2 font-bold bg-purple-50 emotion-insert-btn text-purple-600 outline-none cursor-pointer">
                         <option value="">+ 태그 삽입</option>
-                        <option value="pause">일시정지 [pause]</option>
-                        <option value="breath">숨소리 [breath]</option>
-                        <option value="sighing">한숨 [sighing]</option>
-                        <option value="laughing">웃음 [laughing]</option>
-                        <option value="angry">분노 [angry]</option>
-                        <option value="excited">흥분 [excited]</option>
-                        <option value="crying">울음 [crying]</option>
-                        <option value="gasp">놀람 [gasp]</option>
-                        <option value="clear_throat">헛기침 [clear_throat]</option>
-                        <option value="smack">입맛다심 [smack]</option>
+                        <optgroup label="오디오 효과 (기본)">
+                            <option value="pause">짧은 쉬기 [pause]</option>
+                            <option value="long pause">긴 쉬기 [long pause]</option>
+                            <option value="clear throat">헛기침 [clear throat]</option>
+                            <option value="sighing">한숨 [sighing]</option>
+                        </optgroup>
+                        <optgroup label="감성적인 톤">
+                            <option value="angry">분노 [angry]</option>
+                            <option value="sad">슬픔 [sad]</option>
+                            <option value="embarrassed">당황/부끄럼 [embarrassed]</option>
+                            <option value="emphasis">강조 [emphasis]</option>
+                            <option value="whispering">속삭임 [whispering]</option>
+                            <option value="soft">부드럽게 [soft]</option>
+                            <option value="breathy">숨소리 섞인 [breathy]</option>
+                            <option value="excited">흥분 [excited]</option>
+                        </optgroup>
+                        <optgroup label="다양한 소리/웃음">
+                            <option value="laughing">웃음 [laughing]</option>
+                            <option value="chuckling">가벼운 웃음 [chuckling]</option>
+                            <option value="moaning">신음 [moaning]</option>
+                            <option value="sobbing">흐느낌 [sobbing]</option>
+                            <option value="crying loudly">큰 울음 [crying loudly]</option>
+                            <option value="panting">헐떡임 [panting]</option>
+                            <option value="groaning">앓는 소리 [groaning]</option>
+                            <option value="crowd laughing">군중 웃음 [crowd laughing]</option>
+                            <option value="background laughter">배경 웃음 [background laughter]</option>
+                            <option value="audience laughing">관객 웃음 [audience laughing]</option>
+                        </optgroup>
                     </select>
                 </div>
                 <textarea rows="2" class="flex-1 bg-transparent text-sm script-text outline-none resize-none py-1 leading-relaxed" placeholder="배틀 시작을 알리는 나레이션을 입력하세요."></textarea>
@@ -155,16 +173,34 @@
                     </select>
                     <select class="border border-purple-200 rounded-lg text-[10px] p-2 font-bold bg-purple-50 emotion-insert-btn text-purple-600 outline-none cursor-pointer">
                         <option value="">+ 태그 삽입</option>
-                        <option value="pause">일시정지 [pause]</option>
-                        <option value="breath">숨소리 [breath]</option>
-                        <option value="sighing">한숨 [sighing]</option>
-                        <option value="laughing">웃음 [laughing]</option>
-                        <option value="angry">분노 [angry]</option>
-                        <option value="excited">흥분 [excited]</option>
-                        <option value="crying">울음 [crying]</option>
-                        <option value="gasp">놀람 [gasp]</option>
-                        <option value="clear_throat">헛기침 [clear_throat]</option>
-                        <option value="smack">입맛다심 [smack]</option>
+                        <optgroup label="오디오 효과 (기본)">
+                            <option value="pause">짧은 쉬기 [pause]</option>
+                            <option value="long pause">긴 쉬기 [long pause]</option>
+                            <option value="clear throat">헛기침 [clear throat]</option>
+                            <option value="sighing">한숨 [sighing]</option>
+                        </optgroup>
+                        <optgroup label="감성적인 톤">
+                            <option value="angry">분노 [angry]</option>
+                            <option value="sad">슬픔 [sad]</option>
+                            <option value="embarrassed">당황/부끄럼 [embarrassed]</option>
+                            <option value="emphasis">강조 [emphasis]</option>
+                            <option value="whispering">속삭임 [whispering]</option>
+                            <option value="soft">부드럽게 [soft]</option>
+                            <option value="breathy">숨소리 섞인 [breathy]</option>
+                            <option value="excited">흥분 [excited]</option>
+                        </optgroup>
+                        <optgroup label="다양한 소리/웃음">
+                            <option value="laughing">웃음 [laughing]</option>
+                            <option value="chuckling">가벼운 웃음 [chuckling]</option>
+                            <option value="moaning">신음 [moaning]</option>
+                            <option value="sobbing">흐느낌 [sobbing]</option>
+                            <option value="crying loudly">큰 울음 [crying loudly]</option>
+                            <option value="panting">헐떡임 [panting]</option>
+                            <option value="groaning">앓는 소리 [groaning]</option>
+                            <option value="crowd laughing">군중 웃음 [crowd laughing]</option>
+                            <option value="background laughter">배경 웃음 [background laughter]</option>
+                            <option value="audience laughing">관객 웃음 [audience laughing]</option>
+                        </optgroup>
                     </select>
                 </div>
                 <textarea rows="2" class="flex-1 bg-transparent text-sm script-text outline-none resize-none py-1 leading-relaxed" placeholder="배틀이 끝난 뒤의 마무리 멘트를 입력하세요."></textarea>

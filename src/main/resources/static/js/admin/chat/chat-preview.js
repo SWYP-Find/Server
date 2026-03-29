@@ -3,8 +3,8 @@ window.updateChatPreview = function () {
     if (!chatContainer) return;
     chatContainer.innerHTML = '';
 
-    const nameA = document.getElementById('char-a-title')?.value || '인물 A';
-    const nameB = document.getElementById('char-b-title')?.value || '인물 B';
+    const nameA = document.getElementById('char-a-rep')?.value || 'A';
+    const nameB = document.getElementById('char-b-rep')?.value || 'B';
     const charAImg = document.getElementById('char-a-img-bg')?.style.backgroundImage || '';
     const charBImg = document.getElementById('char-b-img-bg')?.style.backgroundImage || '';
 

@@ -20,19 +20,19 @@ public interface BattleService {
     // === [사용자용 - 홈 화면 5단 로직 지원 API] ===
 
     // 1. 에디터 픽 조회 (isEditorPick = true)
-    List<TodayBattleResponse> getEditorPicks();
+    List<TodayBattleResponse> getEditorPicks(int limit);
 
     // 2. 지금 뜨는 배틀 조회 (최근 24시간 투표 급증순)
-    List<TodayBattleResponse> getTrendingBattles();
+    List<TodayBattleResponse> getTrendingBattles(int limit);
 
     // 3. Best 배틀 조회 (누적 지표 랭킹)
-    List<TodayBattleResponse> getBestBattles();
+    List<TodayBattleResponse> getBestBattles(int limit);
 
     // 4. 오늘의 Pické 조회 (단일 타입 매칭)
-    List<TodayBattleResponse> getTodayPicks(BattleType type);
+    List<TodayBattleResponse> getTodayPicks(BattleType type, int limit);
 
     // 5. 새로운 배틀 조회 (중복 제외 리스트)
-    List<TodayBattleResponse> getNewBattles(List<Long> excludeIds);
+    List<TodayBattleResponse> getNewBattles(List<Long> excludeIds, int limit);
 
 
     // === [사용자용 - 기본 API] ===

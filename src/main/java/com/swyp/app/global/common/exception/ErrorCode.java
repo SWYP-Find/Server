@@ -52,6 +52,7 @@ public enum ErrorCode {
     BATTLE_ALREADY_PUBLISHED(HttpStatus.CONFLICT,  "BATTLE_409_PUB", "이미 발행된 배틀입니다."),
     BATTLE_OPTION_NOT_FOUND (HttpStatus.NOT_FOUND, "BATTLE_OPT_404", "존재하지 않는 선택지입니다."),
     BATTLE_INVALID_OPTION_COUNT(HttpStatus.BAD_REQUEST, "BATTLE_400_OPT", "배틀 타입에 맞지 않는 선택지 개수입니다."),
+    BATTLE_CANNOT_REVERT_TO_PENDING(HttpStatus.BAD_REQUEST, "BATTLE_400_REVERT", "발행된 시나리오는 다시 대기(PENDING) 상태로 되돌릴 수 없습니다."),
 
     // Scenario
     SCENARIO_NOT_FOUND(HttpStatus.NOT_FOUND, "SCENARIO_404", "존재하지 않는 시나리오입니다."),

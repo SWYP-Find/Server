@@ -100,7 +100,7 @@ git push origin {생성한-브랜치-명}
 ## 📂 Project Structure
 
 ```
-com.swyp.app
+com.swyp.picke
 ├── AppApplication.java
 │
 ├── domain

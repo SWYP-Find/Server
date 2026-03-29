@@ -126,6 +126,7 @@ public class BattleConverter {
     }
 
     private List<BattleOptionResponse> toOptionResponses(List<BattleOption> options) {
+        if (options == null) return List.of();
         return options.stream()
                 .map(o -> {
                     List<Tag> optionTags = optionTagRepository.findByBattleOption(o).stream()
@@ -141,12 +142,14 @@ public class BattleConverter {
     }
 
     private List<TodayOptionResponse> toTodayOptionResponses(List<BattleOption> options) {
+        if (options == null) return List.of();
         return options.stream().map(o -> new TodayOptionResponse(
                 o.getId(), o.getLabel(), o.getTitle(), o.getRepresentative(), o.getStance(), o.getImageUrl()
         )).toList();
     }
 
     private List<BattleTagResponse> toTagResponses(List<Tag> tags, TagType targetType) {
+        if (tags == null) return List.of();
         return tags.stream()
                 .filter(t -> targetType == null || t.getType() == targetType)
                 .map(t -> new BattleTagResponse(t.getId(), t.getName(), t.getType()))

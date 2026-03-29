@@ -45,7 +45,25 @@ public enum PhilosopherType {
     BUDDHA("붓다", "내면형", "외부의 소음에서 벗어나 마음속 깊은 평화와 고요를 찾는 수행자",
             "LAOZI", "ARISTOTLE",
             35, 55, 42, 48, 96, 62,
-            "images/philosophers/buddha.png");
+            "images/philosophers/buddha.png"),
+    AQUINAS("토마스 아퀴나스", null, null, null, null, 0, 0, 0, 0, 0, 0, "images/philosophers/aquinas.png"),
+    CAMUS("카뮈", null, null, null, null, 0, 0, 0, 0, 0, 0, "images/philosophers/camus.png"),
+    CHOE_HANGI("최한기", null, null, null, null, 0, 0, 0, 0, 0, 0, "images/philosophers/choe_hangi.png"),
+    DESCARTES("데카르트", null, null, null, null, 0, 0, 0, 0, 0, 0, "images/philosophers/descartes.png"),
+    EPICURUS("에피쿠로스", null, null, null, null, 0, 0, 0, 0, 0, 0, "images/philosophers/epicurus.png"),
+    FROMM("에리히 프롬", null, null, null, null, 0, 0, 0, 0, 0, 0, "images/philosophers/fromm.png"),
+    HOBBES("홉스", null, null, null, null, 0, 0, 0, 0, 0, 0, "images/philosophers/hobbes.png"),
+    HUME("흄", null, null, null, null, 0, 0, 0, 0, 0, 0, "images/philosophers/hume.png"),
+    JEONG_YAKYONG("정약용", null, null, null, null, 0, 0, 0, 0, 0, 0, "images/philosophers/jeong_yakyong.png"),
+    JUNG("융", null, null, null, null, 0, 0, 0, 0, 0, 0, "images/philosophers/jung.png"),
+    LEIBNIZ("라이프니츠", null, null, null, null, 0, 0, 0, 0, 0, 0, "images/philosophers/leibniz.png"),
+    MENCIUS("맹자", null, null, null, null, 0, 0, 0, 0, 0, 0, "images/philosophers/mencius.png"),
+    MILL("존 스튜어트 밀", null, null, null, null, 0, 0, 0, 0, 0, 0, "images/philosophers/mill.png"),
+    RAWLS("롤스", null, null, null, null, 0, 0, 0, 0, 0, 0, "images/philosophers/rawls.png"),
+    SCHOPENHAUER("쇼펜하우어", null, null, null, null, 0, 0, 0, 0, 0, 0, "images/philosophers/schopenhauer.png"),
+    XUNZI("순자", null, null, null, null, 0, 0, 0, 0, 0, 0, "images/philosophers/xunzi.png"),
+    YI_HWANG("이황", null, null, null, null, 0, 0, 0, 0, 0, 0, "images/philosophers/yi_hwang.png"),
+    YI_I("이이", null, null, null, null, 0, 0, 0, 0, 0, 0, "images/philosophers/yi_i.png");
 
     private final String label;
     private final String typeName;
@@ -80,11 +98,11 @@ public enum PhilosopherType {
     }
 
     public PhilosopherType getBestMatch() {
-        return valueOf(bestMatchName);
+        return bestMatchName != null ? valueOf(bestMatchName) : null;
     }
 
     public PhilosopherType getWorstMatch() {
-        return valueOf(worstMatchName);
+        return worstMatchName != null ? valueOf(worstMatchName) : null;
     }
 
     public static PhilosopherType fromLabel(String label) {

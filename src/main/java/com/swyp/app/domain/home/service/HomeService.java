@@ -10,6 +10,8 @@ import com.swyp.app.domain.battle.service.BattleService;
 import com.swyp.app.domain.home.dto.response.*;
 import com.swyp.app.domain.notification.enums.NotificationCategory;
 import com.swyp.app.domain.notification.service.NotificationService;
+import com.swyp.app.domain.user.entity.PhilosopherType;
+import com.swyp.app.global.infra.s3.service.S3PresignedUrlService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +26,7 @@ public class HomeService {
 
     private final BattleService battleService;
     private final NotificationService notificationService;
+    private final S3PresignedUrlService s3PresignedUrlService;
 
     public HomeResponse getHome() {
         boolean newNotice = notificationService.hasNewBroadcast(NotificationCategory.NOTICE);
@@ -89,7 +92,7 @@ public class HomeService {
     }
 
     private HomeTodayVoteResponse toTodayVote(TodayBattleResponse b) {
-        List<HomeTodayVoteOptionResponse> options = b.options().stream()
+        List<HomeTodayVoteOptionResponse> options = Optional.ofNullable(b.options()).orElse(List.of()).stream()
                 .map(o -> new HomeTodayVoteOptionResponse(o.label(), o.title()))
                 .toList();
         return new HomeTodayVoteResponse(
@@ -104,8 +107,8 @@ public class HomeService {
         List<String> philosophers = findPhilosopherNames(b.tags());
         String philoA = philosophers.size() > 0 ? philosophers.get(0) : null;
         String philoB = philosophers.size() > 1 ? philosophers.get(1) : null;
-        String imageA = findOptionImageUrl(b.options(), BattleOptionLabel.A);
-        String imageB = findOptionImageUrl(b.options(), BattleOptionLabel.B);
+        String imageA = findRepresentativeImageUrl(b.options(), BattleOptionLabel.A);
+        String imageB = findRepresentativeImageUrl(b.options(), BattleOptionLabel.B);
         return new HomeNewBattleResponse(
                 b.battleId(), b.thumbnailUrl(),
                 b.title(), b.summary(),
@@ -129,11 +132,15 @@ public class HomeService {
                 .toList();
     }
 
-    private String findOptionImageUrl(List<TodayOptionResponse> options, BattleOptionLabel label) {
+    private String findRepresentativeImageUrl(List<TodayOptionResponse> options, BattleOptionLabel label) {
         return Optional.ofNullable(options).orElse(List.of()).stream()
                 .filter(o -> o.label() == label)
-                .map(TodayOptionResponse::imageUrl)
-                .findFirst().orElse(null);
+                .map(TodayOptionResponse::representative)
+                .findFirst()
+                .map(PhilosopherType::fromLabel)
+                .map(PhilosopherType::getImageKey)
+                .map(s3PresignedUrlService::generatePresignedUrl)
+                .orElse(null);
     }
 
     @SafeVarargs

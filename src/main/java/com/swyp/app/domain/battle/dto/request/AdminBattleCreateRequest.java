@@ -1,5 +1,6 @@
 package com.swyp.app.domain.battle.dto.request;
 
+import com.swyp.app.domain.battle.enums.BattleStatus;
 import com.swyp.app.domain.battle.enums.BattleType;
 import java.time.LocalDate;
 import java.util.List;
@@ -12,6 +13,7 @@ public record AdminBattleCreateRequest(
         String description,
         String thumbnailUrl,
         BattleType type,
+        BattleStatus status,
         String itemA,
         String itemADesc,
         String itemB,

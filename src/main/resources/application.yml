@@ -94,8 +94,8 @@ jwt:
   access-token-expiration: 3600000 # 1시간 (밀리초)
   refresh-token-expiration: 1209600000 # 14일
 
-app:
-  baseUrl: ${APP_BASE_URL:http://localhost:8080}
+picke:
+  baseUrl: ${PICKE_BASE_URL:http://localhost:8080}
   s3:
     presigned-url:
       expiration-hours: 6

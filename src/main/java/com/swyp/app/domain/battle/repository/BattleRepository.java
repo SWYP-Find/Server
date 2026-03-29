@@ -35,11 +35,11 @@ public interface BattleRepository extends JpaRepository<Battle, Long> {
             "ORDER BY (battle.totalParticipantsCount + (battle.commentCount * 5)) DESC")
     List<Battle> findBestBattles(Pageable pageable);
 
-    // 4. 오늘의 Pické (단일 타입)
+    // 4. 오늘의 Pické
     @Query("SELECT battle FROM Battle battle " +
             "WHERE battle.type = :type AND battle.targetDate = :today " +
             "AND battle.status = 'PUBLISHED' AND battle.deletedAt IS NULL")
-    List<Battle> findTodayPicks(@Param("type") BattleType type, @Param("today") LocalDate today);
+    List<Battle> findTodayPicks(@Param("type") BattleType type, @Param("today") LocalDate today, Pageable pageable);
 
     // 5. 새로운 배틀
     @Query("SELECT battle FROM Battle battle " +

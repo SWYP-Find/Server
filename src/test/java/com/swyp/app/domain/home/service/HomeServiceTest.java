@@ -8,6 +8,7 @@ import com.swyp.app.domain.battle.service.BattleService;
 import com.swyp.app.domain.home.dto.response.*;
 import com.swyp.app.domain.notification.enums.NotificationCategory;
 import com.swyp.app.domain.notification.service.NotificationService;
+import com.swyp.app.global.infra.s3.service.S3PresignedUrlService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,7 +23,7 @@ import static com.swyp.app.domain.battle.enums.BattleType.BATTLE;
 import static com.swyp.app.domain.battle.enums.BattleType.QUIZ;
 import static com.swyp.app.domain.battle.enums.BattleType.VOTE;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -33,6 +34,8 @@ class HomeServiceTest {
     private BattleService battleService;
     @Mock
     private NotificationService notificationService;
+    @Mock
+    private S3PresignedUrlService s3PresignedUrlService;
 
     @InjectMocks
     private HomeService homeService;
@@ -54,18 +57,19 @@ class HomeServiceTest {
         TodayBattleResponse newBattle = battle("new-id", BATTLE);
 
         when(notificationService.hasNewBroadcast(NotificationCategory.NOTICE)).thenReturn(true);
-        when(battleService.getEditorPicks()).thenReturn(List.of(editorPick));
-        when(battleService.getTrendingBattles()).thenReturn(List.of(trendingBattle));
-        when(battleService.getBestBattles()).thenReturn(List.of(bestBattle));
-        when(battleService.getTodayPicks(VOTE)).thenReturn(List.of(todayVote));
-        when(battleService.getTodayPicks(QUIZ)).thenReturn(List.of(todayQuiz));
+        when(battleService.getEditorPicks(10)).thenReturn(List.of(editorPick));
+        when(battleService.getTrendingBattles(4)).thenReturn(List.of(trendingBattle));
+        when(battleService.getBestBattles(3)).thenReturn(List.of(bestBattle));
+        when(battleService.getTodayPicks(VOTE, 1)).thenReturn(List.of(todayVote));
+        when(battleService.getTodayPicks(QUIZ, 1)).thenReturn(List.of(todayQuiz));
+
         when(battleService.getNewBattles(List.of(
                 editorPick.battleId(),
                 trendingBattle.battleId(),
                 bestBattle.battleId(),
                 todayVote.battleId(),
                 todayQuiz.battleId()
-        ))).thenReturn(List.of(newBattle));
+        ), 3)).thenReturn(List.of(newBattle));
 
         var response = homeService.getHome();
 
@@ -87,19 +91,19 @@ class HomeServiceTest {
                 bestBattle.battleId(),
                 todayVote.battleId(),
                 todayQuiz.battleId()
-        ))));
+        ))), eq(3));
     }
 
     @Test
     @DisplayName("데이터가 없으면 false와 빈리스트를 반환한다")
     void getHome_returns_false_and_empty_lists_when_no_data() {
         when(notificationService.hasNewBroadcast(NotificationCategory.NOTICE)).thenReturn(false);
-        when(battleService.getEditorPicks()).thenReturn(List.of());
-        when(battleService.getTrendingBattles()).thenReturn(List.of());
-        when(battleService.getBestBattles()).thenReturn(List.of());
-        when(battleService.getTodayPicks(VOTE)).thenReturn(List.of());
-        when(battleService.getTodayPicks(QUIZ)).thenReturn(List.of());
-        when(battleService.getNewBattles(List.of())).thenReturn(List.of());
+        when(battleService.getEditorPicks(10)).thenReturn(List.of());
+        when(battleService.getTrendingBattles(4)).thenReturn(List.of());
+        when(battleService.getBestBattles(3)).thenReturn(List.of());
+        when(battleService.getTodayPicks(VOTE, 1)).thenReturn(List.of());
+        when(battleService.getTodayPicks(QUIZ, 1)).thenReturn(List.of());
+        when(battleService.getNewBattles(List.of(), 3)).thenReturn(List.of());
 
         var response = homeService.getHome();
 
@@ -118,28 +122,28 @@ class HomeServiceTest {
         TodayBattleResponse editorPick = battle("editor-only", BATTLE);
 
         when(notificationService.hasNewBroadcast(NotificationCategory.NOTICE)).thenReturn(false);
-        when(battleService.getEditorPicks()).thenReturn(List.of(editorPick));
-        when(battleService.getTrendingBattles()).thenReturn(List.of());
-        when(battleService.getBestBattles()).thenReturn(List.of());
-        when(battleService.getTodayPicks(VOTE)).thenReturn(List.of());
-        when(battleService.getTodayPicks(QUIZ)).thenReturn(List.of());
-        when(battleService.getNewBattles(List.of(editorPick.battleId()))).thenReturn(List.of());
+        when(battleService.getEditorPicks(10)).thenReturn(List.of(editorPick));
+        when(battleService.getTrendingBattles(4)).thenReturn(List.of());
+        when(battleService.getBestBattles(3)).thenReturn(List.of());
+        when(battleService.getTodayPicks(VOTE, 1)).thenReturn(List.of());
+        when(battleService.getTodayPicks(QUIZ, 1)).thenReturn(List.of());
+        when(battleService.getNewBattles(List.of(editorPick.battleId()), 3)).thenReturn(List.of());
 
         homeService.getHome();
 
-        verify(battleService).getNewBattles(List.of(editorPick.battleId()));
+        verify(battleService).getNewBattles(List.of(editorPick.battleId()), 3);
     }
 
     @Test
     @DisplayName("공지 브로드캐스트가 있으면 newNotice는 true이다")
     void getHome_newNotice_true_with_broadcast() {
         when(notificationService.hasNewBroadcast(NotificationCategory.NOTICE)).thenReturn(true);
-        when(battleService.getEditorPicks()).thenReturn(List.of());
-        when(battleService.getTrendingBattles()).thenReturn(List.of());
-        when(battleService.getBestBattles()).thenReturn(List.of());
-        when(battleService.getTodayPicks(VOTE)).thenReturn(List.of());
-        when(battleService.getTodayPicks(QUIZ)).thenReturn(List.of());
-        when(battleService.getNewBattles(List.of())).thenReturn(List.of());
+        when(battleService.getEditorPicks(10)).thenReturn(List.of());
+        when(battleService.getTrendingBattles(4)).thenReturn(List.of());
+        when(battleService.getBestBattles(3)).thenReturn(List.of());
+        when(battleService.getTodayPicks(VOTE, 1)).thenReturn(List.of());
+        when(battleService.getTodayPicks(QUIZ, 1)).thenReturn(List.of());
+        when(battleService.getNewBattles(List.of(), 3)).thenReturn(List.of());
 
         var response = homeService.getHome();
 

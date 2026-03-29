@@ -32,14 +32,15 @@ public class HomeService {
     public HomeResponse getHome() {
         boolean newNotice = notificationService.hasNewBroadcast(NotificationCategory.NOTICE);
 
-        List<TodayBattleResponse> editorPickRaw = battleService.getEditorPicks();
-        List<TodayBattleResponse> trendingRaw = battleService.getTrendingBattles();
-        List<TodayBattleResponse> bestRaw = battleService.getBestBattles();
-        List<TodayBattleResponse> voteRaw = battleService.getTodayPicks(BattleType.VOTE);
-        List<TodayBattleResponse> quizRaw = battleService.getTodayPicks(BattleType.QUIZ);
+        // DB 쿼리 단계에서 LIMIT을 걸어 필요한 개수만 깔끔하게 조회!
+        List<TodayBattleResponse> editorPickRaw = battleService.getEditorPicks(10);
+        List<TodayBattleResponse> trendingRaw = battleService.getTrendingBattles(4);
+        List<TodayBattleResponse> bestRaw = battleService.getBestBattles(3);
+        List<TodayBattleResponse> voteRaw = battleService.getTodayPicks(BattleType.VOTE, 1);
+        List<TodayBattleResponse> quizRaw = battleService.getTodayPicks(BattleType.QUIZ, 1);
 
         List<Long> excludeIds = collectBattleIds(editorPickRaw, trendingRaw, bestRaw, voteRaw, quizRaw);
-        List<TodayBattleResponse> newRaw = battleService.getNewBattles(excludeIds);
+        List<TodayBattleResponse> newRaw = battleService.getNewBattles(excludeIds, 3);
 
         return new HomeResponse(
                 newNotice,
@@ -52,29 +53,38 @@ public class HomeService {
         );
     }
 
+    // 에디터픽 썸네일 Presigned URL 적용
     private HomeEditorPickResponse toEditorPick(TodayBattleResponse b) {
         String optionA = findOptionTitle(b.options(), BattleOptionLabel.A);
         String optionB = findOptionTitle(b.options(), BattleOptionLabel.B);
+
+        String secureThumb = (b.thumbnailUrl() != null && !b.thumbnailUrl().isBlank())
+                ? s3PresignedUrlService.generatePresignedUrl(b.thumbnailUrl()) : null;
+
         return new HomeEditorPickResponse(
-                b.battleId(), b.thumbnailUrl(),
+                b.battleId(), secureThumb,
                 optionA, optionB,
                 b.title(), b.summary(),
                 b.tags(), b.viewCount()
         );
     }
 
+    // 트렌딩 썸네일 Presigned URL 적용
     private HomeTrendingResponse toTrending(TodayBattleResponse b) {
+        String secureThumb = (b.thumbnailUrl() != null && !b.thumbnailUrl().isBlank())
+                ? s3PresignedUrlService.generatePresignedUrl(b.thumbnailUrl()) : null;
+
         return new HomeTrendingResponse(
-                b.battleId(), b.thumbnailUrl(),
+                b.battleId(), secureThumb,
                 b.title(), b.tags(),
                 b.audioDuration(), b.viewCount()
         );
     }
 
     private HomeBestBattleResponse toBestBattle(TodayBattleResponse b) {
-        List<String> philosophers = findPhilosopherNames(b.tags());
-        String philoA = philosophers.size() > 0 ? philosophers.get(0) : null;
-        String philoB = philosophers.size() > 1 ? philosophers.get(1) : null;
+        String philoA = findOptionRepresentative(b.options(), BattleOptionLabel.A);
+        String philoB = findOptionRepresentative(b.options(), BattleOptionLabel.B);
+
         return new HomeBestBattleResponse(
                 b.battleId(),
                 philoA, philoB,
@@ -104,14 +114,19 @@ public class HomeService {
         );
     }
 
+    // newBattle 썸네일 Presigned URL 적용
     private HomeNewBattleResponse toNewBattle(TodayBattleResponse b) {
-        List<String> philosophers = findPhilosopherNames(b.tags());
-        String philoA = philosophers.size() > 0 ? philosophers.get(0) : null;
-        String philoB = philosophers.size() > 1 ? philosophers.get(1) : null;
+        String philoA = findOptionRepresentative(b.options(), BattleOptionLabel.A);
+        String philoB = findOptionRepresentative(b.options(), BattleOptionLabel.B);
+
         String imageA = findRepresentativeImageUrl(b.options(), BattleOptionLabel.A);
         String imageB = findRepresentativeImageUrl(b.options(), BattleOptionLabel.B);
+
+        String secureThumb = (b.thumbnailUrl() != null && !b.thumbnailUrl().isBlank())
+                ? s3PresignedUrlService.generatePresignedUrl(b.thumbnailUrl()) : null;
+
         return new HomeNewBattleResponse(
-                b.battleId(), b.thumbnailUrl(),
+                b.battleId(), secureThumb,
                 b.title(), b.summary(),
                 philoA, imageA,
                 philoB, imageB,
@@ -123,6 +138,15 @@ public class HomeService {
         return Optional.ofNullable(options).orElse(List.of()).stream()
                 .filter(o -> o.label() == label)
                 .map(TodayOptionResponse::title)
+                .filter(Objects::nonNull)
+                .findFirst().orElse(null);
+    }
+
+    // 옵션에서 철학자 이름(Representative)을 추출하는 메서드
+    private String findOptionRepresentative(List<TodayOptionResponse> options, BattleOptionLabel label) {
+        return Optional.ofNullable(options).orElse(List.of()).stream()
+                .filter(o -> o.label() == label)
+                .map(TodayOptionResponse::representative)
                 .filter(Objects::nonNull)
                 .findFirst().orElse(null);
     }

@@ -48,7 +48,15 @@ oauth:
     client-id: ${GOOGLE_CLIENT_ID}
     client-secret: ${GOOGLE_CLIENT_SECRET}
 
-# 6. 외부 API 설정 (OpenAI, Fish Audio, ElevenLabs)
+# 6. 외부 API 설정 (AdMob, OpenAI, Fish Audio 등)
+admob:
+  # // 6.1 애드몹 앱 및 광고 단위 설정
+  app-id: ${ADMOB_APP_ID}
+  reward:
+    unit-id: ${ADMOB_REWARD_UNIT_ID}
+    amount: ${ADMOB_REWARD_AMOUNT:50}
+    type: ${ADMOB_REWARD_TYPE:POINT}
+
 openai:
   api-key: ${OPENAI_API_KEY}
   url: https://api.openai.com/v1/chat/completions
@@ -90,12 +98,12 @@ springdoc:
 
 # 8. JWT 설정
 jwt:
-  secret: ${JWT_SECRET} # 환경 변수 혹은 실제 비밀키 문자열
-  access-token-expiration: 3600000 # 1시간 (밀리초)
+  secret: ${JWT_SECRET}
+  access-token-expiration: 3600000 # 1시간
   refresh-token-expiration: 1209600000 # 14일
 
 picke:
-  baseUrl: ${PICKE_BASE_URL:http://localhost:8080}
+  baseUrl: ${PICKE_BASE_URL:https://picke.store}
   s3:
     presigned-url:
       expiration-hours: 6
@@ -103,8 +111,6 @@ picke:
 # 9. 미디어 처리 설정 (FFmpeg)
 media:
   ffmpeg:
-    # 윈도우: 환경변수 FFMPEG_PATH에 경로 세팅 / 맥&서버: 환경변수 없이 기본값(ffmpeg) 사용
     path: ${FFMPEG_PATH:ffmpeg}
   ffprobe:
-    # 윈도우: 환경변수 FFPROBE_PATH에 경로 세팅 / 맥&서버: 환경변수 없이 기본값(ffprobe) 사용
     path: ${FFPROBE_PATH:ffprobe}

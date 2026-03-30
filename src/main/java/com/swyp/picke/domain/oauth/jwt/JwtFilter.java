@@ -42,7 +42,8 @@ public class JwtFilter extends OncePerRequestFilter {
             "/api/v1/home",      // 홈 화면
             "/api/v1/notices",   // 공지사항
             "/api/test",         // 테스트용
-            "/result"            // 공유 링크 리다이렉트
+            "/result",           // 공유 링크 리다이렉트
+            "/api/v1/resources" // 이미지, 오디오 파일 (Presigned URL)
     );
 
     @Override

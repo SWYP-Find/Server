@@ -6,6 +6,8 @@ import com.swyp.picke.domain.scenario.entity.Scenario;
 import com.swyp.picke.domain.scenario.entity.ScenarioNode;
 import com.swyp.picke.domain.scenario.entity.Script;
 import com.swyp.picke.domain.scenario.enums.AudioPathType;
+import com.swyp.picke.global.infra.s3.util.ResourceUrlProvider;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -15,10 +17,11 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Component
+@RequiredArgsConstructor
 public class ScenarioConverter {
 
-    @Value("${picke_base_url}")
-    private String baseUrl;
+    private final ResourceUrlProvider resourceUrlProvider;
+    private static final String BASE_SHARE_URL = "https://pique.app/battles/";
 
     /**
      * [유저용] Scenario 엔티티를 프론트엔드 전달용 DTO로 변환합니다.
@@ -34,12 +37,11 @@ public class ScenarioConverter {
                 .map(this::toUserNodeResponse)
                 .collect(Collectors.toList());
 
-        // 💡 에러 완벽 수정: Key 타입을 AudioPathType으로 맞추고 그대로 put
         Map<AudioPathType, String> fullUrlAudios = new HashMap<>();
         if (scenario.getAudios() != null) {
-            scenario.getAudios().forEach((key, path) -> {
-                String fullPath = (path != null && !path.startsWith("http")) ? baseUrl + path : path;
-                fullUrlAudios.put(key, fullPath);
+            scenario.getAudios().forEach((audioPathType, fileName) -> {
+                String publicAudioUrl = resourceUrlProvider.getAudioUrl(scenario.getId(), fileName);
+                fullUrlAudios.put(audioPathType, publicAudioUrl);
             });
         }
 
@@ -48,7 +50,7 @@ public class ScenarioConverter {
                 .isInteractive(scenario.getIsInteractive())
                 .startNodeId(startNodeId)
                 .recommendedPathKey(recommendedPathKey)
-                .audios(fullUrlAudios) // 병합된 오디오에만 Base URL 적용!
+                .audios(fullUrlAudios)
                 .nodes(nodeResponses)
                 .build();
     }
@@ -67,9 +69,7 @@ public class ScenarioConverter {
                 .build();
     }
 
-    // ==========================================
-    // 🟢 유저용 변환 로직 (오디오 URL 제거, 순수 데이터만)
-    // ==========================================
+    // 유저용 변환 로직
     private NodeResponse toUserNodeResponse(ScenarioNode node) {
         return NodeResponse.builder()
                 .nodeId(node.getId())
@@ -100,9 +100,7 @@ public class ScenarioConverter {
                 .build();
     }
 
-    // ==========================================
-    // 🔵 관리자용 변환 로직 (오디오 URL 제거)
-    // ==========================================
+    // 관리자용 변환 로직
     private NodeResponse toAdminNodeResponse(ScenarioNode node) {
         return NodeResponse.builder()
                 .nodeId(node.getId())

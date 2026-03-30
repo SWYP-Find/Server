@@ -35,7 +35,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -61,14 +60,11 @@ public class BattleServiceImpl implements BattleService {
     public Battle findById(Long battleId) {
         Battle battle = battleRepository.findById(battleId)
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_NOT_FOUND));
-
         if (battle.getDeletedAt() != null) {
             throw new CustomException(ErrorCode.BATTLE_NOT_FOUND);
         }
         return battle;
     }
-
-    // [사용자용 - 홈 화면 5단 로직]
 
     @Override
     public List<TodayBattleResponse> getEditorPicks(int limit) {
@@ -91,7 +87,6 @@ public class BattleServiceImpl implements BattleService {
 
     @Override
     public List<TodayBattleResponse> getTodayPicks(BattleType type, int limit) {
-        // findTodayPicks 레포지토리 메서드에 Pageable을 이미 추가하셨다면 문제없이 동작합니다!
         List<Battle> battles = battleRepository.findTodayPicks(type, LocalDate.now(), PageRequest.of(0, limit));
         return convertToTodayResponses(battles);
     }
@@ -104,19 +99,17 @@ public class BattleServiceImpl implements BattleService {
         return convertToTodayResponses(battles);
     }
 
-    // [사용자용 - 기본 API]
-
     @Override
     public BattleListResponse getBattles(int page, int size, String type) {
         int pageNumber = Math.max(0, page - 1);
         PageRequest pageRequest = PageRequest.of(pageNumber, size);
         Page<Battle> battlePage;
 
-        // type이 ALL이거나 없으면 전체 조회, 아니면 타입별 조회
         if (type == null || type.equals("ALL")) {
             battlePage = battleRepository.findByDeletedAtIsNullOrderByCreatedAtDesc(pageRequest);
         } else {
-            battlePage = battleRepository.findByTypeAndDeletedAtIsNullOrderByCreatedAtDesc(BattleType.valueOf(type), pageRequest);
+            battlePage = battleRepository.findByTypeAndDeletedAtIsNullOrderByCreatedAtDesc(
+                    BattleType.valueOf(type), pageRequest);
         }
 
         List<BattleSimpleResponse> items = battlePage.getContent().stream()
@@ -139,7 +132,6 @@ public class BattleServiceImpl implements BattleService {
         return new TodayBattleListResponse(items, items.size());
     }
 
-    // [사용자용 상세 조회] - 썸네일 + 철학자 이미지 보안 처리
     @Override
     @Transactional(readOnly = true)
     public BattleUserDetailResponse getBattleDetail(Long battleId) {
@@ -147,29 +139,24 @@ public class BattleServiceImpl implements BattleService {
         List<Tag> tags = getTagsByBattle(battle);
         List<BattleOption> options = battleOptionRepository.findByBattle(battle);
 
-        String secureThumbnail = s3UploadService.getPresignedUrl(battle.getThumbnailUrl(), Duration.ofMinutes(10));
-
-        // 💡 [수정] SecurityUtils를 통한 실제 로그인 유저 조회
         Long currentUserId = SecurityUtil.getCurrentUserId();
         User user = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 💡 [수정] UserBattleService를 사용하여 현재 진행 단계 조회
         UserBattleStatusResponse statusResponse = userBattleService.getUserBattleStatus(user, battle);
         UserBattleStep currentStep = statusResponse.step();
 
-        // 투표 여부 라벨 확인 (기존 VoteRepository 활용 유지)
         Optional<Vote> optionalVote = voteRepository.findByBattleIdAndUserId(battleId, currentUserId);
         String voteStatus = optionalVote
-                .map(v -> v.getPostVoteOption() != null ? v.getPostVoteOption().getLabel().name() : "NONE")
+                .map(vote -> vote.getPostVoteOption() != null
+                        ? vote.getPostVoteOption().getLabel().name() : "NONE")
                 .orElse("NONE");
 
         return battleConverter.toUserDetailResponse(
                 battle, tags, options,
                 battle.getTotalParticipantsCount(),
                 voteStatus,
-                currentStep,
-                secureThumbnail, s3UploadService
+                currentStep
         );
     }
 
@@ -184,40 +171,29 @@ public class BattleServiceImpl implements BattleService {
         User user = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 1. [기록] 투표 기록 저장 (VoteStatus.COMPLETED 제거)
         voteRepository.save(Vote.builder()
                 .user(user)
                 .battle(battle)
                 .postVoteOption(option)
-                // .status(...) 필드 설정 삭제
                 .build());
 
-        // 2. [단계] UserBattleStep 업데이트
         userBattleService.upsertStep(user, battle, UserBattleStep.PRE_VOTE);
-
-        // 3. [통계] 카운트 증가
         battle.addParticipant();
         option.increaseVoteCount();
 
-        // 4. [응답] 통계 결과 계산
         List<OptionStatResponse> results = calculateOptionStats(battle);
-
         return new BattleVoteResponse(battle.getId(), option.getId(), battle.getTotalParticipantsCount(), results);
     }
 
-    // 통계 계산 로직 중복 제거를 위한 헬퍼 메서드
     private List<OptionStatResponse> calculateOptionStats(Battle battle) {
-        return battleOptionRepository.findByBattle(battle).stream().map(opt -> {
-            Long v = opt.getVoteCount() == null ? 0L : opt.getVoteCount();
-            Long t = battle.getTotalParticipantsCount() == null ? 0L : battle.getTotalParticipantsCount();
-            Double r = (t == 0L) ? 0.0 : Math.round((double) v / t * 1000) / 10.0;
-            return new OptionStatResponse(opt.getId(), opt.getLabel(), opt.getTitle(), v, r);
+        return battleOptionRepository.findByBattle(battle).stream().map(option -> {
+            Long voteCount = option.getVoteCount() == null ? 0L : option.getVoteCount();
+            Long totalCount = battle.getTotalParticipantsCount() == null ? 0L : battle.getTotalParticipantsCount();
+            Double ratio = (totalCount == 0L) ? 0.0 : Math.round((double) voteCount / totalCount * 1000) / 10.0;
+            return new OptionStatResponse(option.getId(), option.getLabel(), option.getTitle(), voteCount, ratio);
         }).toList();
     }
 
-    // [관리자용 API]
-
-    // [관리자용 생성] - 생성 직후 결과 화면에서도 이미지가 보이게 처리
     @Override
     @Transactional
     @PreAuthorize("hasRole('ADMIN')")
@@ -232,48 +208,36 @@ public class BattleServiceImpl implements BattleService {
         }
 
         List<BattleOption> savedOptions = new ArrayList<>();
-        for (var optReq : request.options()) {
+        for (var optionRequest : request.options()) {
             BattleOption option = battleOptionRepository.save(BattleOption.builder()
                     .battle(battle)
-                    .label(optReq.label())
-                    .title(optReq.title())
-                    .stance(optReq.stance())
-                    .representative(optReq.representative())
-                    .quote(optReq.quote())
-                    .imageUrl(optReq.imageUrl())
+                    .label(optionRequest.label())
+                    .title(optionRequest.title())
+                    .stance(optionRequest.stance())
+                    .representative(optionRequest.representative())
+                    .quote(optionRequest.quote())
+                    .imageUrl(optionRequest.imageUrl())
                     .build());
 
-            if (optReq.tagIds() != null) {
-                saveBattleOptionTags(option, optReq.tagIds().stream().distinct().toList());
+            if (optionRequest.tagIds() != null) {
+                saveBattleOptionTags(option, optionRequest.tagIds().stream().distinct().toList());
             }
             savedOptions.add(option);
         }
 
-        // 생성 후 응답 시 s3UploadService 전달
-        return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), savedOptions, s3UploadService);
+        return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), savedOptions);
     }
 
-    private void saveBattleOptionTags(BattleOption option, List<Long> tagIds) {
-        tagRepository.findAllById(tagIds).stream()
-                .filter(t -> t.getDeletedAt() == null)
-                .forEach(t -> battleOptionTagRepository.save(
-                        BattleOptionTag.builder().battleOption(option).tag(t).build()
-                ));
-    }
-
-    // [관리자용 수정] - 수정 완료 후 결과 화면에서도 이미지가 보이게 처리
     @Override
     @Transactional
     @PreAuthorize("hasRole('ADMIN')")
     public AdminBattleDetailResponse updateBattle(Long battleId, AdminBattleUpdateRequest request) {
         Battle battle = findById(battleId);
 
-        // 썸네일 이미지가 변경되었다면 기존 S3 파일 삭제 (스토리지 낭비 방지)
         if (battle.getThumbnailUrl() != null && !battle.getThumbnailUrl().equals(request.thumbnailUrl())) {
             s3UploadService.deleteFile(battle.getThumbnailUrl());
         }
 
-        // 배틀 필드 업데이트
         battle.update(
                 request.title(), request.titlePrefix(), request.titleSuffix(),
                 request.itemA(), request.itemADesc(), request.itemB(), request.itemBDesc(),
@@ -281,36 +245,30 @@ public class BattleServiceImpl implements BattleService {
                 request.targetDate(), request.audioDuration(), request.status()
         );
 
-        // 태그 업데이트
         if (request.tagIds() != null) {
             battleTagRepository.deleteByBattle(battle);
-            battleTagRepository.flush(); // DB에 DELETE 쿼리를 즉시 전송해서 완전히 비워버림
-
-            // request.tagIds()에 혹시 모를 중복값이 있으면 distinct()로 제거하고 저장
+            battleTagRepository.flush();
             saveBattleTags(battle, request.tagIds().stream().distinct().toList());
         }
 
-        // 3. 선택지 업데이트
         if (request.options() != null) {
             List<BattleOption> existingOptions = battleOptionRepository.findByBattle(battle);
-            for (var optReq : request.options()) {
+            for (var optionRequest : request.options()) {
                 existingOptions.stream()
-                        .filter(o -> o.getLabel() == optReq.label())
+                        .filter(option -> option.getLabel() == optionRequest.label())
                         .findFirst()
-                        .ifPresent(o -> {
-                            // 철학자/선택지 이미지가 변경되었다면 기존 S3 파일 삭제
-                            if (o.getImageUrl() != null && !o.getImageUrl().equals(optReq.imageUrl())) {
-                                s3UploadService.deleteFile(o.getImageUrl());
+                        .ifPresent(option -> {
+                            if (option.getImageUrl() != null && !option.getImageUrl().equals(optionRequest.imageUrl())) {
+                                s3UploadService.deleteFile(option.getImageUrl());
                             }
-
-                            o.update(optReq.title(), optReq.stance(), optReq.representative(), optReq.quote(), optReq.imageUrl());
+                            option.update(optionRequest.title(), optionRequest.stance(),
+                                    optionRequest.representative(), optionRequest.quote(), optionRequest.imageUrl());
                         });
             }
         }
 
         List<BattleOption> updatedOptions = battleOptionRepository.findByBattle(battle);
-        // 업데이트 후 응답 시 s3UploadService 전달
-        return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), updatedOptions, s3UploadService);
+        return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), updatedOptions);
     }
 
     @Override
@@ -322,44 +280,45 @@ public class BattleServiceImpl implements BattleService {
         return new AdminBattleDeleteResponse(true, LocalDateTime.now());
     }
 
-    // [공통 헬퍼 메서드]
-
-    // N+1 개선 버전
+    // ✅ convertToTodayResponses — secureThumbnail 계산 제거
     private List<TodayBattleResponse> convertToTodayResponses(List<Battle> battles) {
-        if (battles == null || battles.isEmpty()) {
-            return Collections.emptyList();
-        }
+        if (battles == null || battles.isEmpty()) return Collections.emptyList();
 
-        // 1. IN 쿼리로 모든 옵션과 태그를 한 번에 가져와서 배틀 ID별로 그룹핑
         Map<Long, List<BattleOption>> optionsMap = battleOptionRepository.findByBattleIn(battles)
-                .stream().collect(Collectors.groupingBy(battleOption -> battleOption.getBattle().getId()));
+                .stream().collect(Collectors.groupingBy(o -> o.getBattle().getId()));
 
         Map<Long, List<Tag>> tagsMap = battleTagRepository.findByBattleIn(battles)
                 .stream().collect(Collectors.groupingBy(
-                        battleTag -> battleTag.getBattle().getId(),
+                        bt -> bt.getBattle().getId(),
                         Collectors.mapping(BattleTag::getTag, Collectors.toList())
                 ));
 
-        // 2. DB 쿼리 없이 메모리(Map)에서 꺼내서 조립만 수행
         return battles.stream().map(battle -> {
             List<Tag> tags = tagsMap.getOrDefault(battle.getId(), Collections.emptyList());
             List<BattleOption> options = optionsMap.getOrDefault(battle.getId(), Collections.emptyList());
-
             return battleConverter.toTodayResponse(battle, tags, options);
         }).toList();
     }
 
-    private List<Tag> getTagsByBattle(Battle b) {
-        return battleTagRepository.findByBattle(b).stream()
+    private List<Tag> getTagsByBattle(Battle battle) {
+        return battleTagRepository.findByBattle(battle).stream()
                 .map(BattleTag::getTag)
-                .filter(t -> t.getDeletedAt() == null)
+                .filter(tag -> tag.getDeletedAt() == null)
                 .toList();
     }
 
-    private void saveBattleTags(Battle b, List<Long> ids) {
+    private void saveBattleTags(Battle battle, List<Long> ids) {
         tagRepository.findAllById(ids).stream()
-                .filter(t -> t.getDeletedAt() == null)
-                .forEach(t -> battleTagRepository.save(BattleTag.builder().battle(b).tag(t).build()));
+                .filter(tag -> tag.getDeletedAt() == null)
+                .forEach(tag -> battleTagRepository.save(
+                        BattleTag.builder().battle(battle).tag(tag).build()));
+    }
+
+    private void saveBattleOptionTags(BattleOption option, List<Long> tagIds) {
+        tagRepository.findAllById(tagIds).stream()
+                .filter(tag -> tag.getDeletedAt() == null)
+                .forEach(tag -> battleOptionTagRepository.save(
+                        BattleOptionTag.builder().battleOption(option).tag(tag).build()));
     }
 
     @Override
@@ -370,8 +329,8 @@ public class BattleServiceImpl implements BattleService {
 
     @Override
     public BattleOption findOptionByBattleIdAndLabel(Long battleId, BattleOptionLabel label) {
-        Battle b = findById(battleId);
-        return battleOptionRepository.findByBattleAndLabel(b, label)
+        Battle battle = findById(battleId);
+        return battleOptionRepository.findByBattleAndLabel(battle, label)
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));
     }
 }

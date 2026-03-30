@@ -147,6 +147,34 @@ public class VoteServiceImpl implements VoteService {
 
     @Override
     @Transactional
+    public void deleteVote(Long voteId) {
+        // 1. 투표 기록 조회
+        Vote vote = voteRepository.findById(voteId)
+                .orElseThrow(() -> new CustomException(ErrorCode.VOTE_NOT_FOUND));
+
+        Battle battle = vote.getBattle();
+        User user = vote.getUser();
+
+        // 2. 배틀 통계치 감소 (Battle 엔티티에 해당 메서드가 있다고 가정)
+        // battle.decreaseParticipant(); // 예시: totalParticipantsCount--
+
+        // 3. 각 옵션별 투표수 감소
+        if (vote.getPreVoteOption() != null) {
+            // vote.getPreVoteOption().decreaseVoteCount();
+        }
+        if (vote.getPostVoteOption() != null) {
+            // vote.getPostVoteOption().decreaseVoteCount();
+        }
+
+        // 4. 유저의 배틀 진행 단계 초기화
+        userBattleService.upsertStep(user, battle, UserBattleStep.NONE);
+
+        // 5. 투표 레코드 물리 삭제
+        voteRepository.delete(vote);
+    }
+
+    @Override
+    @Transactional
     public void completeTts(Long battleId, Long userId) {
         Battle battle = battleService.findById(battleId);
         User user = userRepository.findById(userId)

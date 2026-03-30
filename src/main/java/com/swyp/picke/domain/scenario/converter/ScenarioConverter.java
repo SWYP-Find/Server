@@ -37,12 +37,10 @@ public class ScenarioConverter {
                 .map(this::toUserNodeResponse)
                 .collect(Collectors.toList());
 
-        // 💡 에러 완벽 수정: Key 타입을 AudioPathType으로 맞추고 그대로 put
         Map<AudioPathType, String> fullUrlAudios = new HashMap<>();
         if (scenario.getAudios() != null) {
             scenario.getAudios().forEach((audioPathType, fileName) -> {
-                // 💡 [수정] 우리가 만든 리다이렉트 서버 주소를 생성합니다.
-                String publicAudioUrl = resourceUrlProvider.getAudioUrl(scenario.getBattle().getId(), fileName);
+                String publicAudioUrl = resourceUrlProvider.getAudioUrl(scenario.getId(), fileName);
                 fullUrlAudios.put(audioPathType, publicAudioUrl);
             });
         }
@@ -52,7 +50,7 @@ public class ScenarioConverter {
                 .isInteractive(scenario.getIsInteractive())
                 .startNodeId(startNodeId)
                 .recommendedPathKey(recommendedPathKey)
-                .audios(fullUrlAudios) // 병합된 오디오에만 Base URL 적용!
+                .audios(fullUrlAudios)
                 .nodes(nodeResponses)
                 .build();
     }
@@ -71,9 +69,7 @@ public class ScenarioConverter {
                 .build();
     }
 
-    // ==========================================
-    // 🟢 유저용 변환 로직 (오디오 URL 제거, 순수 데이터만)
-    // ==========================================
+    // 유저용 변환 로직
     private NodeResponse toUserNodeResponse(ScenarioNode node) {
         return NodeResponse.builder()
                 .nodeId(node.getId())
@@ -104,9 +100,7 @@ public class ScenarioConverter {
                 .build();
     }
 
-    // ==========================================
-    // 🔵 관리자용 변환 로직 (오디오 URL 제거)
-    // ==========================================
+    // 관리자용 변환 로직
     private NodeResponse toAdminNodeResponse(ScenarioNode node) {
         return NodeResponse.builder()
                 .nodeId(node.getId())

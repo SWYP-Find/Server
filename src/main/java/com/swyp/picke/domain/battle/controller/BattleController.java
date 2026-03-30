@@ -33,9 +33,9 @@ public class BattleController {
             @Parameter(description = "페이지 크기", example = "10")
             @RequestParam(value = "size", defaultValue = "10") int size,
             @Parameter(description = "콘텐츠 타입 (ALL, BATTLE, QUIZ, VOTE)", example = "ALL")
-            @RequestParam(value = "type", required = false, defaultValue = "ALL") String type // 🚀 프론트에서 보낸 type 받기
+            @RequestParam(value = "type", required = false, defaultValue = "ALL") String type
     ) {
-        return ApiResponse.onSuccess(battleService.getBattles(page, size, type)); // 🚀 서비스로 type 넘겨주기
+        return ApiResponse.onSuccess(battleService.getBattles(page, size, type));
     }
 
     @Operation(summary = "배틀 상세 조회")

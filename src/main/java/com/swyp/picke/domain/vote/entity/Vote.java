@@ -3,12 +3,9 @@ package com.swyp.picke.domain.vote.entity;
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.user.entity.User;
-import com.swyp.picke.domain.vote.enums.VoteStatus;
 import com.swyp.picke.global.common.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -40,31 +37,44 @@ public class Vote extends BaseEntity {
     @JoinColumn(name = "post_vote_option_id")
     private BattleOption postVoteOption;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private VoteStatus status;
+    @Column(name = "is_tts_listened", nullable = false)
+    private Boolean isTtsListened = false;
 
     @Builder
     private Vote(User user, Battle battle, BattleOption preVoteOption,
-                 BattleOption postVoteOption, VoteStatus status) {
+                 BattleOption postVoteOption, Boolean isTtsListened) {
         this.user = user;
         this.battle = battle;
         this.preVoteOption = preVoteOption;
         this.postVoteOption = postVoteOption;
-        this.status = status;
+        this.isTtsListened = isTtsListened != null ? isTtsListened : false;
     }
 
+    /**
+     * 최초 투표(사전 투표) 시 사용하는 정적 팩토리 메서드
+     */
     public static Vote createPreVote(User user, Battle battle, BattleOption option) {
         return Vote.builder()
                 .user(user)
                 .battle(battle)
                 .preVoteOption(option)
-                .status(VoteStatus.PRE_VOTED)
+                .isTtsListened(false)
+                // status 설정 삭제됨
                 .build();
     }
 
+    /**
+     * 사후 투표 업데이트
+     */
     public void doPostVote(BattleOption postOption) {
         this.postVoteOption = postOption;
-        this.status = VoteStatus.POST_VOTED;
+        // status 업데이트 삭제됨
+    }
+
+    /**
+     * TTS 청취 상태 업데이트
+     */
+    public void completeTts() {
+        this.isTtsListened = true;
     }
 }

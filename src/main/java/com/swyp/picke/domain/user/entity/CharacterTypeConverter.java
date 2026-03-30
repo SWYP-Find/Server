@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.user.entity;
 
+import com.swyp.picke.domain.user.enums.CharacterType;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 

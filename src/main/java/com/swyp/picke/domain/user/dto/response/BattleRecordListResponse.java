@@ -1,6 +1,6 @@
 package com.swyp.picke.domain.user.dto.response;
 
-import com.swyp.picke.domain.user.entity.VoteSide;
+import com.swyp.picke.domain.user.enums.VoteSide;
 
 import java.time.LocalDateTime;
 import java.util.List;

@@ -1,6 +1,6 @@
 package com.swyp.picke.domain.user.dto.response;
 
-import com.swyp.picke.domain.user.entity.CharacterType;
+import com.swyp.picke.domain.user.enums.CharacterType;
 
 import java.time.LocalDateTime;
 

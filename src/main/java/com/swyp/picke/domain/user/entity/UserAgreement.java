@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.user.entity;
 
+import com.swyp.picke.domain.user.enums.AgreementType;
 import com.swyp.picke.global.common.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

@@ -18,7 +18,7 @@ import com.swyp.picke.domain.perspective.entity.Perspective;
 import com.swyp.picke.domain.perspective.repository.PerspectiveLikeRepository;
 import com.swyp.picke.domain.perspective.repository.PerspectiveRepository;
 import com.swyp.picke.domain.user.dto.response.UserSummary;
-import com.swyp.picke.domain.user.entity.CharacterType;
+import com.swyp.picke.domain.user.enums.CharacterType;
 import com.swyp.picke.domain.user.service.UserService;
 import com.swyp.picke.domain.vote.service.VoteService;
 import com.swyp.picke.global.common.exception.CustomException;

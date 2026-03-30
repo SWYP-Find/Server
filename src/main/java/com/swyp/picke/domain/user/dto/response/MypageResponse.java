@@ -1,8 +1,8 @@
 package com.swyp.picke.domain.user.dto.response;
 
-import com.swyp.picke.domain.user.entity.CharacterType;
-import com.swyp.picke.domain.user.entity.PhilosopherType;
-import com.swyp.picke.domain.user.entity.TierCode;
+import com.swyp.picke.domain.user.enums.CharacterType;
+import com.swyp.picke.domain.user.enums.PhilosopherType;
+import com.swyp.picke.domain.user.enums.TierCode;
 
 import java.math.BigDecimal;
 

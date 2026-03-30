@@ -4,15 +4,17 @@ import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.repository.BattleOptionRepository;
 import com.swyp.picke.domain.battle.service.BattleService;
+import com.swyp.picke.domain.user.dto.response.UserBattleStatusResponse;
 import com.swyp.picke.domain.user.entity.User;
+import com.swyp.picke.domain.user.enums.UserBattleStep;
 import com.swyp.picke.domain.user.repository.UserRepository;
+import com.swyp.picke.domain.user.service.UserBattleService;
 import com.swyp.picke.domain.vote.converter.VoteConverter;
 import com.swyp.picke.domain.vote.dto.request.VoteRequest;
 import com.swyp.picke.domain.vote.dto.response.MyVoteResponse;
 import com.swyp.picke.domain.vote.dto.response.VoteResultResponse;
 import com.swyp.picke.domain.vote.dto.response.VoteStatsResponse;
 import com.swyp.picke.domain.vote.entity.Vote;
-import com.swyp.picke.domain.vote.enums.VoteStatus;
 import com.swyp.picke.domain.vote.repository.VoteRepository;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
@@ -32,6 +34,7 @@ public class VoteServiceImpl implements VoteService {
     private final BattleService battleService;
     private final BattleOptionRepository battleOptionRepository;
     private final UserRepository userRepository;
+    private final UserBattleService userBattleService;
 
     @Override
     public BattleOption findPreVoteOption(Long battleId, Long userId) {
@@ -88,7 +91,8 @@ public class VoteServiceImpl implements VoteService {
         Vote vote = voteRepository.findByBattleAndUser(battle, user)
                 .orElseThrow(() -> new CustomException(ErrorCode.VOTE_NOT_FOUND));
 
-        return VoteConverter.toMyVoteResponse(vote);
+        UserBattleStatusResponse status = userBattleService.getUserBattleStatus(user, battle);
+        return VoteConverter.toMyVoteResponse(vote, status.step());
     }
 
     @Override
@@ -104,10 +108,14 @@ public class VoteServiceImpl implements VoteService {
             throw new CustomException(ErrorCode.VOTE_ALREADY_SUBMITTED);
         }
 
+        // 1. 투표 데이터 생성 및 저장
         Vote vote = Vote.createPreVote(user, battle, option);
         voteRepository.save(vote);
 
-        return VoteConverter.toVoteResultResponse(vote);
+        // 2. 유저 단계를 PRE_VOTE로 업데이트
+        userBattleService.upsertStep(user, battle, UserBattleStep.PRE_VOTE);
+
+        return new VoteResultResponse(vote.getId(), UserBattleStep.PRE_VOTE);
     }
 
     @Override
@@ -122,12 +130,34 @@ public class VoteServiceImpl implements VoteService {
         Vote vote = voteRepository.findByBattleAndUser(battle, user)
                 .orElseThrow(() -> new CustomException(ErrorCode.VOTE_NOT_FOUND));
 
-        if (vote.getStatus() != VoteStatus.PRE_VOTED) {
-            throw new CustomException(ErrorCode.INVALID_VOTE_STATUS);
+        // [검증] 사전 투표를 완료한 상태(혹은 오디오 청취 완료 상태)인지 확인
+        UserBattleStatusResponse status = userBattleService.getUserBattleStatus(user, battle);
+        if (status.step() == UserBattleStep.NONE) {
+            throw new CustomException(ErrorCode.PRE_VOTE_REQUIRED);
         }
 
+        // 1. 사후 투표 업데이트
         vote.doPostVote(option);
 
-        return VoteConverter.toVoteResultResponse(vote);
+        // 2. 최종 완료 단계(COMPLETED)로 업데이트
+        userBattleService.upsertStep(user, battle, UserBattleStep.COMPLETED);
+
+        return new VoteResultResponse(vote.getId(), UserBattleStep.COMPLETED);
+    }
+
+    @Override
+    @Transactional
+    public void completeTts(Long battleId, Long userId) {
+        Battle battle = battleService.findById(battleId);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // 1. 엔티티 상태 변경 (isTtsListened = true)
+        Vote vote = voteRepository.findByBattleAndUser(battle, user)
+                .orElseThrow(() -> new CustomException(ErrorCode.VOTE_NOT_FOUND));
+        vote.completeTts();
+
+        // 2. 단계를 POST_VOTE(사후 투표 가능 단계)로 업데이트
+        userBattleService.upsertStep(user, battle, UserBattleStep.POST_VOTE);
     }
 }

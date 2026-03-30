@@ -27,6 +27,8 @@ public class JwtFilter extends OncePerRequestFilter {
 
     // 1. 스웨거 및 인증 관련 경로를 더 넓게 잡았습니다.
     private static final List<String> WHITELIST = List.of(
+            "/",
+            "/api/v1/admob/reward",
             "/swagger-ui",
             "/v3/api-docs",
             "/api/v1/admin/login",
@@ -41,8 +43,7 @@ public class JwtFilter extends OncePerRequestFilter {
             "/api/v1/home",      // 홈 화면
             "/api/v1/notices",   // 공지사항
             "/api/test",         // 테스트용
-            "/result",           // 공유 링크 리다이렉트
-            "/api/v1/admob/reward" // AdMob 관련
+            "/result"            // 공유 링크 리다이렉트
     );
 
     @Override
@@ -51,6 +52,8 @@ public class JwtFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
 
         String requestUri = request.getRequestURI();
+
+        log.info("[JwtFilter Debug] URI: {}, isWhitelisted: {}", requestUri, isWhitelisted(requestUri));
 
         // 화이트리스트 확인
         if (isWhitelisted(requestUri)) {

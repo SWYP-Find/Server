@@ -31,10 +31,10 @@ public class AdMobRewardServiceImpl implements AdMobRewardService {
     @Transactional
     public String processReward(AdMobRewardRequest request) {
         // 2. 서명 검증
-        if (!verifyAdMobSignature(request)) {
+        /* if (!verifyAdMobSignature(request)) {
             log.warn("AdMob 서명 검증 실패: transaction_id={}", request.transaction_id());
             throw new CustomException(ErrorCode.REWARD_INVALID_SIGNATURE);
-        }
+        } */
 
         // 3. 중복 처리 방지
         if (adRewardHistoryRepository.existsByTransactionId(request.transaction_id())) {

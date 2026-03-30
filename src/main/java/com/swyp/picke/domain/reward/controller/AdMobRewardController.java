@@ -30,7 +30,7 @@ public class AdMobRewardController {
     @Operation(summary = "AdMob 보상 콜백 수신")
     @GetMapping("/reward")
     public ApiResponse<AdMobRewardResponse> handleAdMobReward(
-            @ParameterObject @ModelAttribute AdMobRewardRequest request) {
+            AdMobRewardRequest request) {
         log.info("AdMob SSV 콜백 수신: transaction_id={}", request.transaction_id());
 
         // 서비스에서 "OK" 또는 "Already Processed" 수신

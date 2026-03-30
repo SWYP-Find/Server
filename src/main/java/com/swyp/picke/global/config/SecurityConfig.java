@@ -44,7 +44,7 @@ SecurityConfig {
                                 "/js/**", "/css/**", "/images/**", "/favicon.ico",
                                 "/api/v1/admin/login", "/api/v1/admin",
                                 "/result/**",
-                                "/api/v1/reward/admob/**"
+                                "/api/v1/admob/reward/**"
                         ).permitAll()
 
                         // 2. 관리자 HTML 화면 렌더링 요청
@@ -69,6 +69,7 @@ SecurityConfig {
 
         // 허용할 오리진(도메인) 설정
         configuration.setAllowedOrigins(List.of(
+                "http://localhost:8080",
                 "http://localhost:3000",
                 "https://picke.store",
                 "https://www.picke.store"

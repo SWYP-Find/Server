@@ -9,6 +9,7 @@ import com.swyp.picke.global.common.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -58,6 +59,14 @@ public class VoteController {
             @PathVariable Long battleId,
             @AuthenticationPrincipal Long userId) {
         voteService.completeTts(battleId, userId);
+        return ApiResponse.onSuccess(null);
+    }
+
+    @Operation(summary = "[관리자] 투표 삭제", description = "관리자가 특정 투표 기록을 강제로 삭제합니다. 관련 통계 및 유저 상태가 복구됩니다.")
+    @DeleteMapping("/admin/votes/{voteId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<Void> deleteVote(@PathVariable Long voteId) {
+        voteService.deleteVote(voteId);
         return ApiResponse.onSuccess(null);
     }
 }

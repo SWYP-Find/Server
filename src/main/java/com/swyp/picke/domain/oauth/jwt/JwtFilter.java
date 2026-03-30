@@ -42,7 +42,7 @@ public class JwtFilter extends OncePerRequestFilter {
             "/api/v1/notices",   // 공지사항
             "/api/test",         // 테스트용
             "/result",           // 공유 링크 리다이렉트
-            "/api/v1/reward/admob" // AdMob 관련
+            "/api/v1/admob/reward" // AdMob 관련
     );
 
     @Override

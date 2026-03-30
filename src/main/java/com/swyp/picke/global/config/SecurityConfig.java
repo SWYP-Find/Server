@@ -40,11 +40,11 @@ public class SecurityConfig {
                                 "/api/v1/notices/**",
                                 "/api/test/**",
                                 "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**",
-                                "/js/**", "/css/**", "/images/**", "/favicon.ico",
+                                "/js/**", "/css/**", "/favicon.ico",
                                 "/api/v1/admin/login", "/api/v1/admin",
                                 "/result/**",
-                                "/audio/**",
-                                "/scenarios/**",
+                                "/api/v1/resources/images/**",
+                                "/api/v1/resources/audio/**",
                                 "/api/v1/admob/reward/**"
                         ).permitAll()
 
@@ -70,7 +70,6 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         configuration.setAllowedOrigins(List.of(
-                "http://localhost:8080",
                 "http://localhost:3000",
                 "http://localhost:8080",
                 "https://picke.store",

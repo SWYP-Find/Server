@@ -11,11 +11,11 @@ import com.swyp.picke.domain.battle.repository.BattleOptionTagRepository;
 import com.swyp.picke.domain.tag.entity.Tag;
 import com.swyp.picke.domain.tag.enums.TagType;
 import com.swyp.picke.domain.user.entity.User;
-import com.swyp.picke.global.infra.s3.service.S3UploadService;
+import com.swyp.picke.global.infra.s3.enums.FileCategory;
+import com.swyp.picke.global.infra.s3.util.ResourceUrlProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
 import java.util.List;
 
 @Component
@@ -23,6 +23,7 @@ import java.util.List;
 public class BattleConverter {
 
     private final BattleOptionTagRepository optionTagRepository;
+    private final ResourceUrlProvider urlProvider;
     private static final String BASE_SHARE_URL = "https://pique.app/battles/";
 
     public Battle toEntity(AdminBattleCreateRequest request, User admin) {
@@ -45,98 +46,89 @@ public class BattleConverter {
                 .build();
     }
 
-    public TodayBattleResponse toTodayResponse(Battle b, List<Tag> tags, List<BattleOption> opts) {
+    public TodayBattleResponse toTodayResponse(Battle battle, List<Tag> tags, List<BattleOption> options) {
         return new TodayBattleResponse(
-                b.getId(),
-                b.getTitle(),
-                b.getSummary(),
-                b.getThumbnailUrl(),
-                b.getType(),
-                b.getViewCount() == null ? 0 : b.getViewCount(),
-                b.getTotalParticipantsCount() == null ? 0L : b.getTotalParticipantsCount(),
-                b.getAudioDuration() == null ? 0 : b.getAudioDuration(),
+                battle.getId(),
+                battle.getTitle(),
+                battle.getSummary(),
+                urlProvider.getImageUrl(FileCategory.BATTLE, battle.getThumbnailUrl()),
+                battle.getType(),
+                battle.getViewCount() == null ? 0 : battle.getViewCount(),
+                battle.getTotalParticipantsCount() == null ? 0L : battle.getTotalParticipantsCount(),
+                battle.getAudioDuration() == null ? 0 : battle.getAudioDuration(),
                 toTagResponses(tags, null),
-                toTodayOptionResponses(opts),
-                b.getTitlePrefix(),
-                b.getTitleSuffix(),
-                b.getItemA(),
-                b.getItemADesc(),
-                b.getItemB(),
-                b.getItemBDesc()
+                toTodayOptionResponses(options),
+                battle.getTitlePrefix(),
+                battle.getTitleSuffix(),
+                battle.getItemA(),
+                battle.getItemADesc(),
+                battle.getItemB(),
+                battle.getItemBDesc()
         );
     }
 
-    public BattleSimpleResponse toSimpleResponse(Battle b) {
+    public BattleSimpleResponse toSimpleResponse(Battle battle) {
         return new BattleSimpleResponse(
-                b.getId(),
-                b.getTitle(),
-                b.getType() != null ? b.getType().name() : "BATTLE",
-                b.getStatus() != null ? b.getStatus().name() : "PENDING",
-                b.getCreatedAt()
+                battle.getId(),
+                battle.getTitle(),
+                urlProvider.getImageUrl(FileCategory.BATTLE, battle.getThumbnailUrl()),
+                battle.getType() != null ? battle.getType().name() : "BATTLE",
+                battle.getStatus() != null ? battle.getStatus().name() : "PENDING",
+                battle.getCreatedAt()
         );
     }
 
-    // 관리자용 상세 응답 변환 (보안 URL 적용)
-    public AdminBattleDetailResponse toAdminDetailResponse(
-            Battle b, List<Tag> tags, List<BattleOption> opts, S3UploadService s3Service) {
-
-        // 썸네일 보안 URL
-        String secureThumbnail = (b.getThumbnailUrl() != null && !b.getThumbnailUrl().isBlank())
-                ? s3Service.getPresignedUrl(b.getThumbnailUrl(), Duration.ofMinutes(10))
-                : null;
-
+    public AdminBattleDetailResponse toAdminDetailResponse(Battle battle, List<Tag> tags, List<BattleOption> options) {
         return new AdminBattleDetailResponse(
-                b.getId(),
-                b.getTitle(),
-                b.getTitlePrefix(),
-                b.getTitleSuffix(),
-                b.getSummary(),
-                b.getDescription(),
-                secureThumbnail,
-                b.getType(),
-                b.getItemA(),
-                b.getItemADesc(),
-                b.getItemB(),
-                b.getItemBDesc(),
-                b.getTargetDate(),
-                b.getStatus(),
-                b.getCreatorType(),
+                battle.getId(),
+                battle.getTitle(),
+                battle.getTitlePrefix(),
+                battle.getTitleSuffix(),
+                battle.getSummary(),
+                battle.getDescription(),
+                urlProvider.getImageUrl(FileCategory.BATTLE, battle.getThumbnailUrl()),
+                battle.getType(),
+                battle.getItemA(),
+                battle.getItemADesc(),
+                battle.getItemB(),
+                battle.getItemBDesc(),
+                battle.getTargetDate(),
+                battle.getStatus(),
+                battle.getCreatorType(),
                 toTagResponses(tags, null),
-                toOptionResponses(opts, s3Service),
-                b.getCreatedAt(),
-                b.getUpdatedAt()
+                toOptionResponses(options),
+                battle.getCreatedAt(),
+                battle.getUpdatedAt()
         );
     }
 
-    // 유저 상세 응답 변환
     public BattleUserDetailResponse toUserDetailResponse(
-            Battle b, List<Tag> tags, List<BattleOption> opts,
-            Long partCount, String voteStatus, UserBattleStep currentStep,  String secureThumbnail,
-            S3UploadService s3Service) {
+            Battle battle, List<Tag> tags, List<BattleOption> options,
+            Long participantsCount, String voteStatus, UserBattleStep currentStep) {
 
         BattleSummaryResponse summary = new BattleSummaryResponse(
-                b.getId(),
-                b.getTitle(),
-                b.getSummary(),
-                secureThumbnail,
-                b.getType(),
-                b.getViewCount() == null ? 0 : b.getViewCount(),
-                partCount == null ? 0L : partCount,
-                b.getAudioDuration() == null ? 0 : b.getAudioDuration(),
+                battle.getId(),
+                battle.getTitle(),
+                battle.getSummary(),
+                urlProvider.getImageUrl(FileCategory.BATTLE, battle.getThumbnailUrl()),
+                battle.getType(),
+                battle.getViewCount() == null ? 0 : battle.getViewCount(),
+                participantsCount == null ? 0L : participantsCount,
+                battle.getAudioDuration() == null ? 0 : battle.getAudioDuration(),
                 toTagResponses(tags, null),
-                toOptionResponses(opts, s3Service)
+                toOptionResponses(options)
         );
 
         return new BattleUserDetailResponse(
                 summary,
-                b.getTitlePrefix(),
-                b.getTitleSuffix(),
-                b.getItemA(),
-                b.getItemADesc(),
-                b.getItemB(),
-                b.getItemBDesc(),
-                b.getDescription(),
-                BASE_SHARE_URL + b.getId(),
+                battle.getTitlePrefix(),
+                battle.getTitleSuffix(),
+                battle.getItemA(),
+                battle.getItemADesc(),
+                battle.getItemB(),
+                battle.getItemBDesc(),
+                battle.getDescription(),
+                BASE_SHARE_URL + battle.getId(),
                 voteStatus,
                 currentStep,
                 toTagResponses(tags, TagType.CATEGORY),
@@ -145,48 +137,40 @@ public class BattleConverter {
         );
     }
 
-    // 철학자 이미지 보안 처리를 포함한 옵션 응답 변환
-    private List<BattleOptionResponse> toOptionResponses(List<BattleOption> options, S3UploadService s3Service) {
+    private List<BattleOptionResponse> toOptionResponses(List<BattleOption> options) {
         if (options == null) return List.of();
-
         return options.stream()
-                .map(o -> {
-                    List<Tag> optionTags = optionTagRepository.findByBattleOption(o).stream()
+                .map(option -> {
+                    List<Tag> optionTags = optionTagRepository.findByBattleOption(option).stream()
                             .map(BattleOptionTag::getTag)
                             .toList();
-
-                    // 철학자 이미지 방어 로직 (null/공백일 경우 s3Service 호출 안 함)
-                    String securePhilosopherImg = (o.getImageUrl() != null && !o.getImageUrl().isBlank())
-                            ? s3Service.getPresignedUrl(o.getImageUrl(), Duration.ofMinutes(10))
-                            : null;
-
                     return new BattleOptionResponse(
-                            o.getId(),
-                            o.getLabel(),
-                            o.getTitle(),
-                            o.getStance(),
-                            o.getRepresentative(),
-                            o.getQuote(),
-                            securePhilosopherImg,
+                            option.getId(),
+                            option.getLabel(),
+                            option.getTitle(),
+                            option.getStance(),
+                            option.getRepresentative(),
+                            option.getQuote(),
+                            urlProvider.getImageUrl(FileCategory.PHILOSOPHER, option.getImageUrl()),
                             toTagResponses(optionTags, null)
                     );
                 }).toList();
     }
 
-    // 투데이 옵션 응답 변환
     private List<TodayOptionResponse> toTodayOptionResponses(List<BattleOption> options) {
         if (options == null) return List.of();
-        return options.stream().map(o -> new TodayOptionResponse(
-                o.getId(), o.getLabel(), o.getTitle(), o.getRepresentative(), o.getStance(), o.getImageUrl()
+        return options.stream().map(option -> new TodayOptionResponse(
+                option.getId(), option.getLabel(), option.getTitle(),
+                option.getRepresentative(), option.getStance(),
+                urlProvider.getImageUrl(FileCategory.PHILOSOPHER, option.getImageUrl())
         )).toList();
     }
 
-    // 태그 응답 변환
     private List<BattleTagResponse> toTagResponses(List<Tag> tags, TagType targetType) {
         if (tags == null) return List.of();
         return tags.stream()
-                .filter(t -> targetType == null || t.getType() == targetType)
-                .map(t -> new BattleTagResponse(t.getId(), t.getName(), t.getType()))
+                .filter(tag -> targetType == null || tag.getType() == targetType)
+                .map(tag -> new BattleTagResponse(tag.getId(), tag.getName(), tag.getType()))
                 .toList();
     }
 }

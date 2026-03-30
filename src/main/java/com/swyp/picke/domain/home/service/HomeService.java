@@ -10,7 +10,7 @@ import com.swyp.picke.domain.battle.service.BattleService;
 import com.swyp.picke.domain.home.dto.response.*;
 import com.swyp.picke.domain.notification.enums.NotificationCategory;
 import com.swyp.picke.domain.notification.service.NotificationService;
-import com.swyp.picke.domain.user.entity.PhilosopherType;
+import com.swyp.picke.domain.user.enums.PhilosopherType;
 import com.swyp.picke.global.infra.s3.service.S3PresignedUrlService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

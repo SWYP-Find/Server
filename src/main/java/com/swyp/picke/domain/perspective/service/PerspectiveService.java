@@ -18,7 +18,7 @@ import com.swyp.picke.domain.perspective.entity.Perspective;
 import com.swyp.picke.domain.perspective.repository.PerspectiveLikeRepository;
 import com.swyp.picke.domain.perspective.repository.PerspectiveRepository;
 import com.swyp.picke.domain.user.dto.response.UserSummary;
-import com.swyp.picke.domain.user.entity.CharacterType;
+import com.swyp.picke.domain.user.enums.CharacterType;
 import com.swyp.picke.domain.user.service.UserService;
 import com.swyp.picke.domain.vote.service.VoteService;
 import com.swyp.picke.global.common.exception.CustomException;
@@ -54,8 +54,9 @@ public class PerspectiveService {
             throw new CustomException(ErrorCode.PERSPECTIVE_NOT_FOUND);
         }
         UserSummary user = userQueryService.findSummaryById(perspective.getUser().getId());
-        String characterImageUrl = s3PresignedUrlService.generatePresignedUrl(
-                CharacterType.from(user.characterType()).getImageKey());
+        String characterImageUrl = user.characterType() != null
+                ? s3PresignedUrlService.generatePresignedUrl(CharacterType.from(user.characterType()).getImageKey())
+                : null;
         BattleOption option = perspective.getOption();
         boolean isLiked = perspectiveLikeRepository.existsByPerspectiveAndUserId(perspective, userId);
         return new PerspectiveDetailResponse(
@@ -123,8 +124,9 @@ public class PerspectiveService {
         List<PerspectiveListResponse.Item> items = perspectives.stream()
                 .map(p -> {
                     UserSummary user = userQueryService.findSummaryById(p.getUser().getId());
-                    String characterImageUrl = s3PresignedUrlService.generatePresignedUrl(
-                            CharacterType.from(user.characterType()).getImageKey());
+                    String characterImageUrl = user.characterType() != null
+                            ? s3PresignedUrlService.generatePresignedUrl(CharacterType.from(user.characterType()).getImageKey())
+                            : null;
                     BattleOption option = p.getOption();
                     boolean isLiked = perspectiveLikeRepository.existsByPerspectiveAndUserId(p, userId);
                     return new PerspectiveListResponse.Item(
@@ -171,8 +173,9 @@ public class PerspectiveService {
                 .orElseThrow(() -> new CustomException(ErrorCode.PERSPECTIVE_NOT_FOUND));
 
         UserSummary user = userQueryService.findSummaryById(userId);
-        String characterImageUrl = s3PresignedUrlService.generatePresignedUrl(
-                CharacterType.from(user.characterType()).getImageKey());
+        String characterImageUrl = user.characterType() != null
+                ? s3PresignedUrlService.generatePresignedUrl(CharacterType.from(user.characterType()).getImageKey())
+                : null;
         BattleOption option = perspective.getOption();
         boolean isLiked = perspectiveLikeRepository.existsByPerspectiveAndUserId(perspective, userId);
 

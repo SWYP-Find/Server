@@ -4,7 +4,7 @@ import com.swyp.picke.domain.battle.service.BattleQueryService;
 import com.swyp.picke.domain.user.dto.request.UpdateUserProfileRequest;
 import com.swyp.picke.domain.user.dto.response.MyProfileResponse;
 import com.swyp.picke.domain.user.dto.response.UserSummary;
-import com.swyp.picke.domain.user.entity.PhilosopherType;
+import com.swyp.picke.domain.user.enums.PhilosopherType;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.entity.UserProfile;
 import com.swyp.picke.domain.user.entity.UserSettings;
@@ -77,7 +77,8 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         UserProfile profile = findUserProfile(user.getId());
-        return new UserSummary(user.getUserTag(), profile.getNickname(), profile.getCharacterType().name());
+        String characterType = profile.getCharacterType() != null ? profile.getCharacterType().name() : null;
+        return new UserSummary(user.getUserTag(), profile.getNickname(), characterType);
     }
 
     public User findCurrentUser() {

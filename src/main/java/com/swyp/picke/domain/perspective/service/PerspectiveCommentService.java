@@ -15,7 +15,7 @@ import com.swyp.picke.domain.perspective.repository.PerspectiveRepository;
 import com.swyp.picke.domain.user.dto.response.UserSummary;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.repository.UserRepository;
-import com.swyp.picke.domain.user.entity.CharacterType;
+import com.swyp.picke.domain.user.enums.CharacterType;
 import com.swyp.picke.domain.user.service.UserService;
 import com.swyp.picke.domain.vote.service.VoteService;
 import com.swyp.picke.global.common.exception.CustomException;
@@ -61,8 +61,9 @@ public class PerspectiveCommentService {
         perspective.incrementCommentCount();
 
         UserSummary userSummary = userQueryService.findSummaryById(userId);
-        String characterImageUrl = s3PresignedUrlService.generatePresignedUrl(
-                CharacterType.from(userSummary.characterType()).getImageKey());
+        String characterImageUrl = userSummary.characterType() != null
+                ? s3PresignedUrlService.generatePresignedUrl(CharacterType.from(userSummary.characterType()).getImageKey())
+                : null;
         Long postVoteOptionId = voteService.findPostVoteOptionId(perspective.getBattle().getId(), userId);
         String stance = null;
         if (postVoteOptionId != null) {
@@ -96,8 +97,9 @@ public class PerspectiveCommentService {
                 .filter(c -> !c.isHidden())
                 .map(c -> {
                     UserSummary user = userQueryService.findSummaryById(c.getUser().getId());
-                    String characterImageUrl = s3PresignedUrlService.generatePresignedUrl(
-                            CharacterType.from(user.characterType()).getImageKey());
+                    String characterImageUrl = user.characterType() != null
+                            ? s3PresignedUrlService.generatePresignedUrl(CharacterType.from(user.characterType()).getImageKey())
+                            : null;
                     Long postVoteOptionId = voteService.findPostVoteOptionId(battleId, c.getUser().getId());
                     String stance = null;
                     if (postVoteOptionId != null) {

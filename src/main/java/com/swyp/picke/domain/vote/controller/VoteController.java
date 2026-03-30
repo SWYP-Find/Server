@@ -51,4 +51,13 @@ public class VoteController {
             @AuthenticationPrincipal Long userId) {
         return ApiResponse.onSuccess(voteService.getMyVote(battleId, userId));
     }
+
+    @Operation(summary = "오디오(TTS) 청취 완료 처리", description = "사전 투표 후, 오디오 재생이 완료되었을 때 호출하여 상태를 업데이트합니다.")
+    @PostMapping("/battles/{battleId}/votes/tts-complete")
+    public ApiResponse<Void> completeTts(
+            @PathVariable Long battleId,
+            @AuthenticationPrincipal Long userId) {
+        voteService.completeTts(battleId, userId);
+        return ApiResponse.onSuccess(null);
+    }
 }

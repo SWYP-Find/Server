@@ -23,8 +23,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableWebSecurity
 @EnableMethodSecurity
 @RequiredArgsConstructor
-public class
-SecurityConfig {
+public class SecurityConfig {
 
     private final JwtProvider jwtProvider;
 
@@ -44,16 +43,19 @@ SecurityConfig {
                                 "/js/**", "/css/**", "/images/**", "/favicon.ico",
                                 "/api/v1/admin/login", "/api/v1/admin",
                                 "/result/**",
+                                "/audio/**",
+                                "/scenarios/**",
                                 "/api/v1/admob/reward/**"
                         ).permitAll()
 
                         // 2. 관리자 HTML 화면 렌더링 요청
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/picke/**").permitAll()
 
-                        // 3. 단순 조회성 REST API (JS가 헤더에 토큰 실어서 요청)
+                        // 3. 단순 조회성 및 진행상태 업데이트 REST API
                         .requestMatchers(HttpMethod.GET, "/api/v1/tags", "/api/v1/battles/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/battles/**").authenticated()
 
-                        // 4. 관리자 전용 데이터 조작 REST API (생성, 수정, 삭제)
+                        // 4. 관리자 전용 데이터 조작 REST API
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
@@ -67,24 +69,18 @@ SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // 허용할 오리진(도메인) 설정
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:8080",
                 "http://localhost:3000",
+                "http://localhost:8080",
                 "https://picke.store",
                 "https://www.picke.store"
         ));
 
-        // 허용할 HTTP 메서드
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-
-        // 허용할 헤더
         configuration.setAllowedHeaders(List.of("*"));
-
-        // 자격 증명(쿠키, Authorization 헤더 등) 허용
         configuration.setAllowCredentials(true);
 
-        // 모든 경로(/**)에 대해 위 설정 적용
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

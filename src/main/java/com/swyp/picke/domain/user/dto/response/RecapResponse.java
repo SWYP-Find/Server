@@ -1,6 +1,6 @@
 package com.swyp.picke.domain.user.dto.response;
 
-import com.swyp.picke.domain.user.entity.PhilosopherType;
+import com.swyp.picke.domain.user.enums.PhilosopherType;
 
 import java.util.List;
 

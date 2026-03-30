@@ -1,8 +1,8 @@
 package com.swyp.picke.domain.vote.dto.response;
 
-import com.swyp.picke.domain.vote.enums.VoteStatus;
+import com.swyp.picke.domain.user.enums.UserBattleStep;
 
 public record VoteResultResponse(
         Long voteId,
-        VoteStatus status
+        UserBattleStep status
 ) {}

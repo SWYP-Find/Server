@@ -1,5 +1,7 @@
 package com.swyp.picke.domain.user.entity;
 
+import com.swyp.picke.domain.user.enums.CharacterType;
+import com.swyp.picke.domain.user.enums.PhilosopherType;
 import com.swyp.picke.global.common.BaseEntity;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

@@ -1,4 +1,4 @@
-package com.swyp.picke.domain.user.entity;
+package com.swyp.picke.domain.user.enums;
 
 public enum VoteSide {
     PRO,

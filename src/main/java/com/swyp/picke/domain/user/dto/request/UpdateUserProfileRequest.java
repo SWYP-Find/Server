@@ -1,6 +1,6 @@
 package com.swyp.picke.domain.user.dto.request;
 
-import com.swyp.picke.domain.user.entity.CharacterType;
+import com.swyp.picke.domain.user.enums.CharacterType;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Size;
 

@@ -3,7 +3,6 @@ package com.swyp.picke.domain.vote.service;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.enums.BattleOptionLabel;
 import com.swyp.picke.domain.vote.entity.Vote;
-import com.swyp.picke.domain.vote.enums.VoteStatus;
 import com.swyp.picke.domain.vote.repository.VoteRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -42,7 +41,7 @@ public class VoteQueryService {
 
     public int calculateBattleWinRate(Long userId) {
         List<Vote> postVotes = voteRepository.findByUserId(userId).stream()
-                .filter(v -> v.getStatus() == VoteStatus.POST_VOTED && v.getPostVoteOption() != null)
+                .filter(v -> v.getPostVoteOption() != null)
                 .toList();
 
         if (postVotes.isEmpty()) return 0;

@@ -32,6 +32,7 @@ SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
@@ -42,7 +43,8 @@ SecurityConfig {
                                 "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**",
                                 "/js/**", "/css/**", "/images/**", "/favicon.ico",
                                 "/api/v1/admin/login", "/api/v1/admin",
-                                "/result/**"
+                                "/result/**",
+                                "/api/v1/reward/admob/**"
                         ).permitAll()
 
                         // 2. 관리자 HTML 화면 렌더링 요청

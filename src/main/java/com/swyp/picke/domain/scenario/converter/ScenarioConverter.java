@@ -47,6 +47,7 @@ public class ScenarioConverter {
 
         return UserScenarioResponse.builder()
                 .battleId(scenario.getBattle().getId())
+                .title(scenario.getBattle().getTitle())
                 .isInteractive(scenario.getIsInteractive())
                 .startNodeId(startNodeId)
                 .recommendedPathKey(recommendedPathKey)
@@ -62,6 +63,7 @@ public class ScenarioConverter {
         return AdminScenarioDetailResponse.builder()
                 .scenarioId(scenario.getId())
                 .battleId(scenario.getBattle().getId())
+                .title(scenario.getBattle().getTitle())
                 .isInteractive(scenario.getIsInteractive())
                 .nodes(scenario.getNodes().stream()
                         .map(this::toAdminNodeResponse)

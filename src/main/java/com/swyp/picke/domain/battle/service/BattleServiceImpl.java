@@ -11,6 +11,8 @@ import com.swyp.picke.domain.battle.entity.BattleTag;
 import com.swyp.picke.domain.battle.enums.BattleOptionLabel;
 import com.swyp.picke.domain.battle.enums.BattleStatus;
 import com.swyp.picke.domain.battle.enums.BattleType;
+import com.swyp.picke.domain.user.dto.response.UserBattleStatusResponse;
+import com.swyp.picke.domain.user.enums.UserBattleStep;
 import com.swyp.picke.domain.battle.repository.BattleOptionRepository;
 import com.swyp.picke.domain.battle.repository.BattleOptionTagRepository;
 import com.swyp.picke.domain.battle.repository.BattleRepository;
@@ -19,10 +21,13 @@ import com.swyp.picke.domain.tag.entity.Tag;
 import com.swyp.picke.domain.tag.repository.TagRepository;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.repository.UserRepository;
+import com.swyp.picke.domain.user.service.UserBattleService;
+import com.swyp.picke.domain.vote.entity.Vote;
 import com.swyp.picke.domain.vote.repository.VoteRepository;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import com.swyp.picke.global.infra.s3.service.S3UploadService;
+import com.swyp.picke.global.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -33,10 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -53,6 +55,7 @@ public class BattleServiceImpl implements BattleService {
     private final VoteRepository voteRepository;
     private final BattleConverter battleConverter;
     private final S3UploadService s3UploadService;
+    private final UserBattleService userBattleService;
 
     @Override
     public Battle findById(Long battleId) {
@@ -144,21 +147,29 @@ public class BattleServiceImpl implements BattleService {
         List<Tag> tags = getTagsByBattle(battle);
         List<BattleOption> options = battleOptionRepository.findByBattle(battle);
 
-        // 1. 썸네일 보안 URL 생성
         String secureThumbnail = s3UploadService.getPresignedUrl(battle.getThumbnailUrl(), Duration.ofMinutes(10));
-        String voteStatus = voteRepository.findByBattleIdAndUserId(battleId, 1L)
+
+        // 💡 [수정] SecurityUtils를 통한 실제 로그인 유저 조회
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+        User user = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // 💡 [수정] UserBattleService를 사용하여 현재 진행 단계 조회
+        UserBattleStatusResponse statusResponse = userBattleService.getUserBattleStatus(user, battle);
+        UserBattleStep currentStep = statusResponse.step();
+
+        // 투표 여부 라벨 확인 (기존 VoteRepository 활용 유지)
+        Optional<Vote> optionalVote = voteRepository.findByBattleIdAndUserId(battleId, currentUserId);
+        String voteStatus = optionalVote
                 .map(v -> v.getPostVoteOption() != null ? v.getPostVoteOption().getLabel().name() : "NONE")
                 .orElse("NONE");
 
-        // 2. 컨버터를 통해 전체 조립 (철학자 이미지는 컨버터 내부에서 s3UploadService로 처리)
         return battleConverter.toUserDetailResponse(
-                battle,
-                tags,
-                options,
+                battle, tags, options,
                 battle.getTotalParticipantsCount(),
-                "NONE",
-                secureThumbnail,
-                s3UploadService // 철학자 이미지 변환을 위해 전달
+                voteStatus,
+                currentStep,
+                secureThumbnail, s3UploadService
         );
     }
 
@@ -169,17 +180,39 @@ public class BattleServiceImpl implements BattleService {
         BattleOption option = battleOptionRepository.findById(optionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));
 
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+        User user = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // 1. [기록] 투표 기록 저장 (VoteStatus.COMPLETED 제거)
+        voteRepository.save(Vote.builder()
+                .user(user)
+                .battle(battle)
+                .postVoteOption(option)
+                // .status(...) 필드 설정 삭제
+                .build());
+
+        // 2. [단계] UserBattleStep 업데이트
+        userBattleService.upsertStep(user, battle, UserBattleStep.PRE_VOTE);
+
+        // 3. [통계] 카운트 증가
         battle.addParticipant();
         option.increaseVoteCount();
 
-        List<OptionStatResponse> results = battleOptionRepository.findByBattle(battle).stream().map(opt -> {
+        // 4. [응답] 통계 결과 계산
+        List<OptionStatResponse> results = calculateOptionStats(battle);
+
+        return new BattleVoteResponse(battle.getId(), option.getId(), battle.getTotalParticipantsCount(), results);
+    }
+
+    // 통계 계산 로직 중복 제거를 위한 헬퍼 메서드
+    private List<OptionStatResponse> calculateOptionStats(Battle battle) {
+        return battleOptionRepository.findByBattle(battle).stream().map(opt -> {
             Long v = opt.getVoteCount() == null ? 0L : opt.getVoteCount();
             Long t = battle.getTotalParticipantsCount() == null ? 0L : battle.getTotalParticipantsCount();
             Double r = (t == 0L) ? 0.0 : Math.round((double) v / t * 1000) / 10.0;
             return new OptionStatResponse(opt.getId(), opt.getLabel(), opt.getTitle(), v, r);
         }).toList();
-
-        return new BattleVoteResponse(battle.getId(), option.getId(), battle.getTotalParticipantsCount(), results);
     }
 
     // [관리자용 API]

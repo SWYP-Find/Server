@@ -5,7 +5,6 @@ import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.enums.BattleOptionLabel;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.vote.entity.Vote;
-import com.swyp.picke.domain.vote.enums.VoteStatus;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -40,10 +39,9 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
     @Query("SELECT COUNT(v) FROM Vote v WHERE v.user.id = :userId AND v.preVoteOption.label = :label")
     long countByUserIdAndPreVoteOptionLabel(@Param("userId") Long userId, @Param("label") BattleOptionLabel label);
 
-    long countByUserIdAndStatus(Long userId, VoteStatus status);
-
-    @Query("SELECT COUNT(v) FROM Vote v WHERE v.user.id = :userId AND v.status = 'POST_VOTED' " +
-           "AND v.preVoteOption <> v.postVoteOption")
+    @Query("SELECT COUNT(v) FROM Vote v WHERE v.user.id = :userId " +
+            "AND v.postVoteOption IS NOT NULL " +
+            "AND v.preVoteOption <> v.postVoteOption")
     long countOpinionChangesByUserId(@Param("userId") Long userId);
 
     List<Vote> findByUserId(Long userId);

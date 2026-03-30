@@ -6,6 +6,7 @@ import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.entity.BattleOptionTag;
 import com.swyp.picke.domain.battle.enums.BattleCreatorType;
+import com.swyp.picke.domain.user.enums.UserBattleStep;
 import com.swyp.picke.domain.battle.repository.BattleOptionTagRepository;
 import com.swyp.picke.domain.tag.entity.Tag;
 import com.swyp.picke.domain.tag.enums.TagType;
@@ -70,7 +71,7 @@ public class BattleConverter {
                 b.getId(),
                 b.getTitle(),
                 b.getType() != null ? b.getType().name() : "BATTLE",
-                b.getStatus() != null ? b.getStatus().name() : "DRAFT",
+                b.getStatus() != null ? b.getStatus().name() : "PENDING",
                 b.getCreatedAt()
         );
     }
@@ -110,7 +111,7 @@ public class BattleConverter {
     // 유저 상세 응답 변환
     public BattleUserDetailResponse toUserDetailResponse(
             Battle b, List<Tag> tags, List<BattleOption> opts,
-            Long partCount, String voteStatus, String secureThumbnail,
+            Long partCount, String voteStatus, UserBattleStep currentStep,  String secureThumbnail,
             S3UploadService s3Service) {
 
         BattleSummaryResponse summary = new BattleSummaryResponse(
@@ -137,6 +138,7 @@ public class BattleConverter {
                 b.getDescription(),
                 BASE_SHARE_URL + b.getId(),
                 voteStatus,
+                currentStep,
                 toTagResponses(tags, TagType.CATEGORY),
                 toTagResponses(tags, TagType.PHILOSOPHER),
                 toTagResponses(tags, TagType.VALUE)

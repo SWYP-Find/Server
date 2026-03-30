@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.vote.converter;
 
 import com.swyp.picke.domain.battle.entity.BattleOption;
+import com.swyp.picke.domain.user.enums.UserBattleStep;
 import com.swyp.picke.domain.vote.dto.response.MyVoteResponse;
 import com.swyp.picke.domain.vote.dto.response.VoteResultResponse;
 import com.swyp.picke.domain.vote.dto.response.VoteStatsResponse;
@@ -11,21 +12,22 @@ import java.util.List;
 
 public class VoteConverter {
 
-    // 투표 실행 결과 변환
-    public static VoteResultResponse toVoteResultResponse(Vote vote) {
-        return new VoteResultResponse(vote.getId(), vote.getStatus());
+    // [수정] UserBattleStep을 인자로 받도록 변경
+    public static VoteResultResponse toVoteResultResponse(Vote vote, UserBattleStep step) {
+        return new VoteResultResponse(vote.getId(), step);
     }
 
-    // 내 투표 내역 변환
-    public static MyVoteResponse toMyVoteResponse(Vote vote) {
+    // [수정] UserBattleStep을 인자로 받아 MyVoteResponse의 status 필드에 매핑
+    public static MyVoteResponse toMyVoteResponse(Vote vote, UserBattleStep step) {
         boolean opinionChanged = vote.getPreVoteOption() != null
                 && vote.getPostVoteOption() != null
                 && !vote.getPreVoteOption().getId().equals(vote.getPostVoteOption().getId());
+
         return new MyVoteResponse(
                 vote.getBattle().getTitle(),
                 toOptionInfo(vote.getPreVoteOption()),
                 toOptionInfo(vote.getPostVoteOption()),
-                vote.getStatus(),
+                step, // 외부에서 넘겨받은 UserBattleStep 사용
                 opinionChanged
         );
     }

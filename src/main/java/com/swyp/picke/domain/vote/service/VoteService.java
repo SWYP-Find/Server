@@ -19,4 +19,6 @@ public interface VoteService {
     VoteResultResponse preVote(Long battleId, Long userId, VoteRequest request);
 
     VoteResultResponse postVote(Long battleId, Long userId, VoteRequest request);
+
+    void completeTts(Long battleId, Long userId);
 }

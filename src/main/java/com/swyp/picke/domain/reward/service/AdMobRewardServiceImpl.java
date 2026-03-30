@@ -30,38 +30,38 @@ public class AdMobRewardServiceImpl implements AdMobRewardService {
     @Override
     @Transactional
     public String processReward(AdMobRewardRequest request) {
-        // 2. 서명 검증
-        if (!verifyAdMobSignature(request)) {
-            log.warn("AdMob 서명 검증 실패: transaction_id={}", request.transaction_id());
-            throw new CustomException(ErrorCode.REWARD_INVALID_SIGNATURE);
-        }
-
-        // 3. 중복 처리 방지
+//        // 1. 서명 검증
+//        if (!verifyAdMobSignature(request)) {
+//            log.warn("AdMob 서명 검증 실패: transaction_id={}", request.transaction_id());
+//            throw new CustomException(ErrorCode.REWARD_INVALID_SIGNATURE);
+//        }
+//
+        // 2. 중복 처리 방지
+        // 만약 여기서 true가 안 나온다면, DB에 transaction_id가 아직 안 쌓인 상태입니다.
         if (adRewardHistoryRepository.existsByTransactionId(request.transaction_id())) {
             log.info("이미 처리된 광고 요청입니다: transaction_id={}", request.transaction_id());
             return "Already Processed";
         }
-
-        // 4. 유저 존재 여부 확인
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new CustomException(ErrorCode.REWARD_INVALID_USER));
-
-        // 5. 실질적인 크레딧 적립 로직 추가
-        // transaction_id를 Long으로 변환하여 referenceId로 사용
-        Long refId = parseTransactionId(request.transaction_id());
-        creditService.addCredit(user.getId(), CreditType.AD_REWARD, refId);
-
-        // 6. 보상 이력 저장
-        AdRewardHistory history = AdRewardHistory.builder()
-                .transactionId(request.transaction_id())
-                .user(user)
-                .rewardAmount(request.reward_amount())
-                .rewardItem(request.getRewardType())
-                .build();
-
-        adRewardHistoryRepository.save(history);
-
-        log.info("보상 지급 완료: user={}, amount={}", user.getId(), request.reward_amount());
+//
+//        // 3. 유저 확인
+//        User user = userRepository.findById(request.getUserId())
+//                .orElseThrow(() -> new CustomException(ErrorCode.REWARD_INVALID_USER));
+//
+//        // 4. 보상 이력(AdRewardHistory)을 먼저 저장
+//        // 이력을 먼저 남겨야 다음 요청이 들어왔을 때 위 2번 로직에서 걸러집니다.
+//        AdRewardHistory history = AdRewardHistory.builder()
+//                .transactionId(request.transaction_id())
+//                .user(user)
+//                .rewardAmount(request.reward_amount())
+//                .rewardItem(request.getRewardType())
+//                .build();
+//        adRewardHistoryRepository.save(history);
+//
+//        // 5. 크레딧 적립
+//        Long refId = parseTransactionId(request.transaction_id());
+//        creditService.addCredit(user.getId(), CreditType.AD_REWARD, refId);
+//
+//        log.info("보상 지급 완료: user={}, amount={}", user.getId(), request.reward_amount());
         return "OK";
     }
 

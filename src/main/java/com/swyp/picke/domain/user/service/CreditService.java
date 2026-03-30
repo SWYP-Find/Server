@@ -1,7 +1,7 @@
 package com.swyp.picke.domain.user.service;
 
 import com.swyp.picke.domain.user.entity.CreditHistory;
-import com.swyp.picke.domain.user.entity.TierCode;
+import com.swyp.picke.domain.user.enums.TierCode;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.enums.CreditType;
 import com.swyp.picke.domain.user.repository.CreditHistoryRepository;

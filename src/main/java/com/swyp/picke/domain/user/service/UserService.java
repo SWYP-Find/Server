@@ -4,7 +4,7 @@ import com.swyp.picke.domain.battle.service.BattleQueryService;
 import com.swyp.picke.domain.user.dto.request.UpdateUserProfileRequest;
 import com.swyp.picke.domain.user.dto.response.MyProfileResponse;
 import com.swyp.picke.domain.user.dto.response.UserSummary;
-import com.swyp.picke.domain.user.entity.PhilosopherType;
+import com.swyp.picke.domain.user.enums.PhilosopherType;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.entity.UserProfile;
 import com.swyp.picke.domain.user.entity.UserSettings;

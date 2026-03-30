@@ -8,8 +8,8 @@ import com.swyp.picke.domain.user.dto.response.MypageResponse;
 import com.swyp.picke.domain.user.dto.response.MyProfileResponse;
 import com.swyp.picke.domain.user.dto.response.NotificationSettingsResponse;
 import com.swyp.picke.domain.user.dto.response.RecapResponse;
-import com.swyp.picke.domain.user.entity.ActivityType;
-import com.swyp.picke.domain.user.entity.VoteSide;
+import com.swyp.picke.domain.user.enums.ActivityType;
+import com.swyp.picke.domain.user.enums.VoteSide;
 
 import com.swyp.picke.domain.user.service.MypageService;
 import com.swyp.picke.domain.user.service.UserService;

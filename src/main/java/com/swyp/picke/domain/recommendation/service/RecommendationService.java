@@ -9,7 +9,7 @@ import com.swyp.picke.domain.battle.repository.BattleRepository;
 import com.swyp.picke.domain.battle.service.BattleService;
 import com.swyp.picke.domain.recommendation.dto.response.RecommendationListResponse;
 import com.swyp.picke.domain.tag.enums.TagType;
-import com.swyp.picke.domain.user.entity.PhilosopherType;
+import com.swyp.picke.domain.user.enums.PhilosopherType;
 import com.swyp.picke.domain.user.service.UserService;
 import com.swyp.picke.domain.vote.repository.VoteRepository;
 import lombok.RequiredArgsConstructor;

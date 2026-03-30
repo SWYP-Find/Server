@@ -54,8 +54,6 @@ admob:
   app-id: ${ADMOB_APP_ID}
   reward:
     unit-id: ${ADMOB_REWARD_UNIT_ID}
-    amount: ${ADMOB_REWARD_AMOUNT:50}
-    type: ${ADMOB_REWARD_TYPE:POINT}
 
 openai:
   api-key: ${OPENAI_API_KEY}

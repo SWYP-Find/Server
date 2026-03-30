@@ -45,7 +45,7 @@ public class SecurityConfig {
                                 "/result/**",
                                 "/audio/**",
                                 "/scenarios/**",
-                                "/api/v1/reward/admob/**"
+                                "/api/v1/admob/reward/**"
                         ).permitAll()
 
                         // 2. 관리자 HTML 화면 렌더링 요청
@@ -70,6 +70,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         configuration.setAllowedOrigins(List.of(
+                "http://localhost:8080",
                 "http://localhost:3000",
                 "http://localhost:8080",
                 "https://picke.store",

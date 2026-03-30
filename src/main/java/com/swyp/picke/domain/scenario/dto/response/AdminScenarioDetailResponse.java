@@ -7,6 +7,7 @@ import java.util.List;
 public record AdminScenarioDetailResponse(
         Long scenarioId,
         Long battleId,
+        String title,
         Boolean isInteractive,
         List<NodeResponse> nodes
 ) {}

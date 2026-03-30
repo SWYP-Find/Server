@@ -27,7 +27,6 @@ public class JwtFilter extends OncePerRequestFilter {
 
     // 1. 스웨거 및 인증 관련 경로를 더 넓게 잡았습니다.
     private static final List<String> WHITELIST = List.of(
-            "/",
             "/api/v1/admob/reward",
             "/swagger-ui",
             "/v3/api-docs",

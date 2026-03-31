@@ -157,8 +157,8 @@ window.saveContent = async (action) => {
                     if (speakerSelect && scriptTextArea) {
                         const speakerType = speakerSelect.value;
                         let speakerName = '나레이터';
-                        if (speakerType === 'A') speakerName = document.getElementById('char-a-title')?.value || '인물 A';
-                        if (speakerType === 'B') speakerName = document.getElementById('char-b-title')?.value || '인물 B';
+                        if (speakerType === 'A') speakerName = document.getElementById('char-a-rep')?.value || '인물 A';
+                        if (speakerType === 'B') speakerName = document.getElementById('char-b-rep')?.value || '인물 B';
                         scripts.push({ speakerType, speakerName, text: scriptTextArea.value });
                     }
                 });
@@ -181,7 +181,7 @@ window.saveContent = async (action) => {
             const scenRes = await fetch(scenUrl, { method: scenMethod, headers: PickeData.getAuthHeaders(), body: JSON.stringify(scenarioPayload) });
             if (!scenRes.ok) throw new Error("시나리오 데이터 저장 실패");
             const scenData = await scenRes.json();
-            if (!PickeData.scenarioId) PickeData.scenarioId = scenData.result?.scenarioId || scenData.result?.id || scenData.data?.scenarioId || scenData.data?.id || null;
+            if (!PickeData.scenarioId) PickeData.scenarioId = scenData.result?.scenarioId || scenData.result?.id || scenData.data?.scenarioId || scenData.data?.id || scenData.result || scenData.data || null;
 
             // 발행(PUBLISH) 버튼을 눌렀을 때만 오디오 생성
             if (action === 'PUBLISH' && PickeData.scenarioId) {

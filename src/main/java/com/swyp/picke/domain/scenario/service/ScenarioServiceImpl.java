@@ -1,6 +1,8 @@
 package com.swyp.picke.domain.scenario.service;
 
 import com.swyp.picke.domain.battle.entity.Battle;
+import com.swyp.picke.domain.battle.entity.BattleOption;
+import com.swyp.picke.domain.battle.repository.BattleOptionRepository;
 import com.swyp.picke.domain.battle.repository.BattleRepository;
 import com.swyp.picke.domain.scenario.converter.ScenarioConverter;
 import com.swyp.picke.domain.scenario.dto.request.NodeRequest;
@@ -33,6 +35,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -47,6 +50,7 @@ public class ScenarioServiceImpl implements ScenarioService {
     private final ScenarioConverter scenarioConverter;
     private final ScenarioAudioPipelineService audioPipelineService;
     private final S3UploadService s3Service;
+    private final BattleOptionRepository battleOptionRepository;
 
     // [유저용] 시나리오 조회 (투표 기반 맞춤 오디오 제공)
     @Override
@@ -103,8 +107,9 @@ public class ScenarioServiceImpl implements ScenarioService {
         // 1. 부모 시나리오 먼저 저장 (ID 발급)
         scenarioRepository.save(scenario);
 
-        // 2. 노드 및 스크립트 저장 (이때 모든 Script의 audioUrl은 null 상태)
-        smartUpdateNodesToScenario(scenario, request);
+        // 2. 노드 및 스크립트 저장 시 speakerMap 생성 및 전달
+        Map<String, String> speakerMap = createSpeakerMap(battle);
+        smartUpdateNodesToScenario(scenario, request, speakerMap);
 
         // 3. 오디오 파이프라인 호출 (트랜잭션 커밋 후 비동기 실행)
         triggerAudioPipeline(scenario.getId());
@@ -119,12 +124,9 @@ public class ScenarioServiceImpl implements ScenarioService {
         Scenario scenario = scenarioRepository.findById(scenarioId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SCENARIO_NOT_FOUND));
 
-        if (scenario.getStatus() == ScenarioStatus.PUBLISHED) {
-            throw new CustomException(ErrorCode.SCENARIO_ALREADY_PUBLISHED);
-        }
-
-        // 스마트 업데이트 로직 호출 (수정 사항이 있었는지 boolean으로 반환받음)
-        boolean isModified = smartUpdateNodesToScenario(scenario, request);
+        // 스마트 업데이트 로직 호출 시 speakerMap 생성 및 전달
+        Map<String, String> speakerMap = createSpeakerMap(scenario.getBattle());
+        boolean isModified = smartUpdateNodesToScenario(scenario, request, speakerMap);
 
         // 대본 내용(노드, 대사 등)이 하나라도 바뀌었다면?
         if (isModified) {
@@ -173,7 +175,7 @@ public class ScenarioServiceImpl implements ScenarioService {
     }
 
     // 부분 업데이트 및 노드 삭제 시 S3 정리 로직
-    private boolean smartUpdateNodesToScenario(Scenario scenario, ScenarioCreateRequest request) {
+    private boolean smartUpdateNodesToScenario(Scenario scenario, ScenarioCreateRequest request, Map<String, String> speakerMap) {
         boolean isModified = false;
         Map<String, ScenarioNode> existingNodeMap = new HashMap<>();
         for (ScenarioNode node : scenario.getNodes()) {
@@ -188,7 +190,7 @@ public class ScenarioServiceImpl implements ScenarioService {
                 existingNode.updateBasicInfo(nodeReq.isStartNode());
 
                 // 대사 변경 여부 체크
-                boolean scriptChanged = updateScriptsSmartly(existingNode, nodeReq.scripts());
+                boolean scriptChanged = updateScriptsSmartly(existingNode, nodeReq.scripts(), speakerMap);
                 if (scriptChanged) isModified = true;
 
                 updatedNodeMap.put(existingNode.getNodeName(), existingNode);
@@ -203,10 +205,11 @@ public class ScenarioServiceImpl implements ScenarioService {
 
                 if (nodeReq.scripts() != null) {
                     for (ScriptRequest scriptReq : nodeReq.scripts()) {
+                        String autoSpeakerName = speakerMap.getOrDefault(scriptReq.speakerType(), scriptReq.speakerName());
                         newNode.addScript(Script.builder()
                                 .startTimeMs(0)
                                 .speakerType(scriptReq.speakerType())
-                                .speakerName(scriptReq.speakerName())
+                                .speakerName(autoSpeakerName)
                                 .text(scriptReq.text())
                                 .build());
                     }
@@ -266,28 +269,29 @@ public class ScenarioServiceImpl implements ScenarioService {
     }
 
     // 텍스트 변경 및 대사 삭제 시 S3 정리 로직
-    private boolean updateScriptsSmartly(ScenarioNode existingNode, java.util.List<ScriptRequest> requestedScripts) {
+    private boolean updateScriptsSmartly(ScenarioNode existingNode, java.util.List<ScriptRequest> requestedScripts, Map<String, String> speakerMap) {
         boolean isModified = false;
         if (requestedScripts == null) return false;
         java.util.List<Script> existingScripts = existingNode.getScripts();
 
         for (int i = 0; i < requestedScripts.size(); i++) {
             ScriptRequest reqScript = requestedScripts.get(i);
+            String autoSpeakerName = speakerMap.getOrDefault(reqScript.speakerType(), reqScript.speakerName());
 
             if (i < existingScripts.size()) {
                 Script existingScript = existingScripts.get(i);
 
                 // 텍스트가 달라졌다면?
-                if (!existingScript.getText().equals(reqScript.text())) {
+                if (!existingScript.getText().equals(reqScript.text()) || !existingScript.getSpeakerName().equals(autoSpeakerName)) {
                     isModified = true;
                     // 1. S3에서 기존 오디오 조각 파일 완전히 삭제
                     if (existingScript.getAudioUrl() != null) {
                         s3Service.deleteFile(existingScript.getAudioUrl());
                     }
-                    // 2. DB 업데이트 및 audioUrl null 처리 (엔티티의 updateContent 호출)
+                    // 2. DB 업데이트
                     existingScript.updateContent(
                             reqScript.speakerType(),
-                            reqScript.speakerName(),
+                            autoSpeakerName,
                             reqScript.text()
                     );
                 }
@@ -296,7 +300,7 @@ public class ScenarioServiceImpl implements ScenarioService {
                 existingNode.addScript(Script.builder()
                         .startTimeMs(0)
                         .speakerType(reqScript.speakerType())
-                        .speakerName(reqScript.speakerName())
+                        .speakerName(autoSpeakerName)
                         .text(reqScript.text())
                         .build());
             }
@@ -313,5 +317,20 @@ public class ScenarioServiceImpl implements ScenarioService {
         }
 
         return isModified;
+    }
+
+    private Map<String, String> createSpeakerMap(Battle battle) {
+        Map<String, String> map = new HashMap<>();
+        map.put("NARRATOR", "나레이터");
+        List<BattleOption> options = battleOptionRepository.findByBattle(battle);
+
+        if (options != null) {
+            for (BattleOption option : options) {
+                String key = String.valueOf(option.getLabel());
+                map.put(key, option.getRepresentative());
+            }
+        }
+
+        return map;
     }
 }

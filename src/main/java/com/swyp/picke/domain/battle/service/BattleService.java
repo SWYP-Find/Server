@@ -7,6 +7,7 @@ import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.enums.BattleOptionLabel;
 import com.swyp.picke.domain.battle.enums.BattleType;
+import com.swyp.picke.domain.user.dto.response.UserBattleStatusResponse;
 
 import java.util.List;
 
@@ -49,6 +50,9 @@ public interface BattleService {
     // 투표 실행 및 실시간 통계 결과 반환
     BattleVoteResponse vote(Long battleId, Long optionId);
 
+    BattleScenarioResponse getBattleScenario(Long battleId);
+
+    UserBattleStatusResponse getUserBattleStatus(Long battleId);
 
     // === [관리자용 API] ===
 

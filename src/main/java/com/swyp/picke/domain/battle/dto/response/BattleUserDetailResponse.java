@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.battle.dto.response;
 
 import com.swyp.picke.domain.user.enums.UserBattleStep;
+import com.swyp.picke.domain.user.enums.VoteSide;
 
 import java.util.List;
 
@@ -18,7 +19,7 @@ public record BattleUserDetailResponse(
         String itemBDesc,
         String description,               // 상세 본문 설명
         String shareUrl,                  // 공유하기 버튼용 링크
-        String userVoteStatus,            // 현재 유저의 투표 상태
+        VoteSide userVoteStatus,            // 현재 유저의 투표 상태
         UserBattleStep currentStep,
         List<BattleTagResponse> categoryTags,    // UI 상단용 카테고리 태그
         List<BattleTagResponse> philosopherTags, // UI 하단용 철학자 태그

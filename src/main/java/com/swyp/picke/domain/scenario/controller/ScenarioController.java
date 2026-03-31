@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.scenario.controller;
 
+import com.swyp.picke.domain.battle.service.BattleService;
 import com.swyp.picke.domain.scenario.dto.request.ScenarioCreateRequest;
 import com.swyp.picke.domain.scenario.dto.request.ScenarioStatusUpdateRequest;
 import com.swyp.picke.domain.scenario.dto.response.AdminDeleteResponse;
@@ -24,14 +25,27 @@ import java.util.Map;
 public class ScenarioController {
 
     private final ScenarioService scenarioService;
+    private final BattleService battleService;
 
-    @Operation(summary = "배틀 - 시나리오 조회")
+    @Operation(summary = "시나리오 통합 조회")
     @GetMapping("/battles/{battleId}/scenario")
     public ApiResponse<UserScenarioResponse> getBattleScenario(
             @PathVariable Long battleId,
             @RequestAttribute(value = "userId", required = false) Long userId
     ) {
-        return ApiResponse.onSuccess(scenarioService.getScenarioForUser(battleId, userId));
+        // 1. 배틀 데이터 조회 (제목, 철학자 리스트)
+        var battleInfo = battleService.getBattleScenario(battleId);
+
+        // 2. 시나리오 데이터 조회 (노드, 대사, 오디오 등)
+        var scenarioInfo = scenarioService.getScenarioForUser(battleId, userId);
+
+        // 3. UserScenarioResponse 최상단에 바로 값 세팅
+        UserScenarioResponse response = scenarioInfo.toBuilder()
+                .title(battleInfo.title())
+                .philosophers(battleInfo.philosophers())
+                .build();
+
+        return ApiResponse.onSuccess(response);
     }
 
     @Operation(summary = "관리자용 배틀 시나리오 조회 (수정용)")

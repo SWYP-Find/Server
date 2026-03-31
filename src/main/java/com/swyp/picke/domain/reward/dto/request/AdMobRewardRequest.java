@@ -5,8 +5,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.swyp.picke.domain.reward.enums.RewardItem;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.RequestParam;
 
+@Slf4j
 public record AdMobRewardRequest(
         String ad_network,
         String ad_unit,
@@ -54,6 +56,9 @@ public record AdMobRewardRequest(
 
     @JsonIgnore
     public RewardItem getRewardType() {
+        if (this.reward_item == null || this.reward_item.isBlank()) {
+            return RewardItem.POINT;
+        }
         try {
             if (this.reward_item == null) return RewardItem.POINT;
             return RewardItem.POINT; // 실서비스 안전을 위해 POINT로 고정하거나 로직 유지

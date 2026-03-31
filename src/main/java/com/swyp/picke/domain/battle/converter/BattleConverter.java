@@ -4,25 +4,24 @@ import com.swyp.picke.domain.battle.dto.request.AdminBattleCreateRequest;
 import com.swyp.picke.domain.battle.dto.response.*;
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
-import com.swyp.picke.domain.battle.entity.BattleOptionTag;
 import com.swyp.picke.domain.battle.enums.BattleCreatorType;
 import com.swyp.picke.domain.user.enums.UserBattleStep;
-import com.swyp.picke.domain.battle.repository.BattleOptionTagRepository;
 import com.swyp.picke.domain.tag.entity.Tag;
 import com.swyp.picke.domain.tag.enums.TagType;
 import com.swyp.picke.domain.user.entity.User;
+import com.swyp.picke.domain.user.enums.VoteSide;
 import com.swyp.picke.global.infra.s3.enums.FileCategory;
 import com.swyp.picke.global.infra.s3.util.ResourceUrlProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
 public class BattleConverter {
 
-    private final BattleOptionTagRepository optionTagRepository;
     private final ResourceUrlProvider urlProvider;
     private static final String BASE_SHARE_URL = "https://pique.app/battles/";
 
@@ -78,7 +77,7 @@ public class BattleConverter {
         );
     }
 
-    public AdminBattleDetailResponse toAdminDetailResponse(Battle battle, List<Tag> tags, List<BattleOption> options) {
+    public AdminBattleDetailResponse toAdminDetailResponse(Battle battle, List<Tag> tags, List<BattleOption> options, Map<Long, List<Tag>> optionTagsMap) {
         return new AdminBattleDetailResponse(
                 battle.getId(),
                 battle.getTitle(),
@@ -96,15 +95,15 @@ public class BattleConverter {
                 battle.getStatus(),
                 battle.getCreatorType(),
                 toTagResponses(tags, null),
-                toOptionResponses(options),
+                toOptionResponses(options, optionTagsMap),
                 battle.getCreatedAt(),
                 battle.getUpdatedAt()
         );
     }
 
     public BattleUserDetailResponse toUserDetailResponse(
-            Battle battle, List<Tag> tags, List<BattleOption> options,
-            Long participantsCount, String voteStatus, UserBattleStep currentStep) {
+            Battle battle, List<Tag> tags, List<BattleOption> options, Map<Long, List<Tag>> optionTagsMap,
+            Long participantsCount, VoteSide userVoteStatus, UserBattleStep currentStep) {
 
         BattleSummaryResponse summary = new BattleSummaryResponse(
                 battle.getId(),
@@ -116,7 +115,7 @@ public class BattleConverter {
                 participantsCount == null ? 0L : participantsCount,
                 battle.getAudioDuration() == null ? 0 : battle.getAudioDuration(),
                 toTagResponses(tags, null),
-                toOptionResponses(options)
+                toOptionResponses(options, optionTagsMap)
         );
 
         return new BattleUserDetailResponse(
@@ -129,7 +128,7 @@ public class BattleConverter {
                 battle.getItemBDesc(),
                 battle.getDescription(),
                 BASE_SHARE_URL + battle.getId(),
-                voteStatus,
+                userVoteStatus,
                 currentStep,
                 toTagResponses(tags, TagType.CATEGORY),
                 toTagResponses(tags, TagType.PHILOSOPHER),
@@ -137,13 +136,24 @@ public class BattleConverter {
         );
     }
 
-    private List<BattleOptionResponse> toOptionResponses(List<BattleOption> options) {
+    public BattleScenarioResponse toScenarioResponse(Battle battle, List<BattleOption> options) {
+        List<BattleScenarioResponse.PhilosopherProfileResponse> profiles = options.stream()
+                .map(opt -> new BattleScenarioResponse.PhilosopherProfileResponse(
+                        opt.getLabel().name(),
+                        opt.getRepresentative(),
+                        opt.getStance(),
+                        opt.getQuote(),
+                        urlProvider.getImageUrl(FileCategory.PHILOSOPHER, opt.getImageUrl())
+                )).toList();
+
+        return new BattleScenarioResponse(battle.getTitle(), profiles);
+    }
+
+    private List<BattleOptionResponse> toOptionResponses(List<BattleOption> options, Map<Long, List<Tag>> optionTagsMap) {
         if (options == null) return List.of();
         return options.stream()
                 .map(option -> {
-                    List<Tag> optionTags = optionTagRepository.findByBattleOption(option).stream()
-                            .map(BattleOptionTag::getTag)
-                            .toList();
+                    List<Tag> optionTags = optionTagsMap.getOrDefault(option.getId(), List.of());
                     return new BattleOptionResponse(
                             option.getId(),
                             option.getLabel(),

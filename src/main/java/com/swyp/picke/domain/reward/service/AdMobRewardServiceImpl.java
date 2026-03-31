@@ -55,7 +55,7 @@ public class AdMobRewardServiceImpl implements AdMobRewardService {
                 .build();
         adRewardHistoryRepository.save(history);
 
-        // 5. 크레딧 적립
+        // // 5. 크레딧 적립
         Long refId = parseTransactionId(request.transaction_id());
         creditService.addCredit(user.getId(), CreditType.FREE_CHARGE, request.reward_amount(), refId);
 

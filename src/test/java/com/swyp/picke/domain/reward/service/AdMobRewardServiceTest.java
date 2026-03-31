@@ -47,7 +47,7 @@ class AdMobRewardServiceTest {
     @Test
     @DisplayName("// 1. 정상적인 광고 시청 시 보상 이력이 저장되고 크레딧이 적립된다.")
     void processReward_Success() throws Exception {
-        // given
+        // // 1.1 변경된 구조의 샘플 리퀘스트 생성
         AdMobRewardRequest request = createSampleRequest("unique-id");
 
         User mockUser = User.builder()
@@ -80,6 +80,7 @@ class AdMobRewardServiceTest {
         verify(userService, times(1)).findByUserTag("pique-1cc4a030");
     }
 
+    // // 2. DTO 구조 변경에 따른 헬퍼 메서드 수정
     private AdMobRewardRequest createSampleRequest(String transId) {
         return new AdMobRewardRequest(
                 "5450213213280609325", "ca-app-pub-3940256099942544/5224354917",

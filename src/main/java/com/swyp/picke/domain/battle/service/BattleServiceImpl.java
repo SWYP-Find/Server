@@ -20,6 +20,7 @@ import com.swyp.picke.domain.battle.repository.BattleTagRepository;
 import com.swyp.picke.domain.tag.entity.Tag;
 import com.swyp.picke.domain.tag.repository.TagRepository;
 import com.swyp.picke.domain.user.entity.User;
+import com.swyp.picke.domain.user.enums.VoteSide;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.domain.user.service.UserBattleService;
 import com.swyp.picke.domain.vote.entity.Vote;
@@ -138,7 +139,12 @@ public class BattleServiceImpl implements BattleService {
         Battle battle = findById(battleId);
         List<Tag> tags = getTagsByBattle(battle);
         List<BattleOption> options = battleOptionRepository.findByBattle(battle);
-
+        Map<Long, List<Tag>> optionTagsMap = battleOptionTagRepository.findByBattleWithTags(battle)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        bot -> bot.getBattleOption().getId(),
+                        Collectors.mapping(BattleOptionTag::getTag, Collectors.toList())
+                ));
         Long currentUserId = SecurityUtil.getCurrentUserId();
         User user = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
@@ -146,18 +152,39 @@ public class BattleServiceImpl implements BattleService {
         UserBattleStatusResponse statusResponse = userBattleService.getUserBattleStatus(user, battle);
         UserBattleStep currentStep = statusResponse.step();
 
-        Optional<Vote> optionalVote = voteRepository.findByBattleIdAndUserId(battleId, currentUserId);
-        String voteStatus = optionalVote
-                .map(vote -> vote.getPostVoteOption() != null
-                        ? vote.getPostVoteOption().getLabel().name() : "NONE")
-                .orElse("NONE");
+        Optional<Vote> optionalVote = voteRepository.findByBattleIdAndUserIdWithOption(battleId, currentUserId);
+        VoteSide voteStatus = optionalVote
+                .map(vote -> {
+                    if (vote.getPostVoteOption() != null) {
+                        return vote.getPostVoteOption().getLabel() == BattleOptionLabel.A ? VoteSide.PRO : VoteSide.CON;
+                    }
+                    return null;
+                })
+                .orElse(null);
 
         return battleConverter.toUserDetailResponse(
-                battle, tags, options,
+                battle, tags, options, optionTagsMap,
                 battle.getTotalParticipantsCount(),
                 voteStatus,
                 currentStep
         );
+    }
+
+    @Override
+    public BattleScenarioResponse getBattleScenario(Long battleId) {
+        Battle battle = findById(battleId);
+        List<BattleOption> options = battleOptionRepository.findByBattle(battle);
+        return battleConverter.toScenarioResponse(battle, options);
+    }
+
+    @Override
+    public UserBattleStatusResponse getUserBattleStatus(Long battleId) {
+        Battle battle = findById(battleId);
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+        User user = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        return userBattleService.getUserBattleStatus(user, battle);
     }
 
     @Override
@@ -225,7 +252,14 @@ public class BattleServiceImpl implements BattleService {
             savedOptions.add(option);
         }
 
-        return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), savedOptions);
+        Map<Long, List<Tag>> optionTagsMap = battleOptionTagRepository.findByBattleWithTags(battle)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        bot -> bot.getBattleOption().getId(),
+                        Collectors.mapping(BattleOptionTag::getTag, Collectors.toList())
+                ));
+
+        return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), savedOptions, optionTagsMap);
     }
 
     @Override
@@ -268,7 +302,14 @@ public class BattleServiceImpl implements BattleService {
         }
 
         List<BattleOption> updatedOptions = battleOptionRepository.findByBattle(battle);
-        return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), updatedOptions);
+        Map<Long, List<Tag>> optionTagsMap = battleOptionTagRepository.findByBattleWithTags(battle)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        bot -> bot.getBattleOption().getId(),
+                        Collectors.mapping(BattleOptionTag::getTag, Collectors.toList())
+                ));
+
+        return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), updatedOptions, optionTagsMap);
     }
 
     @Override
@@ -280,7 +321,6 @@ public class BattleServiceImpl implements BattleService {
         return new AdminBattleDeleteResponse(true, LocalDateTime.now());
     }
 
-    // ✅ convertToTodayResponses — secureThumbnail 계산 제거
     private List<TodayBattleResponse> convertToTodayResponses(List<Battle> battles) {
         if (battles == null || battles.isEmpty()) return Collections.emptyList();
 

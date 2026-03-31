@@ -113,14 +113,17 @@ public class HomeService {
         String philoA = findOptionRepresentative(b.options(), BattleOptionLabel.A);
         String philoB = findOptionRepresentative(b.options(), BattleOptionLabel.B);
 
+        String optionA = findOptionTitle(b.options(), BattleOptionLabel.A);
+        String optionB = findOptionTitle(b.options(), BattleOptionLabel.B);
+
         String imageA = findRepresentativeImageUrl(b.options(), BattleOptionLabel.A);
         String imageB = findRepresentativeImageUrl(b.options(), BattleOptionLabel.B);
 
         return new HomeNewBattleResponse(
                 b.battleId(), b.thumbnailUrl(),
                 b.title(), b.summary(),
-                philoA, imageA,
-                philoB, imageB,
+                philoA, optionA, imageA,
+                philoB, optionB, imageB,
                 b.tags(), b.audioDuration(), b.viewCount()
         );
     }

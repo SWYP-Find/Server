@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.notification.service;
 
+import com.swyp.picke.domain.notification.dto.response.NotificationDetailResponse;
 import com.swyp.picke.domain.notification.dto.response.NotificationListResponse;
 import com.swyp.picke.domain.notification.dto.response.NotificationSummaryResponse;
 import com.swyp.picke.domain.notification.entity.Notification;
@@ -69,18 +70,14 @@ public class NotificationService {
         );
     }
 
+    public NotificationDetailResponse getNotificationDetail(Long userId, Long notificationId) {
+        Notification notification = getAccessibleNotification(userId, notificationId);
+        return toDetailResponse(notification);
+    }
+
     @Transactional
     public void markAsRead(Long userId, Long notificationId) {
-        Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
-
-        boolean isOwner = notification.getUser() != null && notification.getUser().getId().equals(userId);
-        boolean isBroadcast = notification.getUser() == null;
-
-        if (!isOwner && !isBroadcast) {
-            throw new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND);
-        }
-
+        Notification notification = getAccessibleNotification(userId, notificationId);
         notification.markAsRead();
     }
 
@@ -91,6 +88,34 @@ public class NotificationService {
 
     public boolean hasNewBroadcast(NotificationCategory category) {
         return notificationRepository.existsByUserIsNullAndCategory(category);
+    }
+
+    private Notification getAccessibleNotification(Long userId, Long notificationId) {
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
+
+        boolean isOwner = notification.getUser() != null && notification.getUser().getId().equals(userId);
+        boolean isBroadcast = notification.getUser() == null;
+
+        if (!isOwner && !isBroadcast) {
+            throw new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND);
+        }
+
+        return notification;
+    }
+
+    private NotificationDetailResponse toDetailResponse(Notification notification) {
+        return new NotificationDetailResponse(
+                notification.getId(),
+                notification.getCategory(),
+                notification.getDetailCode().getCode(),
+                notification.getTitle(),
+                notification.getBody(),
+                notification.getReferenceId(),
+                notification.isRead(),
+                notification.getCreatedAt(),
+                notification.getReadAt()
+        );
     }
 
     private NotificationSummaryResponse toSummaryResponse(Notification notification) {

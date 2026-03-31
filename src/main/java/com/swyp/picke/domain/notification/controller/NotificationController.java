@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.notification.controller;
 
+import com.swyp.picke.domain.notification.dto.response.NotificationDetailResponse;
 import com.swyp.picke.domain.notification.dto.response.NotificationListResponse;
 import com.swyp.picke.domain.notification.enums.NotificationCategory;
 import com.swyp.picke.domain.notification.service.NotificationService;
@@ -32,6 +33,15 @@ public class NotificationController {
             @RequestParam(defaultValue = "20") int size
     ) {
         return ApiResponse.onSuccess(notificationService.getNotifications(userId, category, page, size));
+    }
+
+    @Operation(summary = "알림 상세 조회")
+    @GetMapping("/{notificationId}")
+    public ApiResponse<NotificationDetailResponse> getNotificationDetail(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long notificationId
+    ) {
+        return ApiResponse.onSuccess(notificationService.getNotificationDetail(userId, notificationId));
     }
 
     @Operation(summary = "알림 개별 읽음 처리")

@@ -17,6 +17,9 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
 
     Optional<Vote> findByBattleIdAndUserId(Long battleId, Long userId);
 
+    @Query("SELECT v FROM Vote v LEFT JOIN FETCH v.postVoteOption WHERE v.battle.id = :battleId AND v.user.id = :userId")
+    Optional<Vote> findByBattleIdAndUserIdWithOption(@Param("battleId") Long battleId, @Param("userId") Long userId);
+
     Optional<Vote> findByBattleAndUser(Battle battle, User user);
 
     long countByBattle(Battle battle);

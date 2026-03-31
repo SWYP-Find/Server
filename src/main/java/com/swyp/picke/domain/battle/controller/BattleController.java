@@ -4,6 +4,7 @@ import com.swyp.picke.domain.battle.dto.response.BattleListResponse;
 import com.swyp.picke.domain.battle.dto.response.BattleUserDetailResponse;
 import com.swyp.picke.domain.battle.dto.response.TodayBattleListResponse;
 import com.swyp.picke.domain.battle.service.BattleService;
+import com.swyp.picke.domain.user.dto.response.UserBattleStatusResponse;
 import com.swyp.picke.global.common.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -44,5 +45,11 @@ public class BattleController {
             @PathVariable Long battleId
     ) {
         return ApiResponse.onSuccess(battleService.getBattleDetail(battleId));
+    }
+
+    @Operation(summary = "사용자 배틀 진행 상태 조회 (사전투표/TTS/사후투표)")
+    @GetMapping("/{battleId}/status")
+    public ApiResponse<UserBattleStatusResponse> getUserBattleStatus(@PathVariable Long battleId) {
+        return ApiResponse.onSuccess(battleService.getUserBattleStatus(battleId));
     }
 }

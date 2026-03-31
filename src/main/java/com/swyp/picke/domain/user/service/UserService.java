@@ -49,6 +49,16 @@ public class UserService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public User findByUserTag(String userTag) {
+        if (userTag == null || userTag.isBlank()) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        return userRepository.findByUserTag(userTag)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
     @Transactional
     public PhilosopherType getPhilosopherType(Long userId) {
         UserProfile profile = findUserProfile(userId);

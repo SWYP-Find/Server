@@ -158,7 +158,7 @@ public class NotificationService {
         return new NotificationDetailResponse(
                 notification.getId(),
                 notification.getCategory(),
-                notification.getDetailCode().getCode(),
+                notification.getDetailCode().name(),
                 notification.getTitle(),
                 notification.getBody(),
                 notification.getReferenceId(),
@@ -172,7 +172,7 @@ public class NotificationService {
         return new NotificationSummaryResponse(
                 notification.getId(),
                 notification.getCategory(),
-                notification.getDetailCode().getCode(),
+                notification.getDetailCode().name(),
                 notification.getTitle(),
                 notification.getBody(),
                 notification.getReferenceId(),

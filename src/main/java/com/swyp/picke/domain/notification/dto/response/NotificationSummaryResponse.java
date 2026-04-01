@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 public record NotificationSummaryResponse(
         Long notificationId,
         NotificationCategory category,
-        int detailCode,
+        String detailCode,
         String title,
         String body,
         Long referenceId,

@@ -98,7 +98,7 @@ class NotificationServiceTest {
 
         assertThat(response.items()).hasSize(1);
         assertThat(response.items().getFirst().category()).isEqualTo(NotificationCategory.CONTENT);
-        assertThat(response.items().getFirst().detailCode()).isEqualTo(1);
+        assertThat(response.items().getFirst().detailCode()).isEqualTo("NEW_BATTLE");
         assertThat(response.hasNext()).isFalse();
     }
 
@@ -188,7 +188,7 @@ class NotificationServiceTest {
 
         assertThat(response.notificationId()).isEqualTo(10L);
         assertThat(response.category()).isEqualTo(NotificationCategory.CONTENT);
-        assertThat(response.detailCode()).isEqualTo(1);
+        assertThat(response.detailCode()).isEqualTo("NEW_BATTLE");
         assertThat(response.title()).isEqualTo("새로운 배틀이 시작되었어요");
     }
 
@@ -215,7 +215,7 @@ class NotificationServiceTest {
 
         assertThat(response.notificationId()).isEqualTo(20L);
         assertThat(response.category()).isEqualTo(NotificationCategory.NOTICE);
-        assertThat(response.detailCode()).isEqualTo(4);
+        assertThat(response.detailCode()).isEqualTo("POLICY_CHANGE");
         assertThat(response.body()).isEqualTo("서비스 정책이 변경되었습니다");
         assertThat(response.isRead()).isFalse();
     }

@@ -171,9 +171,13 @@ public class BattleConverter {
     private List<TodayOptionResponse> toTodayOptionResponses(List<BattleOption> options) {
         if (options == null) return List.of();
         return options.stream().map(option -> new TodayOptionResponse(
-                option.getId(), option.getLabel(), option.getTitle(),
-                option.getRepresentative(), option.getStance(),
-                urlProvider.getImageUrl(FileCategory.PHILOSOPHER, PhilosopherType.resolveImageKey(option.getRepresentative()))
+                option.getId(),
+                option.getLabel(),
+                option.getTitle(),
+                option.getRepresentative(),
+                option.getStance(),
+                urlProvider.getImageUrl(FileCategory.PHILOSOPHER, option.getImageUrl()),
+                option.getIsCorrect()
         )).toList();
     }
 

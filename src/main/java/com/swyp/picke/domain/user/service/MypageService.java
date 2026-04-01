@@ -9,12 +9,7 @@ import com.swyp.picke.domain.perspective.entity.PerspectiveComment;
 import com.swyp.picke.domain.perspective.entity.PerspectiveLike;
 import com.swyp.picke.domain.perspective.service.PerspectiveQueryService;
 import com.swyp.picke.domain.user.dto.request.UpdateNotificationSettingsRequest;
-import com.swyp.picke.domain.user.dto.response.BattleRecordListResponse;
-import com.swyp.picke.domain.user.dto.response.ContentActivityListResponse;
-import com.swyp.picke.domain.user.dto.response.MypageResponse;
-import com.swyp.picke.domain.user.dto.response.NotificationSettingsResponse;
-import com.swyp.picke.domain.user.dto.response.RecapResponse;
-import com.swyp.picke.domain.user.dto.response.UserSummary;
+import com.swyp.picke.domain.user.dto.response.*;
 import com.swyp.picke.domain.user.enums.ActivityType;
 import com.swyp.picke.domain.user.enums.CharacterType;
 import com.swyp.picke.domain.user.enums.PhilosopherType;
@@ -148,15 +143,28 @@ public class MypageService {
         List<Vote> votes = voteQueryService.findUserVotes(user.getId(), pageOffset, pageSize, label);
         long totalCount = voteQueryService.countUserVotes(user.getId(), label);
 
+        List<Long> battleIds = votes.stream().map(v -> v.getBattle().getId()).toList();
+        Map<Long, String> categoryMap = battleQueryService.getCategoryNamesByBattleIds(battleIds); // 추가 필요
+
         List<BattleRecordListResponse.BattleRecordItem> items = votes.stream()
-                .map(vote -> new BattleRecordListResponse.BattleRecordItem(
-                        vote.getBattle().getId().toString(),
-                        vote.getId().toString(),
-                        toVoteSide(vote.getPreVoteOption().getLabel()),
-                        vote.getBattle().getTitle(),
-                        vote.getBattle().getSummary(),
-                        vote.getCreatedAt()
-                ))
+                .map(vote -> {
+                    Battle battle = vote.getBattle();
+                    BattleOption selectedOption = vote.getPostVoteOption() != null
+                            ? vote.getPostVoteOption() : vote.getPreVoteOption();
+                    VoteSide side = selectedOption.getLabel() == BattleOptionLabel.A
+                            ? VoteSide.PRO : VoteSide.CON;
+                    String category = categoryMap.get(battle.getId());
+
+                    return new BattleRecordListResponse.BattleRecordItem(
+                            battle.getId().toString(),
+                            vote.getId().toString(),
+                            side,
+                            category,
+                            battle.getTitle(),
+                            battle.getSummary(),
+                            vote.getCreatedAt()
+                    );
+                })
                 .toList();
 
         int nextOffset = pageOffset + pageSize;
@@ -230,13 +238,17 @@ public class MypageService {
                 author.characterType() != null ? CharacterType.from(author.characterType()) : null
         );
 
+        VoteSide voteSide = option != null
+                ? (option.getLabel() == BattleOptionLabel.A ? VoteSide.PRO : VoteSide.CON)
+                : null;
+
         return new ContentActivityListResponse.ContentActivityItem(
                 activityId, activityType,
                 perspective.getId().toString(),
                 perspective.getBattle().getId().toString(),
                 battle != null ? battle.getTitle() : null,
                 authorInfo,
-                option != null ? option.getStance() : null,
+                voteSide,
                 content,
                 perspective.getLikeCount(),
                 createdAt

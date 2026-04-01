@@ -78,6 +78,7 @@ window.saveContent = async (action) => {
                     label: 'A',
                     title: document.getElementById('quiz-o-text')?.value || '',
                     stance: document.getElementById('quiz-o-desc')?.value || '',
+                    isCorrect: document.getElementById('quiz-answer-a')?.checked || false,
                     imageUrl: null,
                     tagIds: []
                 },
@@ -85,6 +86,7 @@ window.saveContent = async (action) => {
                     label: 'B',
                     title: document.getElementById('quiz-x-text')?.value || '',
                     stance: document.getElementById('quiz-x-desc')?.value || '',
+                    isCorrect: document.getElementById('quiz-answer-b')?.checked || false,
                     imageUrl: null,
                     tagIds: []
                 }

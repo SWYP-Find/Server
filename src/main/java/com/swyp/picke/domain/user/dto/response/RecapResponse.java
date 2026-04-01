@@ -17,6 +17,7 @@ public record RecapResponse(
             String philosopherLabel,
             String typeName,
             String description,
+            List<String> keywordTags,
             String imageUrl
     ) {
     }

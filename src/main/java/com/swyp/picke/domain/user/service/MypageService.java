@@ -302,6 +302,7 @@ public class MypageService {
                 type.getLabel(),
                 type.getTypeName(),
                 type.getDescription(),
+                type.getKeywordTags(),
                 s3PresignedUrlService.generatePresignedUrl(
                         PhilosopherType.resolveImageKey(type.getLabel())
                 )

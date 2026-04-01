@@ -126,6 +126,7 @@ class MypageServiceTest {
         RecapResponse response = mypageService.getRecap();
 
         assertThat(response.myCard().philosopherType()).isEqualTo(PhilosopherType.KANT);
+        assertThat(response.myCard().keywordTags()).containsExactly("#원칙", "#의무", "#윤리", "#절제");
         assertThat(response.bestMatchCard().philosopherType()).isEqualTo(PhilosopherType.CONFUCIUS);
         assertThat(response.worstMatchCard().philosopherType()).isEqualTo(PhilosopherType.NIETZSCHE);
         assertThat(response.scores().principle()).isEqualTo(92);

@@ -152,10 +152,28 @@
 
 - `users`, `user_social_accounts`, `auth_refresh_tokens` 연관 데이터를 함께 처리합니다.
 - 사용자 도메인 상세 정리는 `user` 정책에 따라 함께 처리합니다.
+- 탈퇴 사유는 별도 이력 테이블에 저장합니다.
 
 요청 헤더:
 
 - `Authorization: Bearer {access_token}`
+
+요청 바디:
+
+```json
+{
+  "reason": "NO_TIME"
+}
+```
+
+가능한 `reason` 값:
+
+- `NOT_USED_OFTEN`
+- `NO_INTERESTING_BATTLES`
+- `BATTLE_STYLE_NOT_FIT`
+- `SERVICE_INCONVENIENT`
+- `NO_TIME`
+- `OTHER`
 
 응답:
 

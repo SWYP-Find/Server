@@ -5,6 +5,7 @@ import com.swyp.picke.domain.oauth.client.KakaoOAuthClient;
 import com.swyp.picke.domain.oauth.dto.LoginRequest;
 import com.swyp.picke.domain.oauth.dto.LoginResponse;
 import com.swyp.picke.domain.oauth.dto.OAuthUserInfo;
+import com.swyp.picke.domain.oauth.dto.WithdrawRequest;
 import com.swyp.picke.domain.oauth.entity.AuthRefreshToken;
 import com.swyp.picke.domain.oauth.entity.UserSocialAccount;
 import com.swyp.picke.domain.oauth.jwt.JwtProvider;
@@ -17,10 +18,12 @@ import com.swyp.picke.domain.user.entity.UserProfile;
 import com.swyp.picke.domain.user.entity.UserSettings;
 import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.entity.UserTendencyScore;
+import com.swyp.picke.domain.user.entity.UserWithdrawal;
 import com.swyp.picke.domain.user.repository.UserProfileRepository;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.domain.user.repository.UserSettingsRepository;
 import com.swyp.picke.domain.user.repository.UserTendencyScoreRepository;
+import com.swyp.picke.domain.user.repository.UserWithdrawalRepository;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -79,6 +82,7 @@ public class AuthService {
     private final UserProfileRepository userProfileRepository;
     private final UserSettingsRepository userSettingsRepository;
     private final UserTendencyScoreRepository userTendencyScoreRepository;
+    private final UserWithdrawalRepository userWithdrawalRepository;
     private final JwtProvider jwtProvider;
 
     public LoginResponse login(String provider, LoginRequest request) {
@@ -193,10 +197,18 @@ public class AuthService {
         refreshTokenRepository.deleteByUser(user);
     }
 
-    public void withdraw(Long userId) {
+    public void withdraw(Long userId, WithdrawRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         refreshTokenRepository.deleteByUser(user);
+
+        if (!userWithdrawalRepository.existsByUser_Id(userId)) {
+            userWithdrawalRepository.save(UserWithdrawal.builder()
+                    .user(user)
+                    .reason(request.reason())
+                    .build());
+        }
+
         user.delete();
     }
 

@@ -3,6 +3,7 @@ package com.swyp.picke.domain.user.enums;
 import lombok.Getter;
 
 import java.util.Arrays;
+import java.util.List;
 
 @Getter
 public enum PhilosopherType {
@@ -110,5 +111,22 @@ public enum PhilosopherType {
                 .filter(type -> type.label.equals(label))
                 .findFirst()
                 .orElse(null);
+    }
+
+    private static final List<String> AVAILABLE_IMAGE_KEYS = Arrays.stream(values())
+            .map(PhilosopherType::getImageKey)
+            .filter(key -> key != null && !key.isBlank())
+            .toList();
+
+    public static String resolveImageKey(String philosopherName) {
+        if (philosopherName == null || philosopherName.isBlank()) {
+            return AVAILABLE_IMAGE_KEYS.get(0);
+        }
+        PhilosopherType type = fromLabel(philosopherName);
+        if (type != null && type.getImageKey() != null && !type.getImageKey().isBlank()) {
+            return type.getImageKey();
+        }
+        int index = Math.floorMod(philosopherName.hashCode(), AVAILABLE_IMAGE_KEYS.size());
+        return AVAILABLE_IMAGE_KEYS.get(index);
     }
 }

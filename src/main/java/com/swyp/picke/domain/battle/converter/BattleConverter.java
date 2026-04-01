@@ -5,6 +5,7 @@ import com.swyp.picke.domain.battle.dto.response.*;
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.enums.BattleCreatorType;
+import com.swyp.picke.domain.user.enums.PhilosopherType;
 import com.swyp.picke.domain.user.enums.UserBattleStep;
 import com.swyp.picke.domain.tag.entity.Tag;
 import com.swyp.picke.domain.tag.enums.TagType;
@@ -143,7 +144,7 @@ public class BattleConverter {
                         opt.getRepresentative(),
                         opt.getStance(),
                         opt.getQuote(),
-                        urlProvider.getImageUrl(FileCategory.PHILOSOPHER, opt.getImageUrl())
+                        urlProvider.getImageUrl(FileCategory.PHILOSOPHER, PhilosopherType.resolveImageKey(opt.getRepresentative()))
                 )).toList();
 
         return new BattleScenarioResponse(battle.getTitle(), profiles);
@@ -161,7 +162,7 @@ public class BattleConverter {
                             option.getStance(),
                             option.getRepresentative(),
                             option.getQuote(),
-                            urlProvider.getImageUrl(FileCategory.PHILOSOPHER, option.getImageUrl()),
+                            urlProvider.getImageUrl(FileCategory.PHILOSOPHER, PhilosopherType.resolveImageKey(option.getRepresentative())),
                             toTagResponses(optionTags, null)
                     );
                 }).toList();
@@ -172,7 +173,7 @@ public class BattleConverter {
         return options.stream().map(option -> new TodayOptionResponse(
                 option.getId(), option.getLabel(), option.getTitle(),
                 option.getRepresentative(), option.getStance(),
-                urlProvider.getImageUrl(FileCategory.PHILOSOPHER, option.getImageUrl())
+                urlProvider.getImageUrl(FileCategory.PHILOSOPHER, PhilosopherType.resolveImageKey(option.getRepresentative()))
         )).toList();
     }
 

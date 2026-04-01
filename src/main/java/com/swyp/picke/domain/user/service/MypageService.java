@@ -74,7 +74,9 @@ public class MypageService {
                         philosopherType.getLabel(),
                         philosopherType.getTypeName(),
                         philosopherType.getDescription(),
-                        s3PresignedUrlService.generatePresignedUrl(philosopherType.getImageKey()))
+                        s3PresignedUrlService.generatePresignedUrl(
+                                PhilosopherType.resolveImageKey(philosopherType.getLabel())
+                        ))
                 : null;
 
         int currentPoint = creditService.getTotalPoints(user.getId());
@@ -299,7 +301,9 @@ public class MypageService {
                 type.getLabel(),
                 type.getTypeName(),
                 type.getDescription(),
-                s3PresignedUrlService.generatePresignedUrl(type.getImageKey())
+                s3PresignedUrlService.generatePresignedUrl(
+                        PhilosopherType.resolveImageKey(type.getLabel())
+                )
         );
     }
 

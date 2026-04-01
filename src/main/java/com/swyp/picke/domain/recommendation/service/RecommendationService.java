@@ -11,6 +11,8 @@ import com.swyp.picke.domain.recommendation.dto.response.RecommendationListRespo
 import com.swyp.picke.domain.tag.enums.TagType;
 import com.swyp.picke.domain.user.enums.PhilosopherType;
 import com.swyp.picke.domain.user.service.UserService;
+import com.swyp.picke.global.infra.s3.enums.FileCategory;
+import com.swyp.picke.global.infra.s3.util.ResourceUrlProvider;
 import com.swyp.picke.domain.vote.repository.VoteRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -35,6 +37,7 @@ public class RecommendationService {
     private final BattleOptionTagRepository battleOptionTagRepository;
     private final VoteRepository voteRepository;
     private final UserService userService;
+    private final ResourceUrlProvider urlProvider;
 
     public RecommendationListResponse getInterestingBattles(Long battleId, Long userId) {
         battleService.findById(battleId);
@@ -91,7 +94,10 @@ public class RecommendationService {
                         opt.getTitle(),
                         opt.getStance(),
                         opt.getRepresentative(),
-                        opt.getImageUrl()
+                        urlProvider.getImageUrl(
+                                FileCategory.PHILOSOPHER,
+                                PhilosopherType.resolveImageKey(opt.getRepresentative())
+                        )
                 ))
                 .toList();
 

@@ -54,9 +54,7 @@ public class PerspectiveService {
             throw new CustomException(ErrorCode.PERSPECTIVE_NOT_FOUND);
         }
         UserSummary user = userQueryService.findSummaryById(perspective.getUser().getId());
-        String characterImageUrl = user.characterType() != null
-                ? s3PresignedUrlService.generatePresignedUrl(CharacterType.from(user.characterType()).getImageKey())
-                : null;
+        String characterImageUrl = resolveCharacterImageUrl(user.characterType());
         BattleOption option = perspective.getOption();
         boolean isLiked = perspectiveLikeRepository.existsByPerspectiveAndUserId(perspective, userId);
         return new PerspectiveDetailResponse(
@@ -124,9 +122,7 @@ public class PerspectiveService {
         List<PerspectiveListResponse.Item> items = perspectives.stream()
                 .map(p -> {
                     UserSummary user = userQueryService.findSummaryById(p.getUser().getId());
-                    String characterImageUrl = user.characterType() != null
-                            ? s3PresignedUrlService.generatePresignedUrl(CharacterType.from(user.characterType()).getImageKey())
-                            : null;
+                    String characterImageUrl = resolveCharacterImageUrl(user.characterType());
                     BattleOption option = p.getOption();
                     boolean isLiked = perspectiveLikeRepository.existsByPerspectiveAndUserId(p, userId);
                     return new PerspectiveListResponse.Item(
@@ -173,9 +169,7 @@ public class PerspectiveService {
                 .orElseThrow(() -> new CustomException(ErrorCode.PERSPECTIVE_NOT_FOUND));
 
         UserSummary user = userQueryService.findSummaryById(userId);
-        String characterImageUrl = user.characterType() != null
-                ? s3PresignedUrlService.generatePresignedUrl(CharacterType.from(user.characterType()).getImageKey())
-                : null;
+        String characterImageUrl = resolveCharacterImageUrl(user.characterType());
         BattleOption option = perspective.getOption();
         boolean isLiked = perspectiveLikeRepository.existsByPerspectiveAndUserId(perspective, userId);
 
@@ -212,5 +206,12 @@ public class PerspectiveService {
         if (!perspective.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.PERSPECTIVE_FORBIDDEN);
         }
+    }
+
+    private String resolveCharacterImageUrl(String characterType) {
+        if (characterType == null || characterType.isBlank()) {
+            return null;
+        }
+        return s3PresignedUrlService.generatePresignedUrl(CharacterType.resolveImageKey(characterType));
     }
 }

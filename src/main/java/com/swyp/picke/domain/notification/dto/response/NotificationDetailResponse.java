@@ -4,7 +4,7 @@ import com.swyp.picke.domain.notification.enums.NotificationCategory;
 
 import java.time.LocalDateTime;
 
-public record NotificationSummaryResponse(
+public record NotificationDetailResponse(
         Long notificationId,
         NotificationCategory category,
         String detailCode,
@@ -12,5 +12,6 @@ public record NotificationSummaryResponse(
         String body,
         Long referenceId,
         boolean isRead,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        LocalDateTime readAt
 ) {}

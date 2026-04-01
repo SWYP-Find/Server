@@ -50,13 +50,24 @@ entity "USER_TENDENCY_SCORE_HISTORIES\n사용자 성향 점수 변경 이력" as
   created_at : timestamp
 }
 
+entity "USER_WITHDRAWALS\n회원 탈퇴 이력" as user_withdrawals {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK>>
+  reason : ENUM('NOT_USED_OFTEN', 'NO_INTERESTING_BATTLES', 'BATTLE_STYLE_NOT_FIT', 'SERVICE_INCONVENIENT', 'NO_TIME', 'OTHER')
+  created_at : timestamp
+  updated_at : timestamp
+}
+
 users -[hidden]down- user_profiles
 user_profiles -[hidden]down- user_tendency_scores
 user_tendency_scores -[hidden]down- user_tendency_score_histories
+user_tendency_score_histories -[hidden]down- user_withdrawals
 
 users ||--|| user_profiles
 users ||--|| user_tendency_scores
 users ||--o{ user_tendency_score_histories
+users ||--o{ user_withdrawals
 
 note right of users
   users 는 서비스 내부 사용자 식별자와 상태만 관리한다.

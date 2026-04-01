@@ -7,6 +7,8 @@ import com.swyp.picke.domain.battle.repository.BattleRepository;
 import com.swyp.picke.domain.battle.repository.BattleTagRepository;
 import com.swyp.picke.domain.search.dto.response.SearchBattleListResponse;
 import com.swyp.picke.domain.search.enums.SearchSortType;
+import com.swyp.picke.global.infra.s3.enums.FileCategory;
+import com.swyp.picke.global.infra.s3.util.ResourceUrlProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -27,6 +29,7 @@ public class SearchService {
 
     private final BattleRepository battleRepository;
     private final BattleTagRepository battleTagRepository;
+    private final ResourceUrlProvider urlProvider;
 
     public SearchBattleListResponse searchBattles(String category, SearchSortType sort, Integer offset, Integer size) {
         int pageOffset = offset == null || offset < 0 ? 0 : offset;
@@ -54,7 +57,7 @@ public class SearchService {
         List<SearchBattleListResponse.SearchBattleItem> items = battles.stream()
                 .map(battle -> new SearchBattleListResponse.SearchBattleItem(
                         battle.getId(),
-                        battle.getThumbnailUrl(),
+                        urlProvider.getImageUrl(FileCategory.BATTLE, battle.getThumbnailUrl()),
                         battle.getType(),
                         battle.getTitle(),
                         battle.getSummary(),

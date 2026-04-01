@@ -3,46 +3,57 @@ package com.swyp.picke.domain.user.enums;
 import lombok.Getter;
 
 import java.util.Arrays;
+import java.util.List;
 
 @Getter
 public enum PhilosopherType {
     SOCRATES("소크라테스", "질문형", "확신보다는 끊임없는 물음표로 진리를 찾는 탐구자",
+            List.of("#질문", "#본질", "#탐구", "#겸손"),
             "KANT", "ARISTOTLE",
             75, 96, 50, 58, 72, 60,
             "images/philosophers/socrates.png"),
     PLATO("플라톤", "이상형", "현실 너머 더 완벽하고 가치 있는 세상을 꿈꾸는 이상주의자",
+            List.of("#이상", "#완벽", "#이데아", "#미래"),
             "MARX", "ARISTOTLE",
             82, 65, 30, 42, 68, 95,
             "images/philosophers/plato.png"),
     ARISTOTLE("아리스토텔레스", "현실형", "모호한 이론보다 명확한 증거와 논리로 판단하는 실천가",
+            List.of("#논리", "#증거", "#현실", "#경험"),
             "SOCRATES", "PLATO",
             78, 92, 62, 40, 45, 25,
             "images/philosophers/aristotle.png"),
     KANT("칸트", "원칙형", "스스로 세운 도덕적 원칙과 보편적 가치를 지키는 원칙주의자",
+            List.of("#원칙", "#의무", "#윤리", "#절제"),
             "CONFUCIUS", "NIETZSCHE",
             92, 85, 72, 38, 88, 45,
             "images/philosophers/kant.png"),
     NIETZSCHE("니체", "돌파형", "기존의 틀을 깨고 나만의 길을 개척하는 극복의 아이콘",
+            List.of("#극복", "#개척", "#파괴", "#창조"),
             "SARTRE", "KANT",
             32, 48, 95, 90, 42, 85,
             "images/philosophers/nietzsche.png"),
     MARX("마르크스", "구조형", "개인의 문제보다 사회의 구조와 시스템을 꿰뚫는 분석가",
+            List.of("#구조", "#변화", "#사회", "#시스템"),
             "PLATO", "SARTRE",
             40, 78, 18, 94, 28, 80,
             "images/philosophers/marx.png"),
     SARTRE("사르트르", "자유형", "선택의 무게를 짊어지며 행동으로 존재를 증명하는 자유인",
+            List.of("#자유", "#선택", "#주체", "#책임"),
             "NIETZSCHE", "MARX",
             28, 52, 98, 86, 48, 72,
             "images/philosophers/sartre.png"),
     CONFUCIUS("공자", "관계형", "예의와 배려로 조화로운 인간관계를 만들어가는 평화주의자",
+            List.of("#관계", "#조화", "#예의", "#공동체"),
             "KANT", "LAOZI",
             94, 65, 15, 30, 80, 50,
             "images/philosophers/confucius.png"),
     LAOZI("노자", "자연형", "억지로 바꾸기보다 세상의 순리와 흐름에 몸을 맡기는 유연한 영혼",
+            List.of("#순리", "#유연", "#비움", "#조화"),
             "BUDDHA", "CONFUCIUS",
             22, 38, 68, 88, 94, 70,
             "images/philosophers/laozi.png"),
     BUDDHA("붓다", "내면형", "외부의 소음에서 벗어나 마음속 깊은 평화와 고요를 찾는 수행자",
+            List.of("#평화", "#내면", "#명상", "#해탈"),
             "LAOZI", "ARISTOTLE",
             35, 55, 42, 48, 96, 62,
             "images/philosophers/buddha.png"),
@@ -68,6 +79,7 @@ public enum PhilosopherType {
     private final String label;
     private final String typeName;
     private final String description;
+    private final List<String> keywordTags;
     private final String bestMatchName;
     private final String worstMatchName;
     private final int principle;
@@ -79,6 +91,7 @@ public enum PhilosopherType {
     private final String imageKey;
 
     PhilosopherType(String label, String typeName, String description,
+                    List<String> keywordTags,
                     String bestMatchName, String worstMatchName,
                     int principle, int reason, int individual,
                     int change, int inner, int ideal,
@@ -86,6 +99,7 @@ public enum PhilosopherType {
         this.label = label;
         this.typeName = typeName;
         this.description = description;
+        this.keywordTags = keywordTags;
         this.bestMatchName = bestMatchName;
         this.worstMatchName = worstMatchName;
         this.principle = principle;
@@ -95,6 +109,16 @@ public enum PhilosopherType {
         this.inner = inner;
         this.ideal = ideal;
         this.imageKey = imageKey;
+    }
+
+    PhilosopherType(String label, String typeName, String description,
+                    String bestMatchName, String worstMatchName,
+                    int principle, int reason, int individual,
+                    int change, int inner, int ideal,
+                    String imageKey) {
+        this(label, typeName, description, List.of(),
+                bestMatchName, worstMatchName,
+                principle, reason, individual, change, inner, ideal, imageKey);
     }
 
     public PhilosopherType getBestMatch() {
@@ -110,5 +134,22 @@ public enum PhilosopherType {
                 .filter(type -> type.label.equals(label))
                 .findFirst()
                 .orElse(null);
+    }
+
+    private static final List<String> AVAILABLE_IMAGE_KEYS = Arrays.stream(values())
+            .map(PhilosopherType::getImageKey)
+            .filter(key -> key != null && !key.isBlank())
+            .toList();
+
+    public static String resolveImageKey(String philosopherName) {
+        if (philosopherName == null || philosopherName.isBlank()) {
+            return AVAILABLE_IMAGE_KEYS.get(0);
+        }
+        PhilosopherType type = fromLabel(philosopherName);
+        if (type != null && type.getImageKey() != null && !type.getImageKey().isBlank()) {
+            return type.getImageKey();
+        }
+        int index = Math.floorMod(philosopherName.hashCode(), AVAILABLE_IMAGE_KEYS.size());
+        return AVAILABLE_IMAGE_KEYS.get(index);
     }
 }

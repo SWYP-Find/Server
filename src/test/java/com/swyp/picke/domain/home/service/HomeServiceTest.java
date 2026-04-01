@@ -84,6 +84,8 @@ class HomeServiceTest {
                 .containsExactly("결과", "의도", "규칙", "덕");
         assertThat(response.todayQuizzes().get(0).itemA()).isEqualTo("정답");
         assertThat(response.newBattles()).extracting(HomeNewBattleResponse::title).containsExactly("new-id");
+        assertThat(response.newBattles().getFirst().optionATitle()).isEqualTo("A");
+        assertThat(response.newBattles().getFirst().optionBTitle()).isEqualTo("B");
 
         verify(battleService).getNewBattles(argThat(ids -> ids.equals(List.of(
                 editorPick.battleId(),

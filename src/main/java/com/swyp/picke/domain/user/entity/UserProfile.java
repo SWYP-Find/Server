@@ -3,6 +3,7 @@ package com.swyp.picke.domain.user.entity;
 import com.swyp.picke.domain.user.enums.CharacterType;
 import com.swyp.picke.domain.user.enums.PhilosopherType;
 import com.swyp.picke.global.common.BaseEntity;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -16,6 +17,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.Objects;
 
 @Getter
 @Entity
@@ -29,6 +31,7 @@ public class UserProfile extends BaseEntity {
 
     private String nickname;
 
+    @Column(nullable = false)
     private CharacterType characterType;
 
     @Enumerated(EnumType.STRING)
@@ -40,7 +43,7 @@ public class UserProfile extends BaseEntity {
     private UserProfile(User user, String nickname, CharacterType characterType, BigDecimal mannerTemperature) {
         this.user = user;
         this.nickname = nickname;
-        this.characterType = characterType;
+        this.characterType = Objects.requireNonNull(characterType, "characterType must not be null");
         this.mannerTemperature = mannerTemperature;
     }
 

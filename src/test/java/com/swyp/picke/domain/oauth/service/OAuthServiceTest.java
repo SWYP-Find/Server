@@ -5,19 +5,26 @@ import com.swyp.picke.domain.oauth.client.KakaoOAuthClient;
 import com.swyp.picke.domain.oauth.dto.LoginRequest;
 import com.swyp.picke.domain.oauth.dto.LoginResponse;
 import com.swyp.picke.domain.oauth.dto.OAuthUserInfo;
+import com.swyp.picke.domain.oauth.dto.WithdrawRequest;
 import com.swyp.picke.domain.oauth.repository.AuthRefreshTokenRepository;
 import com.swyp.picke.domain.oauth.repository.UserSocialAccountRepository;
 import com.swyp.picke.domain.oauth.jwt.JwtProvider;
+import com.swyp.picke.domain.user.enums.CharacterType;
 import com.swyp.picke.domain.user.entity.User;
+import com.swyp.picke.domain.user.entity.UserProfile;
+import com.swyp.picke.domain.user.entity.UserWithdrawal;
 import com.swyp.picke.domain.user.enums.UserRole;
 import com.swyp.picke.domain.user.enums.UserStatus;
+import com.swyp.picke.domain.user.enums.WithdrawalReason;
 import com.swyp.picke.domain.user.repository.UserProfileRepository;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.domain.user.repository.UserSettingsRepository;
 import com.swyp.picke.domain.user.repository.UserTendencyScoreRepository;
+import com.swyp.picke.domain.user.repository.UserWithdrawalRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -39,6 +46,7 @@ class OAuthServiceTest {
     @Mock private UserProfileRepository userProfileRepository;
     @Mock private UserSettingsRepository userSettingsRepository;
     @Mock private UserTendencyScoreRepository userTendencyScoreRepository;
+    @Mock private UserWithdrawalRepository userWithdrawalRepository;
     @Mock private JwtProvider jwtProvider;
 
     private AuthService authService;
@@ -50,6 +58,7 @@ class OAuthServiceTest {
                 kakaoOAuthClient, googleOAuthClient, userRepository,
                 socialAccountRepository, refreshTokenRepository,
                 userProfileRepository, userSettingsRepository, userTendencyScoreRepository,
+                userWithdrawalRepository,
                 jwtProvider
         );
     }
@@ -113,8 +122,59 @@ class OAuthServiceTest {
         LoginResponse response = authService.login(provider, request);
 
         assertThat(response.isNewUser()).isTrue();
-        verify(userProfileRepository).save(any());
+        ArgumentCaptor<UserProfile> profileCaptor = ArgumentCaptor.forClass(UserProfile.class);
+        verify(userProfileRepository).save(profileCaptor.capture());
         verify(userSettingsRepository).save(any());
         verify(userTendencyScoreRepository).save(any());
+
+        UserProfile savedProfile = profileCaptor.getValue();
+        CharacterType characterType = savedProfile.getCharacterType();
+
+        assertThat(characterType).isNotNull();
+        assertThat(savedProfile.getNickname()).endsWith(characterType.getLabel());
+        assertThat(savedProfile.getNickname()).isNotEqualTo(savedUser.getUserTag());
+        assertThat(AuthService.DEFAULT_NICKNAME_PREFIXES)
+                .anyMatch(prefix -> savedProfile.getNickname().startsWith(prefix));
+    }
+
+    @Test
+    void withdraw_탈퇴사유를_저장하고_사용자를_삭제처리한다() {
+        User user = User.builder()
+                .userTag("pique-test")
+                .role(UserRole.USER)
+                .status(UserStatus.ACTIVE)
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userWithdrawalRepository.existsByUser_Id(1L)).thenReturn(false);
+
+        authService.withdraw(1L, new WithdrawRequest(WithdrawalReason.NO_TIME));
+
+        verify(refreshTokenRepository).deleteByUser(user);
+
+        ArgumentCaptor<UserWithdrawal> withdrawalCaptor = ArgumentCaptor.forClass(UserWithdrawal.class);
+        verify(userWithdrawalRepository).save(withdrawalCaptor.capture());
+        assertThat(withdrawalCaptor.getValue().getReason()).isEqualTo(WithdrawalReason.NO_TIME);
+
+        assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
+        assertThat(user.getDeletedAt()).isNotNull();
+    }
+
+    @Test
+    void withdraw_이미_탈퇴이력이_있으면_중복저장하지_않는다() {
+        User user = User.builder()
+                .userTag("pique-test")
+                .role(UserRole.USER)
+                .status(UserStatus.ACTIVE)
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userWithdrawalRepository.existsByUser_Id(1L)).thenReturn(true);
+
+        authService.withdraw(1L, new WithdrawRequest(WithdrawalReason.OTHER));
+
+        verify(refreshTokenRepository).deleteByUser(user);
+        verify(userWithdrawalRepository, never()).save(any());
+        assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
     }
 }

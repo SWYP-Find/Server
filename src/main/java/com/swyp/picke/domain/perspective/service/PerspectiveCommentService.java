@@ -61,9 +61,7 @@ public class PerspectiveCommentService {
         perspective.incrementCommentCount();
 
         UserSummary userSummary = userQueryService.findSummaryById(userId);
-        String characterImageUrl = userSummary.characterType() != null
-                ? s3PresignedUrlService.generatePresignedUrl(CharacterType.from(userSummary.characterType()).getImageKey())
-                : null;
+        String characterImageUrl = resolveCharacterImageUrl(userSummary.characterType());
         Long postVoteOptionId = voteService.findPostVoteOptionId(perspective.getBattle().getId(), userId);
         String stance = null;
         if (postVoteOptionId != null) {
@@ -97,9 +95,7 @@ public class PerspectiveCommentService {
                 .filter(c -> !c.isHidden())
                 .map(c -> {
                     UserSummary user = userQueryService.findSummaryById(c.getUser().getId());
-                    String characterImageUrl = user.characterType() != null
-                            ? s3PresignedUrlService.generatePresignedUrl(CharacterType.from(user.characterType()).getImageKey())
-                            : null;
+                    String characterImageUrl = resolveCharacterImageUrl(user.characterType());
                     Long postVoteOptionId = voteService.findPostVoteOptionId(battleId, c.getUser().getId());
                     String stance = null;
                     if (postVoteOptionId != null) {
@@ -161,5 +157,12 @@ public class PerspectiveCommentService {
         if (!comment.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.COMMENT_FORBIDDEN);
         }
+    }
+
+    private String resolveCharacterImageUrl(String characterType) {
+        if (characterType == null || characterType.isBlank()) {
+            return null;
+        }
+        return s3PresignedUrlService.generatePresignedUrl(CharacterType.resolveImageKey(characterType));
     }
 }

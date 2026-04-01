@@ -5,21 +5,25 @@ import com.swyp.picke.domain.oauth.client.KakaoOAuthClient;
 import com.swyp.picke.domain.oauth.dto.LoginRequest;
 import com.swyp.picke.domain.oauth.dto.LoginResponse;
 import com.swyp.picke.domain.oauth.dto.OAuthUserInfo;
+import com.swyp.picke.domain.oauth.dto.WithdrawRequest;
 import com.swyp.picke.domain.oauth.entity.AuthRefreshToken;
 import com.swyp.picke.domain.oauth.entity.UserSocialAccount;
 import com.swyp.picke.domain.oauth.jwt.JwtProvider;
 import com.swyp.picke.domain.oauth.repository.AuthRefreshTokenRepository;
 import com.swyp.picke.domain.oauth.repository.UserSocialAccountRepository;
+import com.swyp.picke.domain.user.enums.CharacterType;
 import com.swyp.picke.domain.user.enums.UserRole;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.entity.UserProfile;
 import com.swyp.picke.domain.user.entity.UserSettings;
 import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.entity.UserTendencyScore;
+import com.swyp.picke.domain.user.entity.UserWithdrawal;
 import com.swyp.picke.domain.user.repository.UserProfileRepository;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.domain.user.repository.UserSettingsRepository;
 import com.swyp.picke.domain.user.repository.UserTendencyScoreRepository;
+import com.swyp.picke.domain.user.repository.UserWithdrawalRepository;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -32,12 +36,43 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class AuthService {
+
+    static final List<String> DEFAULT_NICKNAME_PREFIXES = List.of(
+            "사색하는",
+            "질문하는",
+            "성찰하는",
+            "탐구하는",
+            "고요한",
+            "사유하는",
+            "관조하는",
+            "통찰하는",
+            "본질을찾는",
+            "의문을품은",
+            "진리를좇는",
+            "철학하는",
+            "깊이를품은",
+            "내면을걷는",
+            "사유에잠긴",
+            "유쾌한",
+            "대담한",
+            "조용한",
+            "엉뚱한",
+            "날카로운",
+            "느긋한",
+            "반짝이는",
+            "다정한",
+            "성실한",
+            "호기심많은",
+            "재빠른"
+    );
 
     private final KakaoOAuthClient kakaoOAuthClient;
     private final GoogleOAuthClient googleOAuthClient;
@@ -47,6 +82,7 @@ public class AuthService {
     private final UserProfileRepository userProfileRepository;
     private final UserSettingsRepository userSettingsRepository;
     private final UserTendencyScoreRepository userTendencyScoreRepository;
+    private final UserWithdrawalRepository userWithdrawalRepository;
     private final JwtProvider jwtProvider;
 
     public LoginResponse login(String provider, LoginRequest request) {
@@ -161,10 +197,18 @@ public class AuthService {
         refreshTokenRepository.deleteByUser(user);
     }
 
-    public void withdraw(Long userId) {
+    public void withdraw(Long userId, WithdrawRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         refreshTokenRepository.deleteByUser(user);
+
+        if (!userWithdrawalRepository.existsByUser_Id(userId)) {
+            userWithdrawalRepository.save(UserWithdrawal.builder()
+                    .user(user)
+                    .reason(request.reason())
+                    .build());
+        }
+
         user.delete();
     }
 
@@ -189,9 +233,12 @@ public class AuthService {
     }
 
     private void initializeUserDomain(User user) {
+        CharacterType characterType = CharacterType.random();
+
         userProfileRepository.save(UserProfile.builder()
                 .user(user)
-                .nickname(user.getUserTag())
+                .nickname(generateDefaultNickname(characterType))
+                .characterType(characterType)
                 .mannerTemperature(BigDecimal.valueOf(36.5))
                 .build());
 
@@ -214,6 +261,13 @@ public class AuthService {
                 .inner(0)
                 .ideal(0)
                 .build());
+    }
+
+    private String generateDefaultNickname(CharacterType characterType) {
+        String prefix = DEFAULT_NICKNAME_PREFIXES.get(
+                ThreadLocalRandom.current().nextInt(DEFAULT_NICKNAME_PREFIXES.size())
+        );
+        return prefix + characterType.getLabel();
     }
 
     // refresh token 해시

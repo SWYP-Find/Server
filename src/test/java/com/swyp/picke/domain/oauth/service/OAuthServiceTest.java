@@ -8,7 +8,9 @@ import com.swyp.picke.domain.oauth.dto.OAuthUserInfo;
 import com.swyp.picke.domain.oauth.repository.AuthRefreshTokenRepository;
 import com.swyp.picke.domain.oauth.repository.UserSocialAccountRepository;
 import com.swyp.picke.domain.oauth.jwt.JwtProvider;
+import com.swyp.picke.domain.user.enums.CharacterType;
 import com.swyp.picke.domain.user.entity.User;
+import com.swyp.picke.domain.user.entity.UserProfile;
 import com.swyp.picke.domain.user.enums.UserRole;
 import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.repository.UserProfileRepository;
@@ -18,6 +20,7 @@ import com.swyp.picke.domain.user.repository.UserTendencyScoreRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -113,8 +116,18 @@ class OAuthServiceTest {
         LoginResponse response = authService.login(provider, request);
 
         assertThat(response.isNewUser()).isTrue();
-        verify(userProfileRepository).save(any());
+        ArgumentCaptor<UserProfile> profileCaptor = ArgumentCaptor.forClass(UserProfile.class);
+        verify(userProfileRepository).save(profileCaptor.capture());
         verify(userSettingsRepository).save(any());
         verify(userTendencyScoreRepository).save(any());
+
+        UserProfile savedProfile = profileCaptor.getValue();
+        CharacterType characterType = savedProfile.getCharacterType();
+
+        assertThat(characterType).isNotNull();
+        assertThat(savedProfile.getNickname()).endsWith(characterType.getLabel());
+        assertThat(savedProfile.getNickname()).isNotEqualTo(savedUser.getUserTag());
+        assertThat(AuthService.DEFAULT_NICKNAME_PREFIXES)
+                .anyMatch(prefix -> savedProfile.getNickname().startsWith(prefix));
     }
 }

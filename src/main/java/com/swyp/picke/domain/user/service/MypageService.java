@@ -55,8 +55,7 @@ public class MypageService {
         UserProfile profile = userService.findUserProfile(user.getId());
 
         CharacterType characterType = profile.getCharacterType();
-        String characterImageUrl = characterType != null
-                ? s3PresignedUrlService.generatePresignedUrl(characterType.getImageKey()) : null;
+        String characterImageUrl = resolveCharacterImageUrl(characterType);
 
         MypageResponse.ProfileInfo profileInfo = new MypageResponse.ProfileInfo(
                 user.getUserTag(),
@@ -226,7 +225,9 @@ public class MypageService {
 
         UserSummary author = userService.findSummaryById(perspective.getUser().getId());
         ContentActivityListResponse.AuthorInfo authorInfo = new ContentActivityListResponse.AuthorInfo(
-                author.userTag(), author.nickname(), CharacterType.from(author.characterType())
+                author.userTag(),
+                author.nickname(),
+                author.characterType() != null ? CharacterType.from(author.characterType()) : null
         );
 
         return new ContentActivityListResponse.ContentActivityItem(
@@ -321,5 +322,10 @@ public class MypageService {
                 settings.isCommentReplyEnabled(), settings.isNewCommentEnabled(),
                 settings.isContentLikeEnabled(), settings.isMarketingEventEnabled()
         );
+    }
+
+    private String resolveCharacterImageUrl(CharacterType characterType) {
+        String imageKey = CharacterType.resolveImageKey(characterType);
+        return imageKey != null ? s3PresignedUrlService.generatePresignedUrl(imageKey) : null;
     }
 }

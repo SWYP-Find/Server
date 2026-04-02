@@ -13,5 +13,6 @@ public record TodayOptionResponse(
         String title,           // 제목 (예: 찬성한다)
         String representative,  // 인물 (예: 피터 싱어)
         String stance,          // 한 줄 입장 (예: 고통을 끝낼 권리는..)
-        String imageUrl         // 아바타 이미지 URL
+        String imageUrl,        // 아바타 이미지 URL
+        Boolean isCorrect       // 퀴즈 정답 여부
 ) {}

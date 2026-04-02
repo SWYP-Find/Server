@@ -63,10 +63,6 @@ public class Vote extends BaseEntity {
                 .build();
     }
 
-    public void updatePreVote(BattleOption newOption) {
-        this.preVoteOption = newOption;
-    }
-
     /**
      * 사전 투표 옵션 수정 메서드
      */

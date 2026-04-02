@@ -15,6 +15,7 @@ import com.swyp.picke.domain.perspective.dto.response.PerspectiveDetailResponse;
 import com.swyp.picke.domain.perspective.dto.response.PerspectiveListResponse;
 import com.swyp.picke.domain.perspective.dto.response.UpdatePerspectiveResponse;
 import com.swyp.picke.domain.perspective.entity.Perspective;
+import com.swyp.picke.domain.perspective.repository.PerspectiveCommentRepository;
 import com.swyp.picke.domain.perspective.repository.PerspectiveLikeRepository;
 import com.swyp.picke.domain.perspective.repository.PerspectiveRepository;
 import com.swyp.picke.domain.user.dto.response.UserSummary;
@@ -40,6 +41,7 @@ public class PerspectiveService {
     private static final int DEFAULT_PAGE_SIZE = 20;
 
     private final PerspectiveRepository perspectiveRepository;
+    private final PerspectiveCommentRepository perspectiveCommentRepository;
     private final PerspectiveLikeRepository perspectiveLikeRepository;
     private final BattleService battleService;
     private final VoteService voteService;
@@ -150,6 +152,7 @@ public class PerspectiveService {
     public void deletePerspective(Long perspectiveId, Long userId) {
         Perspective perspective = findPerspectiveById(perspectiveId);
         validateOwnership(perspective, userId);
+        perspectiveCommentRepository.deleteAllByPerspective(perspective);
         perspectiveRepository.delete(perspective);
     }
 

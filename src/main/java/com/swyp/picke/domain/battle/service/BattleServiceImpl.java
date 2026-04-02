@@ -129,7 +129,13 @@ public class BattleServiceImpl implements BattleService {
     public TodayBattleListResponse getTodayBattles() {
         List<Battle> battles = battleRepository.findByTargetDateAndStatusAndDeletedAtIsNull(
                 LocalDate.now(), BattleStatus.PUBLISHED);
-        List<TodayBattleResponse> items = convertToTodayResponses(battles);
+
+        List<Battle> limitedBattles = battles.stream()
+                .limit(5)
+                .collect(Collectors.toList());
+
+        List<TodayBattleResponse> items = convertToTodayResponses(limitedBattles);
+
         return new TodayBattleListResponse(items, items.size());
     }
 

@@ -18,6 +18,7 @@ import com.swyp.picke.domain.vote.entity.Vote;
 import com.swyp.picke.domain.vote.repository.VoteRepository;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -98,25 +99,40 @@ public class VoteServiceImpl implements VoteService {
     @Override
     @Transactional
     public VoteResultResponse preVote(Long battleId, Long userId, VoteRequest request) {
+        // 1. 기본 정보 조회 (배틀, 유저, 선택한 옵션)
         Battle battle = battleService.findById(battleId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         BattleOption option = battleOptionRepository.findById(request.optionId())
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));
 
-//        if (voteRepository.findByBattleAndUser(battle, user).isPresent()) {
-//            throw new CustomException(ErrorCode.VOTE_ALREADY_SUBMITTED);
-//        }
+        // 2. 기존 투표 여부 확인 (에러 대신 Optional로 받음)
+        Optional<Vote> existingVote = voteRepository.findByBattleAndUser(battle, user);
+        Vote vote;
 
-        // 1. 투표 데이터 생성 및 저장
-        Vote vote = Vote.createPreVote(user, battle, option);
-        voteRepository.save(vote);
-        battle.addParticipant();
+        if (existingVote.isPresent()) {
+            // 이미 투표가 있다면 기존 객체의 사전 투표 옵션을 변경
+            vote = existingVote.get();
+            vote.updatePreVote(option);
+        } else {
+            // 투표가 없다면 새로 생성하여 저장
+            vote = Vote.createPreVote(user, battle, option);
+            voteRepository.save(vote);
+            battle.addParticipant();
+        }
 
-        // 2. 유저 단계를 PRE_VOTE로 업데이트
-        userBattleService.upsertStep(user, battle, UserBattleStep.PRE_VOTE);
+        // 3. 현재 유저의 진행 단계 확인
+        UserBattleStatusResponse status = userBattleService.getUserBattleStatus(user, battle);
 
-        return new VoteResultResponse(vote.getId(), UserBattleStep.PRE_VOTE);
+        // 4. 단계 업데이트 (처음 참여하는 경우에만 단계를 PRE_VOTE로 변경)
+        // 이미 POST_VOTE나 COMPLETED라면 단계를 강제로 낮추지 않음
+        if (status.step() == UserBattleStep.NONE) {
+            userBattleService.upsertStep(user, battle, UserBattleStep.PRE_VOTE);
+        }
+
+        // 5. 현재 유지 중인 단계를 반환 (수정 후에도 COMPLETED 유지 가능)
+        UserBattleStep currentStep = (status.step() == UserBattleStep.NONE) ? UserBattleStep.PRE_VOTE : status.step();
+        return new VoteResultResponse(vote.getId(), currentStep);
     }
 
     @Override

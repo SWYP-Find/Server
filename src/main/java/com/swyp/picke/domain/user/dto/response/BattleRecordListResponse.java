@@ -15,6 +15,7 @@ public record BattleRecordListResponse(
             String battleId,
             String recordId,
             VoteSide voteSide,
+            String category,
             String title,
             String summary,
             LocalDateTime createdAt

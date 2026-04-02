@@ -1,5 +1,7 @@
 package com.swyp.picke.domain.scenario.service;
 
+import com.swyp.picke.domain.battle.entity.Battle;
+import com.swyp.picke.domain.battle.repository.BattleRepository;
 import com.swyp.picke.domain.scenario.entity.*;
 import com.swyp.picke.domain.scenario.enums.*;
 import com.swyp.picke.domain.scenario.repository.ScenarioRepository;
@@ -27,6 +29,7 @@ public class ScenarioAudioPipelineService {
     private final TtsService ttsService;
     private final FFmpegService ffmpegService;
     private final S3UploadService s3UploadService;
+    private final BattleRepository battleRepository;
 
     private static final int SILENCE_MS = 600;
 
@@ -77,11 +80,13 @@ public class ScenarioAudioPipelineService {
 
             // 경로 탐색
             List<List<ScenarioNode>> paths = PathFinder.findAllPaths(scenario.getNodes());
+            List<Integer> pathDurations = new ArrayList<>();
             log.info("--- [2단계] 경로 탐색 완료. 총 {}개의 통합 경로 발견 ---", paths.size());
 
             for (int i = 0; i < paths.size(); i++) {
                 log.info(">> 경로 {}번 처리 시작...", (i + 1));
-                processPathAndMerge(scenario, paths.get(i), ttsCache, silence);
+                int duration = processPathAndMerge(scenario, paths.get(i), ttsCache, silence);
+                pathDurations.add(duration);
             }
 
             // 최종 상태 및 시간 계산 결과 저장
@@ -89,6 +94,16 @@ public class ScenarioAudioPipelineService {
             scenarioRepository.saveAndFlush(scenario);
 
             cleanUpFiles(ttsCache, silence);
+            if (!pathDurations.isEmpty()) {
+                // 인터랙티브는 A/B 중 긴 경로를, 일반형은 하나뿐인 경로 시간을 최종 시간으로 사용합니다.
+                int maxDurationSeconds = Collections.max(pathDurations);
+
+                Battle battle = scenario.getBattle();
+                battle.updateAudioDuration(maxDurationSeconds);
+                battleRepository.save(battle); // 배틀 테이블에 최종 시간 저장
+
+                log.info("[배틀 시간 업데이트] 배틀 ID: {}, 최종 시간: {}초", battle.getId(), maxDurationSeconds);
+            }
             log.info("[오디오 파이프라인 종료] 시나리오 생성 및 S3 업로드 완벽 성공!");
             log.info("==================================================\n");
 
@@ -97,7 +112,7 @@ public class ScenarioAudioPipelineService {
         }
     }
 
-    private void processPathAndMerge(Scenario scenario, List<ScenarioNode> path, Map<Long, File> cache, File silence) throws Exception {
+    private int processPathAndMerge(Scenario scenario, List<ScenarioNode> path, Map<Long, File> cache, File silence) throws Exception {
         List<File> segments = new ArrayList<>();
         int currentTimeMs = 0;
 
@@ -148,6 +163,8 @@ public class ScenarioAudioPipelineService {
         log.info("[S3 업로드 완료] {} 오디오 주소: {}", type, url);
 
         scenario.addAudioUrl(type, url);
+
+        return currentTimeMs / 1000;
     }
 
     private AudioPathType determineType(List<ScenarioNode> path, boolean isInteractive) {

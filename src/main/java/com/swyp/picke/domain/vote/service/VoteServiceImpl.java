@@ -104,13 +104,14 @@ public class VoteServiceImpl implements VoteService {
         BattleOption option = battleOptionRepository.findById(request.optionId())
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));
 
-        if (voteRepository.findByBattleAndUser(battle, user).isPresent()) {
-            throw new CustomException(ErrorCode.VOTE_ALREADY_SUBMITTED);
-        }
+//        if (voteRepository.findByBattleAndUser(battle, user).isPresent()) {
+//            throw new CustomException(ErrorCode.VOTE_ALREADY_SUBMITTED);
+//        }
 
         // 1. 투표 데이터 생성 및 저장
         Vote vote = Vote.createPreVote(user, battle, option);
         voteRepository.save(vote);
+        battle.addParticipant();
 
         // 2. 유저 단계를 PRE_VOTE로 업데이트
         userBattleService.upsertStep(user, battle, UserBattleStep.PRE_VOTE);

@@ -7,6 +7,8 @@ public record HomeTodayQuizResponse(
         Long participantsCount,
         String itemA,
         String itemADesc,
+        Boolean isCorrectA,
         String itemB,
-        String itemBDesc
+        String itemBDesc,
+        Boolean isCorrectB
 ) {}

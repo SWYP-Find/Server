@@ -197,7 +197,7 @@ public class BattleServiceImpl implements BattleService {
     @Transactional
     public BattleVoteResponse vote(Long battleId, Long optionId) {
         Battle battle = findById(battleId);
-        BattleOption option = battleOptionRepository.findById(optionId)
+        BattleOption newOption = battleOptionRepository.findById(optionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));
 
         Long currentUserId = SecurityUtil.getCurrentUserId();
@@ -207,15 +207,13 @@ public class BattleServiceImpl implements BattleService {
         voteRepository.save(Vote.builder()
                 .user(user)
                 .battle(battle)
-                .postVoteOption(option)
+                .preVoteOption(newOption)
+                .isTtsListened(false)
                 .build());
 
         userBattleService.upsertStep(user, battle, UserBattleStep.PRE_VOTE);
-        battle.addParticipant();
-        option.increaseVoteCount();
-
         List<OptionStatResponse> results = calculateOptionStats(battle);
-        return new BattleVoteResponse(battle.getId(), option.getId(), battle.getTotalParticipantsCount(), results);
+        return new BattleVoteResponse(battle.getId(), newOption.getId(), battle.getTotalParticipantsCount(), results);
     }
 
     private List<OptionStatResponse> calculateOptionStats(Battle battle) {
@@ -250,6 +248,7 @@ public class BattleServiceImpl implements BattleService {
                     .representative(optionRequest.representative())
                     .quote(optionRequest.quote())
                     .imageUrl(optionRequest.imageUrl())
+                    .isCorrect(optionRequest.isCorrect())
                     .build());
 
             if (optionRequest.tagIds() != null) {
@@ -302,7 +301,7 @@ public class BattleServiceImpl implements BattleService {
                                 s3UploadService.deleteFile(option.getImageUrl());
                             }
                             option.update(optionRequest.title(), optionRequest.stance(),
-                                    optionRequest.representative(), optionRequest.quote(), optionRequest.imageUrl());
+                                    optionRequest.representative(), optionRequest.quote(), optionRequest.imageUrl(), optionRequest.isCorrect());
                         });
             }
         }

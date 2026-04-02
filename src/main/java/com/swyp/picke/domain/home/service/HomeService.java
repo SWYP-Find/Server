@@ -92,7 +92,9 @@ public class HomeService {
                 b.battleId(), b.title(), b.summary(),
                 b.participantsCount(),
                 b.itemA(), b.itemADesc(),
-                b.itemB(), b.itemBDesc()
+                findOptionIsCorrect(b.options(), BattleOptionLabel.A),
+                b.itemB(), b.itemBDesc(),
+                findOptionIsCorrect(b.options(), BattleOptionLabel.B)
         );
     }
 
@@ -126,6 +128,15 @@ public class HomeService {
                 philoB, optionB, imageB,
                 b.tags(), b.audioDuration(), b.viewCount()
         );
+    }
+
+    private Boolean findOptionIsCorrect(List<TodayOptionResponse> options, BattleOptionLabel label) {
+        return Optional.ofNullable(options).orElse(List.of()).stream()
+                .filter(o -> o.label() == label)
+                .map(TodayOptionResponse::isCorrect)
+                .findFirst()
+                .map(Boolean.TRUE::equals)
+                .orElse(false);
     }
 
     private String findOptionTitle(List<TodayOptionResponse> options, BattleOptionLabel label) {

@@ -2,6 +2,7 @@ package com.swyp.picke.domain.user.dto.response;
 
 import com.swyp.picke.domain.user.enums.ActivityType;
 import com.swyp.picke.domain.user.enums.CharacterType;
+import com.swyp.picke.domain.user.enums.VoteSide;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -19,7 +20,7 @@ public record ContentActivityListResponse(
             String battleId,
             String battleTitle,
             AuthorInfo author,
-            String stance,
+            VoteSide voteSide,
             String content,
             int likeCount,
             LocalDateTime createdAt

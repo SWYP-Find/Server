@@ -118,6 +118,7 @@ public class VoteServiceImpl implements VoteService {
             // 투표가 없다면 새로 생성하여 저장
             vote = Vote.createPreVote(user, battle, option);
             voteRepository.save(vote);
+            battle.addParticipant();
         }
 
         // 3. 현재 유저의 진행 단계 확인

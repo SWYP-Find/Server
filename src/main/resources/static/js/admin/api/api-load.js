@@ -166,10 +166,12 @@ window.loadContent = async function() {
             if (optA) {
                 PickeData.setValue('quiz-o-text', optA.title || '');
                 PickeData.setValue('quiz-o-desc', optA.stance || '');
+                if (optA.isCorrect) document.getElementById('quiz-answer-a').checked = true;
             }
             if (optB) {
                 PickeData.setValue('quiz-x-text', optB.title || '');
                 PickeData.setValue('quiz-x-desc', optB.stance || '');
+                if (optB.isCorrect) document.getElementById('quiz-answer-b').checked = true;
             }
         }
         // [VOTE] (복구 완료!)

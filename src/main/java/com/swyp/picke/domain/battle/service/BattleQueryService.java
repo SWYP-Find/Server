@@ -62,6 +62,18 @@ public class BattleQueryService {
                 ));
     }
 
+    public Map<Long, String> getCategoryNamesByBattleIds(List<Long> battleIds) {
+        if (battleIds == null || battleIds.isEmpty()) return Map.of();
+
+        return battleTagRepository.findByBattleIdIn(battleIds).stream()  // findByBattleIdInWithTag → findByBattleIdIn
+                .filter(bt -> bt.getTag().getType() == TagType.CATEGORY)
+                .collect(Collectors.toMap(
+                        bt -> bt.getBattle().getId(),
+                        bt -> bt.getTag().getName(),
+                        (a, b) -> a
+                ));
+    }
+
     public Optional<String> getTopPhilosopherTagName(List<Long> battleIds) {
         if (battleIds.isEmpty()) return Optional.empty();
 

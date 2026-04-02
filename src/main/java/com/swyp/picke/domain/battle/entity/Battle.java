@@ -91,7 +91,7 @@ public class Battle extends BaseEntity {
     @Builder
     public Battle(String title, String summary, String description, String thumbnailUrl,
                   BattleType type, String titlePrefix, String titleSuffix,
-                  String itemA, String itemADesc, String itemB, String itemBDesc, // 🚀 추가
+                  String itemA, String itemADesc, String itemB, String itemBDesc,
                   LocalDate targetDate, Integer audioDuration, BattleStatus status,
                   BattleCreatorType creatorType, User creator) {
         this.title = title;
@@ -118,7 +118,7 @@ public class Battle extends BaseEntity {
     }
 
     public void update(String title, String titlePrefix, String titleSuffix,
-                       String itemA, String itemADesc, String itemB, String itemBDesc, // 🚀 퀴즈 전용 필드 4개 추가
+                       String itemA, String itemADesc, String itemB, String itemBDesc,
                        String summary, String description,
                        String thumbnailUrl, LocalDate targetDate,
                        Integer audioDuration, BattleStatus status) {
@@ -150,5 +150,9 @@ public class Battle extends BaseEntity {
 
     public void addParticipant() {
         this.totalParticipantsCount = (this.totalParticipantsCount == null ? 0L : this.totalParticipantsCount) + 1;
+    }
+
+    public void updateAudioDuration(Integer audioDuration) {
+        this.audioDuration = audioDuration;
     }
 }

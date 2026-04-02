@@ -15,25 +15,25 @@ import java.util.List;
 
 public interface BattleRepository extends JpaRepository<Battle, Long> {
 
-    // 1. EDITOR PICK
+    // 1. EDITOR PICK - type 파라미터 추가
     @Query("SELECT battle FROM Battle battle " +
             "WHERE battle.isEditorPick = true AND battle.status = :status " +
-            "AND battle.deletedAt IS NULL " +
+            "AND battle.type = :type AND battle.deletedAt IS NULL " +
             "ORDER BY battle.createdAt DESC")
-    List<Battle> findEditorPicks(@Param("status") BattleStatus status, Pageable pageable);
+    List<Battle> findEditorPicks(@Param("status") BattleStatus status, @Param("type") BattleType type, Pageable pageable);
 
-    // 2. 지금 뜨는 배틀
+    // 2. 지금 뜨는 배틀 - type 파라미터 추가
     @Query("SELECT battle FROM Battle battle JOIN Vote vote ON vote.battle = battle " +
-            "WHERE vote.createdAt >= :yesterday AND battle.status = 'PUBLISHED' " +
-            "AND battle.deletedAt IS NULL " +
+            "WHERE vote.createdAt >= :yesterday AND battle.type = :type " +
+            "AND battle.status = 'PUBLISHED' AND battle.deletedAt IS NULL " +
             "GROUP BY battle ORDER BY COUNT(vote) DESC")
-    List<Battle> findTrendingBattles(@Param("yesterday") LocalDateTime yesterday, Pageable pageable);
+    List<Battle> findTrendingBattles(@Param("yesterday") LocalDateTime yesterday, @Param("type") BattleType type, Pageable pageable);
 
-    // 3. Best 배틀
+    // 3. Best 배틀 - type 파라미터 추가
     @Query("SELECT battle FROM Battle battle " +
-            "WHERE battle.status = 'PUBLISHED' AND battle.deletedAt IS NULL " +
+            "WHERE battle.status = 'PUBLISHED' AND battle.type = :type AND battle.deletedAt IS NULL " +
             "ORDER BY (battle.totalParticipantsCount + (battle.commentCount * 5)) DESC")
-    List<Battle> findBestBattles(Pageable pageable);
+    List<Battle> findBestBattles(@Param("type") BattleType type, Pageable pageable);
 
     // 4. 오늘의 Pické
     @Query("SELECT battle FROM Battle battle " +
@@ -41,12 +41,12 @@ public interface BattleRepository extends JpaRepository<Battle, Long> {
             "AND battle.status = 'PUBLISHED' AND battle.deletedAt IS NULL")
     List<Battle> findTodayPicks(@Param("type") BattleType type, @Param("today") LocalDate today, Pageable pageable);
 
-    // 5. 새로운 배틀
+    // 5. 새로운 배틀 - type 파라미터 추가
     @Query("SELECT battle FROM Battle battle " +
-            "WHERE battle.id NOT IN :excludeIds AND battle.status = 'PUBLISHED' " +
-            "AND battle.deletedAt IS NULL " +
+            "WHERE battle.id NOT IN :excludeIds AND battle.type = :type " +
+            "AND battle.status = 'PUBLISHED' AND battle.deletedAt IS NULL " +
             "ORDER BY battle.createdAt DESC")
-    List<Battle> findNewBattlesExcluding(@Param("excludeIds") List<Long> excludeIds, Pageable pageable);
+    List<Battle> findNewBattlesExcluding(@Param("excludeIds") List<Long> excludeIds, @Param("type") BattleType type, Pageable pageable);
 
     // 6. 전체 배틀 목록 조회 (페이징, 삭제된 항목 제외, 최신순)
     Page<Battle> findByDeletedAtIsNullOrderByCreatedAtDesc(Pageable pageable);
@@ -54,6 +54,8 @@ public interface BattleRepository extends JpaRepository<Battle, Long> {
 
     // 기본 조회용
     List<Battle> findByTargetDateAndStatusAndDeletedAtIsNull(LocalDate date, BattleStatus status);
+
+    List<Battle> findByTargetDateAndStatusAndTypeAndDeletedAtIsNull(LocalDate targetDate, BattleStatus status, BattleType type);
 
     // 탐색 탭: 전체 배틀 검색 (정렬은 Pageable Sort로 처리)
     @Query("SELECT b FROM Battle b WHERE b.status = 'PUBLISHED' AND b.deletedAt IS NULL")

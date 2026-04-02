@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.perspective.dto.response;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -8,6 +9,7 @@ public record PerspectiveListResponse(
         String nextCursor,
         boolean hasNext
 ) {
+    @Schema(name = "PerspectiveItem")
     public record Item(
             Long perspectiveId,
             UserSummary user,
@@ -20,6 +22,7 @@ public record PerspectiveListResponse(
             LocalDateTime createdAt
     ) {}
 
+    @Schema(name = "PerspectiveUserSummary")
     public record UserSummary(
             String userTag,
             String nickname,
@@ -27,6 +30,7 @@ public record PerspectiveListResponse(
             String characterImageUrl
     ) {}
 
+    @Schema(name = "PerspectiveOptionSummary")
     public record OptionSummary(
             Long optionId,
             String label,

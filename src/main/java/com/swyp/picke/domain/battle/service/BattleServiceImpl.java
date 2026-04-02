@@ -69,20 +69,20 @@ public class BattleServiceImpl implements BattleService {
 
     @Override
     public List<TodayBattleResponse> getEditorPicks(int limit) {
-        List<Battle> battles = battleRepository.findEditorPicks(BattleStatus.PUBLISHED, PageRequest.of(0, limit));
+        List<Battle> battles = battleRepository.findEditorPicks(BattleStatus.PUBLISHED, BattleType.BATTLE, PageRequest.of(0, limit));
         return convertToTodayResponses(battles);
     }
 
     @Override
     public List<TodayBattleResponse> getTrendingBattles(int limit) {
         LocalDateTime yesterday = LocalDateTime.now().minusDays(1);
-        List<Battle> battles = battleRepository.findTrendingBattles(yesterday, PageRequest.of(0, limit));
+        List<Battle> battles = battleRepository.findTrendingBattles(yesterday, BattleType.BATTLE, PageRequest.of(0, limit));
         return convertToTodayResponses(battles);
     }
 
     @Override
     public List<TodayBattleResponse> getBestBattles(int limit) {
-        List<Battle> battles = battleRepository.findBestBattles(PageRequest.of(0, limit));
+        List<Battle> battles = battleRepository.findBestBattles(BattleType.BATTLE, PageRequest.of(0, limit));
         return convertToTodayResponses(battles);
     }
 
@@ -96,7 +96,7 @@ public class BattleServiceImpl implements BattleService {
     public List<TodayBattleResponse> getNewBattles(List<Long> excludeIds, int limit) {
         List<Long> finalExcludeIds = (excludeIds == null || excludeIds.isEmpty())
                 ? List.of(-1L) : excludeIds;
-        List<Battle> battles = battleRepository.findNewBattlesExcluding(finalExcludeIds, PageRequest.of(0, limit));
+        List<Battle> battles = battleRepository.findNewBattlesExcluding(finalExcludeIds, BattleType.BATTLE, PageRequest.of(0, limit));
         return convertToTodayResponses(battles);
     }
 
@@ -127,8 +127,8 @@ public class BattleServiceImpl implements BattleService {
 
     @Override
     public TodayBattleListResponse getTodayBattles() {
-        List<Battle> battles = battleRepository.findByTargetDateAndStatusAndDeletedAtIsNull(
-                LocalDate.now(), BattleStatus.PUBLISHED);
+        List<Battle> battles = battleRepository.findByTargetDateAndStatusAndTypeAndDeletedAtIsNull(
+                LocalDate.now(), BattleStatus.PUBLISHED, BattleType.BATTLE);
 
         List<Battle> limitedBattles = battles.stream()
                 .limit(5)

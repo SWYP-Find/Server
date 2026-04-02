@@ -1,9 +1,9 @@
 package com.swyp.picke.domain.vote.controller;
 
+import com.swyp.picke.domain.vote.dto.request.QuizVoteRequest;
 import com.swyp.picke.domain.vote.dto.request.VoteRequest;
-import com.swyp.picke.domain.vote.dto.response.MyVoteResponse;
-import com.swyp.picke.domain.vote.dto.response.VoteResultResponse;
-import com.swyp.picke.domain.vote.dto.response.VoteStatsResponse;
+import com.swyp.picke.domain.vote.dto.response.*;
+import com.swyp.picke.domain.vote.service.QuizVoteService;
 import com.swyp.picke.domain.vote.service.VoteService;
 import com.swyp.picke.global.common.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -19,9 +19,48 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class VoteController {
 
+    // 배틀(BATTLE) 전용 서비스
     private final VoteService voteService;
+    // 퀴즈(QUIZ) & 투표(POLL) 전용 서비스
+    private final QuizVoteService quizVoteService;
 
-    @Operation(summary = "사전 투표 실행", description = "배틀 진입 시 첫 투표(사전 투표)를 진행합니다.")
+    @Operation(summary = "[퀴즈] 선택 제출")
+    @PostMapping("/battles/{battleId}/quiz-vote")
+    public ApiResponse<QuizVoteResponse> submitQuiz(
+            @PathVariable Long battleId,
+            @AuthenticationPrincipal Long userId,
+            @RequestBody QuizVoteRequest request) {
+        return ApiResponse.onSuccess(quizVoteService.submitQuiz(battleId, userId, request));
+    }
+
+    @Operation(summary = "[투표] 선택 제출")
+    @PostMapping("/battles/{battleId}/poll-vote")
+    public ApiResponse<PollVoteResponse> submitPoll(
+            @PathVariable Long battleId,
+            @AuthenticationPrincipal Long userId,
+            @RequestBody QuizVoteRequest request) {
+        return ApiResponse.onSuccess(quizVoteService.submitPoll(battleId, userId, request));
+    }
+
+    @Operation(summary = "[퀴즈] 내 퀴즈 참여 내역 조회", description = "내가 선택한 퀴즈 옵션과 통계를 조회합니다.")
+    @GetMapping("/battles/{battleId}/quiz-vote/me")
+    public ApiResponse<QuizVoteResponse> getMyQuizVote(
+            @PathVariable Long battleId,
+            @AuthenticationPrincipal Long userId) {
+        return ApiResponse.onSuccess(quizVoteService.getMyQuizVote(battleId, userId));
+    }
+
+    @Operation(summary = "[투표] 내 투표 참여 내역 조회", description = "내가 선택한 투표 옵션과 통계를 조회합니다.")
+    @GetMapping("/battles/{battleId}/poll-vote/me")
+    public ApiResponse<PollVoteResponse> getMyPollVote(
+            @PathVariable Long battleId,
+            @AuthenticationPrincipal Long userId) {
+        return ApiResponse.onSuccess(quizVoteService.getMyPollVote(battleId, userId));
+    }
+
+    // 2. 배틀(BATTLE) 관련 API
+
+    @Operation(summary = "[배틀] 사전 투표 실행", description = "배틀 진입 시 첫 투표(사전 투표)를 진행합니다.")
     @PostMapping("/battles/{battleId}/votes/pre")
     public ApiResponse<VoteResultResponse> preVote(
             @PathVariable Long battleId,
@@ -30,7 +69,7 @@ public class VoteController {
         return ApiResponse.onSuccess(voteService.preVote(battleId, userId, request));
     }
 
-    @Operation(summary = "사후 투표 실행", description = "콘텐츠 소비 후 최종 투표(사후 투표)를 진행합니다.")
+    @Operation(summary = "[배틀] 사후 투표 실행", description = "콘텐츠 소비 후 최종 투표(사후 투표)를 진행합니다.")
     @PostMapping("/battles/{battleId}/votes/post")
     public ApiResponse<VoteResultResponse> postVote(
             @PathVariable Long battleId,
@@ -39,13 +78,13 @@ public class VoteController {
         return ApiResponse.onSuccess(voteService.postVote(battleId, userId, request));
     }
 
-    @Operation(summary = "투표 통계 조회", description = "특정 배틀의 옵션별 투표 수와 비율을 조회합니다.")
+    @Operation(summary = "[배틀] 투표 통계 조회", description = "특정 배틀의 옵션별 투표 수와 비율을 조회합니다.")
     @GetMapping("/battles/{battleId}/vote-stats")
     public ApiResponse<VoteStatsResponse> getVoteStats(@PathVariable Long battleId) {
         return ApiResponse.onSuccess(voteService.getVoteStats(battleId));
     }
 
-    @Operation(summary = "내 투표 내역 조회", description = "특정 배틀에 대한 내 사전/사후 투표 내역과 현재 상태를 조회합니다.")
+    @Operation(summary = "[배틀] 내 투표 내역 조회", description = "특정 배틀에 대한 내 사전/사후 투표 내역과 현재 상태를 조회합니다.")
     @GetMapping("/battles/{battleId}/votes/me")
     public ApiResponse<MyVoteResponse> getMyVote(
             @PathVariable Long battleId,
@@ -53,7 +92,7 @@ public class VoteController {
         return ApiResponse.onSuccess(voteService.getMyVote(battleId, userId));
     }
 
-    @Operation(summary = "오디오(TTS) 청취 완료 처리", description = "사전 투표 후, 오디오 재생이 완료되었을 때 호출하여 상태를 업데이트합니다.")
+    @Operation(summary = "[배틀] 오디오(TTS) 청취 완료 처리", description = "사전 투표 후, 오디오 재생이 완료되었을 때 호출하여 상태를 업데이트합니다.")
     @PostMapping("/battles/{battleId}/votes/tts-complete")
     public ApiResponse<Void> completeTts(
             @PathVariable Long battleId,

@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.user.entity;
 
 import com.swyp.picke.global.common.BaseEntity;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
@@ -27,8 +28,10 @@ public class UserTendencyScore extends BaseEntity {
 
     private int individual;
 
+    @Column(name = "change_score")
     private int change;
 
+    @Column(name = "inner_score")
     private int inner;
 
     private int ideal;

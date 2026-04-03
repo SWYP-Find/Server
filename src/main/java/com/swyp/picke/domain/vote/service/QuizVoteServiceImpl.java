@@ -99,25 +99,47 @@ public class QuizVoteServiceImpl implements QuizVoteService {
                 .orElse(null);
     }
 
+    @Transactional
+    public void deleteQuizVote(Long voteId) {
+        QuizVote quizVote = quizVoteRepository.findById(voteId)
+                .orElseThrow(() -> new CustomException(ErrorCode.VOTE_NOT_FOUND));
+
+        BattleOption option = quizVote.getSelectedOption();
+        if (option != null) {
+            option.decreaseVoteCount();
+        }
+        quizVoteRepository.delete(quizVote);
+    }
+
     private QuizVote saveOrUpdate(Long battleId, Long userId, Long optionId) {
         Battle battle = battleService.findById(battleId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        BattleOption option = battleOptionRepository.findById(optionId)
+        BattleOption newOption = battleOptionRepository.findById(optionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));
 
         return quizVoteRepository.findByBattleAndUser(battle, user)
-                .map(v -> { v.updateOption(option); return v; })
+                .map(v -> {
+                    // 옵션을 바꾼다면 기존 옵션 -1, 새 옵션 +1
+                    if (!v.getSelectedOption().equals(newOption)) {
+                        v.getSelectedOption().decreaseVoteCount();
+                        newOption.increaseVoteCount();
+                        v.updateOption(newOption);
+                    }
+                    return v;
+                })
                 .orElseGet(() -> {
+                    // 처음 투표한다면 새 옵션 +1
                     battle.addParticipant();
+                    newOption.increaseVoteCount();
                     return quizVoteRepository.save(
-                            QuizVote.builder().user(user).battle(battle).selectedOption(option).build());
+                            QuizVote.builder().user(user).battle(battle).selectedOption(newOption).build());
                 });
-    }
+        }
 
     private List<QuizVoteResponse.OptionStat> calcStats(Battle battle, long totalCount) {
         return battleOptionRepository.findByBattle(battle).stream().map(o -> {
-            long count = quizVoteRepository.countByBattleAndSelectedOption(battle, o);
+            long count = (o.getVoteCount() == null) ? 0L : o.getVoteCount();
             double ratio = totalCount == 0 ? 0.0 : Math.round((double) count / totalCount * 1000) / 10.0;
             return new QuizVoteResponse.OptionStat(
                     o.getId(),

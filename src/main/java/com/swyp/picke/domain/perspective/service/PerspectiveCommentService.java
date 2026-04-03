@@ -123,6 +123,50 @@ public class PerspectiveCommentService {
         return new CommentListResponse(items, nextCursor, nextCursor != null);
     }
 
+    public CommentListResponse getCommentsWithLabel(Long perspectiveId, Long userId, String cursor, Integer size) {
+        Perspective perspective = findPerspectiveById(perspectiveId);
+
+        int pageSize = (size == null || size <= 0) ? DEFAULT_PAGE_SIZE : size;
+        PageRequest pageable = PageRequest.of(0, pageSize);
+
+        List<PerspectiveComment> comments = cursor == null
+                ? commentRepository.findByPerspectiveOrderByCreatedAtDesc(perspective, pageable)
+                : commentRepository.findByPerspectiveAndCreatedAtBeforeOrderByCreatedAtDesc(
+                        perspective, LocalDateTime.parse(cursor), pageable);
+
+        Long battleId = perspective.getBattle().getId();
+        List<CommentListResponse.Item> items = comments.stream()
+                .filter(c -> !c.isHidden())
+                .map(c -> {
+                    UserSummary user = userQueryService.findSummaryById(c.getUser().getId());
+                    String characterImageUrl = resolveCharacterImageUrl(user.characterType());
+                    Long postVoteOptionId = voteService.findPostVoteOptionId(battleId, c.getUser().getId());
+                    String stance = null;
+                    if (postVoteOptionId != null) {
+                        BattleOption option = battleService.findOptionById(postVoteOptionId);
+                        stance = option.getLabel().name();
+                    }
+                    boolean isLiked = commentLikeRepository.existsByCommentAndUserId(c, userId);
+                    return new CommentListResponse.Item(
+                            c.getId(),
+                            new CommentListResponse.UserSummary(user.userTag(), user.nickname(), user.characterType(), characterImageUrl),
+                            stance,
+                            c.getContent(),
+                            c.getLikeCount(),
+                            isLiked,
+                            c.getUser().getId().equals(userId),
+                            c.getCreatedAt()
+                    );
+                })
+                .toList();
+
+        String nextCursor = comments.size() == pageSize
+                ? comments.get(comments.size() - 1).getCreatedAt().toString()
+                : null;
+
+        return new CommentListResponse(items, nextCursor, nextCursor != null);
+    }
+
     @Transactional
     public void deleteComment(Long perspectiveId, Long commentId, Long userId) {
         Perspective perspective = findPerspectiveById(perspectiveId);

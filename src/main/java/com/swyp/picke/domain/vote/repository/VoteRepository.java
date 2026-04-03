@@ -15,6 +15,8 @@ import java.util.Optional;
 
 public interface VoteRepository extends JpaRepository<Vote, Long> {
 
+    List<Vote> findAllByBattle(Battle battle);
+
     Optional<Vote> findByBattleIdAndUserId(Long battleId, Long userId);
 
     @Query("SELECT v FROM Vote v LEFT JOIN FETCH v.postVoteOption WHERE v.battle.id = :battleId AND v.user.id = :userId")

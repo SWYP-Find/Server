@@ -9,5 +9,5 @@ public interface QuizVoteService {
     PollVoteResponse submitPoll(Long battleId, Long userId, QuizVoteRequest request);
     QuizVoteResponse getMyQuizVote(Long battleId, Long userId);
     PollVoteResponse getMyPollVote(Long battleId, Long userId);
-    void deleteQuizVote(Long voteId);
+    void deleteQuizVoteByBattleId(Long battleId);
 }

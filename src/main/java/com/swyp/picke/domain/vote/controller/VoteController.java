@@ -102,18 +102,18 @@ public class VoteController {
     }
 
     @Operation(summary = "[관리자] 배틀 투표 삭제")
-    @DeleteMapping("/admin/votes/battle/{voteId}")
+    @DeleteMapping("/admin/votes/battle/{battleId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ApiResponse<Void> deleteBattleVote(@PathVariable Long voteId) {
-        voteService.deleteVote(voteId);
+    public ApiResponse<Void> deleteBattleVote(@PathVariable Long battleId) {
+        voteService.deleteVotesByBattleId(battleId);
         return ApiResponse.onSuccess(null);
     }
 
     @Operation(summary = "[관리자] 퀴즈/일반투표 기록 삭제")
-    @DeleteMapping("/admin/votes/quiz-poll/{voteId}")
+    @DeleteMapping("/admin/votes/quiz-poll/{battleId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ApiResponse<Void> deleteQuizPollVote(@PathVariable Long voteId) {
-        quizVoteService.deleteQuizVote(voteId);
+    public ApiResponse<Void> deleteQuizPollVote(@PathVariable Long battleId) {
+        quizVoteService.deleteQuizVoteByBattleId(battleId);
         return ApiResponse.onSuccess(null);
     }
 }

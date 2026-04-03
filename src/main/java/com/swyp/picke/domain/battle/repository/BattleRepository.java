@@ -79,6 +79,7 @@ public interface BattleRepository extends JpaRepository<Battle, Long> {
     // Score = V*1.0 + C*1.5 + Vw*0.2
     @Query("SELECT b FROM Battle b " +
             "WHERE b.id NOT IN :excludeBattleIds " +
+            "AND b.type = 'BATTLE' " +
             "AND b.status = 'PUBLISHED' AND b.deletedAt IS NULL " +
             "ORDER BY (b.totalParticipantsCount * 1.0 + b.commentCount * 1.5 + b.viewCount * 0.2) DESC")
     List<Battle> findPopularBattlesExcluding(
@@ -90,6 +91,7 @@ public interface BattleRepository extends JpaRepository<Battle, Long> {
     @Query("SELECT b FROM Battle b " +
             "WHERE b.id IN :candidateBattleIds " +
             "AND b.id NOT IN :excludeBattleIds " +
+            "AND b.type = 'BATTLE' " +
             "AND b.status = 'PUBLISHED' AND b.deletedAt IS NULL " +
             "ORDER BY (b.totalParticipantsCount * 1.0 + b.commentCount * 1.5 + b.viewCount * 0.2) DESC")
     List<Battle> findRecommendedBattles(

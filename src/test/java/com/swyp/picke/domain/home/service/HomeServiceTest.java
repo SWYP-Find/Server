@@ -49,6 +49,7 @@ class HomeServiceTest {
     @Test
     @DisplayName("명세기준으로 섹션별 데이터를 조합한다")
     void getHome_aggregates_sections_by_spec() {
+        Long userId = 1L;
         TodayBattleResponse editorPick = battle("editor-id", BATTLE);
         TodayBattleResponse trendingBattle = battle("trending-id", BATTLE);
         TodayBattleResponse bestBattle = battle("best-id", BATTLE);
@@ -56,7 +57,7 @@ class HomeServiceTest {
         TodayBattleResponse todayQuiz = quiz("quiz-id");
         TodayBattleResponse newBattle = battle("new-id", BATTLE);
 
-        when(notificationService.hasNewBroadcast(NotificationCategory.NOTICE)).thenReturn(true);
+        when(notificationService.hasNewBroadcast(userId, NotificationCategory.NOTICE)).thenReturn(true);
         when(battleService.getEditorPicks(10)).thenReturn(List.of(editorPick));
         when(battleService.getTrendingBattles(4)).thenReturn(List.of(trendingBattle));
         when(battleService.getBestBattles(3)).thenReturn(List.of(bestBattle));
@@ -71,7 +72,7 @@ class HomeServiceTest {
                 todayQuiz.battleId()
         ), 3)).thenReturn(List.of(newBattle));
 
-        var response = homeService.getHome();
+        var response = homeService.getHome(userId);
 
         assertThat(response.newNotice()).isTrue();
         assertThat(response.editorPicks()).extracting(HomeEditorPickResponse::title).containsExactly("editor-id");
@@ -99,7 +100,9 @@ class HomeServiceTest {
     @Test
     @DisplayName("데이터가 없으면 false와 빈리스트를 반환한다")
     void getHome_returns_false_and_empty_lists_when_no_data() {
-        when(notificationService.hasNewBroadcast(NotificationCategory.NOTICE)).thenReturn(false);
+        Long userId = 1L;
+
+        when(notificationService.hasNewBroadcast(userId, NotificationCategory.NOTICE)).thenReturn(false);
         when(battleService.getEditorPicks(10)).thenReturn(List.of());
         when(battleService.getTrendingBattles(4)).thenReturn(List.of());
         when(battleService.getBestBattles(3)).thenReturn(List.of());
@@ -107,7 +110,7 @@ class HomeServiceTest {
         when(battleService.getTodayPicks(QUIZ, 1)).thenReturn(List.of());
         when(battleService.getNewBattles(List.of(), 3)).thenReturn(List.of());
 
-        var response = homeService.getHome();
+        var response = homeService.getHome(userId);
 
         assertThat(response.newNotice()).isFalse();
         assertThat(response.editorPicks()).isEmpty();
@@ -121,9 +124,10 @@ class HomeServiceTest {
     @Test
     @DisplayName("에디터픽만 있을때 제외목록이 정확하다")
     void getHome_excludes_only_editor_pick_ids() {
+        Long userId = 1L;
         TodayBattleResponse editorPick = battle("editor-only", BATTLE);
 
-        when(notificationService.hasNewBroadcast(NotificationCategory.NOTICE)).thenReturn(false);
+        when(notificationService.hasNewBroadcast(userId, NotificationCategory.NOTICE)).thenReturn(false);
         when(battleService.getEditorPicks(10)).thenReturn(List.of(editorPick));
         when(battleService.getTrendingBattles(4)).thenReturn(List.of());
         when(battleService.getBestBattles(3)).thenReturn(List.of());
@@ -131,7 +135,7 @@ class HomeServiceTest {
         when(battleService.getTodayPicks(QUIZ, 1)).thenReturn(List.of());
         when(battleService.getNewBattles(List.of(editorPick.battleId()), 3)).thenReturn(List.of());
 
-        homeService.getHome();
+        homeService.getHome(userId);
 
         verify(battleService).getNewBattles(List.of(editorPick.battleId()), 3);
     }
@@ -139,7 +143,8 @@ class HomeServiceTest {
     @Test
     @DisplayName("공지 브로드캐스트가 있으면 newNotice는 true이다")
     void getHome_newNotice_true_with_broadcast() {
-        when(notificationService.hasNewBroadcast(NotificationCategory.NOTICE)).thenReturn(true);
+        Long userId = 1L;
+        when(notificationService.hasNewBroadcast(userId, NotificationCategory.NOTICE)).thenReturn(true);
         when(battleService.getEditorPicks(10)).thenReturn(List.of());
         when(battleService.getTrendingBattles(4)).thenReturn(List.of());
         when(battleService.getBestBattles(3)).thenReturn(List.of());
@@ -147,7 +152,7 @@ class HomeServiceTest {
         when(battleService.getTodayPicks(QUIZ, 1)).thenReturn(List.of());
         when(battleService.getNewBattles(List.of(), 3)).thenReturn(List.of());
 
-        var response = homeService.getHome();
+        var response = homeService.getHome(userId);
 
         assertThat(response.newNotice()).isTrue();
     }
@@ -158,8 +163,8 @@ class HomeServiceTest {
                 10, 20L, 90,
                 List.of(),
                 List.of(
-                        new TodayOptionResponse(generateId(), BattleOptionLabel.A, "A", "rep-a", "stance-a", "image-a"),
-                        new TodayOptionResponse(generateId(), BattleOptionLabel.B, "B", "rep-b", "stance-b", "image-b")
+                        new TodayOptionResponse(generateId(), BattleOptionLabel.A, "A", "rep-a", "stance-a", "image-a", null),
+                        new TodayOptionResponse(generateId(), BattleOptionLabel.B, "B", "rep-b", "stance-b", "image-b", null)
                 ),
                 null, null, null, null, null, null
         );
@@ -181,10 +186,10 @@ class HomeServiceTest {
                 50, 60L, 0,
                 List.of(),
                 List.of(
-                        new TodayOptionResponse(generateId(), BattleOptionLabel.A, "결과", null, null, null),
-                        new TodayOptionResponse(generateId(), BattleOptionLabel.B, "의도", null, null, null),
-                        new TodayOptionResponse(generateId(), BattleOptionLabel.C, "규칙", null, null, null),
-                        new TodayOptionResponse(generateId(), BattleOptionLabel.D, "덕", null, null, null)
+                        new TodayOptionResponse(generateId(), BattleOptionLabel.A, "결과", null, null, null, null),
+                        new TodayOptionResponse(generateId(), BattleOptionLabel.B, "의도", null, null, null, null),
+                        new TodayOptionResponse(generateId(), BattleOptionLabel.C, "규칙", null, null, null, null),
+                        new TodayOptionResponse(generateId(), BattleOptionLabel.D, "덕", null, null, null, null)
                 ),
                 "도덕의 기준은", "이다", null, null, null, null
         );

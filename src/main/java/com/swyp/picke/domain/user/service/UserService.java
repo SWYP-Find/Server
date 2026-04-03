@@ -74,8 +74,8 @@ public class UserService {
             return PhilosopherType.SOCRATES;
         }
 
-        List<Long> battleIds = voteQueryService.findFirstNBattleIds(userId, PHILOSOPHER_CALC_THRESHOLD);
-        return battleQueryService.getTopPhilosopherTagName(battleIds)
+        List<Long> optionIds = voteQueryService.findFirstNBattleIds(userId, PHILOSOPHER_CALC_THRESHOLD);
+        return battleQueryService.getTopPhilosopherTagNameFromOptions(optionIds)
                 .map(PhilosopherType::fromLabel)
                 .map(type -> {
                     profile.updatePhilosopherType(type);

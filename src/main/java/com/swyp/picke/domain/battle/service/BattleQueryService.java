@@ -2,8 +2,10 @@ package com.swyp.picke.domain.battle.service;
 
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
+import com.swyp.picke.domain.battle.entity.BattleOptionTag;
 import com.swyp.picke.domain.battle.entity.BattleTag;
 import com.swyp.picke.domain.battle.repository.BattleOptionRepository;
+import com.swyp.picke.domain.battle.repository.BattleOptionTagRepository;
 import com.swyp.picke.domain.battle.repository.BattleRepository;
 import com.swyp.picke.domain.battle.repository.BattleTagRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,7 @@ public class BattleQueryService {
     private final BattleRepository battleRepository;
     private final BattleOptionRepository battleOptionRepository;
     private final BattleTagRepository battleTagRepository;
+    private final BattleOptionTagRepository battleOptionTagRepository;
 
     public Map<Long, Battle> findBattlesByIds(List<Long> battleIds) {
         return battleRepository.findAllById(battleIds).stream()
@@ -74,15 +77,15 @@ public class BattleQueryService {
                 ));
     }
 
-    public Optional<String> getTopPhilosopherTagName(List<Long> battleIds) {
-        if (battleIds.isEmpty()) return Optional.empty();
+    public Optional<String> getTopPhilosopherTagNameFromOptions(List<Long> optionIds) {
+        if (optionIds.isEmpty()) return Optional.empty();
 
-        List<BattleTag> battleTags = battleTagRepository.findByBattleIdIn(battleIds);
+        List<BattleOptionTag> optionTags = battleOptionTagRepository.findByBattleOptionIdIn(optionIds);
 
-        return battleTags.stream()
-                .filter(bt -> bt.getTag().getType() == TagType.PHILOSOPHER)
+        return optionTags.stream()
+                .filter(bot -> bot.getTag().getType() == TagType.PHILOSOPHER)
                 .collect(Collectors.groupingBy(
-                        bt -> bt.getTag().getName(),
+                        bot -> bot.getTag().getName(),
                         Collectors.counting()
                 ))
                 .entrySet().stream()

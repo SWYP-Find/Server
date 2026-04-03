@@ -187,6 +187,9 @@ public class MypageService {
         List<PerspectiveComment> comments = perspectiveQueryService.findUserComments(user.getId(), pageOffset, pageSize);
         long totalCount = perspectiveQueryService.countUserComments(user.getId());
 
+        UserProfile profile = userService.findUserProfile(user.getId());
+        String myCharacterImageUrl = resolveCharacterImageUrl(profile.getCharacterType());
+
         List<Perspective> perspectives = comments.stream().map(PerspectiveComment::getPerspective).toList();
         Map<Long, Battle> battleMap = loadBattles(perspectives);
         Map<Long, BattleOption> optionMap = loadOptions(perspectives);
@@ -196,7 +199,7 @@ public class MypageService {
                     Perspective p = comment.getPerspective();
                     return toActivityItem(comment.getId().toString(), ActivityType.COMMENT, p,
                             battleMap.get(p.getBattle().getId()), optionMap.get(p.getOption().getId()),
-                            comment.getContent(), comment.getCreatedAt());
+                            comment.getContent(), comment.getCreatedAt(), myCharacterImageUrl);
                 })
                 .toList();
 
@@ -216,9 +219,11 @@ public class MypageService {
         List<ContentActivityListResponse.ContentActivityItem> items = likes.stream()
                 .map(like -> {
                     Perspective p = like.getPerspective();
+                    UserSummary perspectiveAuthor = userService.findSummaryById(p.getUser().getId());
+                    String authorCharacterImageUrl = resolveCharacterImageUrl(perspectiveAuthor.characterType());
                     return toActivityItem(like.getId().toString(), ActivityType.LIKE, p,
                             battleMap.get(p.getBattle().getId()), optionMap.get(p.getOption().getId()),
-                            p.getContent(), like.getCreatedAt());
+                            p.getContent(), like.getCreatedAt(), authorCharacterImageUrl);
                 })
                 .toList();
 
@@ -229,13 +234,15 @@ public class MypageService {
 
     private ContentActivityListResponse.ContentActivityItem toActivityItem(
             String activityId, ActivityType activityType, Perspective perspective,
-            Battle battle, BattleOption option, String content, LocalDateTime createdAt) {
+            Battle battle, BattleOption option, String content, LocalDateTime createdAt,
+            String characterImageUrl) {
 
         UserSummary author = userService.findSummaryById(perspective.getUser().getId());
         ContentActivityListResponse.AuthorInfo authorInfo = new ContentActivityListResponse.AuthorInfo(
                 author.userTag(),
                 author.nickname(),
-                author.characterType() != null ? CharacterType.from(author.characterType()) : null
+                author.characterType() != null ? CharacterType.from(author.characterType()) : null,
+                characterImageUrl
         );
 
         VoteSide voteSide = option != null
@@ -340,5 +347,13 @@ public class MypageService {
     private String resolveCharacterImageUrl(CharacterType characterType) {
         String imageKey = CharacterType.resolveImageKey(characterType);
         return imageKey != null ? s3PresignedUrlService.generatePresignedUrl(imageKey) : null;
+    }
+
+    private String resolveCharacterImageUrl(String characterType) {
+        if (characterType == null || characterType.isBlank()) {
+            return null;
+        }
+        String imageKey = CharacterType.resolveImageKey(characterType);
+        return s3PresignedUrlService.generatePresignedUrl(imageKey);
     }
 }

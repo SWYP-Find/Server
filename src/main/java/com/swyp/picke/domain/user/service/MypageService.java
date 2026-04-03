@@ -20,6 +20,8 @@ import com.swyp.picke.domain.user.entity.UserSettings;
 import com.swyp.picke.domain.user.enums.VoteSide;
 import com.swyp.picke.domain.vote.entity.Vote;
 import com.swyp.picke.domain.vote.service.VoteQueryService;
+import com.swyp.picke.global.common.exception.CustomException;
+import com.swyp.picke.global.common.exception.ErrorCode;
 import com.swyp.picke.global.infra.s3.service.S3PresignedUrlService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -305,14 +307,15 @@ public class MypageService {
             return null;
         }
 
-        List<Long> battleIds = voteQueryService.findFirstNBattleIds(userId, PHILOSOPHER_CALC_THRESHOLD);
-        return battleQueryService.getTopPhilosopherTagName(battleIds)
+        List<Long> optionIds = voteQueryService.findFirstNVotedOptionIds(userId, PHILOSOPHER_CALC_THRESHOLD);
+
+        return battleQueryService.getTopPhilosopherTagNameFromOptions(optionIds)
                 .map(PhilosopherType::fromLabel)
                 .map(type -> {
                     profile.updatePhilosopherType(type);
                     return type;
                 })
-                .orElse(null);
+                .orElseThrow(() -> new CustomException(ErrorCode.PHILOSOPHER_CALC_FAILED));
     }
 
     private RecapResponse.PhilosopherCard toPhilosopherCard(PhilosopherType type) {

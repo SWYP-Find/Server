@@ -14,4 +14,7 @@ public interface BattleOptionTagRepository extends JpaRepository<BattleOptionTag
 
     @Query("SELECT bot FROM BattleOptionTag bot JOIN FETCH bot.tag WHERE bot.battleOption.battle = :battle")
     List<BattleOptionTag> findByBattleWithTags(@Param("battle") Battle battle);
+
+    @Query("SELECT bot FROM BattleOptionTag bot JOIN FETCH bot.tag WHERE bot.battleOption.id IN :optionIds")
+    List<BattleOptionTag> findByBattleOptionIdIn(@Param("optionIds") List<Long> optionIds);
 }

@@ -98,7 +98,10 @@ public enum ErrorCode {
     // Reward
     REWARD_INVALID_USER(HttpStatus.NOT_FOUND, "REWARD_404", "해당 유저를 찾을 수 없습니다."),
     REWARD_INVALID_TYPE(HttpStatus.BAD_REQUEST, "REWARD_400", "지원하지 않는 보상 아이템 타입입니다."),
-    REWARD_INVALID_SIGNATURE(HttpStatus.UNAUTHORIZED, "REWARD_401", "AdMob 서명 검증에 실패하였습니다.");
+    REWARD_INVALID_SIGNATURE(HttpStatus.UNAUTHORIZED, "REWARD_401", "AdMob 서명 검증에 실패하였습니다."),
+
+    // MyPage
+    PHILOSOPHER_CALC_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "USER_500_PHIL", "철학자 유형을 계산할 수 없습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

@@ -33,17 +33,30 @@ public class QuizVoteServiceImpl implements QuizVoteService {
     @Transactional
     public QuizVoteResponse submitQuiz(Long battleId, Long userId, QuizVoteRequest request) {
         QuizVote v = saveOrUpdate(battleId, userId, request.optionId());
-        return new QuizVoteResponse(battleId, v.getSelectedOption().getId(), calcStats(v.getBattle()));
+        long totalCount = quizVoteRepository.countByBattle(v.getBattle());
+
+        return new QuizVoteResponse(
+                battleId,
+                v.getSelectedOption().getId(),
+                totalCount,
+                calcStats(v.getBattle(), totalCount)
+        );
     }
 
     @Override
     @Transactional
     public PollVoteResponse submitPoll(Long battleId, Long userId, QuizVoteRequest request) {
         QuizVote v = saveOrUpdate(battleId, userId, request.optionId());
-        return new PollVoteResponse(battleId, v.getSelectedOption().getId(),
-                calcStats(v.getBattle()).stream()
+        long totalCount = quizVoteRepository.countByBattle(v.getBattle());
+
+        return new PollVoteResponse(
+                battleId,
+                v.getSelectedOption().getId(),
+                totalCount,
+                calcStats(v.getBattle(), totalCount).stream()
                         .map(s -> new PollVoteResponse.OptionStat(s.optionId(), s.label(), s.title(), s.voteCount(), s.ratio()))
-                        .toList());
+                        .toList()
+        );
     }
 
     @Override
@@ -53,11 +66,15 @@ public class QuizVoteServiceImpl implements QuizVoteService {
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         return quizVoteRepository.findByBattleAndUser(battle, user)
-                .map(v -> new QuizVoteResponse(
-                        battleId,
-                        v.getSelectedOption().getId(),
-                        calcStats(battle)
-                ))
+                .map(v -> {
+                    long totalCount = quizVoteRepository.countByBattle(battle);
+                    return new QuizVoteResponse(
+                            battleId,
+                            v.getSelectedOption().getId(),
+                            totalCount,
+                            calcStats(battle, totalCount)
+                    );
+                })
                 .orElse(null);
     }
 
@@ -68,13 +85,17 @@ public class QuizVoteServiceImpl implements QuizVoteService {
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         return quizVoteRepository.findByBattleAndUser(battle, user)
-                .map(v -> new PollVoteResponse(
-                        battleId,
-                        v.getSelectedOption().getId(),
-                        calcStats(battle).stream()
-                                .map(s -> new PollVoteResponse.OptionStat(s.optionId(), s.label(), s.title(), s.voteCount(), s.ratio()))
-                                .toList()
-                ))
+                .map(v -> {
+                    long totalCount = quizVoteRepository.countByBattle(battle);
+                    return new PollVoteResponse(
+                            battleId,
+                            v.getSelectedOption().getId(),
+                            totalCount,
+                            calcStats(battle, totalCount).stream()
+                                    .map(s -> new PollVoteResponse.OptionStat(s.optionId(), s.label(), s.title(), s.voteCount(), s.ratio()))
+                                    .toList()
+                    );
+                })
                 .orElse(null);
     }
 
@@ -94,16 +115,15 @@ public class QuizVoteServiceImpl implements QuizVoteService {
                 });
     }
 
-    private List<QuizVoteResponse.OptionStat> calcStats(Battle battle) {
-        long total = quizVoteRepository.countByBattle(battle);
+    private List<QuizVoteResponse.OptionStat> calcStats(Battle battle, long totalCount) {
         return battleOptionRepository.findByBattle(battle).stream().map(o -> {
             long count = quizVoteRepository.countByBattleAndSelectedOption(battle, o);
-            double ratio = total == 0 ? 0.0 : Math.round((double) count / total * 1000) / 10.0;
+            double ratio = totalCount == 0 ? 0.0 : Math.round((double) count / totalCount * 1000) / 10.0;
             return new QuizVoteResponse.OptionStat(
                     o.getId(),
                     o.getLabel().name(),
                     o.getTitle(),
-                    o.getIsCorrect(), // 이 부분!
+                    o.getIsCorrect(),
                     count,
                     ratio
             );

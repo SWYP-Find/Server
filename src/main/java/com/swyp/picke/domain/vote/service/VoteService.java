@@ -13,6 +13,6 @@ public interface VoteService {
     MyVoteResponse getMyVote(Long battleId, Long userId);
     VoteResultResponse preVote(Long battleId, Long userId, VoteRequest request);
     VoteResultResponse postVote(Long battleId, Long userId, VoteRequest request);
-    void deleteVote(Long voteId);
+    void deleteVotesByBattleId(Long battleId);
     void completeTts(Long battleId, Long userId);
 }

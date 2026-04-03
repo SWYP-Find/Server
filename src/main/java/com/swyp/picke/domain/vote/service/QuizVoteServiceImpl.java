@@ -32,7 +32,12 @@ public class QuizVoteServiceImpl implements QuizVoteService {
     @Override
     @Transactional
     public QuizVoteResponse submitQuiz(Long battleId, Long userId, QuizVoteRequest request) {
-        QuizVote v = saveOrUpdate(battleId, userId, request.optionId());
+        Battle battle = battleService.findById(battleId);
+        if (!"QUIZ".equals(battle.getType().name())) {
+            throw new CustomException(ErrorCode.BATTLE_NOT_QUIZ);
+        }
+
+        QuizVote v = saveOrUpdate(battle, userId, request.optionId());
         long totalCount = quizVoteRepository.countByBattle(v.getBattle());
 
         return new QuizVoteResponse(
@@ -46,7 +51,12 @@ public class QuizVoteServiceImpl implements QuizVoteService {
     @Override
     @Transactional
     public PollVoteResponse submitPoll(Long battleId, Long userId, QuizVoteRequest request) {
-        QuizVote v = saveOrUpdate(battleId, userId, request.optionId());
+        Battle battle = battleService.findById(battleId);
+        if (!"VOTE".equals(battle.getType().name())) {
+            throw new CustomException(ErrorCode.BATTLE_NOT_POLL);
+        }
+
+        QuizVote v = saveOrUpdate(battle, userId, request.optionId());
         long totalCount = quizVoteRepository.countByBattle(v.getBattle());
 
         return new PollVoteResponse(
@@ -62,57 +72,83 @@ public class QuizVoteServiceImpl implements QuizVoteService {
     @Override
     public QuizVoteResponse getMyQuizVote(Long battleId, Long userId) {
         Battle battle = battleService.findById(battleId);
+        if (!"QUIZ".equals(battle.getType().name())) {
+            throw new CustomException(ErrorCode.BATTLE_NOT_QUIZ);
+        }
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
+        long totalCount = quizVoteRepository.countByBattle(battle);
+
         return quizVoteRepository.findByBattleAndUser(battle, user)
-                .map(v -> {
-                    long totalCount = quizVoteRepository.countByBattle(battle);
-                    return new QuizVoteResponse(
-                            battleId,
-                            v.getSelectedOption().getId(),
-                            totalCount,
-                            calcStats(battle, totalCount)
-                    );
-                })
-                .orElse(null);
+                .map(v -> new QuizVoteResponse(
+                        battleId,
+                        v.getSelectedOption().getId(),
+                        totalCount,
+                        calcStats(battle, totalCount)
+                ))
+                .orElseGet(() -> {
+                    // [투표 전] 전체 참여자 수(totalCount)는 보여주되, 개별 통계(voteCount, ratio)는 0으로 숨김
+                    List<QuizVoteResponse.OptionStat> blindStats = battleOptionRepository.findByBattle(battle).stream()
+                            .map(o -> new QuizVoteResponse.OptionStat(o.getId(), o.getLabel().name(), o.getTitle(), o.getIsCorrect(), 0L, 0.0))
+                            .toList();
+                    return new QuizVoteResponse(battleId, null, totalCount, blindStats);
+                });
     }
 
     @Override
     public PollVoteResponse getMyPollVote(Long battleId, Long userId) {
         Battle battle = battleService.findById(battleId);
+        if (!"VOTE".equals(battle.getType().name())) {
+            throw new CustomException(ErrorCode.BATTLE_NOT_POLL);
+        }
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
+        long totalCount = quizVoteRepository.countByBattle(battle);
+
         return quizVoteRepository.findByBattleAndUser(battle, user)
                 .map(v -> {
-                    long totalCount = quizVoteRepository.countByBattle(battle);
+                    List<PollVoteResponse.OptionStat> stats = calcStats(battle, totalCount).stream()
+                            .map(s -> new PollVoteResponse.OptionStat(s.optionId(), s.label(), s.title(), s.voteCount(), s.ratio()))
+                            .toList();
+
                     return new PollVoteResponse(
                             battleId,
                             v.getSelectedOption().getId(),
                             totalCount,
-                            calcStats(battle, totalCount).stream()
-                                    .map(s -> new PollVoteResponse.OptionStat(s.optionId(), s.label(), s.title(), s.voteCount(), s.ratio()))
-                                    .toList()
+                            stats
                     );
                 })
-                .orElse(null);
+                .orElseGet(() -> {
+                    // [투표 전] 전체 참여자 수(totalCount)는 보여주되, 개별 통계(voteCount, ratio)는 0으로 숨김
+                    List<PollVoteResponse.OptionStat> blindStats = battleOptionRepository.findByBattle(battle).stream()
+                            .map(o -> new PollVoteResponse.OptionStat(o.getId(), o.getLabel().name(), o.getTitle(), 0L, 0.0))
+                            .toList();
+                    return new PollVoteResponse(battleId, null, totalCount, blindStats);
+                });
     }
 
     @Transactional
-    public void deleteQuizVote(Long voteId) {
-        QuizVote quizVote = quizVoteRepository.findById(voteId)
-                .orElseThrow(() -> new CustomException(ErrorCode.VOTE_NOT_FOUND));
+    public void deleteQuizVoteByBattleId(Long battleId) {
+        // 배틀 확인
+        Battle battle = battleService.findById(battleId);
 
-        BattleOption option = quizVote.getSelectedOption();
-        if (option != null) {
-            option.decreaseVoteCount();
+        // 해당 배틀의 모든 투표 조회
+        List<QuizVote> votes = quizVoteRepository.findAllByBattle(battle);
+
+        // 투표수 감소 (배틀 옵션에 반영)
+        for (QuizVote v : votes) {
+            if (v.getSelectedOption() != null) {
+                v.getSelectedOption().decreaseVoteCount();
+            }
         }
-        quizVoteRepository.delete(quizVote);
+        quizVoteRepository.deleteAllInBatch(votes);
     }
 
-    private QuizVote saveOrUpdate(Long battleId, Long userId, Long optionId) {
-        Battle battle = battleService.findById(battleId);
+    private QuizVote saveOrUpdate(Battle battle, Long userId, Long optionId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         BattleOption newOption = battleOptionRepository.findById(optionId)

@@ -52,43 +52,46 @@ public class JwtFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
 
         String requestUri = request.getRequestURI();
+        boolean isWhitelist = isWhitelisted(requestUri);
 
-        log.info("[JwtFilter Debug] URI: {}, isWhitelisted: {}", requestUri, isWhitelisted(requestUri));
-
-        // 화이트리스트 확인
-        if (isWhitelisted(requestUri)) {
-            filterChain.doFilter(request, response);
-            return;
-        }
+        log.info("[JwtFilter Debug] URI: {}, isWhitelisted: {}", requestUri, isWhitelist);
 
         try {
+            // 1. 화이트리스트 검사 전, 무조건 토큰부터 꺼냅니다.
             String token = resolveToken(request);
 
-            // 토큰이 없는 경우 에러 로그를 남기고 401 반환
-            if (token == null) {
-                log.warn("[JwtFilter] Token missing for URI: {}", requestUri);
-                setErrorResponse(response, ErrorCode.AUTH_UNAUTHORIZED);
-                return;
+            if (token != null) {
+                // 2. 토큰이 존재하면 유효성을 검사합니다.
+                if (!jwtProvider.validateToken(token)) {
+                    log.error("[JwtFilter] Invalid or Expired token for URI: {}", requestUri);
+                    setErrorResponse(response, ErrorCode.AUTH_ACCESS_TOKEN_EXPIRED);
+                    return;
+                }
+
+                // 3. 토큰이 유효하다면 SecurityContext에 유저 정보(userId)를 저장합니다.
+                Long userId = jwtProvider.getUserId(token);
+                String role = jwtProvider.getRole(token);
+                String authorityName = (role != null && role.startsWith("ROLE_")) ? role : "ROLE_" + role;
+
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(
+                                userId,
+                                null,
+                                role != null ? List.of(new SimpleGrantedAuthority(authorityName)) : List.of()
+                        );
+
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+
+            } else {
+                // 4. 토큰이 비어있을 때, 화이트리스트(홈 화면 등)가 아니라면 에러를 던집니다.
+                if (!isWhitelist) {
+                    log.warn("[JwtFilter] Token missing for URI: {}", requestUri);
+                    setErrorResponse(response, ErrorCode.AUTH_UNAUTHORIZED);
+                    return;
+                }
             }
 
-            if (!jwtProvider.validateToken(token)) {
-                log.error("[JwtFilter] Invalid or Expired token for URI: {}", requestUri);
-                setErrorResponse(response, ErrorCode.AUTH_ACCESS_TOKEN_EXPIRED);
-                return;
-            }
-
-            Long userId = jwtProvider.getUserId(token);
-            String role = jwtProvider.getRole(token);
-            String authorityName = (role != null && role.startsWith("ROLE_")) ? role : "ROLE_" + role;
-
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(
-                            userId,
-                            null,
-                            role != null ? List.of(new SimpleGrantedAuthority(authorityName)) : List.of()
-                    );
-
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            // 5. [토큰 검증을 무사히 마쳤거나] or [토큰이 없는 비회원인데 화이트리스트인 경우] 다음 필터로 넘어갑니다.
             filterChain.doFilter(request, response);
 
         } catch (Exception e) {

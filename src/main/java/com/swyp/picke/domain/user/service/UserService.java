@@ -17,6 +17,8 @@ import com.swyp.picke.domain.vote.service.VoteQueryService;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -92,7 +94,19 @@ public class UserService {
     }
 
     public User findCurrentUser() {
-        return userRepository.findTopByOrderByIdDesc()
+        // 1. SecurityContext에서 현재 로그인한 유저의 인증 정보(토큰 정보)를 가져옵니다.
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        // 2. 인증 정보가 없거나 비로그인 상태면 에러를 던집니다.
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND); // 또는 권한 없음(UNAUTHORIZED) 에러 코드로 변경하셔도 좋습니다.
+        }
+
+        // 3. Principal 객체에서 userId를 추출합니다. (컨트롤러에서 @AuthenticationPrincipal Long userId 로 받던 것과 같은 원리)
+        Long userId = Long.valueOf(authentication.getPrincipal().toString());
+
+        // 4. 진짜 '내' ID로 DB에서 유저를 조회해서 반환합니다!
+        return userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 

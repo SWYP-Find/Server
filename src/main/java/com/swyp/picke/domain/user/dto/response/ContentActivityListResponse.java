@@ -30,7 +30,8 @@ public record ContentActivityListResponse(
     public record AuthorInfo(
             String userTag,
             String nickname,
-            CharacterType characterType
+            CharacterType characterType,
+            String characterImageUrl
     ) {
     }
 }

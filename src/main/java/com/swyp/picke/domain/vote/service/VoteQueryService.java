@@ -74,4 +74,16 @@ public class VoteQueryService {
                 .distinct()
                 .toList();
     }
+
+    public List<Long> findFirstNVotedOptionIds(Long userId, int n) {
+        return voteRepository.findByUserIdOrderByCreatedAtAsc(userId, PageRequest.of(0, n)).stream()
+                .map(v -> {
+                    if (v.getPostVoteOption() != null) return v.getPostVoteOption().getId();
+                    if (v.getPreVoteOption() != null) return v.getPreVoteOption().getId();
+                    return null;
+                })
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+    }
 }

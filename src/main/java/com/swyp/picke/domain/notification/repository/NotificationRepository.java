@@ -27,7 +27,17 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
             Pageable pageable
     );
 
-    boolean existsByUserIsNullAndCategory(NotificationCategory category);
+    @Query("""
+        SELECT CASE WHEN COUNT(n) > 0 THEN true ELSE false END
+        FROM Notification n
+        WHERE n.user IS NULL
+          AND n.category = :category
+          AND NOT EXISTS (
+              SELECT 1 FROM NotificationRead nr
+              WHERE nr.notification = n AND nr.userId = :userId
+          )
+        """)
+    boolean hasUnreadBroadcast(@Param("userId") Long userId, @Param("category") NotificationCategory category);
 
     @Modifying
     @Query("""

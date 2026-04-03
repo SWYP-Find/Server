@@ -128,8 +128,8 @@ public class NotificationService {
         return contentCount + broadcastCount;
     }
 
-    public boolean hasNewBroadcast(NotificationCategory category) {
-        return notificationRepository.existsByUserIsNullAndCategory(category);
+    public boolean hasNewBroadcast(Long userId, NotificationCategory category) {
+        return notificationRepository.hasUnreadBroadcast(userId, category);
     }
 
     private Notification getAccessibleNotification(Long userId, Long notificationId) {

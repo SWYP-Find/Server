@@ -6,6 +6,7 @@ import com.swyp.picke.global.common.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,7 +21,7 @@ public class HomeController {
 
     @Operation(summary = "홈 화면 집계 조회")
     @GetMapping("/home")
-    public ApiResponse<HomeResponse> getHome() {
-        return ApiResponse.onSuccess(homeService.getHome());
+    public ApiResponse<HomeResponse> getHome(@AuthenticationPrincipal Long userId) {
+        return ApiResponse.onSuccess(homeService.getHome(userId));
     }
 }

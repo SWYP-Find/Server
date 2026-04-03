@@ -51,6 +51,17 @@ public class PerspectiveCommentController {
         return ApiResponse.onSuccess(commentService.getComments(perspectiveId, userId, cursor, size));
     }
 
+    @Operation(summary = "댓글 목록 조회 (옵션 라벨)", description = "특정 관점의 댓글 목록을 커서 기반 페이지네이션으로 조회합니다. stance는 투표한 옵션의 라벨(A/B)로 반환됩니다.")
+    @GetMapping("/perspectives/{perspectiveId}/comments/labeled")
+    public ApiResponse<CommentListResponse> getCommentsWithLabel(
+            @PathVariable Long perspectiveId,
+            @AuthenticationPrincipal Long userId,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) Integer size
+    ) {
+        return ApiResponse.onSuccess(commentService.getCommentsWithLabel(perspectiveId, userId, cursor, size));
+    }
+
     @Operation(summary = "댓글 삭제", description = "본인이 작성한 댓글을 삭제합니다.")
     @DeleteMapping("/perspectives/{perspectiveId}/comments/{commentId}")
     public ApiResponse<Void> deleteComment(

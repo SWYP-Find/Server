@@ -28,9 +28,11 @@ public class HomeService {
     private final NotificationService notificationService;
     private final S3PresignedUrlService s3PresignedUrlService;
 
-    public HomeResponse getHome() {
-        boolean newNotice = notificationService.hasNewBroadcast(NotificationCategory.NOTICE);
-
+    public HomeResponse getHome(Long userId) {
+        boolean newNotice = false;
+        if (userId != null) {
+            newNotice = notificationService.hasNewBroadcast(userId, NotificationCategory.NOTICE);
+        }
         // DB 쿼리 단계에서 LIMIT을 걸어 필요한 개수만 깔끔하게 조회!
         List<TodayBattleResponse> editorPickRaw = battleService.getEditorPicks(10);
         List<TodayBattleResponse> trendingRaw = battleService.getTrendingBattles(4);

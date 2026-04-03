@@ -58,21 +58,21 @@ public interface BattleRepository extends JpaRepository<Battle, Long> {
     List<Battle> findByTargetDateAndStatusAndTypeAndDeletedAtIsNull(LocalDate targetDate, BattleStatus status, BattleType type);
 
     // 탐색 탭: 전체 배틀 검색 (정렬은 Pageable Sort로 처리)
-    @Query("SELECT b FROM Battle b WHERE b.status = 'PUBLISHED' AND b.deletedAt IS NULL")
+    @Query("SELECT b FROM Battle b WHERE b.status = 'PUBLISHED' AND b.type = 'BATTLE' AND b.deletedAt IS NULL")
     List<Battle> searchAll(Pageable pageable);
 
-    @Query("SELECT COUNT(b) FROM Battle b WHERE b.status = 'PUBLISHED' AND b.deletedAt IS NULL")
+    @Query("SELECT COUNT(b) FROM Battle b WHERE b.status = 'PUBLISHED' AND b.type = 'BATTLE' AND b.deletedAt IS NULL")
     long countSearchAll();
 
     // 탐색 탭: 카테고리 태그 필터 배틀 검색
     @Query("SELECT DISTINCT b FROM Battle b JOIN BattleTag bt ON bt.battle = b JOIN bt.tag t " +
            "WHERE t.type = 'CATEGORY' AND t.name = :categoryName " +
-           "AND b.status = 'PUBLISHED' AND b.deletedAt IS NULL")
+           "AND b.status = 'PUBLISHED' AND b.type = 'BATTLE' AND b.deletedAt IS NULL")
     List<Battle> searchByCategory(@Param("categoryName") String categoryName, Pageable pageable);
 
     @Query("SELECT COUNT(DISTINCT b) FROM Battle b JOIN BattleTag bt ON bt.battle = b JOIN bt.tag t " +
            "WHERE t.type = 'CATEGORY' AND t.name = :categoryName " +
-           "AND b.status = 'PUBLISHED' AND b.deletedAt IS NULL")
+           "AND b.status = 'PUBLISHED' AND b.type = 'BATTLE' AND b.deletedAt IS NULL")
     long countSearchByCategory(@Param("categoryName") String categoryName);
 
     // 추천 폴백용: 전체 배틀 대상 인기 점수순 조회 (철학자 유형 로직 미구현 시 사용)

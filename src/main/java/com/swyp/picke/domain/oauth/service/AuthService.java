@@ -202,12 +202,18 @@ public class AuthService {
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         refreshTokenRepository.deleteByUser(user);
 
+        if (user.getStatus() == UserStatus.DELETED) {
+            throw new CustomException(ErrorCode.USER_ALREADY_WITHDRAWN);
+        }
+
         if (!userWithdrawalRepository.existsByUser_Id(userId)) {
             userWithdrawalRepository.save(UserWithdrawal.builder()
                     .user(user)
                     .reason(request.reason())
                     .build());
         }
+
+        socialAccountRepository.findByUser(user).ifPresent(socialAccountRepository::delete);
 
         user.delete();
     }

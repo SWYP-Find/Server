@@ -31,6 +31,7 @@ public enum ErrorCode {
     USER_BANNED(HttpStatus.FORBIDDEN, "USER_403_BAN", "영구 제재된 사용자입니다."),
     USER_SUSPENDED(HttpStatus.FORBIDDEN, "USER_403_SUS", "일정 기간 이용 정지된 사용자입니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_404", "존재하지 않는 사용자입니다."),
+    USER_ALREADY_WITHDRAWN(HttpStatus.BAD_REQUEST, "USER_400_ALREADY", "이미 탈퇴한 사용자입니다."),
     ONBOARDING_ALREADY_COMPLETED(HttpStatus.CONFLICT, "USER_409", "이미 온보딩이 완료된 사용자입니다."),
 
     // Credit

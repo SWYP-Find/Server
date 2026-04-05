@@ -8,5 +8,12 @@ public record QuizVoteResponse(
         long totalCount,
         List<OptionStat> stats
 ) {
-    public record OptionStat(Long optionId, String label, String title, Boolean isCorrect, long voteCount, double ratio) {}
+    public record OptionStat(Long optionId,
+                             String label,
+                             String title,
+                             Boolean isCorrect,
+                             long voteCount,
+                             double ratio,
+                             String stance
+    ) {}
 }

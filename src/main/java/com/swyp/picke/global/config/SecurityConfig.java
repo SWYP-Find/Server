@@ -43,6 +43,9 @@ public class SecurityConfig {
                                 "/js/**", "/css/**", "/favicon.ico",
                                 "/api/v1/admin/login", "/api/v1/admin",
                                 "/result/**",
+                                "/report/**",
+                                "/battle/**",
+                                "/.well-known/**",
                                 "/api/v1/resources/images/**",
                                 "/api/v1/resources/audio/**",
                                 "/api/v1/admob/reward/**"

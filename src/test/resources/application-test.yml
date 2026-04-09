@@ -1,0 +1,78 @@
+spring:
+  application:
+    name: picke
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  cloud:
+    aws:
+      s3:
+        bucket: test-bucket
+      region:
+        static: ap-northeast-2
+      credentials:
+        access-key: test-key
+        secret-key: test-secret
+    gcp:
+      credentials:
+        location: file:/tmp/dummy.json
+
+oauth:
+  kakao:
+    client-id: dummy
+    client-secret: dummy
+  google:
+    client-id: dummy
+    client-secret: dummy
+
+openai:
+  api-key: dummy
+  url: https://dummy.com
+  model: gpt-4o-mini
+  tts:
+    url: dummy
+    model: dummy
+
+fishaudio:
+  api-key: dummy
+  tts:
+    url: dummy
+  voice-id:
+    a: dummy
+    b: dummy
+    user: dummy
+    narrator: dummy
+
+elevenlabs:
+  api-key: dummy
+  model: dummy
+  voice-id:
+    a: dummy
+    b: dummy
+    user: dummy
+    narrator: dummy
+
+jwt:
+  # 'picke-secret-key-for-test-environment-123456'를 Base64로 인코딩한 값
+  secret: cGlja2Utc2VjcmV0LWtleS1mb3ItdGVzdC1lbnZpcm9ubWVudC0xMjM0NTY=
+  access-token-expiration: 3600000
+  refresh-token-expiration: 1209600000
+
+app:
+  baseUrl: http://localhost:8080
+picke:
+  baseUrl: http://localhost:8080
+
+media:
+  ffmpeg:
+    path: ffmpeg
+  ffprobe:
+    path: ffprobe

@@ -1,0 +1,89 @@
+@startuml battle
+hide circle
+hide methods
+skinparam linetype ortho
+
+' ───────────────────────────────
+' 테이블 정의
+' ───────────────────────────────
+
+entity "users\n사용자" as users {
+  * id : BIGINT <<PK>>
+  --
+  email : VARCHAR(255) <<UNIQUE>>
+  nickname : VARCHAR(50) <<UNIQUE>>
+  character_id : INT <<FK>>
+  role : ENUM('USER', 'ADMIN')
+  status : ENUM('PENDING', 'ACTIVE', 'DELETED', 'BANNED')
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "BATTLES\n배틀(주제)" as battles {
+  * id : Long <<PK>>
+  --
+  title : VARCHAR(255)
+  summary : VARCHAR(500)
+  description : TEXT
+  thumbnail_url : VARCHAR(500)
+  target_date : DATE
+  status : ENUM('DRAFT', 'PENDING', 'PUBLISHED', 'REJECTED', 'ARCHIVED')
+  creator_type : ENUM('ADMIN', 'USER', 'AI')
+  creator_id : BIGINT <<FK>> (nullable)
+  reject_reason : VARCHAR(500) (nullable)
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "BATTLE_OPTIONS\n선택지" as battle_options {
+  * id : Long <<PK>>
+  --
+  battle_id : Long <<FK>>
+  label : ENUM('A', 'B')
+  title : VARCHAR(100)
+  stance : VARCHAR(255)
+  representative : VARCHAR(100)
+  quote : TEXT
+  keywords : JSONB
+  image_url : VARCHAR(500)
+}
+
+' ───────────────────────────────
+' 배치 가이드 (위→아래)
+' ───────────────────────────────
+
+users         -[hidden]down- battles
+battles       -[hidden]down- battle_options
+
+' ───────────────────────────────
+' 관계
+' ───────────────────────────────
+
+users   ||--o{ battles       : "creates"
+battles ||--o{ battle_options : "has"
+
+' ───────────────────────────────
+' 노트
+' ───────────────────────────────
+
+note right of battles
+  status 흐름:
+
+  [관리자 직접 발행]
+  DRAFT → PUBLISHED → ARCHIVED
+
+  [AI 자동 생성 · 스케줄러 - 후순위]
+  PENDING → PUBLISHED → ARCHIVED
+           → REJECTED
+
+  [유저 크리에이터 - 후순위]
+  PENDING → PUBLISHED → ARCHIVED
+           → REJECTED
+
+  creator_type
+  ADMIN : 관리자 직접 발행 → creator_id = null
+  AI    : [후순위] 스케줄러 자동 생성 → creator_id = null
+  USER  : [후순위] 유저 제안 → creator_id = users.id
+end note
+
+@enduml

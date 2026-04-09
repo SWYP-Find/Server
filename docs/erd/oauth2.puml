@@ -1,0 +1,55 @@
+@startuml
+!theme plain
+skinparam Linetype ortho
+
+' 1. 서비스 사용자 참조
+entity "users" {
+  * id : BIGINT <<PK>>
+  --
+  user_tag : VARCHAR(30) <<UNIQUE>>
+  status : ENUM('PENDING', 'ACTIVE', 'DELETED', 'BANNED')
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+' 2. OAuth 연동 정보 테이블
+' 소셜 공급자 식별자는 users 와 분리한다.
+entity "user_social_accounts" {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK>>
+  provider : ENUM('KAKAO', 'GOOGLE', 'APPLE')
+  provider_user_id : VARCHAR(255)
+  provider_email : VARCHAR(255) (nullable)
+  linked_at : TIMESTAMP
+  last_login_at : TIMESTAMP
+}
+
+' 3. 서비스 자체 세션(Refresh Token) 관리
+' raw token 대신 token_hash 저장을 기본 전제로 둔다.
+entity "auth_refresh_tokens" {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK>>
+  token_hash : VARCHAR(255)
+  expires_at : TIMESTAMP
+  revoked_at : TIMESTAMP (nullable)
+  last_used_at : TIMESTAMP
+  created_at : TIMESTAMP
+}
+
+' 관계 설정
+users ||--o{ user_social_accounts : "소셜 연동"
+users ||--o{ auth_refresh_tokens : "서비스 세션"
+
+note right of user_social_accounts
+  UNIQUE(provider, provider_user_id)
+  한 유저는 여러 소셜 계정을 연결할 수 있다.
+end note
+
+note right of auth_refresh_tokens
+  로그아웃, 재발급, 다중 디바이스 세션 관리를 위해
+  서비스 refresh token 을 별도 테이블에서 관리한다.
+end note
+
+@enduml

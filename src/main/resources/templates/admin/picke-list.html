@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pické Admin - 콘텐츠 관리</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; }
+        .filter-btn { padding: .5rem 1rem; border-radius: 9999px; font-size: .875rem; font-weight: 700; transition: all .15s; border: 1px solid transparent; background: transparent; color: #6B7280; cursor: pointer; }
+        .filter-btn:hover  { background: #F3F4F6; }
+        .filter-btn.active { background: white; border-color: #E5E7EB; color: #111827; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+    </style>
+</head>
+<body class="bg-[#F9F8F6] text-gray-800 min-h-screen flex flex-col">
+
+<div th:replace="~{admin/fragments/header :: header}"></div>
+
+<main class="flex-1 w-full max-w-[1200px] mx-auto p-8 pt-12">
+    <div class="flex justify-between items-end mb-8">
+        <div>
+            <h1 class="text-2xl font-black text-gray-900 mb-2">콘텐츠 관리</h1>
+            <p class="text-sm text-gray-500">배틀, 퀴즈, 투표 콘텐츠를 조회하고 관리합니다.</p>
+        </div>
+        <button onclick="location.href='/api/v1/admin/picke'"
+                class="px-6 py-2.5 bg-black text-white rounded-lg text-sm font-bold shadow-md hover:bg-gray-800 transition">
+            + 새 콘텐츠 등록
+        </button>
+    </div>
+
+    <div class="flex gap-2 mb-6">
+        <button data-filter="ALL"    class="filter-btn active">전체보기</button>
+        <button data-filter="BATTLE" class="filter-btn">⚔️ 배틀</button>
+        <button data-filter="QUIZ"   class="filter-btn">🔍 퀴즈</button>
+        <button data-filter="VOTE"   class="filter-btn">📊 투표</button>
+    </div>
+
+    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+        <table class="w-full text-left text-sm">
+            <thead class="bg-gray-50 border-b border-gray-200 text-gray-500">
+            <tr>
+                <th class="px-6 py-4 font-bold w-16">ID</th>
+                <th class="px-6 py-4 font-bold w-24">유형</th>
+                <th class="px-6 py-4 font-bold">콘텐츠 제목</th>
+                <th class="px-6 py-4 font-bold w-32">상태</th>
+                <th class="px-6 py-4 font-bold w-32">등록일</th>
+                <th class="px-6 py-4 font-bold w-24 text-center">관리</th>
+            </tr>
+            </thead>
+            <tbody id="content-list-tbody" class="divide-y divide-gray-100">
+            <tr><td colspan="6" class="px-6 py-12 text-center text-gray-400">
+                <div class="flex flex-col items-center gap-2">
+                    <div class="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></div>
+                    <span>데이터를 불러오는 중...</span>
+                </div>
+            </td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div id="pagination-container" class="flex justify-center mt-8 gap-1"></div>
+</main>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const BASE_URL = '';
+
+        const API = {
+            BATTLE_LIST: (page, size, type) => {
+                const typeParam = (type && type !== 'ALL') ? `&type=${type}` : '';
+                return `${BASE_URL}/api/v1/battles?page=${page}&size=${size}${typeParam}`;
+            },
+            BATTLE_DELETE: (id) => `${BASE_URL}/api/v1/admin/battles/${id}`
+        };
+
+        const tbody     = document.getElementById('content-list-tbody');
+        const pagingEl  = document.getElementById('pagination-container');
+        const token     = localStorage.getItem("adminToken");
+
+        if (!token) {
+            alert("로그인이 필요합니다.");
+            window.location.replace("/api/v1/admin/login");
+            return;
+        }
+
+        const getAuthHeaders = () => ({
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        });
+
+        let currentPage = 1;
+        const PAGE_SIZE = 10;
+        let currentFilter = 'ALL';
+
+        // 필터 버튼 이벤트 리스너 추가
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                currentFilter = e.target.getAttribute('data-filter');
+                currentPage = 1;
+                fetchContents();
+            });
+        });
+
+        async function fetchContents() {
+            tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-gray-400">... 불러오는 중 ...</td></tr>`;
+            try {
+                // 호출 시 currentFilter 전달
+                const res = await fetch(API.BATTLE_LIST(currentPage, PAGE_SIZE, currentFilter), {
+                    headers: getAuthHeaders()
+                });
+
+                if (res.status === 401 || res.status === 403) {
+                    alert("세션 만료");
+                    window.location.replace("/api/v1/admin/login");
+                    return;
+                }
+                if (!res.ok) throw new Error(`서버 오류: ${res.status}`);
+
+                const json = await res.json();
+                const result = json.result || json.data || {};
+                const items = result.items || [];
+                const totalPages = result.totalPages || 1;
+
+                renderTable(items);
+                renderPagination(totalPages);
+            } catch (e) {
+                console.error("로드 실패:", e);
+                tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-red-500">데이터 로드 실패</td></tr>`;
+            }
+        }
+
+        // 테이블 렌더링
+        function renderTable(items) {
+            tbody.innerHTML = '';
+
+            if (!items || items.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-gray-400">등록된 배틀이 없습니다.</td></tr>`;
+                return;
+            }
+
+            items.forEach(item => {
+                const id     = item.battleId ?? item.id;
+                const type   = item.type || 'BATTLE';
+                const title  = item.title || '제목 없음';
+                const status = item.status || 'DRAFT';
+                const date   = item.createdAt
+                    ? new Date(item.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })
+                    : '-';
+
+                const typeBadge = {
+                    BATTLE: '<span class="px-2 py-1 bg-purple-100 text-purple-700 text-[10px] font-bold rounded">배틀</span>',
+                    QUIZ:   '<span class="px-2 py-1 bg-blue-100   text-blue-700   text-[10px] font-bold rounded">퀴즈</span>',
+                    VOTE:   '<span class="px-2 py-1 bg-green-100  text-green-700  text-[10px] font-bold rounded">투표</span>',
+                }[type] ?? `<span class="px-2 py-1 bg-gray-100 text-gray-700 text-[10px] font-bold rounded">${type}</span>`;
+
+                const statusBadge = {
+                    PUBLISHED: '<span class="flex items-center text-green-600 text-xs font-bold"><span class="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>등록됨</span>',
+                    PENDING:   '<span class="flex items-center text-yellow-600 text-xs font-bold"><span class="w-1.5 h-1.5 rounded-full bg-yellow-400 mr-1.5"></span>임시저장</span>',
+                    REJECTED:  '<span class="flex items-center text-red-500   text-xs font-bold"><span class="w-1.5 h-1.5 rounded-full bg-red-400   mr-1.5"></span>반려됨</span>',
+                    ARCHIVED:  '<span class="flex items-center text-gray-400  text-xs font-bold"><span class="w-1.5 h-1.5 rounded-full bg-gray-400  mr-1.5"></span>보관됨</span>',
+                }[status] ?? `<span class="text-xs font-bold text-gray-500">${status}</span>`;
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50 transition cursor-pointer';
+
+                // 배틀 클릭 시 수정 페이지 이동
+                tr.onclick = (e) => {
+                    if (e.target.closest('.delete-btn')) return;
+                    window.location.href = `/api/v1/admin/picke?id=${id}&type=${type}`;
+                };
+
+                tr.innerHTML = `
+                <td class="px-6 py-4 text-gray-500 font-mono">${id}</td>
+                <td class="px-6 py-4">${typeBadge}</td>
+                <td class="px-6 py-4 font-bold text-gray-900">${title}</td>
+                <td class="px-6 py-4">${statusBadge}</td>
+                <td class="px-6 py-4 text-gray-500 text-xs">${date}</td>
+                <td class="px-6 py-4 text-center">
+                    <button class="delete-btn text-gray-400 hover:text-red-500 font-bold text-xs px-2 py-1
+                        border border-gray-200 rounded bg-white hover:border-red-200 transition"
+                        onclick="deleteContent(${id})">삭제</button>
+                </td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 페이지네이션 렌더링
+        function renderPagination(totalPages) {
+            pagingEl.innerHTML = '';
+            if (totalPages <= 1) return;
+
+            const createBtn = (label, page, disabled, active) => {
+                const btn = document.createElement('button');
+                btn.innerHTML = label;
+                btn.className = [
+                    'w-8 h-8 flex items-center justify-center rounded-lg text-sm transition',
+                    active ? 'bg-black text-white font-bold cursor-default' : '',
+                    disabled ? 'border border-gray-200 bg-white text-gray-300 cursor-not-allowed' : '',
+                    (!active && !disabled) ? 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50' : ''
+                ].join(' ');
+
+                if (!disabled && !active) {
+                    btn.onclick = () => {
+                        currentPage = page;
+                        fetchContents(); // 페이지 변경 시 다시 목록 호출
+                    };
+                }
+                return btn;
+            };
+
+            // 이전 버튼
+            pagingEl.appendChild(createBtn('&lt;', currentPage - 1, currentPage === 1, false));
+
+            // 페이지 번호 버튼들
+            for (let i = 1; i <= totalPages; i++) {
+                pagingEl.appendChild(createBtn(i, i, false, i === currentPage));
+            }
+
+            // 다음 버튼
+            pagingEl.appendChild(createBtn('&gt;', currentPage + 1, currentPage === totalPages, false));
+        }
+
+        // 배틀 삭제
+        window.deleteContent = async function (id) {
+            if (!confirm(`정말 ${id}번 배틀을 삭제하시겠습니까?`)) return;
+            try {
+                const res = await fetch(API.BATTLE_DELETE(id), {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+                if (res.ok) {
+                    alert("삭제되었습니다.");
+                    fetchContents(); // 삭제 후 목록 다시 불러오기
+                } else {
+                    const err = await res.json();
+                    alert("삭제 실패: " + (err.message || "서버 오류"));
+                }
+            } catch (e) {
+                alert("삭제 중 서버 연결 오류가 발생했습니다.");
+            }
+        };
+
+        // 페이지 로드 시 즉시 실행
+        fetchContents();
+    });
+</script>
+</body>
+</html>

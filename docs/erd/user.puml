@@ -1,0 +1,89 @@
+@startuml
+hide circle
+hide methods
+skinparam linetype ortho
+
+entity "USERS\n서비스 사용자" as users {
+  * id : BIGINT <<PK>>
+  --
+  user_tag : VARCHAR(30) <<UNIQUE>>
+  nickname : VARCHAR(50)
+  character_url : TEXT
+  role : ENUM('USER', 'ADMIN')
+  status : ENUM('PENDING', 'ACTIVE', 'SUSPENDED', 'BANNED', 'DELETED')
+  created_at : timestamp
+  updated_at : timestamp
+  deleted_at : timestamp (nullable)
+}
+
+entity "USER_PROFILES\n사용자 프로필" as user_profiles {
+  * user_id : BIGINT <<PK, FK>>
+  --
+  nickname : string
+  character_type : ENUM('owl', 'fox', 'wolf', 'lion', 'penguin', 'bear', 'rabbit', 'cat')
+  manner_temperature : float
+  updated_at : timestamp
+}
+
+entity "USER_TENDENCY_SCORES\n사용자 성향 점수 현재값" as user_tendency_scores {
+  * user_id : BIGINT <<PK, FK>>
+  --
+  principle : int
+  reason : int
+  individual : int
+  change : int
+  inner : int
+  ideal : int
+  updated_at : timestamp
+}
+
+entity "USER_TENDENCY_SCORE_HISTORIES\n사용자 성향 점수 변경 이력" as user_tendency_score_histories {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK>>
+  principle : int
+  reason : int
+  individual : int
+  change : int
+  inner : int
+  ideal : int
+  created_at : timestamp
+}
+
+entity "USER_WITHDRAWALS\n회원 탈퇴 이력" as user_withdrawals {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK>>
+  reason : ENUM('NOT_USED_OFTEN', 'NO_INTERESTING_BATTLES', 'BATTLE_STYLE_NOT_FIT', 'SERVICE_INCONVENIENT', 'NO_TIME', 'OTHER')
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+users -[hidden]down- user_profiles
+user_profiles -[hidden]down- user_tendency_scores
+user_tendency_scores -[hidden]down- user_tendency_score_histories
+user_tendency_score_histories -[hidden]down- user_withdrawals
+
+users ||--|| user_profiles
+users ||--|| user_tendency_scores
+users ||--o{ user_tendency_score_histories
+users ||--o{ user_withdrawals
+
+note right of users
+  users 는 서비스 내부 사용자 식별자와 상태만 관리한다.
+  provider, provider_user_id 같은 OAuth 식별자는 이 테이블에 두지 않는다.
+  user_tag 는 공개 식별자이며 저장 시 @ 없이 보관한다.
+end note
+
+note right of user_profiles
+  nickname은 중복 허용
+  user_tag를 대외 식별자로 활용
+end note
+
+note bottom of user_tendency_score_histories
+  공통 컬럼 정책
+  - BaseEntity: created_at, updated_at
+  - deleted_at 은 users 에만 개별 보유
+end note
+
+@enduml

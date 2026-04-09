@@ -1,0 +1,210 @@
+<div th:fragment="battleForm" id="form-battle" class="space-y-8" xmlns:th="http://www.thymeleaf.org">
+
+    <section id="section-basic" class="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm focus-within:ring-2 focus-within:ring-gray-100 transition-all">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-lg font-bold flex items-center"><span class="bg-black text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-2">1</span> 기본 정보</h2>
+            <span class="text-xs text-gray-400 font-mono">BASIC INFO</span>
+        </div>
+
+        <div class="space-y-6">
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-2">제목 <span class="text-red-500">*</span></label>
+                <textarea id="content-title" rows="2" placeholder="예: 뒤샹의 변기, 예술인가 도발인가" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-black transition-all form-scrollbar"></textarea>
+            </div>
+
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-2">공통 태그 <span class="text-red-500">*</span></label>
+                <div class="flex flex-wrap gap-2 items-center min-h-[42px]" id="basic-tags-container">
+                    <button type="button" onclick="window.openTagSelectModal('BASIC')" class="px-3 py-1.5 border border-dashed border-gray-300 text-gray-500 rounded-full text-xs font-bold hover:bg-gray-50 transition-all">+ 태그 추가</button>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-2">한 줄 요약 </label>
+                <textarea id="content-summary" placeholder="콘텐츠에 대한 배경 설명 또는 힌트가 이곳에 표시됩니다." rows="3" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-black transition-all form-scrollbar"></textarea>
+            </div>
+
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-2">상세 설명 </label>
+                <textarea id="content-desc" rows="2" placeholder="관리자용 내부 상세 설명" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-black transition-all form-scrollbar"></textarea>
+            </div>
+
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-2">썸네일 이미지 업로드</label>
+                <label for="thumbnail-upload" class="cursor-pointer flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition relative overflow-hidden group">
+                    <div id="thumbnail-preview-bg" class="absolute inset-0 bg-cover bg-center transition-all duration-300 opacity-0 group-hover:opacity-100"></div>
+                    <div id="thumbnail-placeholder" class="flex flex-col items-center justify-center z-10 bg-white/80 px-6 py-3 rounded-xl shadow-sm">
+                        <span class="text-3xl mb-1">🖼️</span>
+                        <p class="text-xs text-gray-600 font-bold">이미지 파일을 드래그하거나 클릭하세요</p>
+                    </div>
+                    <input id="thumbnail-upload" type="file" class="hidden" accept="image/*" />
+                </label>
+            </div>
+        </div>
+    </section>
+
+    <section id="section-chars" class="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm transition-all">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-lg font-bold flex items-center"><span class="bg-black text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-2">2</span> 대결 설정</h2>
+            <span class="text-xs text-gray-400 font-mono">CHARACTERS</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+            <div class="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#F5F0EA] text-[#8B7355] font-black text-xs px-3 py-1.5 rounded-full z-10 border-2 border-white shadow-sm">VS</div>
+
+            <div class="bg-[#F8F9FA] p-6 rounded-2xl border border-gray-100 space-y-4">
+                <h3 class="text-blue-600 font-bold text-sm border-b border-blue-100 pb-2">등장인물 A</h3>
+                <textarea id="char-a-title" rows="1" placeholder="주장 (예: 도발이다)" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-blue-400 form-scrollbar"></textarea>
+                <textarea id="char-a-rep" rows="1" placeholder="철학자 이름 (예: 플라톤)" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-blue-400 form-scrollbar"></textarea>
+                <textarea id="char-a-stance" rows="2" placeholder="주장 요약 (예: 문명이 인간을 타락시켰다)" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-blue-400 form-scrollbar"></textarea>
+                <!--<textarea id="char-a-quote" placeholder="대표 명언" rows="2" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-blue-400 form-scrollbar"></textarea>
+-->
+                <label class="cursor-pointer flex items-center justify-center w-full h-12 border border-gray-200 rounded-lg bg-white relative overflow-hidden group">
+                    <div id="char-a-img-bg" class="absolute inset-0 bg-cover bg-center transition-all opacity-0"></div>
+                    <span id="char-a-img-placeholder" class="text-xs font-bold text-gray-400 z-10">📷 인물 사진 업로드</span>
+                    <input type="file" id="char-a-img-upload" class="hidden" accept="image/*" />
+                </label>
+
+                <div class="flex flex-wrap gap-2 items-center bg-white p-2 border border-gray-100 rounded-lg min-h-[42px]" id="char-a-tags-container">
+                    <button type="button" onclick="window.openTagSelectModal('A')" class="px-2 py-1 border border-dashed border-gray-300 text-gray-500 rounded text-[10px] font-bold">+ 태그</button>
+                </div>
+            </div>
+
+            <div class="bg-[#FFF8F8] p-6 rounded-2xl border border-gray-100 space-y-4">
+                <h3 class="text-red-600 font-bold text-sm border-b border-red-100 pb-2">등장인물 B</h3>
+                <textarea id="char-b-title" rows="1" placeholder="주장 (예: 예술이다)" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-red-400 form-scrollbar"></textarea>
+                <textarea id="char-b-rep" rows="1" placeholder="철학자 이름 (예: 사르트르)" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-red-400 form-scrollbar"></textarea>
+                <textarea id="char-b-stance" rows="2" placeholder="주장 요약 (예: 문명이 인간을 통제한다)" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-red-400 form-scrollbar"></textarea>
+                <!--<textarea id="char-b-quote" placeholder="대표 명언" rows="2" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-red-400 form-scrollbar"></textarea>-->
+
+                <label class="cursor-pointer flex items-center justify-center w-full h-12 border border-gray-200 rounded-lg bg-white relative overflow-hidden group">
+                    <div id="char-b-img-bg" class="absolute inset-0 bg-cover bg-center transition-all opacity-0"></div>
+                    <span id="char-b-img-placeholder" class="text-xs font-bold text-gray-400 z-10">📷 인물 사진 업로드</span>
+                    <input type="file" id="char-b-img-upload" class="hidden" accept="image/*" />
+                </label>
+
+                <div class="flex flex-wrap gap-2 items-center bg-white p-2 border border-gray-100 rounded-lg min-h-[42px]" id="char-b-tags-container">
+                    <button type="button" onclick="window.openTagSelectModal('B')" class="px-2 py-1 border border-dashed border-gray-300 text-gray-500 rounded text-[10px] font-bold">+ 태그</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="section-script" class="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm focus-within:ring-2 focus-within:ring-purple-100 transition-all">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-lg font-bold flex items-center"><span class="bg-black text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-2">3</span> 대본 설정</h2>
+            <span class="text-xs text-gray-400 font-mono">SCRIPT BUILDER</span>
+        </div>
+
+        <div id="start-node-container" class="space-y-3 mb-6">
+            <div class="bg-gray-50 border border-gray-200 rounded-2xl p-4 script-block flex gap-4 items-start" data-speaker="NARRATOR">
+                <div class="flex flex-col gap-2 flex-none w-24">
+                    <p class="text-[11px] font-black text-gray-400 uppercase tracking-widest text-center mt-1">🎬 오프닝</p>
+                    <select class="speaker-select hidden">
+                        <option value="NARRATOR" selected>나레이터</option>
+                    </select>
+                    <select class="border border-purple-200 rounded-lg text-[10px] p-2 font-bold bg-purple-50 emotion-insert-btn text-purple-600 outline-none cursor-pointer">
+                        <option value="">+ 태그 삽입</option>
+                        <optgroup label="오디오 효과 (기본)">
+                            <option value="pause">짧은 쉬기 [pause]</option>
+                            <option value="long pause">긴 쉬기 [long pause]</option>
+                            <option value="clear throat">헛기침 [clear throat]</option>
+                            <option value="sighing">한숨 [sighing]</option>
+                        </optgroup>
+                        <optgroup label="감성적인 톤">
+                            <option value="angry">분노 [angry]</option>
+                            <option value="sad">슬픔 [sad]</option>
+                            <option value="embarrassed">당황/부끄럼 [embarrassed]</option>
+                            <option value="emphasis">강조 [emphasis]</option>
+                            <option value="whispering">속삭임 [whispering]</option>
+                            <option value="soft">부드럽게 [soft]</option>
+                            <option value="breathy">숨소리 섞인 [breathy]</option>
+                            <option value="excited">흥분 [excited]</option>
+                        </optgroup>
+                        <optgroup label="다양한 소리/웃음">
+                            <option value="laughing">웃음 [laughing]</option>
+                            <option value="chuckling">가벼운 웃음 [chuckling]</option>
+                            <option value="moaning">신음 [moaning]</option>
+                            <option value="sobbing">흐느낌 [sobbing]</option>
+                            <option value="crying loudly">큰 울음 [crying loudly]</option>
+                            <option value="panting">헐떡임 [panting]</option>
+                            <option value="groaning">앓는 소리 [groaning]</option>
+                            <option value="crowd laughing">군중 웃음 [crowd laughing]</option>
+                            <option value="background laughter">배경 웃음 [background laughter]</option>
+                            <option value="audience laughing">관객 웃음 [audience laughing]</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <textarea rows="2" class="flex-1 bg-transparent text-sm script-text outline-none resize-none py-1 leading-relaxed" placeholder="배틀 시작을 알리는 나레이션을 입력하세요."></textarea>
+            </div>
+        </div>
+
+        <div class="flex space-x-3 mb-10">
+            <button type="button" onclick="addScriptBlock('start-node-container', 'A')" class="flex-1 py-4 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 text-sm font-bold hover:bg-gray-50 hover:border-gray-400 transition-all">+ 대사 추가</button>
+            <button type="button" id="btn-add-branch" onclick="addBranchBlock()" class="flex-1 py-4 border-2 border-dashed border-purple-200 text-purple-400 rounded-2xl text-sm font-bold hover:bg-purple-50 hover:border-purple-400 transition-all">⑂ 분기점 삽입</button>
+        </div>
+
+        <div id="branch-container" class="hidden bg-purple-50/50 border border-purple-200 rounded-2xl p-6 mb-10 relative">
+            <button type="button" onclick="removeBranchBlock()" class="absolute top-4 right-4 w-8 h-8 bg-white border border-purple-200 text-purple-500 rounded-full flex items-center justify-center font-bold shadow-sm hover:bg-red-50 hover:text-red-500 transition-all">&times;</button>
+            <h3 class="text-purple-700 font-bold text-sm mb-6 flex items-center"><span class="mr-2">⑂</span> 사용자 선택에 따른 분기점 설정</h3>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white border border-purple-100 rounded-2xl p-5 shadow-sm">
+                    <p class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2.5 py-1 inline-block rounded-md mb-3">OPTION A PATH</p>
+                    <textarea id="branch-a-label" rows="2" placeholder="사용자가 클릭할 버튼 텍스트 A" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm mb-4 outline-none focus:border-blue-400 form-scrollbar"></textarea>
+                    <div id="branch-a-node-container" class="space-y-3 mb-4"></div>
+                    <button type="button" onclick="addScriptBlock('branch-a-node-container', 'A')" class="w-full py-3 border border-dashed border-blue-200 text-blue-400 rounded-xl text-xs font-bold hover:bg-blue-50 transition-all">+ A 경로 대사 추가</button>
+                </div>
+                <div class="bg-white border border-purple-100 rounded-2xl p-5 shadow-sm">
+                    <p class="text-[10px] font-bold text-red-600 bg-red-50 px-2.5 py-1 inline-block rounded-md mb-3">OPTION B PATH</p>
+                    <textarea id="branch-b-label" rows="2" placeholder="사용자가 클릭할 버튼 텍스트 B" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm mb-4 outline-none focus:border-red-400 form-scrollbar"></textarea>
+                    <div id="branch-b-node-container" class="space-y-3 mb-4"></div>
+                    <button type="button" onclick="addScriptBlock('branch-b-node-container', 'B')" class="w-full py-3 border border-dashed border-red-200 text-red-400 rounded-xl text-xs font-bold hover:bg-red-50 transition-all">+ B 경로 대사 추가</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="closing-node-container" class="space-y-3">
+            <div class="bg-white border border-[#E5E0D8] rounded-xl p-4 script-block flex gap-4 items-start" data-speaker="NARRATOR">
+                <div class="flex flex-col gap-2 flex-none w-24">
+                    <p class="text-[11px] font-black text-[#8B7355] uppercase tracking-widest text-center mt-1">🎬 클로징</p>
+                    <select class="speaker-select hidden">
+                        <option value="NARRATOR" selected>나레이터</option>
+                    </select>
+                    <select class="border border-purple-200 rounded-lg text-[10px] p-2 font-bold bg-purple-50 emotion-insert-btn text-purple-600 outline-none cursor-pointer">
+                        <option value="">+ 태그 삽입</option>
+                        <optgroup label="오디오 효과 (기본)">
+                            <option value="pause">짧은 쉬기 [pause]</option>
+                            <option value="long pause">긴 쉬기 [long pause]</option>
+                            <option value="clear throat">헛기침 [clear throat]</option>
+                            <option value="sighing">한숨 [sighing]</option>
+                        </optgroup>
+                        <optgroup label="감성적인 톤">
+                            <option value="angry">분노 [angry]</option>
+                            <option value="sad">슬픔 [sad]</option>
+                            <option value="embarrassed">당황/부끄럼 [embarrassed]</option>
+                            <option value="emphasis">강조 [emphasis]</option>
+                            <option value="whispering">속삭임 [whispering]</option>
+                            <option value="soft">부드럽게 [soft]</option>
+                            <option value="breathy">숨소리 섞인 [breathy]</option>
+                            <option value="excited">흥분 [excited]</option>
+                        </optgroup>
+                        <optgroup label="다양한 소리/웃음">
+                            <option value="laughing">웃음 [laughing]</option>
+                            <option value="chuckling">가벼운 웃음 [chuckling]</option>
+                            <option value="moaning">신음 [moaning]</option>
+                            <option value="sobbing">흐느낌 [sobbing]</option>
+                            <option value="crying loudly">큰 울음 [crying loudly]</option>
+                            <option value="panting">헐떡임 [panting]</option>
+                            <option value="groaning">앓는 소리 [groaning]</option>
+                            <option value="crowd laughing">군중 웃음 [crowd laughing]</option>
+                            <option value="background laughter">배경 웃음 [background laughter]</option>
+                            <option value="audience laughing">관객 웃음 [audience laughing]</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <textarea rows="2" class="flex-1 bg-transparent text-sm script-text outline-none resize-none py-1 leading-relaxed" placeholder="배틀이 끝난 뒤의 마무리 멘트를 입력하세요."></textarea>
+            </div>
+        </div>
+    </section>
+</div>

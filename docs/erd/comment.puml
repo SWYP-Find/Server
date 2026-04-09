@@ -1,0 +1,36 @@
+@startuml perspective_comments
+hide circle
+hide methods
+skinparam linetype ortho
+
+entity "users\n사용자" as users {
+  * id : BIGINT <<PK>>
+}
+
+entity "PERSPECTIVES\n관점" as perspectives {
+  * id : Long <<PK>>
+}
+
+entity "PERSPECTIVE_COMMENTS\n관점 댓글" as perspective_comments {
+  * id : Long <<PK>>
+  --
+  perspective_id : Long <<FK>>
+  user_id : BIGINT <<FK>>
+  content : TEXT
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+perspectives -[hidden]down- perspective_comments
+users        -[hidden]right- perspective_comments
+
+perspectives ||--o{ perspective_comments : "has"
+users        ||--o{ perspective_comments : "writes"
+
+note right of perspective_comments
+  삭제: 본인만 가능
+  수정: 본인만 가능
+  대댓글 없음 (1단 구조)
+end note
+
+@enduml

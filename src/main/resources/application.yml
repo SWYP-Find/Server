@@ -1,10 +1,19 @@
+# 1. Spring 핵심 설정
 spring:
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+  # 2. 데이터베이스 설정 (PostgreSQL)
   datasource:
     url: ${DB_URL}
     username: ${DB_USER}
-    password: ${DB_PW}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
+  # 3. JPA/Hibernate 설정
   jpa:
     hibernate:
       ddl-auto: update
@@ -12,3 +21,94 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  # 4. 클라우드 인프라 설정 (AWS, GCP)
+  cloud:
+    # AWS S3 설정
+    aws:
+      s3:
+        bucket: ${AWS_S3_BUCKET}
+      region:
+        static: ${AWS_REGION}
+      credentials:
+        access-key: ${AWS_ACCESS_KEY}
+        secret-key: ${AWS_SECRET_KEY}
+    # GCP TTS 인증
+    gcp:
+      credentials:
+        location: ${GCP_CREDENTIALS_PATH}
+
+# 5. 인증 및 보안 설정 (OAuth2, JWT)
+oauth:
+  kakao:
+    client-id: ${KAKAO_CLIENT_ID}
+    client-secret: ${KAKAO_CLIENT_SECRET}
+  google:
+    client-id: ${GOOGLE_CLIENT_ID}
+    client-secret: ${GOOGLE_CLIENT_SECRET}
+
+# 6. 외부 API 설정 (AdMob, OpenAI, Fish Audio 등)
+admob:
+  # // 6.1 애드몹 앱 및 광고 단위 설정
+  app-id: ${ADMOB_APP_ID}
+  reward:
+    unit-id: ${ADMOB_REWARD_UNIT_ID}
+
+openai:
+  api-key: ${OPENAI_API_KEY}
+  url: https://api.openai.com/v1/chat/completions
+  model: gpt-4o-mini
+  tts:
+    url: https://api.openai.com/v1/audio/speech
+    model: gpt-4o-mini-tts
+
+fishaudio:
+  api-key: ${FISHAUDIO_API_KEY}
+  tts:
+    url: https://api.fish.audio/v1/tts
+  voice-id:
+    a: ${FISHAUDIO_VOICE_A}
+    b: ${FISHAUDIO_VOICE_B}
+    user: ${FISHAUDIO_VOICE_USER}
+    narrator: ${FISHAUDIO_VOICE_NARRATOR}
+
+elevenlabs:
+  api-key: ${ELEVENLABS_API_KEY}
+  model: ${ELEVENLABS_MODEL}
+  voice-id:
+    a: ${ELEVENLABS_VOICE_A}
+    b: ${ELEVENLABS_VOICE_B}
+    user: ${ELEVENLABS_VOICE_USER}
+    narrator: ${ELEVENLABS_VOICE_NARRATOR}
+
+# 7. Swagger 문서 설정
+springdoc:
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+    display-request-duration: true
+  api-docs:
+    path: /v3/api-docs
+
+# 8. JWT 설정
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiration: 3600000 # 1시간
+  refresh-token-expiration: 1209600000 # 14일
+
+picke:
+  baseUrl: ${PICKE_BASE_URL:https://picke.store}
+  s3:
+    presigned-url:
+      expiration-hours: 6
+
+# 9. 미디어 처리 설정 (FFmpeg)
+media:
+  ffmpeg:
+    path: ${FFMPEG_PATH:ffmpeg}
+  ffprobe:
+    path: ${FFPROBE_PATH:ffprobe}

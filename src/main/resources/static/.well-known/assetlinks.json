@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.picke.app",
+      "sha256_cert_fingerprints": [
+        "8C:DA:C0:E5:4A:F3:24:AE:C4:AA:37:01:76:8E:CE:DA:D4:EE:0A:CB:09:29:45:45:A8:B4:BA:A6:F8:16:E8:BF",
+        "17:D6:B0:C3:F7:94:09:B3:62:78:C8:9B:1B:21:D0:C7:D9:AC:E0:0E:C8:8A:B3:5A:31:78:4D:50:A9:58:FB:45"
+      ]
+    }
+  }
+]

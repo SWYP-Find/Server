@@ -50,6 +50,7 @@ public class Script extends BaseEntity {
         this.speakerType = speakerType;
         this.speakerName = speakerName;
         this.text = newText;
+        this.audioUrl = null;
     }
 
     public void assignNode(ScenarioNode node) {

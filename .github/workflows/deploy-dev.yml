@@ -1,9 +1,9 @@
-name: Java CI/CD with Gradle
+name: Java CI/CD with Gradle (Dev Server)
 
 on:
   push:
-    branches: [ "dev" ] # dev 브랜치에 푸시할 때 작동
-  workflow_dispatch: #
+    branches: [ "dev" ] # 1. 데브 브랜치 전용
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -16,7 +16,7 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-          cache: 'gradle' # 캐싱 추가: 빌드 속도가 훨씬 빨라집니다.
+          cache: 'gradle'
 
       - name: Build with Gradle
         run: |
@@ -35,9 +35,8 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          # -plain.jar는 배포에 필요 없으므로 제외합니다.
           source: "build/libs/*-SNAPSHOT.jar, .env"
-          target: "~/"
+          target: "~/dev-server" # 2. 데브 전용 폴더
           strip_components: 2
 
       - name: Deploy to EC2
@@ -47,7 +46,10 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            fuser -k 8080/tcp || true 
+            # 3. 8081 포트만 종료 (8080은 건드리지 않음)
+            fuser -k 8081/tcp || true 
             
-            chmod +x ~/start.sh
-            ~/start.sh
+            cd ~/dev-server
+            chmod +x *.jar
+            # 4. 8081 포트로 실행
+            nohup java -jar -Dserver.port=8081 *-SNAPSHOT.jar > dev-app.log 2>&1 &

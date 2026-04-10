@@ -52,4 +52,4 @@ jobs:
             cd ~/main-server
             chmod +x *.jar
             # 4. 8080 포트 명시적 실행
-            nohup java -jar -Dserver.port=8080 *-SNAPSHOT.jar > main-app.log 2>&1 &
+            export $(grep -v '^#' .env | xargs) && nohup java -jar -Dserver.port=8080 *-SNAPSHOT.jar > main-app.log 2>&1 &

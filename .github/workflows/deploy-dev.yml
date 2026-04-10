@@ -52,4 +52,4 @@ jobs:
             cd ~/dev-server
             chmod +x *.jar
             # 4. 8081 포트로 실행
-            nohup java -jar -Dserver.port=8081 *-SNAPSHOT.jar > dev-app.log 2>&1 &
+            export $(grep -v '^#' .env | xargs) && nohup java -jar -Dserver.port=8081 *-SNAPSHOT.jar > dev-app.log 2>&1 &

@@ -15,15 +15,25 @@ public class SwaggerConfig {
 
     @Bean
     public OpenAPI openAPI() {
-        // 1. 운영 서버 주소 명시
-        Server prodServer = new Server();
-        prodServer.setUrl("https://picke.store");
-        prodServer.setDescription("Production Server");
+        // 1. 운영 서버 (8080)
+        Server prodServer = new Server()
+                .url("https://picke.store")
+                .description("Production Server");
 
-        // 2. 로컬 테스트용 서버 주소
-        Server localServer = new Server();
-        localServer.setUrl("http://localhost:8080");
-        localServer.setDescription("Local Development Server");
+        // 2. 로컬 개발 서버 (8080)
+        Server local8080 = new Server()
+                .url("http://localhost:8080")
+                .description("Local Development Server (8080)");
+
+        // 3. 로컬 개발 서버 (8081)
+        Server local8081 = new Server()
+                .url("http://localhost:8081")
+                .description("Local Development Server (8081)");
+
+        // 4. 실제 EC2 데브 서버 (8081) - 나중에 배포 후 확인용
+        Server devServer = new Server()
+                .url("http://picke.store:8081")
+                .description("Remote Dev Server (8081)");
 
         SecurityScheme securityScheme = new SecurityScheme()
                 .type(SecurityScheme.Type.HTTP)
@@ -37,7 +47,7 @@ public class SwaggerConfig {
 
         return new OpenAPI()
                 // 3. 서버 리스트 등록
-                .servers(List.of(prodServer, localServer))
+                .servers(List.of(prodServer, local8080, local8081, devServer))
                 .info(new Info()
                               .title("PIQUE API 명세서")
                               .description("PIQUE 서비스 API 명세서입니다.")

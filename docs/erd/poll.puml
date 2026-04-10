@@ -1,0 +1,38 @@
+@startuml poll
+hide circle
+hide methods
+skinparam linetype ortho
+
+entity "poll_contents" as poll_contents {
+  * id : BIGINT <<PK>>
+  --
+  title_prefix : VARCHAR(200)
+  title_suffix : VARCHAR(200)
+  target_date : DATE
+  total_participants_count : BIGINT
+  status : VARCHAR(20)
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "poll_options" as poll_options {
+  * id : BIGINT <<PK>>
+  --
+  poll_id : BIGINT <<FK>>
+  label : VARCHAR(10)
+  title : VARCHAR(200)
+  display_order : INT
+  vote_count : BIGINT
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+poll_contents ||--o{ poll_options : has
+
+note right of poll_contents
+  Poll 도메인 전용 테이블
+  - 태그 매핑 없음
+  - 옵션별 vote_count 유지
+end note
+
+@enduml

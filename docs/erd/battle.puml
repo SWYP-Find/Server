@@ -3,87 +3,60 @@ hide circle
 hide methods
 skinparam linetype ortho
 
-' ───────────────────────────────
-' 테이블 정의
-' ───────────────────────────────
-
-entity "users\n사용자" as users {
+entity "users" as users {
   * id : BIGINT <<PK>>
   --
-  email : VARCHAR(255) <<UNIQUE>>
-  nickname : VARCHAR(50) <<UNIQUE>>
-  character_id : INT <<FK>>
-  role : ENUM('USER', 'ADMIN')
-  status : ENUM('PENDING', 'ACTIVE', 'DELETED', 'BANNED')
+  email : VARCHAR(255)
+  nickname : VARCHAR(50)
+  role : VARCHAR(20)
+  status : VARCHAR(20)
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
-entity "BATTLES\n배틀(주제)" as battles {
-  * id : Long <<PK>>
+entity "battles" as battles {
+  * id : BIGINT <<PK>>
   --
   title : VARCHAR(255)
   summary : VARCHAR(500)
   description : TEXT
   thumbnail_url : VARCHAR(500)
+  view_count : INT
+  total_participants : BIGINT
   target_date : DATE
-  status : ENUM('DRAFT', 'PENDING', 'PUBLISHED', 'REJECTED', 'ARCHIVED')
-  creator_type : ENUM('ADMIN', 'USER', 'AI')
-  creator_id : BIGINT <<FK>> (nullable)
-  reject_reason : VARCHAR(500) (nullable)
+  audio_duration : INT
+  status : VARCHAR(20)
+  creator_type : VARCHAR(10)
+  creator_id : BIGINT <<FK, nullable>>
+  is_editor_pick : BOOLEAN
+  comment_count : BIGINT
+  deleted_at : TIMESTAMP
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
-entity "BATTLE_OPTIONS\n선택지" as battle_options {
-  * id : Long <<PK>>
+entity "battle_options" as battle_options {
+  * id : BIGINT <<PK>>
   --
-  battle_id : Long <<FK>>
-  label : ENUM('A', 'B')
+  battle_id : BIGINT <<FK>>
+  label : VARCHAR(10)
   title : VARCHAR(100)
   stance : VARCHAR(255)
   representative : VARCHAR(100)
-  quote : TEXT
-  keywords : JSONB
+  vote_count : BIGINT
   image_url : VARCHAR(500)
+  display_order : INT
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
 }
 
-' ───────────────────────────────
-' 배치 가이드 (위→아래)
-' ───────────────────────────────
-
-users         -[hidden]down- battles
-battles       -[hidden]down- battle_options
-
-' ───────────────────────────────
-' 관계
-' ───────────────────────────────
-
-users   ||--o{ battles       : "creates"
-battles ||--o{ battle_options : "has"
-
-' ───────────────────────────────
-' 노트
-' ───────────────────────────────
+users ||--o{ battles : creates
+battles ||--o{ battle_options : has
 
 note right of battles
-  status 흐름:
-
-  [관리자 직접 발행]
-  DRAFT → PUBLISHED → ARCHIVED
-
-  [AI 자동 생성 · 스케줄러 - 후순위]
-  PENDING → PUBLISHED → ARCHIVED
-           → REJECTED
-
-  [유저 크리에이터 - 후순위]
-  PENDING → PUBLISHED → ARCHIVED
-           → REJECTED
-
-  creator_type
-  ADMIN : 관리자 직접 발행 → creator_id = null
-  AI    : [후순위] 스케줄러 자동 생성 → creator_id = null
-  USER  : [후순위] 유저 제안 → creator_id = users.id
+  Battle 도메인 전용 테이블
+  - 퀴즈/폴 필드와 분리됨
+  - target_date는 서버 정책으로 자동 관리
 end note
 
 @enduml

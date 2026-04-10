@@ -29,15 +29,23 @@ jobs:
           ${{ secrets.ENV_VARIABLES }}
           EOF
 
-      - name: Copy JAR and .env to EC2
+      # // 1. 전송용 폴더 준비
+      - name: Prepare deployment files
+        run: |
+          mkdir -p deploy
+          cp build/libs/*-SNAPSHOT.jar deploy/
+          cp .env deploy/
+
+      # // 2. 메인 서버 폴더로 전송
+      - name: Copy files to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "build/libs/*-SNAPSHOT.jar, .env"
-          target: "~/main-server" # 2. 메인 전용 폴더
-          strip_components: 2
+          source: "deploy/*"
+          target: "~/main-server"
+          strip_components: 1
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.3
@@ -46,10 +54,11 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # 3. 8080 포트만 종료
+            # 3. 8080 포트 종료
             fuser -k 8080/tcp || true 
             
             cd ~/main-server
             chmod +x *.jar
-            # 4. 8080 포트 명시적 실행
-            nohup java -jar -Dserver.port=8080 *-SNAPSHOT.jar > main-app.log 2>&1 &
+            
+            # // 2. 환경변수 등록 후 8080 포트로 실행
+            export $(grep -v '^#' .env | xargs) && nohup java -jar -Dserver.port=8080 *-SNAPSHOT.jar > main-app.log 2>&1 &

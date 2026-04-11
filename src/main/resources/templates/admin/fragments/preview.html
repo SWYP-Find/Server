@@ -2,7 +2,7 @@
 
     <div class="w-[320px] flex justify-between items-center mb-4 text-sm font-bold text-gray-500 px-1">
         <span>실시간 미리보기</span>
-        <span class="border border-purple-200 text-purple-600 bg-purple-50 px-2 py-0.5 rounded text-[10px]">BRANCH MODE</span>
+        <span id="branch-mode-indicator" class="border border-purple-200 text-purple-600 bg-purple-50 px-2 py-0.5 rounded text-[10px] hidden">BRANCH MODE</span>
     </div>
 
     <div class="relative w-[320px] h-[690px] bg-white border-[12px] border-black rounded-[3rem] shadow-2xl overflow-hidden flex-none">
@@ -110,7 +110,7 @@
         </div>
 
         <div id="preview-wrapper-quiz" class="hidden w-full h-full bg-white flex flex-col overflow-hidden">
-            <div class="relative h-[180px] bg-gray-300 bg-cover bg-center flex-none"
+            <div id="preview-quiz-bg-img" class="relative h-[180px] bg-gray-300 bg-cover bg-center flex-none"
                  style="background-image: url('https://images.unsplash.com/photo-1577083552431-6e5fd01988ec?q=80&w=400&auto=format&fit=crop');">
                 <div class="absolute inset-0 bg-black/50"></div>
                 <div class="absolute top-12 inset-x-0 flex justify-between px-4">

@@ -56,7 +56,20 @@ document.addEventListener("DOMContentLoaded", () => {
             const typeKey = targetId.replace('form-', '');
             document.getElementById(`preview-wrapper-${typeKey}`)?.classList.remove('hidden');
 
-            PickeData.currentContentType = typeKey.toUpperCase();
+            const contentTypeByForm = { battle: 'BATTLE', quiz: 'QUIZ', vote: 'POLL' };
+            PickeData.currentContentType = contentTypeByForm[typeKey] || typeKey.toUpperCase();
+
+            // Update status bar type indicator
+            const statusType = document.getElementById('status-type');
+            if (statusType) {
+                statusType.textContent = PickeData.currentContentType;
+            }
+
+            // Show BRANCH MODE only for battle
+            const branchMode = document.getElementById('branch-mode-indicator');
+            if (branchMode) {
+                branchMode.classList.toggle('hidden', typeKey !== 'battle');
+            }
         });
     });
 
@@ -94,6 +107,33 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     _updateClock();
     setInterval(_updateClock, 30000);
+
+    // Initialize status type
+    const statusType = document.getElementById('status-type');
+    if (statusType) {
+        statusType.textContent = PickeData.currentContentType || 'BATTLE';
+    }
+
+    // Initialize BRANCH MODE visibility (show for battle)
+    const branchMode = document.getElementById('branch-mode-indicator');
+    if (branchMode) {
+        branchMode.classList.toggle('hidden', (PickeData.currentContentType || 'BATTLE') !== 'BATTLE');
+    }
+
+    // Dirty Flag: 스크립트 블록 수정 추적 (이벤트 위임)
+    document.getElementById('section-script')?.addEventListener('input', (e) => {
+        if (e.target.classList.contains('script-text')) {
+            const scriptBlock = e.target.closest('.script-block');
+            if (scriptBlock) {
+                const modFlag = scriptBlock.querySelector('.mod-flag');
+                if (modFlag) {
+                    modFlag.value = 'true';
+                }
+                // 시각적 피드백: 테두리 색상 변경
+                scriptBlock.classList.add('border-blue-300');
+            }
+        }
+    });
 });
 
 // 전역 투표 옵션 선택 함수

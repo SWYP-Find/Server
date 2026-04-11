@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "관점 좋아요 (Like)", description = "관점 좋아요 조회, 등록, 취소 API")
+@Tag(name = "관점 좋아요 API", description = "관점 좋아요 조회, 등록, 취소")
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
@@ -37,7 +37,7 @@ public class PerspectiveLikeController {
         return ApiResponse.onSuccess(likeService.addLike(perspectiveId, userId));
     }
 
-    @Operation(summary = "좋아요 취소", description = "특정 관점에 등록한 좋아요를 취소합니다.")
+    @Operation(summary = "좋아요 취소", description = "특정 관점의 좋아요를 취소합니다.")
     @DeleteMapping("/perspectives/{perspectiveId}/likes")
     public ApiResponse<LikeResponse> removeLike(
             @PathVariable Long perspectiveId,

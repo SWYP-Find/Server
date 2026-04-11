@@ -1,11 +1,14 @@
 package com.swyp.picke.domain.tag.service;
 
 import com.swyp.picke.domain.battle.entity.Battle;
+import com.swyp.picke.domain.battle.repository.BattleOptionTagRepository;
 import com.swyp.picke.domain.battle.repository.BattleRepository;
 import com.swyp.picke.domain.battle.repository.BattleTagRepository;
 import com.swyp.picke.domain.tag.converter.TagConverter;
-import com.swyp.picke.domain.tag.dto.request.TagRequest;
-import com.swyp.picke.domain.tag.dto.response.*;
+import com.swyp.picke.domain.admin.dto.tag.request.TagRequest;
+import com.swyp.picke.domain.admin.dto.tag.response.TagDeleteResponse;
+import com.swyp.picke.domain.admin.dto.tag.response.TagResponse;
+import com.swyp.picke.domain.tag.dto.response.TagListResponse;
 import com.swyp.picke.domain.tag.entity.Tag;
 import com.swyp.picke.domain.tag.enums.TagType;
 import com.swyp.picke.domain.tag.repository.TagRepository;
@@ -25,6 +28,7 @@ public class TagServiceImpl implements TagService {
 
     private final TagRepository tagRepository;
     private final BattleTagRepository battleTagRepository;
+    private final BattleOptionTagRepository battleOptionTagRepository;
     private final BattleRepository battleRepository;
 
     @Override
@@ -62,9 +66,14 @@ public class TagServiceImpl implements TagService {
     @PreAuthorize("hasRole('ADMIN')")
     public TagResponse updateTag(Long tagId, TagRequest request) {
         Tag tag = findTagById(tagId);
+        boolean typeChanged = tag.getType() != request.type();
 
         if (!tag.getName().equals(request.name()) || tag.getType() != request.type()) {
             validateDuplicateTag(request.name(), request.type());
+        }
+
+        if (typeChanged && isTagInUse(tag)) {
+            throw new CustomException(ErrorCode.TAG_IN_USE);
         }
 
         tag.updateTag(request.name(), request.type());
@@ -77,7 +86,7 @@ public class TagServiceImpl implements TagService {
     public TagDeleteResponse deleteTag(Long tagId) {
         Tag tag = findTagById(tagId);
 
-        if (battleTagRepository.existsByTag(tag)) {
+        if (isTagInUse(tag)) {
             throw new CustomException(ErrorCode.TAG_IN_USE);
         }
 
@@ -94,5 +103,9 @@ public class TagServiceImpl implements TagService {
         if (tagRepository.existsByNameAndTypeAndDeletedAtIsNull(name, type)) {
             throw new CustomException(ErrorCode.TAG_DUPLICATED);
         }
+    }
+
+    private boolean isTagInUse(Tag tag) {
+        return battleTagRepository.existsByTag(tag) || battleOptionTagRepository.existsByTag(tag);
     }
 }

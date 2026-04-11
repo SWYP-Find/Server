@@ -53,11 +53,19 @@ public class NotificationService {
 
     @Transactional
     public Notification createBroadcastNotification(NotificationDetailCode detailCode, String body, Long referenceId) {
+        return createBroadcastNotification(detailCode, null, body, referenceId);
+    }
+
+    @Transactional
+    public Notification createBroadcastNotification(NotificationDetailCode detailCode, String customTitle, String body, Long referenceId) {
+        String resolvedTitle = (customTitle == null || customTitle.isBlank())
+                ? detailCode.getDefaultTitle()
+                : customTitle;
         Notification notification = Notification.builder()
                 .user(null)
                 .category(detailCode.getCategory())
                 .detailCode(detailCode)
-                .title(detailCode.getDefaultTitle())
+                .title(resolvedTitle)
                 .body(body)
                 .referenceId(referenceId)
                 .build();

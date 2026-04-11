@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "홈 API", description = "홈 화면 집계 조회")
+@Tag(name = "홈 API", description = "홈 화면 데이터 조회")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1")
@@ -19,7 +19,7 @@ public class HomeController {
 
     private final HomeService homeService;
 
-    @Operation(summary = "홈 화면 집계 조회")
+    @Operation(summary = "홈 화면 데이터 조회")
     @GetMapping("/home")
     public ApiResponse<HomeResponse> getHome(@AuthenticationPrincipal Long userId) {
         return ApiResponse.onSuccess(homeService.getHome(userId));

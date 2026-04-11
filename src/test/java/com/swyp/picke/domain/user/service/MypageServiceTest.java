@@ -4,7 +4,6 @@ import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.enums.BattleOptionLabel;
 import com.swyp.picke.domain.battle.enums.BattleStatus;
-import com.swyp.picke.domain.battle.enums.BattleType;
 import com.swyp.picke.domain.battle.service.BattleQueryService;
 import com.swyp.picke.domain.perspective.entity.Perspective;
 import com.swyp.picke.domain.perspective.entity.PerspectiveComment;
@@ -27,7 +26,7 @@ import com.swyp.picke.domain.user.enums.UserRole;
 import com.swyp.picke.domain.user.entity.UserSettings;
 import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.enums.VoteSide;
-import com.swyp.picke.domain.vote.entity.Vote;
+import com.swyp.picke.domain.vote.entity.BattleVote;
 import com.swyp.picke.domain.vote.service.VoteQueryService;
 import com.swyp.picke.global.infra.s3.service.S3PresignedUrlService;
 import org.junit.jupiter.api.DisplayName;
@@ -158,7 +157,7 @@ class MypageServiceTest {
         User user = createUser(1L, "tag");
         Battle battle = createBattle("배틀 제목");
         BattleOption optionA = createOption(battle, BattleOptionLabel.A);
-        Vote vote = Vote.builder()
+        BattleVote vote = BattleVote.builder()
                 .user(user)
                 .battle(battle)
                 .preVoteOption(optionA)
@@ -184,7 +183,7 @@ class MypageServiceTest {
         User user = createUser(1L, "tag");
         Battle battle = createBattle("제목");
         BattleOption optionA = createOption(battle, BattleOptionLabel.A);
-        Vote vote = Vote.builder()
+        BattleVote vote = BattleVote.builder()
                 .user(user)
                 .battle(battle)
                 .preVoteOption(optionA)
@@ -220,6 +219,7 @@ class MypageServiceTest {
     @DisplayName("COMMENT 타입으로 댓글활동을 반환한다")
     void getContentActivities_returns_comments() {
         User user = createUser(1L, "tag");
+        UserProfile profile = createProfile(user, "nick", CharacterType.OWL);
         Battle battle = createBattle("배틀");
         Long battleId = battle.getId();
         BattleOption option = createOption(battle, BattleOptionLabel.A);
@@ -242,6 +242,7 @@ class MypageServiceTest {
         ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.now());
 
         when(userService.findCurrentUser()).thenReturn(user);
+        when(userService.findUserProfile(1L)).thenReturn(profile);
         when(perspectiveQueryService.findUserComments(1L, 0, 20)).thenReturn(List.of(comment));
         when(perspectiveQueryService.countUserComments(1L)).thenReturn(1L);
         when(battleQueryService.findBattlesByIds(List.of(battleId))).thenReturn(Map.of(battleId, battle));
@@ -372,7 +373,6 @@ class MypageServiceTest {
         Battle battle = Battle.builder()
                 .title(title)
                 .summary("summary")
-                .type(BattleType.BATTLE)
                 .status(BattleStatus.PUBLISHED)
                 .build();
         ReflectionTestUtils.setField(battle, "id", generateId());

@@ -1,256 +1,91 @@
-# 투표 API 명세서
+# 투표(Vote) API 명세
+
+기준 코드: `src/main/java/com/swyp/picke/domain/vote/controller/VoteController.java`
+
+## 1. 퀴즈 투표
+
+### 1.1 퀴즈 응답 제출
+- `POST /api/v1/battles/{battleId}/quiz-vote`
+- 요청 본문:
+```json
+{
+  "optionId": 1
+}
+```
+
+### 1.2 내 퀴즈 투표 조회
+- `GET /api/v1/battles/{battleId}/quiz-vote/me`
+
+> 참고: 현재 경로 변수 이름은 `battleId`지만 내부적으로 `quizId`로 사용됩니다.
 
 ---
 
-## 설계 메모
+## 2. Poll 투표
 
-- **사전/사후 투표 단일 레코드 :**
-  - 사전 투표와 사후 투표는 `VOTES` 테이블의 단일 레코드로 관리됩니다. `status` 필드(`NONE` → `PRE_VOTED` → `POST_VOTED`)로 진행 단계를 추적합니다.
-- **투표 수정 :**
-  - 투표 입장 변경은 `PATCH` 메서드를 사용합니다. `vote_type` 필드로 사전/사후 구분합니다.
-- **사후 투표 응답 :**
-  - 사후 투표 완료 시 `mind_changed` 여부와 전체 통계, 리워드 정보를 함께 반환합니다.
+### 2.1 Poll 선택 제출
+- `POST /api/v1/battles/{battleId}/poll-vote`
+- 요청 본문:
+```json
+{
+  "optionId": 1
+}
+```
+
+### 2.2 내 Poll 투표 조회
+- `GET /api/v1/battles/{battleId}/poll-vote/me`
+
+> 참고: 현재 경로 변수 이름은 `battleId`지만 내부적으로 `pollId`로 사용됩니다.
 
 ---
 
-## 사용자 API
+## 3. 배틀 사전/사후 투표
 
-### `POST /api/v1/battles/{battle_id}/votes/pre`
-
-- 시나리오 청취 전 사전 투표를 진행합니다.
-
-#### Request Body
-
+### 3.1 사전 투표
+- `POST /api/v1/battles/{battleId}/votes/pre`
+- 요청 본문:
 ```json
 {
-  "option_id": "option_A"
+  "optionId": 1
 }
 ```
 
-#### 성공 응답 `200 OK`
-
+### 3.2 사후 투표
+- `POST /api/v1/battles/{battleId}/votes/post`
+- 요청 본문:
 ```json
 {
-  "statusCode": 200,
-  "data": {
-    "vote_id": "vote_001",
-    "status": "PRE_VOTED",
-    "next_step_url": "/battles/battle_001/scenario"
-  },
-  "error": null
+  "optionId": 1
 }
 ```
+
+### 3.3 TTS 청취 완료
+- `POST /api/v1/battles/{battleId}/votes/tts-complete`
+
+### 3.4 배틀 투표 통계
+- `GET /api/v1/battles/{battleId}/vote-stats`
+
+### 3.5 내 배틀 투표 이력
+- `GET /api/v1/battles/{battleId}/votes/me`
 
 ---
 
-### `POST /api/v1/battles/{battle_id}/votes/post`
+## 4. 관리자 투표 데이터 정리 API
 
-- 시나리오 청취 후 최종 사후 투표를 진행합니다. 완료 시 결과 통계와 리워드를 함께 반환합니다.
+### 4.1 배틀 투표 기록 삭제
+- `DELETE /api/v1/admin/votes/battle/{battleId}`
 
-#### Request Body
+### 4.2 퀴즈 투표 기록 삭제
+- `DELETE /api/v1/admin/votes/quiz/{battleId}`
 
-```json
-{
-  "option_id": "option_A"
-}
-```
-
-#### 성공 응답 `200 OK`
-
-```json
-{
-  "statusCode": 200,
-  "data": {
-    "vote_id": "vote_001",
-    "mind_changed": false,
-    "status": "POST_VOTED",
-    "statistics": {
-      "option_A_ratio": 65,
-      "option_B_ratio": 35
-    },
-    "reward": {
-      "is_majority": true,
-      "credits_earned": 10
-    },
-    "updated_at": "2026-03-10T16:35:00Z"
-  },
-  "error": null
-}
-```
+### 4.3 Poll 투표 기록 삭제
+- `DELETE /api/v1/admin/votes/poll/{battleId}`
 
 ---
 
-### `PATCH /api/v1/battles/{battle_id}/votes`
+## 5. 응답 DTO 메모
 
-- 기존 투표 입장을 변경합니다. `vote_type`으로 사전/사후 투표를 구분합니다.
-
-#### Request Body
-
-```json
-{
-  "vote_type": "PRE",
-  "option_id": "option_B"
-}
-```
-
-#### 성공 응답 `200 OK`
-
-```json
-{
-  "statusCode": 200,
-  "data": {
-    "vote_id": "vote_001",
-    "updated_at": "2026-03-10T16:40:00Z"
-  },
-  "error": null
-}
-```
-
----
-
-### `DELETE /api/v1/battles/{battle_id}/votes`
-
-- 투표 이력을 취소 및 삭제합니다.
-
-#### 성공 응답 `200 OK`
-
-```json
-{
-  "statusCode": 200,
-  "data": {
-    "success": true,
-    "deleted_at": "2026-03-10T16:45:00Z"
-  },
-  "error": null
-}
-```
-
----
-
-### `GET /api/v1/battles/{battle_id}/vote-stats`
-
-- 투표 %를 조회
-
-#### 성공 응답 `200 OK`
-
-```json
-{
-  "statusCode": 200,
-  "data": {
-    "options": [
-      {
-        "option_id": "option_A",
-        "label": "A",
-        "title": "찬성",
-        "vote_count": 1259,
-        "ratio": 59.5
-      },
-      {
-        "option_id": "option_B",
-        "label": "B",
-        "title": "반대",
-        "vote_count": 856,
-        "ratio": 40.5
-      }
-    ],
-    "total_count": 2115,
-    "updated_at": "2026-03-11T12:00:00Z"
-  },
-  "error": null
-}
-```
-
-#### 예외 응답 `404 - 배틀없음`
-
-```json
-{
-  "statusCode": 404,
-  "data": null,
-  "error": {
-    "code": "BATTLE_NOT_FOUND",
-    "message": "존재하지 않는 배틀입니다.",
-    "errors": []
-  }
-}
-```
----
-### `GET /api/v1/battles/{battle_id}/votes/me`
-
-- 투표 %를 조회
-
-#### 성공 응답 `200 OK`
-
-```json
-{
-  "statusCode": 200,
-  "data": {
-    "pre_vote": {
-      "option_id": "option_A",
-      "label": "A",
-      "title": "찬성"
-    },
-    "post_vote": {
-      "option_id": "option_A",
-      "label": "A",
-      "title": "찬성"
-    },
-    "mind_changed": false,
-    "status": "POST_VOTED"
-  },
-  "error": null
-}
-```
-
-#### 예외 응답 `404 - 배틀없음`
-
-```json
-{
-  "statusCode": 404,
-  "data": null,
-  "error": {
-    "code": "BATTLE_NOT_FOUND",
-    "message": "존재하지 않는 배틀입니다.",
-    "errors": []
-  }
-}
-```
-
-#### 예외 응답 `404 - 투표 내역 없음`
-
-```json
-{
-  "statusCode": 404,
-  "data": null,
-  "error": {
-    "code": "VOTE_NOT_FOUND",
-    "message": "투표 내역이 없습니다.",
-    "errors": []
-  }
-}
-```
-
----
-## 공통 에러 코드
-
-| Error Code | HTTP Status | 설명 |
-|------------|:-----------:|------|
-| `COMMON_INVALID_PARAMETER` | `400` | 요청 파라미터 오류 |
-| `COMMON_BAD_REQUEST` | `400` | 잘못된 요청 |
-| `AUTH_UNAUTHORIZED` | `401` | 인증 실패 |
-| `AUTH_TOKEN_EXPIRED` | `401` | 토큰 만료 |
-| `FORBIDDEN_ACCESS` | `403` | 접근 권한 없음 |
-| `USER_BANNED` | `403` | 제재된 사용자 |
-| `INTERNAL_SERVER_ERROR` | `500` | 서버 오류 |
-
----
-
-## 투표 에러 코드
-
-| Error Code | HTTP Status | 설명 |
-|------------|:-----------:|------|
-| `VOTE_NOT_FOUND` | `404` | 존재하지 않는 투표 |
-| `VOTE_ALREADY_SUBMITTED` | `409` | 이미 투표 완료 |
-| `PRE_VOTE_REQUIRED` | `409` | 사전 투표 필요 |
-| `POST_VOTE_REQUIRED` | `409` | 사후 투표 필요 |
-
----
+- 퀴즈 투표 응답: `QuizVoteResponse`
+  - `selectedOptionId`, `totalCount`, `stats[].isCorrect` 포함
+- Poll 투표 응답: `PollVoteResponse`
+  - `selectedOptionId`, `totalCount`, `stats[].ratio` 포함
+- 배틀 투표 응답: `VoteResultResponse`, `VoteStatsResponse`, `MyVoteResponse`

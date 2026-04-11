@@ -187,7 +187,7 @@ public class QuizVoteServiceImpl implements QuizVoteService {
                     o.getIsCorrect(),
                     count,
                     ratio,
-                    null
+                    o.getStance()
             );
         }).toList();
     }

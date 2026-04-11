@@ -2,7 +2,7 @@ name: Java CI/CD with Gradle (Dev Server)
 
 on:
   push:
-    branches: [ "dev" ] # 1. 데브 브랜치 전용
+    branches: [ "dev" ]
   workflow_dispatch:
 
 jobs:
@@ -23,20 +23,13 @@ jobs:
           chmod +x ./gradlew
           ./gradlew build -x test
 
-      - name: Create .env file from Secret
-        run: |
-          cat <<'EOF' > .env
-          ${{ secrets.ENV_VARIABLES }}
-          EOF
-
-      # // 1. 전송용 폴더를 만들어서 JAR와 .env를 한데 모으기
+      # // 1. JAR 파일만 전송 준비 (환경변수는 서버에서 직접 생성하는게 더 깔끔해)
       - name: Prepare deployment files
         run: |
           mkdir -p deploy
           cp build/libs/*-SNAPSHOT.jar deploy/
-          cp .env deploy/
 
-      # // 2. 모아둔 deploy 폴더의 내용물만 EC2로 전송
+      # // 2. JAR 파일 EC2로 전송
       - name: Copy files to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -44,9 +37,10 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "deploy/*"
-          target: "~/dev-server" # 데브 전용 폴더
-          strip_components: 1 # 'deploy' 폴더명만 깎아서 내용물(.jar, .env)만 전송
+          target: "~/dev-server"
+          strip_components: 1
 
+      # // 3. EC2 서버에서 실행 스크립트
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -54,11 +48,17 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # 3. 8081 포트만 종료
+            # 1. 기존 8081 프로세스 종료
             fuser -k 8081/tcp || true 
             
             cd ~/dev-server
-            chmod +x *.jar
             
-            # // 2. .env 파일을 읽어서 환경변수로 등록 후 8081 포트로 실행
-            export $(grep -v '^#' .env | xargs) && nohup java -jar -Dserver.port=8081 *-SNAPSHOT.jar > dev-app.log 2>&1 &
+            # 2. .env 파일 생성
+            cat <<'EOF' > .env
+            ${{ secrets.ENV_VARIABLES }}
+            EOF
+            
+            # 3. 환경 변수 로드 및 메모리 제한 걸어서 실행
+            # // 1. set -a로 .env 로드, -Xmx256m으로 메모리 방어
+            set -a; source .env; set +a
+            nohup java -Xmx256m -Dserver.port=8081 -jar *-SNAPSHOT.jar > dev-app.log 2>&1 &

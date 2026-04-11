@@ -89,9 +89,12 @@ public class QuizVoteServiceImpl implements QuizVoteService {
                         calcStats(battle, totalCount)
                 ))
                 .orElseGet(() -> {
-                    // [투표 전] 전체 참여자 수(totalCount)는 보여주되, 개별 통계(voteCount, ratio)는 0으로 숨김
+                    // [투표 전] 전체 참여자 수(totalCount), 선택지 설명(stance)는 보여주되, 개별 통계(voteCount, ratio)는 0으로 숨김
                     List<QuizVoteResponse.OptionStat> blindStats = battleOptionRepository.findByBattle(battle).stream()
-                            .map(o -> new QuizVoteResponse.OptionStat(o.getId(), o.getLabel().name(), o.getTitle(), o.getIsCorrect(), 0L, 0.0))
+                            .map(o -> new QuizVoteResponse.OptionStat(
+                                    o.getId(), o.getLabel().name(), o.getTitle(),
+                                    o.getIsCorrect(), 0L, 0.0, o.getStance()
+                            ))
                             .toList();
                     return new QuizVoteResponse(battleId, null, totalCount, blindStats);
                 });
@@ -183,7 +186,8 @@ public class QuizVoteServiceImpl implements QuizVoteService {
                     o.getTitle(),
                     o.getIsCorrect(),
                     count,
-                    ratio
+                    ratio,
+                    null
             );
         }).toList();
     }

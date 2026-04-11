@@ -17,7 +17,7 @@ import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.domain.user.enums.CharacterType;
 import com.swyp.picke.domain.user.service.UserService;
-import com.swyp.picke.domain.vote.service.BattleVoteService;
+import com.swyp.picke.domain.vote.service.VoteService;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import com.swyp.picke.global.infra.s3.service.S3PresignedUrlService;
@@ -41,7 +41,7 @@ public class PerspectiveCommentService {
     private final UserRepository userRepository;
     private final CommentLikeRepository commentLikeRepository;
     private final UserService userQueryService;
-    private final BattleVoteService BattleVoteService;
+    private final VoteService voteService;
     private final BattleService battleService;
     private final S3PresignedUrlService s3PresignedUrlService;
 
@@ -62,7 +62,7 @@ public class PerspectiveCommentService {
 
         UserSummary userSummary = userQueryService.findSummaryById(userId);
         String characterImageUrl = resolveCharacterImageUrl(userSummary.characterType());
-        Long postVoteOptionId = BattleVoteService.findPostVoteOptionId(perspective.getBattle().getId(), userId);
+        Long postVoteOptionId = voteService.findPostVoteOptionId(perspective.getBattle().getId(), userId);
         String stance = null;
         if (postVoteOptionId != null) {
             stance = battleService.findOptionById(postVoteOptionId).getStance();
@@ -96,7 +96,7 @@ public class PerspectiveCommentService {
                 .map(c -> {
                     UserSummary user = userQueryService.findSummaryById(c.getUser().getId());
                     String characterImageUrl = resolveCharacterImageUrl(user.characterType());
-                    Long postVoteOptionId = BattleVoteService.findPostVoteOptionId(battleId, c.getUser().getId());
+                    Long postVoteOptionId = voteService.findPostVoteOptionId(battleId, c.getUser().getId());
                     String stance = null;
                     if (postVoteOptionId != null) {
                         BattleOption option = battleService.findOptionById(postVoteOptionId);
@@ -140,7 +140,7 @@ public class PerspectiveCommentService {
                 .map(c -> {
                     UserSummary user = userQueryService.findSummaryById(c.getUser().getId());
                     String characterImageUrl = resolveCharacterImageUrl(user.characterType());
-                    Long postVoteOptionId = BattleVoteService.findPostVoteOptionId(battleId, c.getUser().getId());
+                    Long postVoteOptionId = voteService.findPostVoteOptionId(battleId, c.getUser().getId());
                     String stance = null;
                     if (postVoteOptionId != null) {
                         BattleOption option = battleService.findOptionById(postVoteOptionId);

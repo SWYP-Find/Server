@@ -1,47 +1,30 @@
 package com.swyp.picke.domain.home.service;
 
+import com.swyp.picke.domain.battle.dto.response.BattleTagResponse;
 import com.swyp.picke.domain.battle.dto.response.TodayBattleResponse;
 import com.swyp.picke.domain.battle.dto.response.TodayOptionResponse;
 import com.swyp.picke.domain.battle.enums.BattleOptionLabel;
+import com.swyp.picke.domain.battle.enums.BattleType;
+import com.swyp.picke.domain.tag.enums.TagType;
 import com.swyp.picke.domain.battle.service.BattleService;
-import com.swyp.picke.domain.home.dto.response.HomeBestBattleResponse;
-import com.swyp.picke.domain.home.dto.response.HomeEditorPickResponse;
-import com.swyp.picke.domain.home.dto.response.HomeNewBattleResponse;
-import com.swyp.picke.domain.home.dto.response.HomeResponse;
-import com.swyp.picke.domain.home.dto.response.HomeTodayQuizResponse;
-import com.swyp.picke.domain.home.dto.response.HomeTodayVoteOptionResponse;
-import com.swyp.picke.domain.home.dto.response.HomeTodayVoteResponse;
-import com.swyp.picke.domain.home.dto.response.HomeTrendingResponse;
+import com.swyp.picke.domain.home.dto.response.*;
 import com.swyp.picke.domain.notification.enums.NotificationCategory;
 import com.swyp.picke.domain.notification.service.NotificationService;
-import com.swyp.picke.domain.poll.entity.Poll;
-import com.swyp.picke.domain.poll.entity.PollOption;
-import com.swyp.picke.domain.poll.service.PollService;
-import com.swyp.picke.domain.quiz.entity.Quiz;
-import com.swyp.picke.domain.quiz.entity.QuizOption;
-import com.swyp.picke.domain.quiz.enums.QuizOptionLabel;
-import com.swyp.picke.domain.quiz.service.QuizService;
 import com.swyp.picke.global.infra.s3.service.S3PresignedUrlService;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class HomeService {
 
-    private static final int HOME_TODAY_PICK_LIMIT = 1;
-    private static final String QUIZ_SUMMARY = "왼쪽과 오른쪽 중 정답을 선택하세요";
-    private static final String POLL_SUMMARY = "빈칸에 들어갈 가장 적절한 답을 골라주세요";
-
     private final BattleService battleService;
-    private final QuizService quizService;
-    private final PollService pollService;
     private final NotificationService notificationService;
     private final S3PresignedUrlService s3PresignedUrlService;
 
@@ -50,15 +33,15 @@ public class HomeService {
         if (userId != null) {
             newNotice = notificationService.hasNewBroadcast(userId, NotificationCategory.NOTICE);
         }
+        // DB 쿼리 단계에서 LIMIT을 걸어 필요한 개수만 깔끔하게 조회!
+        List<TodayBattleResponse> editorPickRaw = battleService.getEditorPicks(10);
+        List<TodayBattleResponse> trendingRaw = battleService.getTrendingBattles(4);
+        List<TodayBattleResponse> bestRaw = battleService.getBestBattles(3);
+        List<TodayBattleResponse> voteRaw = battleService.getTodayPicks(BattleType.VOTE, 1);
+        List<TodayBattleResponse> quizRaw = battleService.getTodayPicks(BattleType.QUIZ, 1);
 
-        List<TodayBattleResponse> editorPickRaw = battleService.getEditorPicks();
-        List<TodayBattleResponse> trendingRaw = battleService.getTrendingBattles();
-        List<TodayBattleResponse> bestRaw = battleService.getBestBattles();
-        List<Quiz> quizRaw = quizService.getTodayPicks(HOME_TODAY_PICK_LIMIT);
-        List<Poll> pollRaw = pollService.getTodayPicks(HOME_TODAY_PICK_LIMIT);
-
-        List<Long> excludeIds = collectBattleIds(editorPickRaw, trendingRaw, bestRaw);
-        List<TodayBattleResponse> newRaw = battleService.getNewBattles(excludeIds);
+        List<Long> excludeIds = collectBattleIds(editorPickRaw, trendingRaw, bestRaw, voteRaw, quizRaw);
+        List<TodayBattleResponse> newRaw = battleService.getNewBattles(excludeIds, 3);
 
         return new HomeResponse(
                 newNotice,
@@ -66,141 +49,127 @@ public class HomeService {
                 trendingRaw.stream().map(this::toTrending).toList(),
                 bestRaw.stream().map(this::toBestBattle).toList(),
                 quizRaw.stream().map(this::toTodayQuiz).toList(),
-                pollRaw.stream().map(this::toTodayVote).toList(),
+                voteRaw.stream().map(this::toTodayVote).toList(),
                 newRaw.stream().map(this::toNewBattle).toList()
         );
     }
 
-    private HomeEditorPickResponse toEditorPick(TodayBattleResponse battle) {
+    // 에디터픽 썸네일 Presigned URL 적용
+    private HomeEditorPickResponse toEditorPick(TodayBattleResponse b) {
+        String optionA = findOptionTitle(b.options(), BattleOptionLabel.A);
+        String optionB = findOptionTitle(b.options(), BattleOptionLabel.B);
+
+        String secureThumb = b.thumbnailUrl();
+
         return new HomeEditorPickResponse(
-                battle.battleId(),
-                battle.thumbnailUrl(),
-                findOptionTitle(battle.options(), BattleOptionLabel.A),
-                findOptionTitle(battle.options(), BattleOptionLabel.B),
-                battle.title(),
-                battle.summary(),
-                battle.tags(),
-                battle.viewCount()
+                b.battleId(), secureThumb,
+                optionA, optionB,
+                b.title(), b.summary(),
+                b.tags(), b.viewCount()
         );
     }
 
-    private HomeTrendingResponse toTrending(TodayBattleResponse battle) {
+    private HomeTrendingResponse toTrending(TodayBattleResponse b) {
         return new HomeTrendingResponse(
-                battle.battleId(),
-                battle.thumbnailUrl(),
-                battle.title(),
-                battle.tags(),
-                battle.audioDuration(),
-                battle.viewCount()
+                b.battleId(), b.thumbnailUrl(),
+                b.title(), b.tags(),
+                b.audioDuration(), b.viewCount()
         );
     }
 
-    private HomeBestBattleResponse toBestBattle(TodayBattleResponse battle) {
+    private HomeBestBattleResponse toBestBattle(TodayBattleResponse b) {
+        String philoA = findOptionRepresentative(b.options(), BattleOptionLabel.A);
+        String philoB = findOptionRepresentative(b.options(), BattleOptionLabel.B);
+
         return new HomeBestBattleResponse(
-                battle.battleId(),
-                findOptionRepresentative(battle.options(), BattleOptionLabel.A),
-                findOptionRepresentative(battle.options(), BattleOptionLabel.B),
-                battle.title(),
-                battle.tags(),
-                battle.audioDuration(),
-                battle.viewCount()
+                b.battleId(),
+                philoA, philoB,
+                b.title(), b.tags(),
+                b.audioDuration(), b.viewCount()
         );
     }
 
-    private HomeTodayQuizResponse toTodayQuiz(Quiz quiz) {
-        List<QuizOption> options = quizService.getOptions(quiz);
-        long participantsCount = quizService.countVotes(quiz);
-
-        QuizOption optionA = findQuizOption(options, QuizOptionLabel.A);
-        QuizOption optionB = findQuizOption(options, QuizOptionLabel.B);
-
+    private HomeTodayQuizResponse toTodayQuiz(TodayBattleResponse b) {
         return new HomeTodayQuizResponse(
-                quiz.getId(),
-                quiz.getTitle(),
-                QUIZ_SUMMARY,
-                participantsCount,
-                optionA != null ? optionA.getText() : null,
-                optionA != null ? optionA.getDetailText() : null,
-                false,
-                optionB != null ? optionB.getText() : null,
-                optionB != null ? optionB.getDetailText() : null,
-                false
+                b.battleId(), b.title(), b.summary(),
+                b.participantsCount(),
+                b.itemA(), b.itemADesc(),
+                findOptionIsCorrect(b.options(), BattleOptionLabel.A),
+                b.itemB(), b.itemBDesc(),
+                findOptionIsCorrect(b.options(), BattleOptionLabel.B)
         );
     }
 
-    private HomeTodayVoteResponse toTodayVote(Poll poll) {
-        List<PollOption> options = pollService.getOptions(poll);
-        long participantsCount = pollService.countVotes(poll);
-
-        List<HomeTodayVoteOptionResponse> homeOptions = options.stream()
-                .sorted(Comparator
-                        .comparing((PollOption option) -> option.getDisplayOrder() == null ? Integer.MAX_VALUE : option.getDisplayOrder())
-                        .thenComparing(option -> option.getLabel() == null ? "" : option.getLabel().name())
-                        .thenComparing(option -> option.getId() == null ? Long.MAX_VALUE : option.getId()))
-                .map(option -> new HomeTodayVoteOptionResponse(
-                        BattleOptionLabel.valueOf(option.getLabel().name()),
-                        option.getTitle()
-                ))
+    private HomeTodayVoteResponse toTodayVote(TodayBattleResponse b) {
+        List<HomeTodayVoteOptionResponse> options = Optional.ofNullable(b.options()).orElse(List.of()).stream()
+                .map(o -> new HomeTodayVoteOptionResponse(o.label(), o.title()))
                 .toList();
-
         return new HomeTodayVoteResponse(
-                poll.getId(),
-                poll.getTitlePrefix(),
-                poll.getTitleSuffix(),
-                POLL_SUMMARY,
-                participantsCount,
-                homeOptions
+                b.battleId(),
+                b.titlePrefix(), b.titleSuffix(),
+                b.summary(), b.participantsCount(),
+                options
         );
     }
 
-    private HomeNewBattleResponse toNewBattle(TodayBattleResponse battle) {
+    // newBattle 썸네일 Presigned URL 적용
+    private HomeNewBattleResponse toNewBattle(TodayBattleResponse b) {
+        String philoA = findOptionRepresentative(b.options(), BattleOptionLabel.A);
+        String philoB = findOptionRepresentative(b.options(), BattleOptionLabel.B);
+
+        String optionA = findOptionTitle(b.options(), BattleOptionLabel.A);
+        String optionB = findOptionTitle(b.options(), BattleOptionLabel.B);
+
+        String imageA = findRepresentativeImageUrl(b.options(), BattleOptionLabel.A);
+        String imageB = findRepresentativeImageUrl(b.options(), BattleOptionLabel.B);
+
         return new HomeNewBattleResponse(
-                battle.battleId(),
-                battle.thumbnailUrl(),
-                battle.title(),
-                battle.summary(),
-                findOptionRepresentative(battle.options(), BattleOptionLabel.A),
-                findOptionTitle(battle.options(), BattleOptionLabel.A),
-                findRepresentativeImageUrl(battle.options(), BattleOptionLabel.A),
-                findOptionRepresentative(battle.options(), BattleOptionLabel.B),
-                findOptionTitle(battle.options(), BattleOptionLabel.B),
-                findRepresentativeImageUrl(battle.options(), BattleOptionLabel.B),
-                battle.tags(),
-                battle.audioDuration(),
-                battle.viewCount()
+                b.battleId(), b.thumbnailUrl(),
+                b.title(), b.summary(),
+                philoA, optionA, imageA,
+                philoB, optionB, imageB,
+                b.tags(), b.audioDuration(), b.viewCount()
         );
+    }
+
+    private Boolean findOptionIsCorrect(List<TodayOptionResponse> options, BattleOptionLabel label) {
+        return Optional.ofNullable(options).orElse(List.of()).stream()
+                .filter(o -> o.label() == label)
+                .map(TodayOptionResponse::isCorrect)
+                .findFirst()
+                .map(Boolean.TRUE::equals)
+                .orElse(false);
     }
 
     private String findOptionTitle(List<TodayOptionResponse> options, BattleOptionLabel label) {
         return Optional.ofNullable(options).orElse(List.of()).stream()
-                .filter(option -> option.label() == label)
+                .filter(o -> o.label() == label)
                 .map(TodayOptionResponse::title)
                 .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(null);
+                .findFirst().orElse(null);
     }
 
+    // 옵션에서 철학자 이름(Representative)을 추출하는 메서드
     private String findOptionRepresentative(List<TodayOptionResponse> options, BattleOptionLabel label) {
         return Optional.ofNullable(options).orElse(List.of()).stream()
-                .filter(option -> option.label() == label)
+                .filter(o -> o.label() == label)
                 .map(TodayOptionResponse::representative)
                 .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(null);
+                .findFirst().orElse(null);
+    }
+
+    private List<String> findPhilosopherNames(List<BattleTagResponse> tags) {
+        return Optional.ofNullable(tags).orElse(List.of()).stream()
+                .filter(t -> t.type() == TagType.PHILOSOPHER)
+                .map(BattleTagResponse::name)
+                .toList();
     }
 
     private String findRepresentativeImageUrl(List<TodayOptionResponse> options, BattleOptionLabel label) {
         return Optional.ofNullable(options).orElse(List.of()).stream()
-                .filter(option -> option.label() == label)
+                .filter(o -> o.label() == label)
                 .map(TodayOptionResponse::imageUrl)
                 .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(null);
-    }
-
-    private QuizOption findQuizOption(List<QuizOption> options, QuizOptionLabel label) {
-        return options.stream()
-                .filter(option -> option.getLabel() == label)
                 .findFirst()
                 .orElse(null);
     }

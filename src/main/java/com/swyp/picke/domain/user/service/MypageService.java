@@ -18,7 +18,7 @@ import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.entity.UserProfile;
 import com.swyp.picke.domain.user.entity.UserSettings;
 import com.swyp.picke.domain.user.enums.VoteSide;
-import com.swyp.picke.domain.vote.entity.BattleVote;
+import com.swyp.picke.domain.vote.entity.Vote;
 import com.swyp.picke.domain.vote.service.VoteQueryService;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
@@ -142,29 +142,29 @@ public class MypageService {
 
         BattleOptionLabel label = voteSide != null ? toOptionLabel(voteSide) : null;
 
-        List<BattleVote> votes = voteQueryService.findUserVotes(user.getId(), pageOffset, pageSize, label);
+        List<Vote> votes = voteQueryService.findUserVotes(user.getId(), pageOffset, pageSize, label);
         long totalCount = voteQueryService.countUserVotes(user.getId(), label);
 
         List<Long> battleIds = votes.stream().map(v -> v.getBattle().getId()).toList();
-        Map<Long, String> categoryMap = battleQueryService.getCategoryNamesByBattleIds(battleIds); // 異붽? ?꾩슂
+        Map<Long, String> categoryMap = battleQueryService.getCategoryNamesByBattleIds(battleIds); // 추가 필요
 
         List<BattleRecordListResponse.BattleRecordItem> items = votes.stream()
-                .map(BattleVote -> {
-                    Battle battle = BattleVote.getBattle();
-                    BattleOption selectedOption = BattleVote.getPostVoteOption() != null
-                            ? BattleVote.getPostVoteOption() : BattleVote.getPreVoteOption();
+                .map(vote -> {
+                    Battle battle = vote.getBattle();
+                    BattleOption selectedOption = vote.getPostVoteOption() != null
+                            ? vote.getPostVoteOption() : vote.getPreVoteOption();
                     VoteSide side = selectedOption.getLabel() == BattleOptionLabel.A
                             ? VoteSide.PRO : VoteSide.CON;
                     String category = categoryMap.get(battle.getId());
 
                     return new BattleRecordListResponse.BattleRecordItem(
                             battle.getId().toString(),
-                            BattleVote.getId().toString(),
+                            vote.getId().toString(),
                             side,
                             category,
                             battle.getTitle(),
                             battle.getSummary(),
-                            BattleVote.getCreatedAt()
+                            vote.getCreatedAt()
                     );
                 })
                 .toList();
@@ -360,5 +360,3 @@ public class MypageService {
         return s3PresignedUrlService.generatePresignedUrl(imageKey);
     }
 }
-
-

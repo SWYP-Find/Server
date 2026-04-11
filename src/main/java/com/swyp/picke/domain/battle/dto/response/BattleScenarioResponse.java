@@ -10,6 +10,7 @@ public record BattleScenarioResponse(
             String label,
             String name,
             String stance,
+            String quote,
             String imageUrl
     ) {}
 }

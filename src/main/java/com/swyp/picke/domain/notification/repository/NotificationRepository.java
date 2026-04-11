@@ -45,4 +45,14 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
             WHERE n.user.id = :userId AND n.read = false
             """)
     int markAllAsReadByUserId(@Param("userId") Long userId);
+
+    @Query("""
+            SELECT n FROM Notification n
+            WHERE (:category IS NULL OR n.category = :category)
+            ORDER BY n.createdAt DESC
+            """)
+    Slice<Notification> findNotificationsForAdmin(
+            @Param("category") NotificationCategory category,
+            Pageable pageable
+    );
 }

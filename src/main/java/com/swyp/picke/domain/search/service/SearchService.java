@@ -58,7 +58,6 @@ public class SearchService {
                 .map(battle -> new SearchBattleListResponse.SearchBattleItem(
                         battle.getId(),
                         urlProvider.getImageUrl(FileCategory.BATTLE, battle.getThumbnailUrl()),
-                        battle.getType(),
                         battle.getTitle(),
                         battle.getSummary(),
                         tagMap.getOrDefault(battle.getId(), List.of()),

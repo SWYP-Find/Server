@@ -21,7 +21,7 @@ import com.swyp.picke.domain.perspective.repository.PerspectiveRepository;
 import com.swyp.picke.domain.user.dto.response.UserSummary;
 import com.swyp.picke.domain.user.enums.CharacterType;
 import com.swyp.picke.domain.user.service.UserService;
-import com.swyp.picke.domain.vote.service.VoteService;
+import com.swyp.picke.domain.vote.service.BattleVoteService;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import com.swyp.picke.global.infra.s3.service.S3PresignedUrlService;
@@ -44,7 +44,7 @@ public class PerspectiveService {
     private final PerspectiveCommentRepository perspectiveCommentRepository;
     private final PerspectiveLikeRepository perspectiveLikeRepository;
     private final BattleService battleService;
-    private final VoteService voteService;
+    private final BattleVoteService BattleVoteService;
     private final UserService userQueryService;
     private final UserRepository userRepository;
     private final GptModerationService gptModerationService;
@@ -82,7 +82,7 @@ public class PerspectiveService {
             throw new CustomException(ErrorCode.PERSPECTIVE_ALREADY_EXISTS);
         }
 
-        BattleOption option = voteService.findPreVoteOption(battleId, userId);
+        BattleOption option = BattleVoteService.findPreVoteOption(battleId, userId);
 
         Perspective perspective = Perspective.builder()
                 .battle(battle)

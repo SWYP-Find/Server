@@ -10,7 +10,6 @@ public record BattleOptionResponse(
         String title,
         String stance,
         String representative,
-        String quote,
         String imageUrl,
         List<BattleTagResponse> tags
 ) {}

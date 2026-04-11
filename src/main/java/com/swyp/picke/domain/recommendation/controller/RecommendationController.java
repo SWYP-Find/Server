@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "추천 (Recommendation)", description = "배틀 추천 API")
+@Tag(name = "추천 API", description = "배틀 추천 조회")
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
@@ -20,7 +20,7 @@ public class RecommendationController {
 
     private final RecommendationService recommendationService;
 
-    @Operation(summary = "흥미 기반 배틀 추천 조회", description = "특정 배틀 기반으로 흥미로운 배틀 목록을 추천합니다.")
+    @Operation(summary = "흥미 기반 배틀 추천 조회", description = "특정 배틀을 기준으로 흥미로운 배틀 목록을 추천합니다.")
     @GetMapping("/battles/{battleId}/recommendations/interesting")
     public ApiResponse<RecommendationListResponse> getInterestingBattles(
             @PathVariable Long battleId,

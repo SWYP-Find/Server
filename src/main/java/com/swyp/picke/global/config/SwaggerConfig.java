@@ -25,14 +25,9 @@ public class SwaggerConfig {
                 .url("http://localhost:8080")
                 .description("Local Development Server (8080)");
 
-        // 3. 로컬 개발 서버 (8081)
-        Server local8081 = new Server()
-                .url("http://localhost:8081")
-                .description("Local Development Server (8081)");
-
-        // 4. 실제 EC2 데브 서버 (8081) - 나중에 배포 후 확인용
+        // 3. 개발 서버 (8081)
         Server devServer = new Server()
-                .url("http://picke.store:8081")
+                .url("https://dev.picke.store")
                 .description("Remote Dev Server (8081)");
 
         SecurityScheme securityScheme = new SecurityScheme()
@@ -47,7 +42,7 @@ public class SwaggerConfig {
 
         return new OpenAPI()
                 // 3. 서버 리스트 등록
-                .servers(List.of(prodServer, local8080, local8081, devServer))
+                .servers(List.of(prodServer, local8080, devServer))
                 .info(new Info()
                               .title("PIQUE API 명세서")
                               .description("PIQUE 서비스 API 명세서입니다.")

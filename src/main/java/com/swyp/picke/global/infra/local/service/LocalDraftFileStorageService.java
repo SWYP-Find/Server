@@ -10,7 +10,6 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -147,12 +146,18 @@ public class LocalDraftFileStorageService {
     }
 
     private String extractLocalKeyFromPath(String path) {
-        if (path == null) return null;
+        if (path == null) {
+            return null;
+        }
         int markerIndex = path.indexOf(LOCAL_RESOURCE_PREFIX);
-        if (markerIndex < 0) return null;
+        if (markerIndex < 0) {
+            return null;
+        }
 
         String fileName = path.substring(markerIndex + LOCAL_RESOURCE_PREFIX.length());
-        if (fileName.isBlank()) return null;
+        if (fileName.isBlank()) {
+            return null;
+        }
 
         return LOCAL_DRAFT_PREFIX + sanitizeFileName(fileName);
     }

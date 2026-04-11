@@ -1,8 +1,16 @@
 <header th:fragment="header" class="bg-[#F9F8F6] border-b border-gray-200 sticky top-0 z-50 px-8 py-4 flex justify-between items-center" xmlns:th="http://www.thymeleaf.org">
-    <div class="flex items-center space-x-2">
-        <span class="text-2xl font-bold tracking-tighter">Pické</span>
-        <span class="text-sm text-gray-400 font-medium">Admin</span>
+    <div class="flex items-center space-x-6">
+        <div class="flex items-center space-x-2">
+            <span class="text-2xl font-bold tracking-tighter">Picke</span>
+            <span class="text-sm text-gray-400 font-medium">Admin</span>
+        </div>
+        <nav class="flex items-center gap-2">
+            <a href="/api/v1/admin/picke/list" class="px-3 py-1.5 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100">콘텐츠 관리</a>
+            <a href="/api/v1/admin/picke/notice" class="px-3 py-1.5 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100">공지사항</a>
+        </nav>
     </div>
 
-    <div><span class="px-4 py-1.5 bg-[#EFECE5] text-[#8B7355] text-xs font-bold rounded-full border border-[#DED6C9]">ADMIN</span></div>
+    <div>
+        <span class="px-4 py-1.5 bg-[#EFECE5] text-[#8B7355] text-xs font-bold rounded-full border border-[#DED6C9]">ADMIN</span>
+    </div>
 </header>

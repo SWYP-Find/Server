@@ -8,14 +8,12 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
-@Tag(name = "보상 (Reward)", description = "AdMob 광고 보상 관련 API")
+@Tag(name = "보상 API", description = "AdMob 광고 보상 관련 API")
 @RestController
 @RequestMapping("/api/v1/admob")
 @RequiredArgsConstructor

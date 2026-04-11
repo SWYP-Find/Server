@@ -51,7 +51,7 @@ public class ScenarioServiceImpl implements ScenarioService {
 
     private final ScenarioRepository scenarioRepository;
     private final BattleRepository battleRepository;
-    private final BattleVoteRepository BattleVoteRepository;
+    private final BattleVoteRepository battleVoteRepository;
     private final ScenarioConverter scenarioConverter;
     private final ScenarioAudioPipelineService audioPipelineService;
     private final S3UploadService s3Service;
@@ -62,15 +62,15 @@ public class ScenarioServiceImpl implements ScenarioService {
         Scenario scenario = scenarioRepository.findByBattleIdAndStatus(battleId, ScenarioStatus.PUBLISHED)
                 .orElseThrow(() -> new CustomException(ErrorCode.SCENARIO_NOT_FOUND));
 
-        Optional<BattleVote> optionalVote = BattleVoteRepository.findByBattleIdAndUserId(battleId, userId);
+        Optional<BattleVote> optionalVote = battleVoteRepository.findByBattleIdAndUserId(battleId, userId);
         AudioPathType recommendedKey = AudioPathType.COMMON;
 
         if (optionalVote.isPresent()) {
-            BattleVote BattleVote = optionalVote.get();
+            BattleVote vote = optionalVote.get();
             if (scenario.getIsInteractive()) {
-                if (BattleVote.getPreVoteOption().getLabel().name().equalsIgnoreCase("A")) {
+                if (vote.getPreVoteOption().getLabel().name().equalsIgnoreCase("A")) {
                     recommendedKey = AudioPathType.PATH_A;
-                } else if (BattleVote.getPreVoteOption().getLabel().name().equalsIgnoreCase("B")) {
+                } else if (vote.getPreVoteOption().getLabel().name().equalsIgnoreCase("B")) {
                     recommendedKey = AudioPathType.PATH_B;
                 }
             }

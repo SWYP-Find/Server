@@ -2,51 +2,49 @@ package com.swyp.picke.domain.vote.service;
 
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.enums.BattleOptionLabel;
-import com.swyp.picke.domain.vote.entity.BattleVote;
-import com.swyp.picke.domain.vote.repository.BattleVoteRepository;
-import java.util.List;
-import java.util.Objects;
+import com.swyp.picke.domain.vote.entity.Vote;
+import com.swyp.picke.domain.vote.repository.VoteRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class VoteQueryService {
 
-    private final BattleVoteRepository battleVoteRepository;
+    private final VoteRepository voteRepository;
 
-    public List<BattleVote> findUserVotes(Long userId, int offset, int size, BattleOptionLabel label) {
+    public List<Vote> findUserVotes(Long userId, int offset, int size, BattleOptionLabel label) {
         PageRequest pageable = PageRequest.of(offset / size, size);
         return label != null
-                ? battleVoteRepository.findByUserIdAndPreVoteOptionLabelOrderByCreatedAtDesc(userId, label, pageable)
-                : battleVoteRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
+                ? voteRepository.findByUserIdAndPreVoteOptionLabelOrderByCreatedAtDesc(userId, label, pageable)
+                : voteRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
     }
 
     public long countUserVotes(Long userId, BattleOptionLabel label) {
         return label != null
-                ? battleVoteRepository.countByUserIdAndPreVoteOptionLabel(userId, label)
-                : battleVoteRepository.countByUserId(userId);
+                ? voteRepository.countByUserIdAndPreVoteOptionLabel(userId, label)
+                : voteRepository.countByUserId(userId);
     }
 
     public long countTotalParticipation(Long userId) {
-        return battleVoteRepository.countByUserId(userId);
+        return voteRepository.countByUserId(userId);
     }
 
     public long countOpinionChanges(Long userId) {
-        return battleVoteRepository.countOpinionChangesByUserId(userId);
+        return voteRepository.countOpinionChangesByUserId(userId);
     }
 
     public int calculateBattleWinRate(Long userId) {
-        List<BattleVote> postVotes = battleVoteRepository.findByUserId(userId).stream()
+        List<Vote> postVotes = voteRepository.findByUserId(userId).stream()
                 .filter(v -> v.getPostVoteOption() != null)
                 .toList();
 
-        if (postVotes.isEmpty()) {
-            return 0;
-        }
+        if (postVotes.isEmpty()) return 0;
 
         long wins = postVotes.stream()
                 .filter(v -> {
@@ -64,31 +62,27 @@ public class VoteQueryService {
     }
 
     public List<Long> findParticipatedBattleIds(Long userId) {
-        return battleVoteRepository.findByUserId(userId).stream()
+        return voteRepository.findByUserId(userId).stream()
                 .map(v -> v.getBattle().getId())
                 .distinct()
                 .toList();
     }
 
     public List<Long> findFirstNBattleIds(Long userId, int n) {
-        return battleVoteRepository.findByUserIdOrderByCreatedAtAsc(userId, PageRequest.of(0, n)).stream()
+        return voteRepository.findByUserIdOrderByCreatedAtAsc(userId, PageRequest.of(0, n)).stream()
                 .map(v -> v.getBattle().getId())
                 .distinct()
                 .toList();
     }
 
     public List<Long> findFirstNVotedOptionIds(Long userId, int n) {
-        return battleVoteRepository.findByUserIdOrderByCreatedAtAsc(userId, PageRequest.of(0, n)).stream()
+        return voteRepository.findByUserIdOrderByCreatedAtAsc(userId, PageRequest.of(0, n)).stream()
                 .map(v -> {
-                    if (v.getPostVoteOption() != null) {
-                        return v.getPostVoteOption().getId();
-                    }
-                    if (v.getPreVoteOption() != null) {
-                        return v.getPreVoteOption().getId();
-                    }
+                    if (v.getPostVoteOption() != null) return v.getPostVoteOption().getId();
+                    if (v.getPreVoteOption() != null) return v.getPreVoteOption().getId();
                     return null;
                 })
-                .filter(Objects::nonNull)
+                .filter(java.util.Objects::nonNull)
                 .distinct()
                 .toList();
     }

@@ -13,7 +13,7 @@ import com.swyp.picke.domain.user.enums.PhilosopherType;
 import com.swyp.picke.domain.user.service.UserService;
 import com.swyp.picke.global.infra.s3.enums.FileCategory;
 import com.swyp.picke.global.infra.s3.util.ResourceUrlProvider;
-import com.swyp.picke.domain.vote.repository.BattleVoteRepository;
+import com.swyp.picke.domain.vote.repository.VoteRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -35,7 +35,7 @@ public class RecommendationService {
     private final BattleRepository battleRepository;
     private final BattleOptionRepository battleOptionRepository;
     private final BattleOptionTagRepository battleOptionTagRepository;
-    private final BattleVoteRepository BattleVoteRepository;
+    private final VoteRepository voteRepository;
     private final UserService userService;
     private final ResourceUrlProvider urlProvider;
 
@@ -47,7 +47,7 @@ public class RecommendationService {
         PhilosopherType oppositeType = myType.getWorstMatch();
 
         // 현재 유저가 이미 참여한 배틀 ID 목록 (제외 대상)
-        List<Long> excludeBattleIds = BattleVoteRepository.findParticipatedBattleIdsByUserId(userId);
+        List<Long> excludeBattleIds = voteRepository.findParticipatedBattleIdsByUserId(userId);
         if (excludeBattleIds.isEmpty()) excludeBattleIds = List.of(-1L);
 
         List<Long> sameTypeUserIds = findUserIdsByPhilosopherType(myType);
@@ -56,12 +56,12 @@ public class RecommendationService {
         // 같은 유형 유저들이 참여한 배틀 후보 ID
         List<Long> sameCandidateIds = sameTypeUserIds.isEmpty()
                 ? List.of()
-                : BattleVoteRepository.findParticipatedBattleIdsByUserIds(sameTypeUserIds);
+                : voteRepository.findParticipatedBattleIdsByUserIds(sameTypeUserIds);
 
         // 반대 유형 유저들이 참여한 배틀 후보 ID
         List<Long> oppositeCandidateIds = oppositeTypeUserIds.isEmpty()
                 ? List.of()
-                : BattleVoteRepository.findParticipatedBattleIdsByUserIds(oppositeTypeUserIds);
+                : voteRepository.findParticipatedBattleIdsByUserIds(oppositeTypeUserIds);
 
         // 인기 점수 기준 배틀 조회 (Score = V*1.0 + C*1.5 + Vw*0.2)
         // 철학자 유형 로직 미구현 시 인기 배틀로 폴백

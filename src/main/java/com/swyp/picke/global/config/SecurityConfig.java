@@ -43,13 +43,12 @@ public class SecurityConfig {
                                 "/js/**", "/css/**", "/favicon.ico",
                                 "/api/v1/admin/login", "/api/v1/admin",
                                 "/result/**",
-                                "/api/v1/resources/images/**",
-                                "/api/v1/resources/audio/**",
-                                "/api/v1/resources/local/**",
-                                "/api/v1/admob/reward/**",
                                 "/report/**",
                                 "/battle/**",
-                                "/.well-known/**"
+                                "/.well-known/**",
+                                "/api/v1/resources/images/**",
+                                "/api/v1/resources/audio/**",
+                                "/api/v1/admob/reward/**"
                         ).permitAll()
 
                         // 2. 관리자 HTML 화면 렌더링 요청

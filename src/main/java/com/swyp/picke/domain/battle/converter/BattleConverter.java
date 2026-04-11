@@ -1,22 +1,21 @@
 package com.swyp.picke.domain.battle.converter;
 
-import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleCreateRequest;
-import com.swyp.picke.domain.admin.dto.battle.response.AdminBattleDetailResponse;
+import com.swyp.picke.domain.battle.dto.request.AdminBattleCreateRequest;
 import com.swyp.picke.domain.battle.dto.response.*;
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.enums.BattleCreatorType;
+import com.swyp.picke.domain.user.enums.PhilosopherType;
+import com.swyp.picke.domain.user.enums.UserBattleStep;
 import com.swyp.picke.domain.tag.entity.Tag;
 import com.swyp.picke.domain.tag.enums.TagType;
 import com.swyp.picke.domain.user.entity.User;
-import com.swyp.picke.domain.user.enums.UserBattleStep;
 import com.swyp.picke.domain.user.enums.VoteSide;
 import com.swyp.picke.global.infra.s3.enums.FileCategory;
 import com.swyp.picke.global.infra.s3.util.ResourceUrlProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -26,17 +25,21 @@ public class BattleConverter {
 
     private final ResourceUrlProvider urlProvider;
     private static final String BASE_SHARE_URL = "https://pique.app/battles/";
-    private static final Comparator<BattleOption> OPTION_SORTER =
-            Comparator.comparing((BattleOption option) -> option.getDisplayOrder() == null ? Integer.MAX_VALUE : option.getDisplayOrder())
-                    .thenComparing(option -> option.getLabel() == null ? "" : option.getLabel().name())
-                    .thenComparing(BattleOption::getId);
 
     public Battle toEntity(AdminBattleCreateRequest request, User admin) {
         return Battle.builder()
                 .title(request.title())
+                .titlePrefix(request.titlePrefix())
+                .titleSuffix(request.titleSuffix())
+                .itemA(request.itemA())
+                .itemADesc(request.itemADesc())
+                .itemB(request.itemB())
+                .itemBDesc(request.itemBDesc())
                 .summary(request.summary())
                 .description(request.description())
                 .thumbnailUrl(request.thumbnailUrl())
+                .type(request.type())
+                .targetDate(request.targetDate())
                 .status(request.status())
                 .creatorType(BattleCreatorType.ADMIN)
                 .creator(admin)
@@ -49,11 +52,18 @@ public class BattleConverter {
                 battle.getTitle(),
                 battle.getSummary(),
                 urlProvider.getImageUrl(FileCategory.BATTLE, battle.getThumbnailUrl()),
+                battle.getType(),
                 battle.getViewCount() == null ? 0 : battle.getViewCount(),
                 battle.getTotalParticipantsCount() == null ? 0L : battle.getTotalParticipantsCount(),
                 battle.getAudioDuration() == null ? 0 : battle.getAudioDuration(),
                 toTagResponses(tags, null),
-                toTodayOptionResponses(options)
+                toTodayOptionResponses(options),
+                battle.getTitlePrefix(),
+                battle.getTitleSuffix(),
+                battle.getItemA(),
+                battle.getItemADesc(),
+                battle.getItemB(),
+                battle.getItemBDesc()
         );
     }
 
@@ -62,6 +72,7 @@ public class BattleConverter {
                 battle.getId(),
                 battle.getTitle(),
                 urlProvider.getImageUrl(FileCategory.BATTLE, battle.getThumbnailUrl()),
+                battle.getType() != null ? battle.getType().name() : "BATTLE",
                 battle.getStatus() != null ? battle.getStatus().name() : "PENDING",
                 battle.getCreatedAt()
         );
@@ -71,10 +82,16 @@ public class BattleConverter {
         return new AdminBattleDetailResponse(
                 battle.getId(),
                 battle.getTitle(),
+                battle.getTitlePrefix(),
+                battle.getTitleSuffix(),
                 battle.getSummary(),
                 battle.getDescription(),
                 urlProvider.getImageUrl(FileCategory.BATTLE, battle.getThumbnailUrl()),
-                battle.getAudioDuration(),
+                battle.getType(),
+                battle.getItemA(),
+                battle.getItemADesc(),
+                battle.getItemB(),
+                battle.getItemBDesc(),
                 battle.getTargetDate(),
                 battle.getStatus(),
                 battle.getCreatorType(),
@@ -94,6 +111,7 @@ public class BattleConverter {
                 battle.getTitle(),
                 battle.getSummary(),
                 urlProvider.getImageUrl(FileCategory.BATTLE, battle.getThumbnailUrl()),
+                battle.getType(),
                 battle.getViewCount() == null ? 0 : battle.getViewCount(),
                 participantsCount == null ? 0L : participantsCount,
                 battle.getAudioDuration() == null ? 0 : battle.getAudioDuration(),
@@ -103,6 +121,12 @@ public class BattleConverter {
 
         return new BattleUserDetailResponse(
                 summary,
+                battle.getTitlePrefix(),
+                battle.getTitleSuffix(),
+                battle.getItemA(),
+                battle.getItemADesc(),
+                battle.getItemB(),
+                battle.getItemBDesc(),
                 battle.getDescription(),
                 BASE_SHARE_URL + battle.getId(),
                 userVoteStatus,
@@ -119,7 +143,8 @@ public class BattleConverter {
                         opt.getLabel().name(),
                         opt.getRepresentative(),
                         opt.getStance(),
-                        urlProvider.getImageUrl(FileCategory.PHILOSOPHER, opt.getImageUrl())
+                        opt.getQuote(),
+                        urlProvider.getImageUrl(FileCategory.PHILOSOPHER, PhilosopherType.resolveImageKey(opt.getRepresentative()))
                 )).toList();
 
         return new BattleScenarioResponse(battle.getTitle(), profiles);
@@ -128,7 +153,6 @@ public class BattleConverter {
     private List<BattleOptionResponse> toOptionResponses(List<BattleOption> options, Map<Long, List<Tag>> optionTagsMap) {
         if (options == null) return List.of();
         return options.stream()
-                .sorted(OPTION_SORTER)
                 .map(option -> {
                     List<Tag> optionTags = optionTagsMap.getOrDefault(option.getId(), List.of());
                     return new BattleOptionResponse(
@@ -137,7 +161,8 @@ public class BattleConverter {
                             option.getTitle(),
                             option.getStance(),
                             option.getRepresentative(),
-                            urlProvider.getImageUrl(FileCategory.PHILOSOPHER, option.getImageUrl()),
+                            option.getQuote(),
+                            urlProvider.getImageUrl(FileCategory.PHILOSOPHER, PhilosopherType.resolveImageKey(option.getRepresentative())),
                             toTagResponses(optionTags, null)
                     );
                 }).toList();
@@ -145,16 +170,15 @@ public class BattleConverter {
 
     private List<TodayOptionResponse> toTodayOptionResponses(List<BattleOption> options) {
         if (options == null) return List.of();
-        return options.stream()
-                .sorted(OPTION_SORTER)
-                .map(option -> new TodayOptionResponse(
-                        option.getId(),
-                        option.getLabel(),
-                        option.getTitle(),
-                        option.getRepresentative(),
-                        option.getStance(),
-                        urlProvider.getImageUrl(FileCategory.PHILOSOPHER, option.getImageUrl())
-                )).toList();
+        return options.stream().map(option -> new TodayOptionResponse(
+                option.getId(),
+                option.getLabel(),
+                option.getTitle(),
+                option.getRepresentative(),
+                option.getStance(),
+                urlProvider.getImageUrl(FileCategory.PHILOSOPHER, option.getImageUrl()),
+                option.getIsCorrect()
+        )).toList();
     }
 
     private List<BattleTagResponse> toTagResponses(List<Tag> tags, TagType targetType) {

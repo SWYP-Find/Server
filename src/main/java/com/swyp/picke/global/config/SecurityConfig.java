@@ -76,7 +76,8 @@ public class SecurityConfig {
                 "http://localhost:3000",
                 "http://localhost:8080",
                 "https://picke.store",
-                "https://www.picke.store"
+                "https://www.picke.store",
+                "https://dev.picke.store"
         ));
 
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));

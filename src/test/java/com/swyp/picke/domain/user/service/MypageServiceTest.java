@@ -219,6 +219,7 @@ class MypageServiceTest {
     @DisplayName("COMMENT 타입으로 댓글활동을 반환한다")
     void getContentActivities_returns_comments() {
         User user = createUser(1L, "tag");
+        UserProfile profile = createProfile(user, "nick", CharacterType.OWL);
         Battle battle = createBattle("배틀");
         Long battleId = battle.getId();
         BattleOption option = createOption(battle, BattleOptionLabel.A);
@@ -241,6 +242,7 @@ class MypageServiceTest {
         ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.now());
 
         when(userService.findCurrentUser()).thenReturn(user);
+        when(userService.findUserProfile(1L)).thenReturn(profile);
         when(perspectiveQueryService.findUserComments(1L, 0, 20)).thenReturn(List.of(comment));
         when(perspectiveQueryService.countUserComments(1L)).thenReturn(1L);
         when(battleQueryService.findBattlesByIds(List.of(battleId))).thenReturn(Map.of(battleId, battle));

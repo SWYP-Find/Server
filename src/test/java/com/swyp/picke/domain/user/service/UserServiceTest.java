@@ -16,15 +16,19 @@ import com.swyp.picke.domain.user.repository.UserSettingsRepository;
 import com.swyp.picke.domain.user.repository.UserTendencyScoreRepository;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -46,11 +50,17 @@ class UserServiceTest {
     @InjectMocks
     private UserService userService;
 
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
+
     @Test
     @DisplayName("가장 최근 사용자를 반환한다")
     void findCurrentUser_returns_latest_user() {
         User user = createUser(1L, "testTag");
-        when(userRepository.findTopByOrderByIdDesc()).thenReturn(Optional.of(user));
+        setAuthenticatedUser(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         User result = userService.findCurrentUser();
 
@@ -60,7 +70,8 @@ class UserServiceTest {
     @Test
     @DisplayName("사용자가 없으면 예외를 던진다")
     void findCurrentUser_throws_when_no_user() {
-        when(userRepository.findTopByOrderByIdDesc()).thenReturn(Optional.empty());
+        setAuthenticatedUser(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> userService.findCurrentUser())
                 .isInstanceOf(CustomException.class)
@@ -99,7 +110,8 @@ class UserServiceTest {
         User user = createUser(1L, "myTag");
         UserProfile profile = createProfile(user, "oldNick", CharacterType.OWL);
 
-        when(userRepository.findTopByOrderByIdDesc()).thenReturn(Optional.of(user));
+        setAuthenticatedUser(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userProfileRepository.findByUserId(1L)).thenReturn(Optional.of(profile));
 
         UpdateUserProfileRequest request = new UpdateUserProfileRequest("newNick", CharacterType.FOX);
@@ -187,5 +199,11 @@ class UserServiceTest {
                 .characterType(characterType)
                 .mannerTemperature(BigDecimal.valueOf(36.5))
                 .build();
+    }
+
+    private void setAuthenticatedUser(Long userId) {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(String.valueOf(userId), null, List.of())
+        );
     }
 }

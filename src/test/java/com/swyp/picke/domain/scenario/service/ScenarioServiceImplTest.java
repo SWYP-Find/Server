@@ -101,13 +101,13 @@ class ScenarioServiceImplTest {
 
         scenarioService.updateScenarioContent(1L, request);
 
-        assertThat(unchangedScript.getAudioUrl()).isEqualTo("s3://chunks/script-1.mp3");
+        assertThat(unchangedScript.getAudioUrl()).isNull();
         assertThat(changedScript.getAudioUrl()).isNull();
         assertThat(scenario.getAudios()).isEmpty();
 
+        verify(s3Service).deleteFile("s3://chunks/script-1.mp3");
         verify(s3Service).deleteFile("s3://chunks/script-2-old.mp3");
         verify(s3Service).deleteFile("s3://merged/common-old.mp3");
-        verify(s3Service, never()).deleteFile("s3://chunks/script-1.mp3");
     }
 
     @Test
@@ -152,13 +152,13 @@ class ScenarioServiceImplTest {
 
         scenarioService.updateScenarioContent(2L, request);
 
-        assertThat(narratorScript.getAudioUrl()).isEqualTo("s3://chunks/narrator-old.mp3");
+        assertThat(narratorScript.getAudioUrl()).isNull();
         assertThat(aScript.getAudioUrl()).isNull();
         assertThat(scenario.getAudios()).isEmpty();
 
+        verify(s3Service).deleteFile("s3://chunks/narrator-old.mp3");
         verify(s3Service).deleteFile("s3://chunks/a-old.mp3");
         verify(s3Service).deleteFile("s3://merged/common-old.mp3");
-        verify(s3Service, never()).deleteFile("s3://chunks/narrator-old.mp3");
     }
 
     private Scenario createScenario() {

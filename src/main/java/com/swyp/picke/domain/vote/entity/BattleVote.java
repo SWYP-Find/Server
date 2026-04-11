@@ -56,7 +56,6 @@ public class BattleVote extends BaseEntity {
                 .battle(battle)
                 .preVoteOption(option)
                 .isTtsListened(false)
-                // status ?ㅼ젙 ??젣??
                 .build();
     }
 
@@ -72,4 +71,5 @@ public class BattleVote extends BaseEntity {
         this.isTtsListened = true;
     }
 }
+
 

@@ -146,7 +146,7 @@ public class MypageService {
         long totalCount = voteQueryService.countUserVotes(user.getId(), label);
 
         List<Long> battleIds = votes.stream().map(v -> v.getBattle().getId()).toList();
-        Map<Long, String> categoryMap = battleQueryService.getCategoryNamesByBattleIds(battleIds); // 異붽? ?꾩슂
+        Map<Long, String> categoryMap = battleQueryService.getCategoryNamesByBattleIds(battleIds); // 배틀별 카테고리명 조회
 
         List<BattleRecordListResponse.BattleRecordItem> items = votes.stream()
                 .map(BattleVote -> {
@@ -360,5 +360,6 @@ public class MypageService {
         return s3PresignedUrlService.generatePresignedUrl(imageKey);
     }
 }
+
 
 

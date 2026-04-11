@@ -21,8 +21,8 @@ import com.swyp.picke.domain.scenario.enums.AudioPathType;
 import com.swyp.picke.domain.scenario.enums.CreatorType;
 import com.swyp.picke.domain.scenario.enums.ScenarioStatus;
 import com.swyp.picke.domain.scenario.repository.ScenarioRepository;
-import com.swyp.picke.domain.vote.entity.Vote;
-import com.swyp.picke.domain.vote.repository.VoteRepository;
+import com.swyp.picke.domain.vote.entity.BattleVote;
+import com.swyp.picke.domain.vote.repository.BattleVoteRepository;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import com.swyp.picke.global.infra.s3.service.S3UploadService;
@@ -46,7 +46,7 @@ public class ScenarioServiceImpl implements ScenarioService {
 
     private final ScenarioRepository scenarioRepository;
     private final BattleRepository battleRepository;
-    private final VoteRepository voteRepository;
+    private final BattleVoteRepository battleVoteRepository;
     private final ScenarioConverter scenarioConverter;
     private final ScenarioAudioPipelineService audioPipelineService;
     private final S3UploadService s3Service;
@@ -58,11 +58,11 @@ public class ScenarioServiceImpl implements ScenarioService {
         Scenario scenario = scenarioRepository.findByBattleIdAndStatus(battleId, ScenarioStatus.PUBLISHED)
                 .orElseThrow(() -> new CustomException(ErrorCode.SCENARIO_NOT_FOUND));
 
-        Optional<Vote> optionalVote = voteRepository.findByBattleIdAndUserId(battleId, userId);
+        Optional<BattleVote> optionalVote = battleVoteRepository.findByBattleIdAndUserId(battleId, userId);
         AudioPathType recommendedKey = AudioPathType.COMMON;
 
         if (optionalVote.isPresent()) {
-            Vote vote = optionalVote.get();
+            BattleVote vote = optionalVote.get();
             if (scenario.getIsInteractive()) {
                 if (vote.getPreVoteOption().getLabel().name().equalsIgnoreCase("A")) {
                     recommendedKey = AudioPathType.PATH_A;

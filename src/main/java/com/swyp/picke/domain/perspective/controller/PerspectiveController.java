@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "관점 (Perspective)", description = "관점 생성, 조회, 수정, 삭제 API")
+@Tag(name = "관점 API", description = "관점 생성, 조회, 수정, 삭제")
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
@@ -32,7 +32,7 @@ public class PerspectiveController {
 
     private final PerspectiveService perspectiveService;
 
-    @Operation(summary = "관점 단건 조회", description = "특정 관점의 상세 정보를 조회합니다.")
+    @Operation(summary = "관점 상세 조회", description = "특정 관점의 상세 정보를 조회합니다.")
     @GetMapping("/perspectives/{perspectiveId}")
     public ApiResponse<PerspectiveDetailResponse> getPerspectiveDetail(
             @PathVariable Long perspectiveId,
@@ -40,8 +40,7 @@ public class PerspectiveController {
         return ApiResponse.onSuccess(perspectiveService.getPerspectiveDetail(perspectiveId, userId));
     }
 
-    // TODO: Prevote 의 여부를  Vote 도메인 개발 이후 교체
-    @Operation(summary = "관점 생성", description = "특정 배틀에 대한 관점을 생성합니다. 사전 투표가 완료된 경우에만 가능합니다.")
+    @Operation(summary = "관점 생성", description = "특정 배틀에 대한 사용자 관점을 생성합니다.")
     @PostMapping("/battles/{battleId}/perspectives")
     public ApiResponse<CreatePerspectiveResponse> createPerspective(
             @PathVariable Long battleId,
@@ -51,7 +50,7 @@ public class PerspectiveController {
         return ApiResponse.onSuccess(perspectiveService.createPerspective(battleId, userId, request));
     }
 
-    @Operation(summary = "관점 리스트 조회", description = "특정 배틀의 관점 목록을 커서 기반 페이지네이션으로 조회합니다. optionLabel(A/B)로 필터링, sort(latest/popular)로 정렬 가능합니다.")
+    @Operation(summary = "관점 목록 조회", description = "특정 배틀의 관점 목록을 커서 기반으로 조회합니다.")
     @GetMapping("/battles/{battleId}/perspectives")
     public ApiResponse<PerspectiveListResponse> getPerspectives(
             @PathVariable Long battleId,
@@ -64,7 +63,7 @@ public class PerspectiveController {
         return ApiResponse.onSuccess(perspectiveService.getPerspectives(battleId, userId, cursor, size, optionLabel, sort));
     }
 
-    @Operation(summary = "내 관점 조회", description = "특정 배틀에서 내가 작성한 관점을 조회합니다. 상태(PENDING/PUBLISHED/REJECTED 등)와 무관하게 반환하며, 작성한 관점이 없으면 404를 반환합니다.")
+    @Operation(summary = "내 관점 조회", description = "해당 배틀에서 본인이 작성한 관점을 조회합니다.")
     @GetMapping("/battles/{battleId}/perspectives/me")
     public ApiResponse<MyPerspectiveResponse> getMyPerspective(
             @PathVariable Long battleId,
@@ -81,7 +80,7 @@ public class PerspectiveController {
         return ApiResponse.onSuccess(null);
     }
 
-    @Operation(summary = "관점 검수 재시도", description = "검수 실패(MODERATION_FAILED) 상태의 관점에 대해 GPT 검수를 다시 요청합니다.")
+    @Operation(summary = "관점 검수 재요청", description = "검수 실패 상태의 관점에 대해 검수를 다시 요청합니다.")
     @PostMapping("/perspectives/{perspectiveId}/moderation/retry")
     public ApiResponse<Void> retryModeration(
             @PathVariable Long perspectiveId,

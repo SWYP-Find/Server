@@ -73,7 +73,7 @@ public class TagServiceImpl implements TagService {
         }
 
         if (typeChanged && isTagInUse(tag)) {
-            throw new CustomException(ErrorCode.TAG_TYPE_CHANGE_FORBIDDEN);
+            throw new CustomException(ErrorCode.TAG_IN_USE);
         }
 
         tag.updateTag(request.name(), request.type());

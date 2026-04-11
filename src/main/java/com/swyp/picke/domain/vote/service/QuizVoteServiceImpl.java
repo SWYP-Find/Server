@@ -135,7 +135,7 @@ public class QuizVoteServiceImpl implements QuizVoteService {
                             revealCorrect ? option.getIsCorrect() : null,
                             voteCount,
                             ratio,
-                            option.getDetailText()
+                            null
                     );
                 })
                 .toList();

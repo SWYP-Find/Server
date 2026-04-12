@@ -88,8 +88,11 @@ public class MypageService {
 
     public RecapResponse getRecap() {
         User user = userService.findCurrentUser();
-        UserProfile profile = userService.findUserProfile(user.getId());
+        return findRecapByUserId(user.getId());
+    }
 
+    public RecapResponse findRecapByUserId(Long userId) {
+        UserProfile profile = userService.findUserProfile(userId);
         PhilosopherType philosopherType = profile.getPhilosopherType();
         if (philosopherType == null) {
             return null;
@@ -108,7 +111,7 @@ public class MypageService {
                 philosopherType.getIdeal()
         );
 
-        RecapResponse.PreferenceReport preferenceReport = buildPreferenceReport(user.getId());
+        RecapResponse.PreferenceReport preferenceReport = buildPreferenceReport(userId);
 
         return new RecapResponse(myCard, bestMatchCard, worstMatchCard, scores, preferenceReport);
     }
@@ -360,6 +363,5 @@ public class MypageService {
         return s3PresignedUrlService.generatePresignedUrl(imageKey);
     }
 }
-
 
 

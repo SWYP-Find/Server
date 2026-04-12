@@ -236,6 +236,62 @@
 }
 ```
 
+### 3.5 `GET /api/v1/share/recap`
+
+현재 로그인한 사용자의 리캡 공유 키 발급.
+이미 발급된 키가 있으면 동일 키를 재사용합니다.
+
+응답:
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "shareKey": "550e8400-e29b-41d4-a716-446655440000"
+  },
+  "error": null
+}
+```
+
+### 3.6 `GET /api/v1/share/recap/{shareKey}`
+
+공유 키로 다른 사용자의 리캡 조회.
+인증 없이 호출 가능합니다.
+
+응답:
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "my_card": {
+      "philosopher_type": "SOCRATES"
+    },
+    "best_match_card": {
+      "philosopher_type": "PLATO"
+    },
+    "worst_match_card": {
+      "philosopher_type": "MARX"
+    },
+    "scores": {
+      "principle": 88,
+      "reason": 74,
+      "individual": 62,
+      "change": 45,
+      "inner": 30,
+      "ideal": 15
+    },
+    "preference_report": {
+      "total_participation": 47,
+      "opinion_changes": 12,
+      "battle_win_rate": 68,
+      "favorite_topics": []
+    }
+  },
+  "error": null
+}
+```
+
 ### 3.5 `GET /api/v1/me/notification-settings`
 
 마이페이지 알림 설정 조회.

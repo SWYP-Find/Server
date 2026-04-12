@@ -56,6 +56,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/picke/**").permitAll()
 
                         // 3. 단순 조회성 및 진행상태 업데이트 REST API
+                        .requestMatchers(HttpMethod.GET, "/api/v1/share/recap/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/tags", "/api/v1/battles/**").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/battles/**").authenticated()
 

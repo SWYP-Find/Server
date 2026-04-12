@@ -109,7 +109,8 @@ public enum ErrorCode {
     REWARD_INVALID_SIGNATURE(HttpStatus.UNAUTHORIZED, "REWARD_401", "AdMob 서명 검증에 실패했습니다."),
 
     // MyPage
-    PHILOSOPHER_CALC_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "USER_500_PHIL", "철학자 유형을 계산할 수 없습니다.");
+    PHILOSOPHER_CALC_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "USER_500_PHIL", "철학자 유형을 계산할 수 없습니다."),
+    RECAP_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_404_RECAP", "존재하지 않는 리캡입니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

@@ -22,4 +22,7 @@ public interface PerspectiveCommentRepository extends JpaRepository<PerspectiveC
     long countByUserId(Long userId);
 
     void deleteAllByPerspective(Perspective perspective);
+
+    @Query("SELECT c FROM PerspectiveComment c WHERE c.perspective.battle.id = :battleId AND c.hidden = false AND c.likeCount >= :minLikeCount ORDER BY c.likeCount DESC")
+    List<PerspectiveComment> findTopCommentsByBattleId(@Param("battleId") Long battleId, @Param("minLikeCount") int minLikeCount, Pageable pageable);
 }

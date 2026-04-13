@@ -10,6 +10,8 @@ import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,6 +49,9 @@ public class CreditService {
      * 특정 유저에게 커스텀 포인트로 크레딧 적립.
      * CreditType의 기본 포인트가 아닌 가변 포인트가 필요한 경우(FREE_CHARGE 랜덤 박스 등)에서 사용.
      * 예: creditService.addCredit(userId, CreditType.FREE_CHARGE, 15, boxId);
+     *
+     * 적립이 성공하면 User.credit 캐시를 동기 증감하여 {@link #getTotalPoints}가 전체 히스토리를 재집계하지 않도록 한다.
+     * (user, creditType, referenceId) 중복 시 조용히 무시(멱등).
      */
     @Transactional
     public void addCredit(Long userId, CreditType creditType, int amount, Long referenceId) {
@@ -70,14 +75,32 @@ public class CreditService {
             }
             throw new CustomException(ErrorCode.CREDIT_SAVE_FAILED);
         }
+        if (userRepository.incrementCredit(userId, amount) == 0) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
     }
 
+    /**
+     * 유저의 현재 크레딧 잔액 조회.
+     * 전체 CreditHistory 집계가 아닌 User.credit 캐시 필드를 읽는다.
+     */
     public int getTotalPoints(Long userId) {
-        return creditHistoryRepository.sumAmountByUserId(userId);
+        Integer credit = userRepository.findCreditById(userId);
+        if (credit == null) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
+        return credit;
     }
 
     public TierCode getTier(Long userId) {
         return TierCode.fromPoints(getTotalPoints(userId));
+    }
+
+    /**
+     * 크레딧 적립/소비 내역 페이징 조회 (최신순).
+     */
+    public Page<CreditHistory> getHistory(Long userId, Pageable pageable) {
+        return creditHistoryRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
     }
 
     private void validateReferenceId(Long referenceId) {

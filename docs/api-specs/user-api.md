@@ -10,10 +10,13 @@
 - `user_tag`는 prefix 없이 생성되는 8자리 이하의 랜덤 문자열입니다.
 - 프로필 아바타는 자유 입력 이모지가 아니라 `character_type` 선택 방식으로 관리합니다.
 - `GET /api/v1/me/mypage`는 상단 요약 조회, `GET /api/v1/me/recap`은 상세 리캡 조회에 사용합니다.
+- `GET /api/v1/me/credits/history`는 로그인한 사용자의 크레딧 적립/소비 내역을 `offset/size` 기반으로 조회합니다.
 - 프론트는 `philosopher_type` 값에 따라 사전 정의된 철학자 카드를 통째로 교체 렌더링합니다.
 - 그래서 백엔드는 철학자 카드용 `title`, `description`, 해시태그 문구를 내려주지 않습니다.
-- 포인트(`point`)는 새 개념으로 도입하되, 이번 버전에서는 현재 DB에서 계산 가능한 항목만 부분 반영합니다.
-- 현재 반영 규칙은 `완료된 사후 투표 x 10P`, `입장 변경 x 20P 보너스`입니다.
+- 현재 크레딧(`current_point`)은 `users.credit` 캐시 컬럼 기준으로 조회합니다.
+- 현재 반영 크레딧 타입은 `BATTLE_VOTE(5)`, `MAJORITY_WIN(10)`, `BEST_COMMENT(50)`, `WEEKLY_CHARGE(40)`, `FREE_CHARGE(가변)` 입니다.
+- 다수결/베댓 보상은 매주 월요일 00:00(KST) 배치로 정산하며 대상 배틀 윈도우는 `runDate - 20일`부터 `runDate - 14일`까지입니다.
+- 베댓 보상은 배틀당 좋아요 상위 3개 관점만 대상이며 각 관점은 좋아요 10개 이상이어야 합니다.
 - 철학자 산출 로직은 추후 확정 예정이며, 현재는 프론트 연동을 위해 임시로 `SOCRATES`를 반환합니다.
 
 ### 1.1 공통 프로필 응답 필드
@@ -33,6 +36,7 @@
 | `character_type` | `OWL \| FOX \| WOLF \| LION \| PENGUIN \| BEAR \| RABBIT \| CAT` |
 | `activity_type` | `COMMENT \| LIKE` |
 | `vote_side` | `PRO \| CON` |
+| `credit_type` | `BATTLE_VOTE \| MAJORITY_WIN \| BEST_COMMENT \| WEEKLY_CHARGE \| FREE_CHARGE` |
 
 ---
 
@@ -236,7 +240,45 @@
 }
 ```
 
-### 3.5 `GET /api/v1/share/recap`
+### 3.5 `GET /api/v1/me/credits/history`
+
+로그인한 사용자의 크레딧 적립/소비 내역 조회.
+
+쿼리 파라미터:
+
+- `offset`: 선택, 0-based 시작 위치
+- `size`: 선택
+
+응답:
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "items": [
+      {
+        "id": 301,
+        "credit_type": "BEST_COMMENT",
+        "amount": 50,
+        "reference_id": 200,
+        "created_at": "2026-04-13T00:00:00"
+      },
+      {
+        "id": 300,
+        "credit_type": "BATTLE_VOTE",
+        "amount": 5,
+        "reference_id": 12345,
+        "created_at": "2026-04-12T14:30:00"
+      }
+    ],
+    "next_offset": 20,
+    "has_next": true
+  },
+  "error": null
+}
+```
+
+### 3.6 `GET /api/v1/share/recap`
 
 현재 로그인한 사용자의 리캡 공유 키 발급.
 이미 발급된 키가 있으면 동일 키를 재사용합니다.
@@ -253,7 +295,7 @@
 }
 ```
 
-### 3.6 `GET /api/v1/share/recap/{shareKey}`
+### 3.7 `GET /api/v1/share/recap/{shareKey}`
 
 공유 키로 다른 사용자의 리캡 조회.
 인증 없이 호출 가능합니다.
@@ -292,7 +334,7 @@
 }
 ```
 
-### 3.5 `GET /api/v1/me/notification-settings`
+### 3.8 `GET /api/v1/me/notification-settings`
 
 마이페이지 알림 설정 조회.
 
@@ -313,7 +355,7 @@
 }
 ```
 
-### 3.6 `PATCH /api/v1/me/notification-settings`
+### 3.9 `PATCH /api/v1/me/notification-settings`
 
 마이페이지 알림 설정 부분 수정.
 
@@ -343,7 +385,7 @@
 }
 ```
 
-### 3.7 `GET /api/v1/me/notices`
+### 3.10 `GET /api/v1/me/notices`
 
 공지/이벤트 목록 조회.
 
@@ -372,7 +414,7 @@
 }
 ```
 
-### 3.8 `GET /api/v1/me/notices/{noticeId}`
+### 3.11 `GET /api/v1/me/notices/{noticeId}`
 
 공지/이벤트 상세 조회.
 

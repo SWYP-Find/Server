@@ -41,6 +41,9 @@ public class User extends BaseEntity {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    @Column(nullable = false, columnDefinition = "INT DEFAULT 0")
+    private int credit = 0;
+
     @Builder
     private User(String userTag, String nickname, String characterUrl, UserRole role, UserStatus status) {
         this.userTag = userTag;
@@ -48,10 +51,19 @@ public class User extends BaseEntity {
         this.characterUrl = characterUrl;
         this.role = role;
         this.status = status;
+        this.credit = 0;
     }
 
     public void delete() {
         this.status = UserStatus.DELETED;
         this.deletedAt = LocalDateTime.now();
+    }
+
+    /**
+     * 테스트나 메모리 상 도메인 계산에서만 사용하는 보조 메서드.
+     * 실제 영속 잔액 반영은 CreditService 가 원자 UPDATE 쿼리로 처리한다.
+     */
+    public void addCredit(int amount) {
+        this.credit += amount;
     }
 }

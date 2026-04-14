@@ -16,12 +16,14 @@ import com.swyp.picke.domain.vote.dto.response.VoteResultResponse;
 import com.swyp.picke.domain.vote.dto.response.VoteStatsResponse;
 import com.swyp.picke.domain.vote.entity.BattleVote;
 import com.swyp.picke.domain.vote.repository.BattleVoteRepository;
+import com.swyp.picke.domain.vote.sse.VoteUpdatedEvent;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +37,7 @@ public class BattleVoteServiceImpl implements BattleVoteService {
     private final BattleOptionRepository battleOptionRepository;
     private final UserRepository userRepository;
     private final UserBattleService userBattleService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public BattleOption findPreVoteOption(Long battleId, Long userId) {
@@ -151,6 +154,7 @@ public class BattleVoteServiceImpl implements BattleVoteService {
 
         vote.doPostVote(option);
         userBattleService.upsertStep(user, battle, UserBattleStep.COMPLETED);
+        eventPublisher.publishEvent(new VoteUpdatedEvent(battleId));
 
         return new VoteResultResponse(vote.getId(), UserBattleStep.COMPLETED);
     }

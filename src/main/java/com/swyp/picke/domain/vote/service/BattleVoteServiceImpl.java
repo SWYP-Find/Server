@@ -6,8 +6,10 @@ import com.swyp.picke.domain.battle.repository.BattleOptionRepository;
 import com.swyp.picke.domain.battle.service.BattleService;
 import com.swyp.picke.domain.user.dto.response.UserBattleStatusResponse;
 import com.swyp.picke.domain.user.entity.User;
+import com.swyp.picke.domain.user.enums.CreditType;
 import com.swyp.picke.domain.user.enums.UserBattleStep;
 import com.swyp.picke.domain.user.repository.UserRepository;
+import com.swyp.picke.domain.user.service.CreditService;
 import com.swyp.picke.domain.user.service.UserBattleService;
 import com.swyp.picke.domain.vote.converter.VoteConverter;
 import com.swyp.picke.domain.vote.dto.request.VoteRequest;
@@ -37,6 +39,7 @@ public class BattleVoteServiceImpl implements BattleVoteService {
     private final BattleOptionRepository battleOptionRepository;
     private final UserRepository userRepository;
     private final UserBattleService userBattleService;
+    private final CreditService creditService;
     private final ApplicationEventPublisher eventPublisher;
 
     @Override
@@ -155,6 +158,9 @@ public class BattleVoteServiceImpl implements BattleVoteService {
         vote.doPostVote(option);
         userBattleService.upsertStep(user, battle, UserBattleStep.COMPLETED);
         eventPublisher.publishEvent(new VoteUpdatedEvent(battleId));
+
+        // 사후 투표 완료 보상 +5P. referenceId=voteId 로 (user, BATTLE_VOTE, voteId) 유니크 제약에 의해 중복 지급 방지.
+        creditService.addCredit(user.getId(), CreditType.BATTLE_VOTE, vote.getId());
 
         return new VoteResultResponse(vote.getId(), UserBattleStep.COMPLETED);
     }

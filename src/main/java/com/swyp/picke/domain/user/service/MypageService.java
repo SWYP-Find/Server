@@ -10,6 +10,10 @@ import com.swyp.picke.domain.perspective.entity.PerspectiveLike;
 import com.swyp.picke.domain.perspective.service.PerspectiveQueryService;
 import com.swyp.picke.domain.user.dto.request.UpdateNotificationSettingsRequest;
 import com.swyp.picke.domain.user.dto.response.*;
+import com.swyp.picke.domain.user.entity.CreditHistory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import com.swyp.picke.domain.user.enums.ActivityType;
 import com.swyp.picke.domain.user.enums.CharacterType;
 import com.swyp.picke.domain.user.enums.PhilosopherType;
@@ -275,6 +279,29 @@ public class MypageService {
     private Map<Long, BattleOption> loadOptions(List<Perspective> perspectives) {
         List<Long> optionIds = perspectives.stream().map(p -> p.getOption().getId()).distinct().toList();
         return battleQueryService.findOptionsByIds(optionIds);
+    }
+
+    public CreditHistoryListResponse getCreditHistory(Integer offset, Integer size) {
+        User user = userService.findCurrentUser();
+        int pageOffset = offset == null || offset < 0 ? 0 : offset;
+        int pageSize = size == null || size <= 0 ? DEFAULT_PAGE_SIZE : size;
+
+        Pageable pageable = PageRequest.of(pageOffset / pageSize, pageSize);
+        Page<CreditHistory> page = creditService.getHistory(user.getId(), pageable);
+
+        List<CreditHistoryListResponse.CreditHistoryItem> items = page.getContent().stream()
+                .map(h -> new CreditHistoryListResponse.CreditHistoryItem(
+                        h.getId(),
+                        h.getCreditType(),
+                        h.getAmount(),
+                        h.getReferenceId(),
+                        h.getCreatedAt()
+                ))
+                .toList();
+
+        int nextOffset = pageOffset + pageSize;
+        boolean hasNext = nextOffset < page.getTotalElements();
+        return new CreditHistoryListResponse(items, hasNext ? nextOffset : null, hasNext);
     }
 
     public NotificationSettingsResponse getNotificationSettings() {

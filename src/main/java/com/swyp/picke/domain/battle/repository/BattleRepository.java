@@ -61,6 +61,9 @@ public interface BattleRepository extends JpaRepository<Battle, Long> {
     // 기본 조회용
     List<Battle> findByTargetDateAndStatusAndDeletedAtIsNull(LocalDate date, BattleStatus status);
 
+    // 주간 배치: 특정 기간(targetDate BETWEEN from AND to)의 배틀 조회
+    List<Battle> findByTargetDateBetweenAndStatusAndDeletedAtIsNull(LocalDate from, LocalDate to, BattleStatus status);
+
     // 탐색 탭: 전체 배틀 검색
     @Query("SELECT b FROM Battle b WHERE b.status = 'PUBLISHED' AND b.deletedAt IS NULL")
     List<Battle> searchAll(Pageable pageable);

@@ -56,6 +56,7 @@ public interface BattleRepository extends JpaRepository<Battle, Long> {
     // 6. 전체 배틀 목록 조회
     Page<Battle> findByDeletedAtIsNullOrderByCreatedAtDesc(Pageable pageable);
     Page<Battle> findByStatusAndDeletedAtIsNullOrderByCreatedAtDesc(BattleStatus status, Pageable pageable);
+    List<Battle> findByStatusAndDeletedAtIsNull(BattleStatus status);
 
     // 기본 조회용
     List<Battle> findByTargetDateAndStatusAndDeletedAtIsNull(LocalDate date, BattleStatus status);

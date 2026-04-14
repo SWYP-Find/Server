@@ -11,10 +11,14 @@ import com.swyp.picke.domain.vote.dto.response.VoteStatsResponse;
 import com.swyp.picke.domain.vote.service.BattleVoteService;
 import com.swyp.picke.domain.vote.service.PollVoteService;
 import com.swyp.picke.domain.vote.service.QuizVoteService;
+import com.swyp.picke.domain.vote.sse.SseEmitterRegistry;
 import com.swyp.picke.global.common.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.io.IOException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -24,7 +28,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+@Slf4j
 @Tag(name = "투표 API", description = "배틀/퀴즈/투표 투표 처리")
 @RestController
 @RequestMapping("/api/v1")
@@ -34,6 +40,7 @@ public class VoteController {
     private final BattleVoteService battleVoteService;
     private final QuizVoteService quizVoteService;
     private final PollVoteService pollVoteService;
+    private final SseEmitterRegistry sseEmitterRegistry;
 
     @Operation(summary = "[퀴즈] 답안 제출")
     @PostMapping("/battles/{battleId}/quiz-vote")
@@ -97,6 +104,25 @@ public class VoteController {
     @GetMapping("/battles/{battleId}/vote-stats")
     public ApiResponse<VoteStatsResponse> getVoteStats(@PathVariable Long battleId) {
         return ApiResponse.onSuccess(battleVoteService.getVoteStats(battleId));
+    }
+
+    @Operation(summary = "[배틀] 투표 통계 실시간 구독", description = "post 투표 완료 후 투표 % 실시간 업데이트를 SSE로 수신합니다. 페이지 이탈 시 클라이언트에서 EventSource.close()를 호출해야 합니다.")
+    @GetMapping(value = "/battles/{battleId}/vote-stats/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamVoteStats(
+            @PathVariable Long battleId,
+            @AuthenticationPrincipal Long userId
+    ) {
+        SseEmitter emitter = sseEmitterRegistry.register(battleId, userId);
+
+        try {
+            VoteStatsResponse stats = battleVoteService.getVoteStats(battleId);
+            emitter.send(SseEmitter.event().name("vote-stats").data(stats));
+        } catch (IOException e) {
+            log.warn("SSE 초기 데이터 전송 실패 - battleId: {}, userId: {}", battleId, userId);
+            sseEmitterRegistry.remove(battleId, userId);
+        }
+
+        return emitter;
     }
 
     @Operation(summary = "[배틀] 내 투표 내역 조회", description = "특정 배틀에 대한 내 사전/사후 투표 내역과 현재 상태를 조회합니다.")

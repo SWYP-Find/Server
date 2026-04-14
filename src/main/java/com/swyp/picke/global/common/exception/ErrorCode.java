@@ -37,6 +37,7 @@ public enum ErrorCode {
     // Credit
     CREDIT_REFERENCE_REQUIRED(HttpStatus.BAD_REQUEST, "CREDIT_400_REF", "크레딧 적립 referenceId는 필수입니다."),
     CREDIT_SAVE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "CREDIT_500_SAVE", "크레딧 적립 처리 중 오류가 발생했습니다."),
+    CREDIT_NOT_ENOUGH(HttpStatus.BAD_REQUEST, "CREDIT_400_INSUFFICIENT", "크레딧이 부족합니다."),
 
     // OAuth (Social Login)
     INVALID_PROVIDER(HttpStatus.BAD_REQUEST, "AUTH_400_PROVIDER", "지원하지 않는 소셜 로그인 provider입니다."),

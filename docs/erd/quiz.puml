@@ -1,0 +1,38 @@
+@startuml quiz
+hide circle
+hide methods
+skinparam linetype ortho
+
+entity "quizzes" as quizzes {
+  * id : BIGINT <<PK>>
+  --
+  title : VARCHAR(200)
+  target_date : DATE
+  total_participants_count : BIGINT
+  status : VARCHAR(20)
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "quiz_options" as quiz_options {
+  * id : BIGINT <<PK>>
+  --
+  quiz_id : BIGINT <<FK>>
+  label : VARCHAR(10)
+  text : VARCHAR(300)
+  detail_text : VARCHAR(1000)
+  is_correct : BOOLEAN
+  display_order : INT
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+quizzes ||--o{ quiz_options : has
+
+note right of quizzes
+  Quiz 도메인 전용 테이블
+  - 태그 매핑 없음
+  - 총 참여자 수는 total_participants_count로 집계
+end note
+
+@enduml

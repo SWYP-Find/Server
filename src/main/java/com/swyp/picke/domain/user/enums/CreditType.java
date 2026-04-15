@@ -4,14 +4,13 @@ import lombok.Getter;
 
 @Getter
 public enum CreditType {
-    BATTLE_VOTE(10),
-    QUIZ_VOTE(5),
-    MAJORITY_WIN(20),
-    BEST_COMMENT(100),
-    TOPIC_SUGGEST(30),
-    TOPIC_ADOPTED(1000),
-    AD_REWARD(50),
-    FREE_CHARGE(0);
+    BATTLE_VOTE(5),        // 배틀 참여 보상: 사후 투표 완료 시 즉시 지급
+    MAJORITY_WIN(10),      // 다수결 보상: 월요일 배치, 2주 전 배틀 TOP≥10 대상
+    BEST_COMMENT(50),      // 베댓 보상: 월요일 배치, 2주 전 배틀 좋아요 1위
+    WEEKLY_CHARGE(40),     // 주간 자동 충전: 매주 월요일 00:00 활성 사용자 전체
+    FREE_CHARGE(0),        // 광고/자유 충전: 가변 금액
+    TOPIC_SUGGEST(30),     // 주제 제안
+    TOPIC_ADOPTED(100);    // 주제 채택
 
     private final int defaultAmount;
 

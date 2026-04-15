@@ -4,6 +4,8 @@ import com.swyp.picke.domain.user.entity.CreditHistory;
 import com.swyp.picke.domain.user.enums.TierCode;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.enums.CreditType;
+import com.swyp.picke.domain.user.enums.UserRole;
+import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.repository.CreditHistoryRepository;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.global.common.exception.CustomException;
@@ -16,13 +18,13 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -42,13 +44,27 @@ class CreditServiceTest {
     @InjectMocks
     private CreditService creditService;
 
+    private User newUser(Long id, int initialCredit) {
+        User user = User.builder()
+                .userTag("tag-" + id)
+                .nickname("nick")
+                .role(UserRole.USER)
+                .status(UserStatus.ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(user, "id", id);
+        if (initialCredit != 0) {
+            user.addCredit(initialCredit);
+        }
+        return user;
+    }
+
     @Test
-    @DisplayName("현재 로그인 유저에게 기본 크레딧을 적립한다")
+    @DisplayName("현재 로그인 유저에게 기본 크레딧을 적립하고 User.credit 캐시에도 반영한다")
     void addCredit_forCurrentUser_savesDefaultAmount() {
-        User user = org.mockito.Mockito.mock(User.class);
-        when(user.getId()).thenReturn(1L);
+        User user = newUser(1L, 0);
         when(userService.findCurrentUser()).thenReturn(user);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.incrementCredit(1L, CreditType.BATTLE_VOTE.getDefaultAmount())).thenReturn(1);
 
         creditService.addCredit(CreditType.BATTLE_VOTE, 10L);
 
@@ -60,6 +76,7 @@ class CreditServiceTest {
         assertThat(saved.getCreditType()).isEqualTo(CreditType.BATTLE_VOTE);
         assertThat(saved.getAmount()).isEqualTo(CreditType.BATTLE_VOTE.getDefaultAmount());
         assertThat(saved.getReferenceId()).isEqualTo(10L);
+        verify(userRepository).incrementCredit(1L, CreditType.BATTLE_VOTE.getDefaultAmount());
     }
 
     @Test
@@ -74,24 +91,25 @@ class CreditServiceTest {
     }
 
     @Test
-    @DisplayName("중복 적립 충돌이면 조용히 무시한다")
+    @DisplayName("중복 적립 충돌이면 조용히 무시하고 캐시도 증가시키지 않는다")
     void addCredit_duplicateInsert_ignoresConflict() {
-        User user = org.mockito.Mockito.mock(User.class);
+        User user = newUser(1L, 7);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(creditHistoryRepository.saveAndFlush(any(CreditHistory.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate"));
         when(creditHistoryRepository.existsByUserIdAndCreditTypeAndReferenceId(1L, CreditType.BATTLE_VOTE, 10L))
                 .thenReturn(true);
 
-        creditService.addCredit(1L, CreditType.BATTLE_VOTE, 10, 10L);
+        creditService.addCredit(1L, CreditType.BATTLE_VOTE, 5, 10L);
 
         verify(creditHistoryRepository).existsByUserIdAndCreditTypeAndReferenceId(1L, CreditType.BATTLE_VOTE, 10L);
+        verify(userRepository, never()).incrementCredit(1L, 5);
     }
 
     @Test
-    @DisplayName("중복이 아닌 데이터 무결성 오류는 그대로 던진다")
+    @DisplayName("중복이 아닌 데이터 무결성 오류는 CREDIT_SAVE_FAILED 로 재기동하고 캐시도 증가시키지 않는다")
     void addCredit_nonDuplicateIntegrityFailure_rethrows() {
-        User user = org.mockito.Mockito.mock(User.class);
+        User user = newUser(1L, 3);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(creditHistoryRepository.saveAndFlush(any(CreditHistory.class)))
                 .thenThrow(new DataIntegrityViolationException("broken"));
@@ -102,12 +120,25 @@ class CreditServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.CREDIT_SAVE_FAILED);
+
+        verify(userRepository, never()).incrementCredit(1L, 10);
+    }
+
+    @Test
+    @DisplayName("getTotalPoints 는 User.credit 캐시 값을 반환한다 (히스토리 집계 아님)")
+    void getTotalPoints_readsUserCreditField() {
+        when(userRepository.findCreditById(1L)).thenReturn(2_500);
+
+        int total = creditService.getTotalPoints(1L);
+
+        assertThat(total).isEqualTo(2_500);
+        verify(creditHistoryRepository, never()).sumAmountByUserId(any());
     }
 
     @Test
     @DisplayName("누적 포인트로 티어를 계산한다")
     void getTier_returnsTierFromTotalPoints() {
-        when(creditHistoryRepository.sumAmountByUserId(eq(1L))).thenReturn(2_500);
+        when(userRepository.findCreditById(1L)).thenReturn(2_500);
 
         TierCode tier = creditService.getTier(1L);
 

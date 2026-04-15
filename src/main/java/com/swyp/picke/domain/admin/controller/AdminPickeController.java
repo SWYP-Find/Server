@@ -44,4 +44,9 @@ public class AdminPickeController {
     public String pickeCreatePage() {
         return "admin/picke-create";
     }
+
+    @GetMapping("/picke/notice")
+    public String noticePage() {
+        return "admin/admin-notice";
+    }
 }

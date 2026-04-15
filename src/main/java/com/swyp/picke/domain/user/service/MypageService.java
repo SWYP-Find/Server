@@ -10,6 +10,10 @@ import com.swyp.picke.domain.perspective.entity.PerspectiveLike;
 import com.swyp.picke.domain.perspective.service.PerspectiveQueryService;
 import com.swyp.picke.domain.user.dto.request.UpdateNotificationSettingsRequest;
 import com.swyp.picke.domain.user.dto.response.*;
+import com.swyp.picke.domain.user.entity.CreditHistory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import com.swyp.picke.domain.user.enums.ActivityType;
 import com.swyp.picke.domain.user.enums.CharacterType;
 import com.swyp.picke.domain.user.enums.PhilosopherType;
@@ -18,7 +22,7 @@ import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.entity.UserProfile;
 import com.swyp.picke.domain.user.entity.UserSettings;
 import com.swyp.picke.domain.user.enums.VoteSide;
-import com.swyp.picke.domain.vote.entity.Vote;
+import com.swyp.picke.domain.vote.entity.BattleVote;
 import com.swyp.picke.domain.vote.service.VoteQueryService;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
@@ -88,8 +92,11 @@ public class MypageService {
 
     public RecapResponse getRecap() {
         User user = userService.findCurrentUser();
-        UserProfile profile = userService.findUserProfile(user.getId());
+        return findRecapByUserId(user.getId());
+    }
 
+    public RecapResponse findRecapByUserId(Long userId) {
+        UserProfile profile = userService.findUserProfile(userId);
         PhilosopherType philosopherType = profile.getPhilosopherType();
         if (philosopherType == null) {
             return null;
@@ -108,7 +115,7 @@ public class MypageService {
                 philosopherType.getIdeal()
         );
 
-        RecapResponse.PreferenceReport preferenceReport = buildPreferenceReport(user.getId());
+        RecapResponse.PreferenceReport preferenceReport = buildPreferenceReport(userId);
 
         return new RecapResponse(myCard, bestMatchCard, worstMatchCard, scores, preferenceReport);
     }
@@ -142,29 +149,29 @@ public class MypageService {
 
         BattleOptionLabel label = voteSide != null ? toOptionLabel(voteSide) : null;
 
-        List<Vote> votes = voteQueryService.findUserVotes(user.getId(), pageOffset, pageSize, label);
+        List<BattleVote> votes = voteQueryService.findUserVotes(user.getId(), pageOffset, pageSize, label);
         long totalCount = voteQueryService.countUserVotes(user.getId(), label);
 
         List<Long> battleIds = votes.stream().map(v -> v.getBattle().getId()).toList();
-        Map<Long, String> categoryMap = battleQueryService.getCategoryNamesByBattleIds(battleIds); // 추가 필요
+        Map<Long, String> categoryMap = battleQueryService.getCategoryNamesByBattleIds(battleIds); // 배틀별 카테고리명 조회
 
         List<BattleRecordListResponse.BattleRecordItem> items = votes.stream()
-                .map(vote -> {
-                    Battle battle = vote.getBattle();
-                    BattleOption selectedOption = vote.getPostVoteOption() != null
-                            ? vote.getPostVoteOption() : vote.getPreVoteOption();
+                .map(BattleVote -> {
+                    Battle battle = BattleVote.getBattle();
+                    BattleOption selectedOption = BattleVote.getPostVoteOption() != null
+                            ? BattleVote.getPostVoteOption() : BattleVote.getPreVoteOption();
                     VoteSide side = selectedOption.getLabel() == BattleOptionLabel.A
                             ? VoteSide.PRO : VoteSide.CON;
                     String category = categoryMap.get(battle.getId());
 
                     return new BattleRecordListResponse.BattleRecordItem(
                             battle.getId().toString(),
-                            vote.getId().toString(),
+                            BattleVote.getId().toString(),
                             side,
                             category,
                             battle.getTitle(),
                             battle.getSummary(),
-                            vote.getCreatedAt()
+                            BattleVote.getCreatedAt()
                     );
                 })
                 .toList();
@@ -274,6 +281,29 @@ public class MypageService {
         return battleQueryService.findOptionsByIds(optionIds);
     }
 
+    public CreditHistoryListResponse getCreditHistory(Integer offset, Integer size) {
+        User user = userService.findCurrentUser();
+        int pageOffset = offset == null || offset < 0 ? 0 : offset;
+        int pageSize = size == null || size <= 0 ? DEFAULT_PAGE_SIZE : size;
+
+        Pageable pageable = PageRequest.of(pageOffset / pageSize, pageSize);
+        Page<CreditHistory> page = creditService.getHistory(user.getId(), pageable);
+
+        List<CreditHistoryListResponse.CreditHistoryItem> items = page.getContent().stream()
+                .map(h -> new CreditHistoryListResponse.CreditHistoryItem(
+                        h.getId(),
+                        h.getCreditType(),
+                        h.getAmount(),
+                        h.getReferenceId(),
+                        h.getCreatedAt()
+                ))
+                .toList();
+
+        int nextOffset = pageOffset + pageSize;
+        boolean hasNext = nextOffset < page.getTotalElements();
+        return new CreditHistoryListResponse(items, hasNext ? nextOffset : null, hasNext);
+    }
+
     public NotificationSettingsResponse getNotificationSettings() {
         User user = userService.findCurrentUser();
         UserSettings settings = userService.findUserSettings(user.getId());
@@ -360,3 +390,5 @@ public class MypageService {
         return s3PresignedUrlService.generatePresignedUrl(imageKey);
     }
 }
+
+

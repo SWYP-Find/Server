@@ -45,13 +45,18 @@ public class SecurityConfig {
                                 "/result/**",
                                 "/api/v1/resources/images/**",
                                 "/api/v1/resources/audio/**",
-                                "/api/v1/admob/reward/**"
+                                "/api/v1/resources/local/**",
+                                "/api/v1/admob/reward/**",
+                                "/report/**",
+                                "/battle/**",
+                                "/.well-known/**"
                         ).permitAll()
 
                         // 2. 관리자 HTML 화면 렌더링 요청
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/picke/**").permitAll()
 
                         // 3. 단순 조회성 및 진행상태 업데이트 REST API
+                        .requestMatchers(HttpMethod.GET, "/api/v1/share/recap/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/tags", "/api/v1/battles/**").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/battles/**").authenticated()
 
@@ -73,7 +78,8 @@ public class SecurityConfig {
                 "http://localhost:3000",
                 "http://localhost:8080",
                 "https://picke.store",
-                "https://www.picke.store"
+                "https://www.picke.store",
+                "https://dev.picke.store"
         ));
 
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));

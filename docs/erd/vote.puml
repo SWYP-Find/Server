@@ -3,99 +3,111 @@ hide circle
 hide methods
 skinparam linetype ortho
 
-' ───────────────────────────────
-' 테이블 정의
-' ───────────────────────────────
-
-entity "users\n사용자" as users {
+entity "users" as users {
   * id : BIGINT <<PK>>
   --
-  email : VARCHAR(255) <<UNIQUE>>
-  nickname : VARCHAR(50) <<UNIQUE>>
-  character_id : INT <<FK>>
-  role : ENUM('USER', 'ADMIN')
-  status : ENUM('PENDING', 'ACTIVE', 'DELETED', 'BANNED')
-  created_at : TIMESTAMP
-  updated_at : TIMESTAMP
+  email : VARCHAR(255)
+  nickname : VARCHAR(50)
 }
 
-entity "BATTLES\n배틀(주제)" as battles {
-  * id : Long <<PK>>
+entity "battles" as battles {
+  * id : BIGINT <<PK>>
   --
   title : VARCHAR(255)
-  summary : VARCHAR(500)
-  description : TEXT
-  thumbnail_url : VARCHAR(500)
-  target_date : DATE
-  status : ENUM('DRAFT', 'PENDING', 'PUBLISHED', 'REJECTED', 'ARCHIVED')
-  creator_type : ENUM('ADMIN', 'USER', 'AI')
-  creator_id : BIGINT <<FK>> (nullable)
-  reject_reason : VARCHAR(500) (nullable)
-  created_at : TIMESTAMP
-  updated_at : TIMESTAMP
 }
 
-entity "BATTLE_OPTIONS\n선택지" as battle_options {
-  * id : Long <<PK>>
+entity "battle_options" as battle_options {
+  * id : BIGINT <<PK>>
   --
-  battle_id : Long <<FK>>
-  label : ENUM('A', 'B')
-  title : VARCHAR(100)
-  stance : VARCHAR(255)
-  representative : VARCHAR(100)
-  quote : TEXT
-  image_url : VARCHAR(500)
+  battle_id : BIGINT <<FK>>
+  label : VARCHAR(10)
 }
 
-entity "VOTES\n투표 이력" as votes {
-  * id : Long <<PK>>
+entity "quizzes" as quizzes {
+  * id : BIGINT <<PK>>
+  --
+  title : VARCHAR(200)
+  total_participants_count : BIGINT
+}
+
+entity "quiz_options" as quiz_options {
+  * id : BIGINT <<PK>>
+  --
+  quiz_id : BIGINT <<FK>>
+  label : VARCHAR(10)
+  is_correct : BOOLEAN
+}
+
+entity "poll_contents" as poll_contents {
+  * id : BIGINT <<PK>>
+  --
+  title_prefix : VARCHAR(200)
+  title_suffix : VARCHAR(200)
+  total_participants_count : BIGINT
+}
+
+entity "poll_options" as poll_options {
+  * id : BIGINT <<PK>>
+  --
+  poll_id : BIGINT <<FK>>
+  label : VARCHAR(10)
+  vote_count : BIGINT
+}
+
+entity "votes" as votes {
+  * id : BIGINT <<PK>>
   --
   user_id : BIGINT <<FK>>
-  battle_id : Long <<FK>>
-  pre_vote_option_id : Long <<FK>> (nullable)
-  post_vote_option_id : Long <<FK>> (nullable)
-  mind_changed : BOOLEAN
-  reward_credits : INT
-  status : ENUM('NONE', 'PRE_VOTED', 'POST_VOTED')
+  battle_id : BIGINT <<FK>>
+  pre_vote_option_id : BIGINT <<FK, nullable>>
+  post_vote_option_id : BIGINT <<FK, nullable>>
+  is_tts_listened : BOOLEAN
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
-' ───────────────────────────────
-' 배치 가이드
-' users      battles
-'    \         |
-'   votes   battle_options
-' ───────────────────────────────
+entity "quiz_user_votes" as quiz_user_votes {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK>>
+  quiz_id : BIGINT <<FK>>
+  option_id : BIGINT <<FK>>
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
 
-users         -[hidden]right- battles
-battles       -[hidden]down-  battle_options
-users         -[hidden]down-  votes
-votes         -[hidden]right- battle_options
+entity "poll_user_votes" as poll_user_votes {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK>>
+  poll_id : BIGINT <<FK>>
+  option_id : BIGINT <<FK>>
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
 
-' ───────────────────────────────
-' 관계
-' ───────────────────────────────
+users ||--o{ votes : votes
+battles ||--o{ votes : target
+battle_options ||--o{ votes : pre/post option
 
-users   ||--o{ votes          : "votes"
-battles ||--o{ battle_options : "has"
-battles ||--o{ votes          : "receives"
-votes   }o--|| battle_options : "pre_vote"
-votes   }o--|| battle_options : "post_vote"
+users ||--o{ quiz_user_votes : votes
+quizzes ||--o{ quiz_user_votes : target
+quiz_options ||--o{ quiz_user_votes : selected
 
-' ───────────────────────────────
-' 노트
-' ───────────────────────────────
+users ||--o{ poll_user_votes : votes
+poll_contents ||--o{ poll_user_votes : target
+poll_options ||--o{ poll_user_votes : selected
 
-note right of votes
-  status 흐름:
-  NONE → PRE_VOTED → POST_VOTED
+note bottom of votes
+  Battle 투표(사전/사후) 전용 테이블
+end note
 
-  pre_vote_option_id  : 사전 투표 선택지 (nullable)
-  post_vote_option_id : 사후 투표 선택지 (nullable)
+note bottom of quiz_user_votes
+  Quiz 정답 제출 투표 테이블
+end note
 
-  mind_changed:
-  pre_vote_option_id ≠ post_vote_option_id 이면 true
+note bottom of poll_user_votes
+  Poll 선택 투표 테이블
 end note
 
 @enduml

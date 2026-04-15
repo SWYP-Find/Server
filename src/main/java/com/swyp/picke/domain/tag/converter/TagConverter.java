@@ -1,7 +1,9 @@
 package com.swyp.picke.domain.tag.converter;
 
-import com.swyp.picke.domain.tag.dto.request.TagRequest;
-import com.swyp.picke.domain.tag.dto.response.*;
+import com.swyp.picke.domain.admin.dto.tag.request.TagRequest;
+import com.swyp.picke.domain.admin.dto.tag.response.TagDeleteResponse;
+import com.swyp.picke.domain.admin.dto.tag.response.TagResponse;
+import com.swyp.picke.domain.tag.dto.response.TagListResponse;
 import com.swyp.picke.domain.tag.entity.Tag;
 import org.springframework.stereotype.Component;
 

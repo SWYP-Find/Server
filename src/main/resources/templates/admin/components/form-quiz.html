@@ -7,79 +7,44 @@
 
         <div class="space-y-6">
             <div>
-                <label class="block text-[13px] font-bold text-gray-700 mb-2">질문 <span class="text-red-500 ml-0.5">*</span></label>
-                <input type="text" id="quiz-question" placeholder="예: 선의의 거짓말은 정당화될 수 있는가?" class="w-full bg-[#FBFBFA] border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none transition placeholder:text-gray-400">
-            </div>
-
-            <div>
-                <label class="block text-[13px] font-bold text-gray-700 mb-2">설명</label>
-                <textarea id="quiz-desc" rows="3" placeholder="예: 결과가 좋다면 과정에서의 속임수는 용납될 수 있을까요? 당신의 윤리적 잣대를 들려주세요." class="w-full bg-[#FBFBFA] border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none transition resize-none placeholder:text-gray-400"></textarea>
-            </div>
-
-            <div>
-                <label class="block text-[13px] font-bold text-gray-700 mb-2">A</label>
-                <input type="text" id="quiz-perf-a" placeholder="예: 결과가 중요하다 (결과주의)" class="w-full bg-[#FBFBFA] border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none transition placeholder:text-gray-400">
-            </div>
-
-            <div>
-                <label class="flex items-center text-[13px] font-bold text-gray-700 mb-2">
-                    A 상세 <span class="ml-2 px-2 py-0.5 bg-[#FDF8EE] text-[#B08955] text-[10px] font-bold rounded border border-[#EBE2D5]">null 값 가능</span>
-                </label>
-                <input type="text" id="quiz-detail-a" placeholder="더 큰 선을 위해 사소한 거짓말은 필요하다." class="w-full bg-[#FBFBFA] border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none transition placeholder:text-gray-400">
-            </div>
-
-            <div>
-                <label class="block text-[13px] font-bold text-gray-700 mb-2">B</label>
-                <input type="text" id="quiz-perf-b" placeholder="원칙이 중요하다 (의무론)" class="w-full bg-[#FBFBFA] border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none transition placeholder:text-gray-400">
-            </div>
-
-            <div>
-                <label class="flex items-center text-[13px] font-bold text-gray-700 mb-2">
-                    B 상세 <span class="ml-2 px-2 py-0.5 bg-[#FDF8EE] text-[#B08955] text-[10px] font-bold rounded border border-[#EBE2D5]">null 값 가능</span>
-                </label>
-                <input type="text" id="quiz-detail-b" placeholder="어떤 상황에서도 진실함이라는 가치는 지켜져야 한다." class="w-full bg-[#FBFBFA] border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none transition placeholder:text-gray-400">
+                <label class="block text-[13px] font-bold text-gray-700 mb-2">제목 <span class="text-red-500 ml-0.5">*</span></label>
+                <input type="text" id="quiz-title" name="title" placeholder="퀴즈 제목을 입력하세요" class="w-full bg-[#FBFBFA] border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none transition placeholder:text-gray-400" />
             </div>
 
             <hr class="border-gray-100 my-8">
 
             <div>
-                <label class="block text-[14px] font-bold text-gray-800 mb-4">선택지 구성</label>
+                <label class="block text-[14px] font-bold text-gray-800 mb-4">퀴즈 선택지</label>
                 <div class="flex gap-4">
-                    <div class="flex-1 bg-[#F5F4F2] p-6 rounded-xl border border-[#EAE9E6]">
-                        <div class="flex items-center mb-5">
+                    <div class="flex-1 bg-[#F5F4F2] p-6 rounded-xl border border-[#EAE9E6] space-y-4">
+                        <input type="hidden" name="options[0].label" value="A" />
+                        <div class="flex items-center mb-1">
                             <input type="radio" id="quiz-answer-a" name="quiz-answer" value="A" class="w-4 h-4 text-black bg-gray-100 border-gray-300 focus:ring-black cursor-pointer" checked>
-                            <label for="quiz-answer-a" class="ml-2 text-[13px] font-bold text-gray-800 cursor-pointer">A 선택지를 정답으로 설정</label>
+                            <label for="quiz-answer-a" class="ml-2 text-[13px] font-bold text-gray-800 cursor-pointer">A를 정답으로 설정</label>
                         </div>
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-[12px] font-bold text-gray-600 mb-1.5">제목</label>
-                                <input type="text" id="quiz-o-text" placeholder="현실적인 평화주의자" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none placeholder:text-gray-400">
-                            </div>
-                            <div>
-                                <label class="flex items-center text-[12px] font-bold text-gray-600 mb-1.5">
-                                    설명 <span class="ml-2 px-1.5 py-0.5 bg-[#FDF8EE] text-[#B08955] text-[9px] font-bold rounded border border-[#EBE2D5]">null 값 가능</span>
-                                </label>
-                                <input type="text" id="quiz-o-desc" placeholder="타인의 상처를 막기 위한 배려를 가치 있게 여깁니다." class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none placeholder:text-gray-400">
-                            </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1.5">A</label>
+                            <input type="text" id="quiz-option-a-title" name="options[0].text" placeholder="A 선택지 내용 입력" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none placeholder:text-gray-400">
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1.5">설명</label>
+                            <input type="text" id="quiz-option-a-detail" name="options[0].detailText" placeholder="A 선택지 설명 입력" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none placeholder:text-gray-400">
                         </div>
                     </div>
 
-                    <div class="flex-1 bg-[#F5F4F2] p-6 rounded-xl border border-[#EAE9E6]">
-                        <div class="flex items-center mb-5">
+                    <div class="flex-1 bg-[#F5F4F2] p-6 rounded-xl border border-[#EAE9E6] space-y-4">
+                        <input type="hidden" name="options[1].label" value="B" />
+                        <div class="flex items-center mb-1">
                             <input type="radio" id="quiz-answer-b" name="quiz-answer" value="B" class="w-4 h-4 text-black bg-gray-100 border-gray-300 focus:ring-black cursor-pointer">
-                            <label for="quiz-answer-b" class="ml-2 text-[13px] font-bold text-gray-800 cursor-pointer">B 선택지를 정답으로 설정</label>
+                            <label for="quiz-answer-b" class="ml-2 text-[13px] font-bold text-gray-800 cursor-pointer">B를 정답으로 설정</label>
                         </div>
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-[12px] font-bold text-gray-600 mb-1.5">제목</label>
-                                <input type="text" id="quiz-x-text" placeholder="강직한 진실주의자" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none placeholder:text-gray-400">
-                            </div>
-                            <div>
-                                <label class="flex items-center text-[12px] font-bold text-gray-600 mb-1.5">
-                                    설명 <span class="ml-2 px-1.5 py-0.5 bg-[#FDF8EE] text-[#B08955] text-[9px] font-bold rounded border border-[#EBE2D5]">null 값 가능</span>
-                                </label>
-                                <input type="text" id="quiz-x-desc" placeholder="투명함이야말로 모든 신뢰의 기본이라고 믿습니다." class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none placeholder:text-gray-400">
-                            </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1.5">B</label>
+                            <input type="text" id="quiz-option-b-title" name="options[1].text" placeholder="B 선택지 내용 입력" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none placeholder:text-gray-400">
+                        </div>
+                        <div>
+                            <label class="block text-[12px] font-bold text-gray-600 mb-1.5">설명</label>
+                            <input type="text" id="quiz-option-b-detail" name="options[1].detailText" placeholder="B 선택지 설명 입력" class="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm focus:border-black outline-none placeholder:text-gray-400">
                         </div>
                     </div>
                 </div>

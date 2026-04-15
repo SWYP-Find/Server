@@ -60,7 +60,11 @@ public class ScenarioAudioPipelineService {
                     // 2. 텍스트가 바뀌었거나 새로 추가되었다면? (새로 생성 후 S3에 저장)
                     else {
                         log.info(">> 새 오디오 생성 (TTS API 호출): 스크립트 ID {}", script.getId());
-                        audioFile = ttsService.generateTtsWithSsml(script.getText(), script.getSpeakerType());
+                        audioFile = ttsService.generateTtsWithSsml(
+                                script.getText(),
+                                script.getSpeakerType(),
+                                scenario.getVoiceCode(script.getSpeakerType())
+                        );
 
                         // 새로 만든 조각 파일을 다음 수정을 위해 S3에 업로드 (chunks 폴더)
                         String chunkKey = FileCategory.SCENARIO.getPath() + "/chunks/" + UUID.randomUUID() + ".mp3";

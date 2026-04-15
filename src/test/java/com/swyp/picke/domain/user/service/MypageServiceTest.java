@@ -4,7 +4,6 @@ import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.enums.BattleOptionLabel;
 import com.swyp.picke.domain.battle.enums.BattleStatus;
-import com.swyp.picke.domain.battle.enums.BattleType;
 import com.swyp.picke.domain.battle.service.BattleQueryService;
 import com.swyp.picke.domain.perspective.entity.Perspective;
 import com.swyp.picke.domain.perspective.entity.PerspectiveComment;
@@ -13,12 +12,15 @@ import com.swyp.picke.domain.perspective.service.PerspectiveQueryService;
 import com.swyp.picke.domain.user.dto.request.UpdateNotificationSettingsRequest;
 import com.swyp.picke.domain.user.dto.response.BattleRecordListResponse;
 import com.swyp.picke.domain.user.dto.response.ContentActivityListResponse;
+import com.swyp.picke.domain.user.dto.response.CreditHistoryListResponse;
 import com.swyp.picke.domain.user.dto.response.MypageResponse;
 import com.swyp.picke.domain.user.dto.response.NotificationSettingsResponse;
 import com.swyp.picke.domain.user.dto.response.RecapResponse;
 import com.swyp.picke.domain.user.dto.response.UserSummary;
+import com.swyp.picke.domain.user.entity.CreditHistory;
 import com.swyp.picke.domain.user.enums.ActivityType;
 import com.swyp.picke.domain.user.enums.CharacterType;
+import com.swyp.picke.domain.user.enums.CreditType;
 import com.swyp.picke.domain.user.enums.PhilosopherType;
 import com.swyp.picke.domain.user.enums.TierCode;
 import com.swyp.picke.domain.user.entity.User;
@@ -27,7 +29,7 @@ import com.swyp.picke.domain.user.enums.UserRole;
 import com.swyp.picke.domain.user.entity.UserSettings;
 import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.enums.VoteSide;
-import com.swyp.picke.domain.vote.entity.Vote;
+import com.swyp.picke.domain.vote.entity.BattleVote;
 import com.swyp.picke.domain.vote.service.VoteQueryService;
 import com.swyp.picke.global.infra.s3.service.S3PresignedUrlService;
 import org.junit.jupiter.api.DisplayName;
@@ -36,6 +38,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
@@ -158,7 +162,7 @@ class MypageServiceTest {
         User user = createUser(1L, "tag");
         Battle battle = createBattle("배틀 제목");
         BattleOption optionA = createOption(battle, BattleOptionLabel.A);
-        Vote vote = Vote.builder()
+        BattleVote vote = BattleVote.builder()
                 .user(user)
                 .battle(battle)
                 .preVoteOption(optionA)
@@ -184,7 +188,7 @@ class MypageServiceTest {
         User user = createUser(1L, "tag");
         Battle battle = createBattle("제목");
         BattleOption optionA = createOption(battle, BattleOptionLabel.A);
-        Vote vote = Vote.builder()
+        BattleVote vote = BattleVote.builder()
                 .user(user)
                 .battle(battle)
                 .preVoteOption(optionA)
@@ -220,6 +224,7 @@ class MypageServiceTest {
     @DisplayName("COMMENT 타입으로 댓글활동을 반환한다")
     void getContentActivities_returns_comments() {
         User user = createUser(1L, "tag");
+        UserProfile profile = createProfile(user, "nick", CharacterType.OWL);
         Battle battle = createBattle("배틀");
         Long battleId = battle.getId();
         BattleOption option = createOption(battle, BattleOptionLabel.A);
@@ -242,6 +247,7 @@ class MypageServiceTest {
         ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.now());
 
         when(userService.findCurrentUser()).thenReturn(user);
+        when(userService.findUserProfile(1L)).thenReturn(profile);
         when(perspectiveQueryService.findUserComments(1L, 0, 20)).thenReturn(List.of(comment));
         when(perspectiveQueryService.countUserComments(1L)).thenReturn(1L);
         when(battleQueryService.findBattlesByIds(List.of(battleId))).thenReturn(Map.of(battleId, battle));
@@ -290,6 +296,27 @@ class MypageServiceTest {
 
         assertThat(response.items()).hasSize(1);
         assertThat(response.items().get(0).activityType()).isEqualTo(ActivityType.LIKE);
+    }
+
+    @Test
+    @DisplayName("크레딧 내역을 최신순으로 offset 페이징 변환해 반환한다")
+    void getCreditHistory_returns_paginated_history() {
+        User user = createUser(1L, "tag");
+        CreditHistory latest = creditHistory(301L, user, CreditType.BEST_COMMENT, 50, 91L, LocalDateTime.now());
+        CreditHistory older = creditHistory(300L, user, CreditType.BATTLE_VOTE, 5, 90L, LocalDateTime.now().minusDays(1));
+
+        when(userService.findCurrentUser()).thenReturn(user);
+        when(creditService.getHistory(1L, PageRequest.of(0, 2)))
+                .thenReturn(new PageImpl<>(List.of(latest, older), PageRequest.of(0, 2), 3));
+
+        CreditHistoryListResponse response = mypageService.getCreditHistory(0, 2);
+
+        assertThat(response.items()).hasSize(2);
+        assertThat(response.items().get(0).id()).isEqualTo(301L);
+        assertThat(response.items().get(0).creditType()).isEqualTo(CreditType.BEST_COMMENT);
+        assertThat(response.items().get(1).id()).isEqualTo(300L);
+        assertThat(response.hasNext()).isTrue();
+        assertThat(response.nextOffset()).isEqualTo(2);
     }
 
     @Test
@@ -372,7 +399,6 @@ class MypageServiceTest {
         Battle battle = Battle.builder()
                 .title(title)
                 .summary("summary")
-                .type(BattleType.BATTLE)
                 .status(BattleStatus.PUBLISHED)
                 .build();
         ReflectionTestUtils.setField(battle, "id", generateId());
@@ -388,5 +414,24 @@ class MypageServiceTest {
                 .build();
         ReflectionTestUtils.setField(option, "id", generateId());
         return option;
+    }
+
+    private CreditHistory creditHistory(
+            Long id,
+            User user,
+            CreditType creditType,
+            int amount,
+            Long referenceId,
+            LocalDateTime createdAt
+    ) {
+        CreditHistory history = CreditHistory.builder()
+                .user(user)
+                .creditType(creditType)
+                .amount(amount)
+                .referenceId(referenceId)
+                .build();
+        ReflectionTestUtils.setField(history, "id", id);
+        ReflectionTestUtils.setField(history, "createdAt", createdAt);
+        return history;
     }
 }

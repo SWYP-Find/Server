@@ -75,7 +75,7 @@ class AdMobRewardServiceTest {
         assertThat(result).isEqualTo("OK");
 
         // // 4. 호출 검증
-        verify(creditService, times(1)).addCredit(eq(1L), eq(CreditType.AD_REWARD), anyLong());
+        verify(creditService, times(1)).addCredit(eq(1L), eq(CreditType.FREE_CHARGE), eq(100), anyLong());
         verify(adRewardHistoryRepository, times(1)).save(any(AdRewardHistory.class));
         verify(userService, times(1)).findByUserTag("pique-1cc4a030");
     }

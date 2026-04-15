@@ -37,13 +37,17 @@ public class UserProfile extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private PhilosopherType philosopherType;
 
+    @Column(name = "recap_share_key", unique = true, length = 36)
+    private String recapShareKey;
+
     private BigDecimal mannerTemperature;
 
     @Builder
-    private UserProfile(User user, String nickname, CharacterType characterType, BigDecimal mannerTemperature) {
+    private UserProfile(User user, String nickname, CharacterType characterType, String recapShareKey, BigDecimal mannerTemperature) {
         this.user = user;
         this.nickname = nickname;
         this.characterType = Objects.requireNonNull(characterType, "characterType must not be null");
+        this.recapShareKey = recapShareKey;
         this.mannerTemperature = mannerTemperature;
     }
 
@@ -58,5 +62,9 @@ public class UserProfile extends BaseEntity {
 
     public void updatePhilosopherType(PhilosopherType philosopherType) {
         this.philosopherType = philosopherType;
+    }
+
+    public void updateRecapShareKey(String recapShareKey) {
+        this.recapShareKey = recapShareKey;
     }
 }

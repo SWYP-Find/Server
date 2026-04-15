@@ -30,20 +30,17 @@ public class BattleProposalService {
     private final CreditService creditService;
     private final UserService userService;
 
-    private static final int PROPOSAL_COST = 30;
-    private static final int PROPOSAL_REWARD = 100;
-
     @Transactional
     public BattleProposalResponse propose(BattleProposalRequest request) {
         User user = userService.findCurrentUser();
 
-        // 크레딧 잔액 확인
+        int cost = CreditType.TOPIC_SUGGEST.getDefaultAmount();
+
         int totalCredits = creditService.getTotalPoints(user.getId());
-        if (totalCredits < PROPOSAL_COST) {
+        if (totalCredits < cost) {
             throw new CustomException(ErrorCode.CREDIT_NOT_ENOUGH);
         }
 
-        // 제안 저장
         BattleProposal proposal = BattleProposal.builder()
                 .user(user)
                 .category(request.getCategory())
@@ -55,8 +52,7 @@ public class BattleProposalService {
 
         battleProposalRepository.save(proposal);
 
-        // 30크레딧 차감 (음수로 저장)
-        creditService.addCredit(user.getId(), CreditType.TOPIC_SUGGEST, -PROPOSAL_COST, proposal.getId());
+        creditService.addCredit(user.getId(), CreditType.TOPIC_SUGGEST, -cost, proposal.getId());
 
         return new BattleProposalResponse(proposal);
     }
@@ -87,8 +83,8 @@ public class BattleProposalService {
 
         if (request.getAction() == BattleProposalReviewRequest.Action.ACCEPT) {
             proposal.accept();
-            // 100크레딧 지급
-            creditService.addCredit(proposal.getUser().getId(), CreditType.TOPIC_ADOPTED, PROPOSAL_REWARD, proposalId);
+            int reward = CreditType.TOPIC_ADOPTED.getDefaultAmount();
+            creditService.addCredit(proposal.getUser().getId(), CreditType.TOPIC_ADOPTED, reward, proposalId);
         } else {
             proposal.reject();
         }

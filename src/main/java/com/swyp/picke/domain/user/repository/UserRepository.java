@@ -21,5 +21,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("update User u set u.credit = u.credit + :amount where u.id = :id")
     int incrementCredit(@Param("id") Long id, @Param("amount") int amount);
 
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update User u set u.credit = u.credit - :amount where u.id = :id and u.credit >= :amount")
+    int decrementCreditIfEnough(@Param("id") Long id, @Param("amount") int amount);
+
     List<User> findAllByStatus(UserStatus status);
 }

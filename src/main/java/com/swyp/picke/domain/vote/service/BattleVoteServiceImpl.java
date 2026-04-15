@@ -21,7 +21,9 @@ import com.swyp.picke.domain.vote.repository.BattleVoteRepository;
 import com.swyp.picke.domain.vote.sse.VoteUpdatedEvent;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +35,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class BattleVoteServiceImpl implements BattleVoteService {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final BattleVoteRepository battleVoteRepository;
     private final BattleService battleService;
@@ -122,6 +126,9 @@ public class BattleVoteServiceImpl implements BattleVoteService {
             vote = existingVote.get();
             vote.updatePreVote(option);
         } else {
+            if (shouldChargeBattleEntryCredit(battle)) {
+                creditService.addCredit(user.getId(), CreditType.BATTLE_ENTRY, battle.getId());
+            }
             vote = BattleVote.createPreVote(user, battle, option);
             battleVoteRepository.save(vote);
             battle.addParticipant();
@@ -190,5 +197,10 @@ public class BattleVoteServiceImpl implements BattleVoteService {
         vote.completeTts();
 
         userBattleService.upsertStep(user, battle, UserBattleStep.POST_VOTE);
+    }
+
+    private boolean shouldChargeBattleEntryCredit(Battle battle) {
+        LocalDate today = LocalDate.now(KST);
+        return battle.getTargetDate() == null || !battle.getTargetDate().isEqual(today);
     }
 }

@@ -161,6 +161,43 @@ class ScenarioServiceImplTest {
         verify(s3Service).deleteFile("s3://merged/common-old.mp3");
     }
 
+    @Test
+    void updateScenarioContent_whenPublishedAndModified_triggersAudioPipeline() {
+        Scenario scenario = createScenario();
+        scenario.updateStatus(ScenarioStatus.PUBLISHED);
+        ScenarioNode startNode = createNode("START", true);
+        Script script = createScript(SpeakerType.NARRATOR, "NARRATOR", "old-line", "s3://chunks/script-old.mp3");
+        startNode.addScript(script);
+        scenario.addNode(startNode);
+        scenario.addAudioUrl(AudioPathType.COMMON, "s3://merged/common-old.mp3");
+        scenario.replaceVoiceSettings(Map.of(SpeakerType.NARRATOR, "voice-narrator"));
+
+        when(scenarioRepository.findById(3L)).thenReturn(Optional.of(scenario));
+        when(battleOptionRepository.findByBattle(scenario.getBattle())).thenReturn(List.of());
+
+        ScenarioCreateRequest request = new ScenarioCreateRequest(
+                1L,
+                false,
+                ScenarioStatus.PUBLISHED,
+                List.of(
+                        new NodeRequest(
+                                "START",
+                                true,
+                                "",
+                                List.of(new ScriptRequest("NARRATOR", SpeakerType.NARRATOR, "new-line")),
+                                List.of()
+                        )
+                ),
+                Map.of(SpeakerType.NARRATOR, "voice-narrator")
+        );
+
+        scenarioService.updateScenarioContent(3L, request);
+
+        verify(s3Service).deleteFile("s3://chunks/script-old.mp3");
+        verify(s3Service).deleteFile("s3://merged/common-old.mp3");
+        verify(audioPipelineService).generateAndMergeAudioAsync(3L);
+    }
+
     private Scenario createScenario() {
         Battle battle = Battle.builder()
                 .title("battle")

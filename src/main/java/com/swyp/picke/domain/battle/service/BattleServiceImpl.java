@@ -302,6 +302,8 @@ public class BattleServiceImpl implements BattleService {
                 request.summary(),
                 request.description(),
                 resolvedThumbnailKey,
+                request.targetDate(),
+                request.audioDuration(),
                 request.status()
         );
         battle = battleRepository.save(battle);
@@ -379,6 +381,8 @@ public class BattleServiceImpl implements BattleService {
                 request.summary(),
                 request.description(),
                 resolvedThumbnailKey,
+                request.targetDate(),
+                request.audioDuration(),
                 request.status()
         );
 

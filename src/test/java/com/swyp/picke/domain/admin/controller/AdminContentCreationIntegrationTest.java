@@ -96,6 +96,7 @@ class AdminContentCreationIntegrationTest {
     void createBattle_persistsAllMappedFields() throws Exception {
         User admin = createAdminUser();
         String adminToken = jwtProvider.createAccessToken(admin.getId(), "ADMIN");
+        LocalDate targetDate = LocalDate.now();
 
         Tag category = createTag("battle-category", TagType.CATEGORY);
         Tag philosopher = createTag("battle-philosopher", TagType.PHILOSOPHER);
@@ -108,7 +109,7 @@ class AdminContentCreationIntegrationTest {
                 "summary", "배틀 요약",
                 "description", "배틀 설명",
                 "thumbnailUrl", "images/battles/battle-thumb.png",
-                "targetDate", LocalDate.now().toString(),
+                "targetDate", targetDate.toString(),
                 "audioDuration", 95,
                 "tagIds", List.of(category.getId()),
                 "options", List.of(
@@ -151,8 +152,8 @@ class AdminContentCreationIntegrationTest {
         assertThat(savedBattle.getSummary()).isEqualTo("배틀 요약");
         assertThat(savedBattle.getDescription()).isEqualTo("배틀 설명");
         assertThat(savedBattle.getThumbnailUrl()).isEqualTo("images/battles/battle-thumb.png");
-        assertThat(savedBattle.getAudioDuration()).isNull();
-        assertThat(savedBattle.getTargetDate()).isNull();
+        assertThat(savedBattle.getAudioDuration()).isEqualTo(95);
+        assertThat(savedBattle.getTargetDate()).isEqualTo(targetDate);
 
         assertThat(options).hasSize(2);
         BattleOption optionA = options.stream().filter(option -> option.getLabel().name().equals("A")).findFirst().orElseThrow();
@@ -171,14 +172,15 @@ class AdminContentCreationIntegrationTest {
     }
 
     @Test
-    @DisplayName("관리자가 퀴즈를 생성할 때 현재 500을 반환한다")
+    @DisplayName("관리자가 퀴즈를 생성할 때 필드가 저장된다")
     void createQuiz_persistsAllMappedFields() throws Exception {
         User admin = createAdminUser();
         String adminToken = jwtProvider.createAccessToken(admin.getId(), "ADMIN");
+        LocalDate targetDate = LocalDate.now().plusDays(1);
 
         Map<String, Object> payload = Map.of(
                 "title", "퀴즈 제목",
-                "targetDate", LocalDate.now().plusDays(1).toString(),
+                "targetDate", targetDate.toString(),
                 "status", "PENDING",
                 "options", List.of(
                         Map.of(
@@ -202,20 +204,24 @@ class AdminContentCreationIntegrationTest {
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(payload)))
-                .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.statusCode").value(500));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.quizId").exists())
+                .andExpect(jsonPath("$.data.targetDate").value(targetDate.toString()))
+                .andExpect(jsonPath("$.data.options[0].displayOrder").value(1))
+                .andExpect(jsonPath("$.data.options[1].displayOrder").value(2));
     }
 
     @Test
-    @DisplayName("관리자가 투표를 생성할 때 현재 500을 반환한다")
+    @DisplayName("관리자가 투표를 생성할 때 필드가 저장된다")
     void createPoll_persistsAllMappedFields() throws Exception {
         User admin = createAdminUser();
         String adminToken = jwtProvider.createAccessToken(admin.getId(), "ADMIN");
+        LocalDate targetDate = LocalDate.now().plusDays(2);
 
         Map<String, Object> payload = Map.of(
                 "titlePrefix", "당신은",
                 "titleSuffix", "어느 쪽인가요?",
-                "targetDate", LocalDate.now().plusDays(2).toString(),
+                "targetDate", targetDate.toString(),
                 "status", "PENDING",
                 "options", List.of(
                         Map.of(
@@ -235,8 +241,11 @@ class AdminContentCreationIntegrationTest {
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(payload)))
-                .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.statusCode").value(500));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.pollId").exists())
+                .andExpect(jsonPath("$.data.targetDate").value(targetDate.toString()))
+                .andExpect(jsonPath("$.data.options[0].displayOrder").value(1))
+                .andExpect(jsonPath("$.data.options[1].displayOrder").value(2));
     }
 
     @Test

@@ -24,6 +24,7 @@ public class QuizConverter {
     public Quiz toEntity(AdminQuizCreateRequest request) {
         return Quiz.builder()
                 .title(request.title())
+                .targetDate(request.targetDate())
                 .status(request.status())
                 .build();
     }

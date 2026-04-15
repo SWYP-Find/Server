@@ -98,13 +98,16 @@ public class QuizServiceImpl implements QuizService {
 
         List<QuizOption> savedOptions = new ArrayList<>();
         if (request.options() != null) {
-            for (AdminQuizOptionRequest optionRequest : request.options()) {
+            for (int i = 0; i < request.options().size(); i++) {
+                AdminQuizOptionRequest optionRequest = request.options().get(i);
+                int displayOrder = resolveDisplayOrder(optionRequest.displayOrder(), i + 1);
                 QuizOption option = QuizOption.builder()
                         .quiz(quiz)
                         .label(optionRequest.label())
                         .text(optionRequest.text())
                         .detailText(optionRequest.detailText())
                         .isCorrect(optionRequest.isCorrect())
+                        .displayOrder(displayOrder)
                         .build();
                 option = quizOptionRepository.save(option);
                 savedOptions.add(option);
@@ -129,7 +132,9 @@ public class QuizServiceImpl implements QuizService {
             }
 
             Set<QuizOptionLabel> requestedLabels = new HashSet<>();
-            for (AdminQuizOptionRequest optionRequest : request.options()) {
+            for (int i = 0; i < request.options().size(); i++) {
+                AdminQuizOptionRequest optionRequest = request.options().get(i);
+                int displayOrder = resolveDisplayOrder(optionRequest.displayOrder(), i + 1);
                 requestedLabels.add(optionRequest.label());
                 QuizOption option = existingOptionMap.get(optionRequest.label());
 
@@ -140,13 +145,15 @@ public class QuizServiceImpl implements QuizService {
                             .text(optionRequest.text())
                             .detailText(optionRequest.detailText())
                             .isCorrect(optionRequest.isCorrect())
+                            .displayOrder(displayOrder)
                             .build();
                     option = quizOptionRepository.save(option);
                 } else {
                     option.update(
                             optionRequest.text(),
                             optionRequest.detailText(),
-                            optionRequest.isCorrect()
+                            optionRequest.isCorrect(),
+                            displayOrder
                     );
                 }
             }
@@ -169,6 +176,13 @@ public class QuizServiceImpl implements QuizService {
         quizOptionRepository.deleteAll(options);
         quizRepository.delete(quiz);
         return new AdminQuizDeleteResponse(true, LocalDateTime.now());
+    }
+
+    private int resolveDisplayOrder(Integer requestedOrder, int fallbackOrder) {
+        if (requestedOrder == null || requestedOrder < 1) {
+            return fallbackOrder;
+        }
+        return requestedOrder;
     }
 
     private void ensureTodayPicks(LocalDate today, int requiredCount) {

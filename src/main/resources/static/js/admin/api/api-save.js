@@ -26,6 +26,11 @@
         return Number.isNaN(parsed) ? null : parsed;
     };
 
+    const setHiddenImageValue = (id, value) => {
+        const input = document.getElementById(id);
+        if (input) input.value = value || '';
+    };
+
     const getTargetDate = (type) => {
         const inputIdByType = {
             BATTLE: 'battle-target-date',
@@ -52,7 +57,9 @@
         const previousStatus = PickeData.currentStatus;
         const targetDate = getTargetDate(currentType);
         const resolvedStatus = getStatus(currentType);
-        const shouldUploadAssets = action === 'PUBLISHED' || action === 'PUBLISH';
+        const hasNewBattleImageUploads = currentType === 'BATTLE'
+            && !!(PickeData.uploadedFiles.thumbnail || PickeData.uploadedFiles.charA || PickeData.uploadedFiles.charB);
+        const shouldUploadAssets = action === 'PUBLISHED' || action === 'PUBLISH' || (action === 'EDIT' && hasNewBattleImageUploads);
         const shouldUploadLocalDraft = action === 'PENDING';
 
         PickeData.currentTargetDate = targetDate;
@@ -83,6 +90,14 @@
         thumbnailUrl = toUrlString(thumbnailUrl);
         charAUrl = toUrlString(charAUrl);
         charBUrl = toUrlString(charBUrl);
+
+        PickeData.existingUrls.thumbnail = thumbnailUrl || null;
+        PickeData.existingUrls.charA = charAUrl || null;
+        PickeData.existingUrls.charB = charBUrl || null;
+
+        setHiddenImageValue('battle-thumbnail-url', thumbnailUrl);
+        setHiddenImageValue('char-a-image-url', charAUrl);
+        setHiddenImageValue('char-b-image-url', charBUrl);
 
         let payload = null;
         let requestUrl = '';
@@ -283,7 +298,10 @@
             }
 
             if (scenarioExisted && PickeData.scenarioId) {
-                const shouldPatchScenarioStatus = action === 'PUBLISH' || previousStatus !== resolvedStatus;
+                const shouldPatchScenarioStatus =
+                    action === 'PUBLISHED'
+                    || action === 'PUBLISH'
+                    || previousStatus !== resolvedStatus;
                 if (shouldPatchScenarioStatus) {
                     const statusRes = await fetch(`/api/v1/admin/scenarios/${PickeData.scenarioId}`, {
                         method: 'PATCH',

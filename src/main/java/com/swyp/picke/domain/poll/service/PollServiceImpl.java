@@ -98,11 +98,14 @@ public class PollServiceImpl implements PollService {
 
         List<PollOption> savedOptions = new ArrayList<>();
         if (request.options() != null) {
-            for (AdminPollOptionRequest optionRequest : request.options()) {
+            for (int i = 0; i < request.options().size(); i++) {
+                AdminPollOptionRequest optionRequest = request.options().get(i);
+                int displayOrder = resolveDisplayOrder(optionRequest.displayOrder(), i + 1);
                 PollOption option = PollOption.builder()
                         .poll(poll)
                         .label(optionRequest.label())
                         .title(optionRequest.title())
+                        .displayOrder(displayOrder)
                         .build();
                 option = pollOptionRepository.save(option);
                 savedOptions.add(option);
@@ -132,7 +135,9 @@ public class PollServiceImpl implements PollService {
             }
 
             Set<PollOptionLabel> requestedLabels = new HashSet<>();
-            for (AdminPollOptionRequest optionRequest : request.options()) {
+            for (int i = 0; i < request.options().size(); i++) {
+                AdminPollOptionRequest optionRequest = request.options().get(i);
+                int displayOrder = resolveDisplayOrder(optionRequest.displayOrder(), i + 1);
                 requestedLabels.add(optionRequest.label());
                 PollOption option = existingOptionMap.get(optionRequest.label());
 
@@ -141,10 +146,11 @@ public class PollServiceImpl implements PollService {
                             .poll(poll)
                             .label(optionRequest.label())
                             .title(optionRequest.title())
+                            .displayOrder(displayOrder)
                             .build();
                     option = pollOptionRepository.save(option);
                 } else {
-                    option.update(optionRequest.title());
+                    option.update(optionRequest.title(), displayOrder);
                 }
             }
 
@@ -166,6 +172,13 @@ public class PollServiceImpl implements PollService {
         pollOptionRepository.deleteAll(options);
         pollRepository.delete(poll);
         return new AdminPollDeleteResponse(true, LocalDateTime.now());
+    }
+
+    private int resolveDisplayOrder(Integer requestedOrder, int fallbackOrder) {
+        if (requestedOrder == null || requestedOrder < 1) {
+            return fallbackOrder;
+        }
+        return requestedOrder;
     }
 
     private void ensureTodayPicks(LocalDate today, int requiredCount) {

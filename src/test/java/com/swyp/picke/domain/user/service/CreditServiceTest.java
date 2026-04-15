@@ -107,6 +107,35 @@ class CreditServiceTest {
     }
 
     @Test
+    @DisplayName("차감 시 잔액이 충분하면 credit 캐시를 감소시킨다")
+    void addCredit_negativeAmount_decrementsCreditWhenEnough() {
+        User user = newUser(1L, 20);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.decrementCreditIfEnough(1L, 10)).thenReturn(1);
+
+        creditService.addCredit(1L, CreditType.BATTLE_ENTRY, -10, 99L);
+
+        verify(userRepository).decrementCreditIfEnough(1L, 10);
+        verify(userRepository, never()).incrementCredit(1L, -10);
+    }
+
+    @Test
+    @DisplayName("차감 시 잔액이 부족하면 CREDIT_NOT_ENOUGH 를 던진다")
+    void addCredit_negativeAmount_throwsWhenInsufficient() {
+        User user = newUser(1L, 5);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.decrementCreditIfEnough(1L, 10)).thenReturn(0);
+
+        assertThatThrownBy(() -> creditService.addCredit(1L, CreditType.BATTLE_ENTRY, -10, 99L))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.CREDIT_NOT_ENOUGH);
+
+        verify(userRepository).decrementCreditIfEnough(1L, 10);
+        verify(userRepository, never()).incrementCredit(1L, -10);
+    }
+
+    @Test
     @DisplayName("중복이 아닌 데이터 무결성 오류는 CREDIT_SAVE_FAILED 로 재기동하고 캐시도 증가시키지 않는다")
     void addCredit_nonDuplicateIntegrityFailure_rethrows() {
         User user = newUser(1L, 3);
@@ -122,6 +151,7 @@ class CreditServiceTest {
                 .isEqualTo(ErrorCode.CREDIT_SAVE_FAILED);
 
         verify(userRepository, never()).incrementCredit(1L, 10);
+        verify(userRepository, never()).decrementCreditIfEnough(1L, 10);
     }
 
     @Test

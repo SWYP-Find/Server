@@ -109,6 +109,8 @@ public class Battle extends BaseEntity {
             String summary,
             String description,
             String thumbnailUrl,
+            LocalDate targetDate,
+            Integer audioDuration,
             BattleStatus status
     ) {
         if (title != null) {

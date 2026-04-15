@@ -50,7 +50,7 @@ public class CreditService {
      * CreditType의 기본 포인트가 아닌 가변 포인트가 필요한 경우(FREE_CHARGE 랜덤 박스 등)에서 사용.
      * 예: creditService.addCredit(userId, CreditType.FREE_CHARGE, 15, boxId);
      *
-     * 적립이 성공하면 User.credit 캐시를 동기 증감하여 {@link #getTotalPoints}가 전체 히스토리를 재집계하지 않도록 한다.
+     * 적립/차감이 성공하면 User.credit 캐시를 동기 증감하여 {@link #getTotalPoints}가 전체 히스토리를 재집계하지 않도록 한다.
      * (user, creditType, referenceId) 중복 시 조용히 무시(멱등).
      */
     @Transactional
@@ -75,7 +75,15 @@ public class CreditService {
             }
             throw new CustomException(ErrorCode.CREDIT_SAVE_FAILED);
         }
-        if (userRepository.incrementCredit(userId, amount) == 0) {
+
+        int updated = amount >= 0
+                ? userRepository.incrementCredit(userId, amount)
+                : userRepository.decrementCreditIfEnough(userId, -amount);
+
+        if (updated == 0) {
+            if (amount < 0) {
+                throw new CustomException(ErrorCode.CREDIT_NOT_ENOUGH);
+            }
             throw new CustomException(ErrorCode.USER_NOT_FOUND);
         }
     }

@@ -37,6 +37,8 @@ public class BattleConverter {
                 .summary(request.summary())
                 .description(request.description())
                 .thumbnailUrl(request.thumbnailUrl())
+                .targetDate(request.targetDate())
+                .audioDuration(request.audioDuration())
                 .status(request.status())
                 .creatorType(BattleCreatorType.ADMIN)
                 .creator(admin)

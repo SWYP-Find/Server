@@ -62,7 +62,7 @@ public class QuizOption extends BaseEntity {
         this.quiz = quiz;
     }
 
-    public void update(String text, String detailText, Boolean isCorrect) {
+    public void update(String text, String detailText, Boolean isCorrect, Integer displayOrder) {
         if (text != null) this.text = text;
         if (detailText != null) this.detailText = detailText;
         if (isCorrect != null) this.isCorrect = isCorrect;

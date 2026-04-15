@@ -6,5 +6,6 @@ public record AdminQuizOptionRequest(
         QuizOptionLabel label,
         String text,
         String detailText,
-        Boolean isCorrect
+        Boolean isCorrect,
+        Integer displayOrder
 ) {}

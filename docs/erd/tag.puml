@@ -3,59 +3,60 @@ hide circle
 hide methods
 skinparam linetype ortho
 
-' ───────────────────────────────
-' 테이블 정의
-' ───────────────────────────────
-
-entity "BATTLES\n배틀(주제)" as battles {
-  * id : Long <<PK>>
+entity "tags" as tags {
+  * id : BIGINT <<PK>>
   --
-  title : VARCHAR(255)
-  summary : VARCHAR(500)
-  description : TEXT
-  thumbnail_url : VARCHAR(500)
-  target_date : DATE
-  status : ENUM('DRAFT', 'PENDING', 'PUBLISHED', 'REJECTED', 'ARCHIVED')
-  creator_type : ENUM('ADMIN', 'USER', 'AI')
-  creator_id : BIGINT <<FK>> (nullable)
-  reject_reason : VARCHAR(500) (nullable)
+  name : VARCHAR(50)
+  type : VARCHAR(20)  ' CATEGORY / PHILOSOPHER / VALUE
+  deleted_at : TIMESTAMP
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
-entity "TAGS\n태그" as tags {
-  * id : Long <<PK>>
+entity "battles" as battles {
+  * id : BIGINT <<PK>>
   --
-  name : VARCHAR(50) <<UNIQUE>>
+  title : VARCHAR(255)
+}
+
+entity "battle_options" as battle_options {
+  * id : BIGINT <<PK>>
+  --
+  battle_id : BIGINT <<FK>>
+  label : VARCHAR(10)
+  title : VARCHAR(100)
+}
+
+entity "battle_tags" as battle_tags {
+  * id : BIGINT <<PK>>
+  --
+  battle_id : BIGINT <<FK>>
+  tag_id : BIGINT <<FK>>
   created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+  UNIQUE (battle_id, tag_id)
 }
 
-entity "BATTLE_TAGS\n배틀-태그 매핑" as battle_tags {
-  * battle_id : Long <<FK>>
-  * tag_id : Long <<FK>>
+entity "battle_option_tags" as battle_option_tags {
+  * id : BIGINT <<PK>>
+  --
+  battle_option_id : BIGINT <<FK>>
+  tag_id : BIGINT <<FK>>
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+  UNIQUE (battle_option_id, tag_id)
 }
 
-' ───────────────────────────────
-' 배치 가이드 (좌→우→아래)
-' ───────────────────────────────
+battles ||--o{ battle_tags : has
+tags ||--o{ battle_tags : mapped
 
-battles    -[hidden]right- tags
-tags       -[hidden]down-  battle_tags
+battle_options ||--o{ battle_option_tags : has
+tags ||--o{ battle_option_tags : mapped
 
-' ───────────────────────────────
-' 관계
-' ───────────────────────────────
-
-battles ||--o{ battle_tags : "tagged with"
-tags    ||--o{ battle_tags : "used in"
-
-' ───────────────────────────────
-' 노트
-' ───────────────────────────────
-
-note bottom of battle_tags
-  복합 PK: (battle_id, tag_id)
-  배틀과 태그의 N:M 관계를 처리하는 중간 테이블
+note right of tags
+  현재 태그는 Battle 도메인에서만 사용
+  - battle_tags: 카테고리
+  - battle_option_tags: 철학자/가치관
 end note
 
 @enduml

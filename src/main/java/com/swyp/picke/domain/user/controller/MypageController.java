@@ -4,6 +4,7 @@ import com.swyp.picke.domain.user.dto.request.UpdateNotificationSettingsRequest;
 import com.swyp.picke.domain.user.dto.request.UpdateUserProfileRequest;
 import com.swyp.picke.domain.user.dto.response.BattleRecordListResponse;
 import com.swyp.picke.domain.user.dto.response.ContentActivityListResponse;
+import com.swyp.picke.domain.user.dto.response.CreditHistoryListResponse;
 import com.swyp.picke.domain.user.dto.response.MypageResponse;
 import com.swyp.picke.domain.user.dto.response.MyProfileResponse;
 import com.swyp.picke.domain.user.dto.response.NotificationSettingsResponse;
@@ -64,6 +65,14 @@ public class MypageController {
             @RequestParam(name = "activity_type", required = false) ActivityType activityType
     ) {
         return ApiResponse.onSuccess(mypageService.getContentActivities(offset, size, activityType));
+    }
+
+    @GetMapping("/credits/history")
+    public ApiResponse<CreditHistoryListResponse> getCreditHistory(
+            @RequestParam(required = false) Integer offset,
+            @RequestParam(required = false) Integer size
+    ) {
+        return ApiResponse.onSuccess(mypageService.getCreditHistory(offset, size));
     }
 
     @GetMapping("/notification-settings")

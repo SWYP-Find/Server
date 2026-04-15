@@ -1,0 +1,66 @@
+name: Java CI/CD with Gradle (Main Server)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Build with Gradle
+        run: |
+          chmod +x ./gradlew
+          ./gradlew build -x test
+
+      # // 1. 전송용 폴더에 JAR 파일만 준비 (환경변수는 보안상 서버에서 직접 생성)
+      - name: Prepare deployment files
+        run: |
+          mkdir -p deploy
+          cp build/libs/*-SNAPSHOT.jar deploy/
+
+      # // 2. 메인 서버 폴더로 JAR 전송
+      - name: Copy files to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "deploy/*"
+          target: "~/main-server"
+          strip_components: 1
+
+      # // 3. 운영 서버 실행 스크립트
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # 1. 기존 8080 프로세스 종료
+            fuser -k 8080/tcp || true 
+            
+            # 2. 운영 서버 폴더 이동
+            cd ~/main-server
+            
+            # 3. .env 파일 생성 (운영 전용 Secrets 사용)
+            # // 1. EOF를 써서 특수문자 깨짐 없이 안전하게 저장
+            cat <<'EOF' > .env
+            ${{ secrets.ENV_VARIABLES }}
+            EOF
+            
+            # 4. 환경 변수 로드 및 운영 서버 실행
+            # // 2. 운영은 400MB 제한으로 안정성 확보
+            set -a; source .env; set +a
+            nohup java -Xmx400m -Dserver.port=8080 -jar *-SNAPSHOT.jar > server.log 2>&1 &

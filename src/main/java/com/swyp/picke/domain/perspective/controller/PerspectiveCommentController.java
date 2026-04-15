@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "관점 댓글 (Comment)", description = "관점 댓글 생성, 조회, 수정, 삭제 API")
+@Tag(name = "관점 댓글 API", description = "관점 댓글 생성, 조회, 수정, 삭제")
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
@@ -51,7 +51,7 @@ public class PerspectiveCommentController {
         return ApiResponse.onSuccess(commentService.getComments(perspectiveId, userId, cursor, size));
     }
 
-    @Operation(summary = "댓글 목록 조회 (옵션 라벨)", description = "특정 관점의 댓글 목록을 커서 기반 페이지네이션으로 조회합니다. stance는 투표한 옵션의 라벨(A/B)로 반환됩니다.")
+    @Operation(summary = "댓글 목록 조회 (옵션 라벨)", description = "특정 관점의 댓글 목록을 커서 기반 페이지네이션으로 조회하며, stance를 투표한 옵션 라벨(A/B)로 반환합니다.")
     @GetMapping("/perspectives/{perspectiveId}/comments/labeled")
     public ApiResponse<CommentListResponse> getCommentsWithLabel(
             @PathVariable Long perspectiveId,
@@ -73,7 +73,7 @@ public class PerspectiveCommentController {
         return ApiResponse.onSuccess(null);
     }
 
-    @Operation(summary = "댓글 수정", description = "본인이 작성한 댓글의 내용을 수정합니다.")
+    @Operation(summary = "댓글 수정", description = "본인이 작성한 댓글 내용을 수정합니다.")
     @PatchMapping("/perspectives/{perspectiveId}/comments/{commentId}")
     public ApiResponse<UpdateCommentResponse> updateComment(
             @PathVariable Long perspectiveId,

@@ -70,6 +70,8 @@ app:
   baseUrl: http://localhost:8080
 picke:
   baseUrl: http://localhost:8080
+  local-storage:
+    root: ${java.io.tmpdir}/picke-local-storage-test
 
 media:
   ffmpeg:

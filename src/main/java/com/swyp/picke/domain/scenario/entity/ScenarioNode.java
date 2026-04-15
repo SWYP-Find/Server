@@ -32,9 +32,11 @@ public class ScenarioNode extends BaseEntity {
     @Column(name = "auto_next_node_id")
     private Long autoNextNodeId;
 
+    @OrderColumn(name = "script_order")
     @OneToMany(mappedBy = "node", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Script> scripts = new ArrayList<>();
 
+    @OrderColumn(name = "option_order")
     @OneToMany(mappedBy = "node", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<InteractiveOption> options = new ArrayList<>();
 

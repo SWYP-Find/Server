@@ -43,6 +43,10 @@ public class JwtFilter extends OncePerRequestFilter {
             "/api/v1/notices",   // 공지사항
             "/api/test",         // 테스트용
             "/result",           // 공유 링크 리다이렉트
+            "/report",          // 철학자 리포트 딥링크
+            "/battle",          // 배틀 딥링크
+            "/api/v1/share/recap/", // 공개 리캡 공유 조회
+            "/.well-known",     // Android App Links 인증
             "/api/v1/resources" // 이미지, 오디오 파일 (Presigned URL)
     );
 

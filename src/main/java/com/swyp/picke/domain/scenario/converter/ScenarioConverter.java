@@ -1,5 +1,9 @@
 package com.swyp.picke.domain.scenario.converter;
 
+import com.swyp.picke.domain.admin.dto.scenario.response.AdminScenarioDetailResponse;
+import com.swyp.picke.domain.admin.dto.scenario.response.AdminScenarioNodeResponse;
+import com.swyp.picke.domain.admin.dto.scenario.response.AdminScenarioOptionResponse;
+import com.swyp.picke.domain.admin.dto.scenario.response.AdminScenarioScriptResponse;
 import com.swyp.picke.domain.scenario.dto.response.*;
 import com.swyp.picke.domain.scenario.entity.InteractiveOption;
 import com.swyp.picke.domain.scenario.entity.Scenario;
@@ -8,7 +12,6 @@ import com.swyp.picke.domain.scenario.entity.Script;
 import com.swyp.picke.domain.scenario.enums.AudioPathType;
 import com.swyp.picke.global.infra.s3.util.ResourceUrlProvider;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -21,12 +24,8 @@ import java.util.stream.Collectors;
 public class ScenarioConverter {
 
     private final ResourceUrlProvider resourceUrlProvider;
-    private static final String BASE_SHARE_URL = "https://pique.app/battles/";
 
-    /**
-     * [유저용] Scenario 엔티티를 프론트엔드 전달용 DTO로 변환합니다.
-     */
-    public UserScenarioResponse toUserResponse(Scenario scenario, AudioPathType recommendedPathKey) {
+        public UserScenarioResponse toUserResponse(Scenario scenario, AudioPathType recommendedPathKey) {
         Long startNodeId = scenario.getNodes().stream()
                 .filter(node -> Boolean.TRUE.equals(node.getIsStartNode()))
                 .map(ScenarioNode::getId)
@@ -56,22 +55,19 @@ public class ScenarioConverter {
                 .build();
     }
 
-    /**
-     * [관리자용] 시나리오 상세 변환 메서드
-     */
-    public AdminScenarioDetailResponse toAdminDetailResponse(Scenario scenario) {
+        public AdminScenarioDetailResponse toAdminDetailResponse(Scenario scenario) {
         return AdminScenarioDetailResponse.builder()
                 .scenarioId(scenario.getId())
                 .battleId(scenario.getBattle().getId())
                 .title(scenario.getBattle().getTitle())
                 .isInteractive(scenario.getIsInteractive())
+                .voiceSettings(new HashMap<>(scenario.getVoiceSettings()))
                 .nodes(scenario.getNodes().stream()
                         .map(this::toAdminNodeResponse)
                         .collect(Collectors.toList()))
                 .build();
     }
 
-    // 유저용 변환 로직
     private NodeResponse toUserNodeResponse(ScenarioNode node) {
         return NodeResponse.builder()
                 .nodeId(node.getId())
@@ -82,7 +78,7 @@ public class ScenarioConverter {
                         .map(this::toUserScriptResponse)
                         .collect(Collectors.toList()))
                 .interactiveOptions(node.getOptions().stream()
-                        .map(this::toOptionResponse)
+                        .map(this::toUserOptionResponse)
                         .collect(Collectors.toList()))
                 .build();
     }
@@ -102,9 +98,8 @@ public class ScenarioConverter {
                 .build();
     }
 
-    // 관리자용 변환 로직
-    private NodeResponse toAdminNodeResponse(ScenarioNode node) {
-        return NodeResponse.builder()
+    private AdminScenarioNodeResponse toAdminNodeResponse(ScenarioNode node) {
+        return AdminScenarioNodeResponse.builder()
                 .nodeId(node.getId())
                 .nodeName(node.getNodeName())
                 .audioDuration(node.getAudioDuration())
@@ -113,13 +108,13 @@ public class ScenarioConverter {
                         .map(this::toAdminScriptResponse)
                         .collect(Collectors.toList()))
                 .interactiveOptions(node.getOptions().stream()
-                        .map(this::toOptionResponse)
+                        .map(this::toAdminOptionResponse)
                         .collect(Collectors.toList()))
                 .build();
     }
 
-    private ScriptResponse toAdminScriptResponse(Script script) {
-        return ScriptResponse.builder()
+    private AdminScenarioScriptResponse toAdminScriptResponse(Script script) {
+        return AdminScenarioScriptResponse.builder()
                 .scriptId(script.getId())
                 .startTimeMs(script.getStartTimeMs())
                 .speakerType(script.getSpeakerType())
@@ -128,8 +123,15 @@ public class ScenarioConverter {
                 .build();
     }
 
-    private OptionResponse toOptionResponse(InteractiveOption option) {
+    private OptionResponse toUserOptionResponse(InteractiveOption option) {
         return OptionResponse.builder()
+                .label(option.getLabel())
+                .nextNodeId(option.getNextNodeId())
+                .build();
+    }
+
+    private AdminScenarioOptionResponse toAdminOptionResponse(InteractiveOption option) {
+        return AdminScenarioOptionResponse.builder()
                 .label(option.getLabel())
                 .nextNodeId(option.getNextNodeId())
                 .build();

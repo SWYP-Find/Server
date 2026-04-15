@@ -2,7 +2,18 @@ package com.swyp.picke.domain.battle.entity;
 
 import com.swyp.picke.domain.battle.enums.BattleOptionLabel;
 import com.swyp.picke.global.common.BaseEntity;
-import jakarta.persistence.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -31,29 +42,35 @@ public class BattleOption extends BaseEntity {
     @Column(length = 100)
     private String representative;
 
-    @Column(columnDefinition = "TEXT")
-    private String quote;
-
     @Column(name = "vote_count")
     private Long voteCount = 0L;
-
-    @Column(name = "is_correct")
-    private Boolean isCorrect = false;
 
     @Column(name = "image_url", length = 500)
     private String imageUrl;
 
+    @Column(name = "display_order")
+    private Integer displayOrder;
+
+    @OneToMany(mappedBy = "battleOption", cascade = CascadeType.ALL, orphanRemoval = true)
+    private final List<BattleOptionTag> tags = new ArrayList<>();
+
     @Builder
-    public BattleOption(Battle battle, BattleOptionLabel label, String title, String stance,
-                        String representative, String quote, String imageUrl, Boolean isCorrect) {
+    public BattleOption(
+            Battle battle,
+            BattleOptionLabel label,
+            String title,
+            String stance,
+            String representative,
+            String imageUrl,
+            Integer displayOrder
+    ) {
         this.battle = battle;
         this.label = label;
         this.title = title;
         this.stance = stance;
         this.representative = representative;
-        this.quote = quote;
         this.imageUrl = imageUrl;
-        this.isCorrect = (isCorrect != null) && isCorrect;
+        this.displayOrder = displayOrder;
         this.voteCount = 0L;
     }
 
@@ -67,12 +84,21 @@ public class BattleOption extends BaseEntity {
         }
     }
 
-    public void update(String title, String stance, String representative, String quote, String imageUrl, Boolean isCorrect) {
-        if (title != null) this.title = title;
-        if (stance != null) this.stance = stance;
-        if (representative != null) this.representative = representative;
-        if (quote != null) this.quote = quote;
-        if (imageUrl != null) this.imageUrl = imageUrl;
-        if (isCorrect != null) this.isCorrect = isCorrect;
+    public void update(String title, String stance, String representative, String imageUrl) {
+        if (title != null) {
+            this.title = title;
+        }
+        if (stance != null) {
+            this.stance = stance;
+        }
+        if (representative != null) {
+            this.representative = representative;
+        }
+        if (imageUrl != null) {
+            this.imageUrl = imageUrl;
+        }
+        if (displayOrder != null) {
+            this.displayOrder = displayOrder;
+        }
     }
 }

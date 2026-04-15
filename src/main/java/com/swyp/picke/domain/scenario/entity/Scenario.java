@@ -4,6 +4,7 @@ import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.scenario.enums.AudioPathType;
 import com.swyp.picke.domain.scenario.enums.CreatorType;
 import com.swyp.picke.domain.scenario.enums.ScenarioStatus;
+import com.swyp.picke.domain.scenario.enums.SpeakerType;
 import com.swyp.picke.global.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -41,6 +42,14 @@ public class Scenario extends BaseEntity {
     @Column(name = "audio_url")
     private Map<AudioPathType, String> audios = new EnumMap<>(AudioPathType.class);
 
+    @ElementCollection
+    @CollectionTable(name = "scenario_voice_settings", joinColumns = @JoinColumn(name = "scenario_id"))
+    @MapKeyEnumerated(EnumType.STRING)
+    @MapKeyColumn(name = "speaker_type")
+    @Column(name = "voice_code")
+    private Map<SpeakerType, String> voiceSettings = new EnumMap<>(SpeakerType.class);
+
+    @OrderColumn(name = "node_order")
     @OneToMany(mappedBy = "scenario", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ScenarioNode> nodes = new ArrayList<>();
 
@@ -67,5 +76,16 @@ public class Scenario extends BaseEntity {
 
     public void clearAudios() {
         this.audios.clear();
+    }
+
+    public void replaceVoiceSettings(Map<SpeakerType, String> voiceSettings) {
+        this.voiceSettings.clear();
+        if (voiceSettings != null) {
+            this.voiceSettings.putAll(voiceSettings);
+        }
+    }
+
+    public String getVoiceCode(SpeakerType speakerType) {
+        return this.voiceSettings.get(speakerType);
     }
 }

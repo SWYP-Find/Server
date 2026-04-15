@@ -9,9 +9,9 @@ import com.swyp.picke.domain.scenario.dto.request.NodeRequest;
 import com.swyp.picke.domain.scenario.dto.request.OptionRequest;
 import com.swyp.picke.domain.scenario.dto.request.ScenarioCreateRequest;
 import com.swyp.picke.domain.scenario.dto.request.ScriptRequest;
-import com.swyp.picke.domain.scenario.dto.response.AdminDeleteResponse;
-import com.swyp.picke.domain.scenario.dto.response.AdminScenarioDetailResponse;
-import com.swyp.picke.domain.scenario.dto.response.AdminScenarioResponse;
+import com.swyp.picke.domain.admin.dto.scenario.response.AdminDeleteResponse;
+import com.swyp.picke.domain.admin.dto.scenario.response.AdminScenarioDetailResponse;
+import com.swyp.picke.domain.admin.dto.scenario.response.AdminScenarioResponse;
 import com.swyp.picke.domain.scenario.dto.response.UserScenarioResponse;
 import com.swyp.picke.domain.scenario.entity.InteractiveOption;
 import com.swyp.picke.domain.scenario.entity.Scenario;
@@ -20,9 +20,10 @@ import com.swyp.picke.domain.scenario.entity.Script;
 import com.swyp.picke.domain.scenario.enums.AudioPathType;
 import com.swyp.picke.domain.scenario.enums.CreatorType;
 import com.swyp.picke.domain.scenario.enums.ScenarioStatus;
+import com.swyp.picke.domain.scenario.enums.SpeakerType;
 import com.swyp.picke.domain.scenario.repository.ScenarioRepository;
-import com.swyp.picke.domain.vote.entity.Vote;
-import com.swyp.picke.domain.vote.repository.VoteRepository;
+import com.swyp.picke.domain.vote.entity.BattleVote;
+import com.swyp.picke.domain.vote.repository.BattleVoteRepository;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import com.swyp.picke.global.infra.s3.service.S3UploadService;
@@ -34,10 +35,14 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
+import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -46,23 +51,22 @@ public class ScenarioServiceImpl implements ScenarioService {
 
     private final ScenarioRepository scenarioRepository;
     private final BattleRepository battleRepository;
-    private final VoteRepository voteRepository;
+    private final BattleVoteRepository battleVoteRepository;
     private final ScenarioConverter scenarioConverter;
     private final ScenarioAudioPipelineService audioPipelineService;
     private final S3UploadService s3Service;
     private final BattleOptionRepository battleOptionRepository;
 
-    // [유저용] 시나리오 조회 (투표 기반 맞춤 오디오 제공)
     @Override
     public UserScenarioResponse getScenarioForUser(Long battleId, Long userId) {
         Scenario scenario = scenarioRepository.findByBattleIdAndStatus(battleId, ScenarioStatus.PUBLISHED)
                 .orElseThrow(() -> new CustomException(ErrorCode.SCENARIO_NOT_FOUND));
 
-        Optional<Vote> optionalVote = voteRepository.findByBattleIdAndUserId(battleId, userId);
+        Optional<BattleVote> optionalVote = battleVoteRepository.findByBattleIdAndUserId(battleId, userId);
         AudioPathType recommendedKey = AudioPathType.COMMON;
 
         if (optionalVote.isPresent()) {
-            Vote vote = optionalVote.get();
+            BattleVote vote = optionalVote.get();
             if (scenario.getIsInteractive()) {
                 if (vote.getPreVoteOption().getLabel().name().equalsIgnoreCase("A")) {
                     recommendedKey = AudioPathType.PATH_A;
@@ -75,7 +79,6 @@ public class ScenarioServiceImpl implements ScenarioService {
         return scenarioConverter.toUserResponse(scenario, recommendedKey);
     }
 
-    // [관리자용] 배틀 시나리오 전체 조회
     @Override
     @PreAuthorize("hasRole('ADMIN')")
     public AdminScenarioDetailResponse getScenarioForAdmin(Long battleId) {
@@ -85,7 +88,6 @@ public class ScenarioServiceImpl implements ScenarioService {
                 .orElse(null);
     }
 
-    // [관리자] 시나리오 CRUD 로직
     @Override
     @Transactional
     @PreAuthorize("hasRole('ADMIN')")
@@ -103,16 +105,16 @@ public class ScenarioServiceImpl implements ScenarioService {
                 .status(request.status())
                 .creatorType(CreatorType.ADMIN)
                 .build();
+        scenario.replaceVoiceSettings(normalizeVoiceSettings(request.voiceSettings()));
 
-        // 1. 부모 시나리오 먼저 저장 (ID 발급)
         scenarioRepository.save(scenario);
 
-        // 2. 노드 및 스크립트 저장 시 speakerMap 생성 및 전달
         Map<String, String> speakerMap = createSpeakerMap(battle);
         smartUpdateNodesToScenario(scenario, request, speakerMap);
 
-        // 3. 오디오 파이프라인 호출 (트랜잭션 커밋 후 비동기 실행)
-        triggerAudioPipeline(scenario.getId());
+        if (request.status() == ScenarioStatus.PUBLISHED) {
+            triggerAudioPipeline(scenario.getId());
+        }
 
         return scenario.getId();
     }
@@ -124,17 +126,18 @@ public class ScenarioServiceImpl implements ScenarioService {
         Scenario scenario = scenarioRepository.findById(scenarioId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SCENARIO_NOT_FOUND));
 
-        // 스마트 업데이트 로직 호출 시 speakerMap 생성 및 전달
         Map<String, String> speakerMap = createSpeakerMap(scenario.getBattle());
-        boolean isModified = smartUpdateNodesToScenario(scenario, request, speakerMap);
+        boolean scriptOrNodeModified = smartUpdateNodesToScenario(scenario, request, speakerMap);
+        Set<SpeakerType> changedSpeakers = updateVoiceSettings(scenario, request.voiceSettings());
+        if (!changedSpeakers.isEmpty()) {
+            invalidateScriptAudiosBySpeaker(scenario, changedSpeakers);
+        }
+        boolean isModified = scriptOrNodeModified || !changedSpeakers.isEmpty();
 
-        // 대본 내용(노드, 대사 등)이 하나라도 바뀌었다면?
         if (isModified) {
-            // 1. 기존에 만들어둔 '최종 병합 오디오(A루트, B루트 등)'를 S3에서 전부 삭제!
             for (String mergedAudioUrl : scenario.getAudios().values()) {
                 if (mergedAudioUrl != null) s3Service.deleteFile(mergedAudioUrl);
             }
-            // 2. DB에서 최종 오디오 URL 초기화
             scenario.clearAudios();
         }
     }
@@ -205,7 +208,8 @@ public class ScenarioServiceImpl implements ScenarioService {
 
                 if (nodeReq.scripts() != null) {
                     for (ScriptRequest scriptReq : nodeReq.scripts()) {
-                        String autoSpeakerName = speakerMap.getOrDefault(scriptReq.speakerType(), scriptReq.speakerName());
+                        String speakerKey = scriptReq.speakerType() == null ? null : scriptReq.speakerType().name();
+                        String autoSpeakerName = speakerMap.getOrDefault(speakerKey, scriptReq.speakerName());
                         newNode.addScript(Script.builder()
                                 .startTimeMs(0)
                                 .speakerType(scriptReq.speakerType())
@@ -219,7 +223,6 @@ public class ScenarioServiceImpl implements ScenarioService {
             }
         }
 
-        // 노드가 삭제될 때, 그 안에 있던 개별 대사의 오디오 파일도 S3에서 삭제
         boolean nodesRemoved = scenario.getNodes().removeIf(node -> {
             boolean shouldRemove = !updatedNodeMap.containsKey(node.getNodeName());
             if (shouldRemove) {
@@ -235,7 +238,6 @@ public class ScenarioServiceImpl implements ScenarioService {
         if (nodesRemoved) isModified = true;
         scenarioRepository.flush();
 
-        // 링크 재구축 로직
         for (NodeRequest nodeReq : request.nodes()) {
             ScenarioNode parentNode = updatedNodeMap.get(nodeReq.nodeName());
             if (nodeReq.autoNextNode() != null && !nodeReq.autoNextNode().isBlank()) {
@@ -256,9 +258,6 @@ public class ScenarioServiceImpl implements ScenarioService {
         return isModified;
     }
 
-    /**
-     * 공통 로직: 트랜잭션이 성공적으로 DB에 반영(Commit)된 후 비동기 오디오 작업 시작
-     */
     private void triggerAudioPipeline(Long scenarioId) {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
@@ -268,7 +267,6 @@ public class ScenarioServiceImpl implements ScenarioService {
         });
     }
 
-    // 텍스트 변경 및 대사 삭제 시 S3 정리 로직
     private boolean updateScriptsSmartly(ScenarioNode existingNode, java.util.List<ScriptRequest> requestedScripts, Map<String, String> speakerMap) {
         boolean isModified = false;
         if (requestedScripts == null) return false;
@@ -276,19 +274,19 @@ public class ScenarioServiceImpl implements ScenarioService {
 
         for (int i = 0; i < requestedScripts.size(); i++) {
             ScriptRequest reqScript = requestedScripts.get(i);
-            String autoSpeakerName = speakerMap.getOrDefault(reqScript.speakerType(), reqScript.speakerName());
+            String speakerKey = reqScript.speakerType() == null ? null : reqScript.speakerType().name();
+            String autoSpeakerName = speakerMap.getOrDefault(speakerKey, reqScript.speakerName());
 
             if (i < existingScripts.size()) {
                 Script existingScript = existingScripts.get(i);
 
-                // 텍스트가 달라졌다면?
-                if (!existingScript.getText().equals(reqScript.text()) || !existingScript.getSpeakerName().equals(autoSpeakerName)) {
+                if (!Objects.equals(existingScript.getText(), reqScript.text())
+                        || !Objects.equals(existingScript.getSpeakerName(), autoSpeakerName)
+                        || existingScript.getSpeakerType() != reqScript.speakerType()) {
                     isModified = true;
-                    // 1. S3에서 기존 오디오 조각 파일 완전히 삭제
                     if (existingScript.getAudioUrl() != null) {
                         s3Service.deleteFile(existingScript.getAudioUrl());
                     }
-                    // 2. DB 업데이트
                     existingScript.updateContent(
                             reqScript.speakerType(),
                             autoSpeakerName,
@@ -332,5 +330,55 @@ public class ScenarioServiceImpl implements ScenarioService {
         }
 
         return map;
+    }
+
+    private Set<SpeakerType> updateVoiceSettings(Scenario scenario, Map<SpeakerType, String> requestedVoiceSettings) {
+        Map<SpeakerType, String> normalizedRequested = normalizeVoiceSettings(requestedVoiceSettings);
+        Map<SpeakerType, String> current = scenario.getVoiceSettings();
+        Set<SpeakerType> changedSpeakers = new HashSet<>();
+
+        for (SpeakerType speakerType : SpeakerType.values()) {
+            if (!Objects.equals(current.get(speakerType), normalizedRequested.get(speakerType))) {
+                changedSpeakers.add(speakerType);
+            }
+        }
+
+        if (!changedSpeakers.isEmpty()) {
+            scenario.replaceVoiceSettings(normalizedRequested);
+        }
+        return changedSpeakers;
+    }
+
+    private void invalidateScriptAudiosBySpeaker(Scenario scenario, Set<SpeakerType> changedSpeakers) {
+        for (ScenarioNode node : scenario.getNodes()) {
+            for (Script script : node.getScripts()) {
+                if (!changedSpeakers.contains(script.getSpeakerType())) continue;
+                if (script.getAudioUrl() != null) {
+                    s3Service.deleteFile(script.getAudioUrl());
+                    script.updateAudioUrl(null);
+                }
+            }
+        }
+    }
+
+    private Map<SpeakerType, String> normalizeVoiceSettings(Map<SpeakerType, String> requestedVoiceSettings) {
+        Map<SpeakerType, String> normalized = new EnumMap<>(SpeakerType.class);
+        if (requestedVoiceSettings == null || requestedVoiceSettings.isEmpty()) {
+            return normalized;
+        }
+
+        for (Map.Entry<SpeakerType, String> entry : requestedVoiceSettings.entrySet()) {
+            SpeakerType speakerType = entry.getKey();
+            if (speakerType == null) continue;
+
+            String voiceCode = entry.getValue();
+            if (voiceCode == null) continue;
+
+            String trimmed = voiceCode.trim();
+            if (!trimmed.isEmpty()) {
+                normalized.put(speakerType, trimmed);
+            }
+        }
+        return normalized;
     }
 }

@@ -8,6 +8,7 @@
 - **유저 식별**: `custom_data` 필드에 담긴 값을 내부 `user_id`로 매핑하여 처리합니다.
 - **타입 검증**: `reward_item` 값은 내부 `RewardType` Enum과 매핑하며, 정의되지 않은 값(예: "123")은 에러 처리합니다.
 - **데이터 보존**: 보상 요청의 성공 이력을 `ad_reward_history` 테이블에 적재합니다.
+- 사용자 크레딧 히스토리 조회는 별도 `/api/v1/me/credits/history` API로 분리되어 있으며 이 문서 범위에 포함하지 않습니다.
 
 ---
 
@@ -55,34 +56,9 @@
 
 ---
 
-## 3. 내 보상 이력 API
+## 3. 에러 코드
 
-### 3.1 GET /api/v1/me/rewards/history
-
-로그인한 사용자의 보상 획득 이력 조회.쿼리 파라미터
-
-```JSON
-{
-   "statusCode": 200,
-   "data": {
-   "items": [
-       {
-           "history_id": 105,
-           "reward_type": "POINT",
-           "reward_amount": 100,
-           "transaction_id": "unique_trans_id_20260327_001",
-           "created_at": "2026-03-27T18:00:00Z"
-       }
-   ], 
-     "next_cursor": 104
-   }, 
-     "error": null
-   }
-```
-
-## 4. 에러 코드
-
-### 4.1 보상 관련 에러 코드
+### 3.1 보상 관련 에러 코드
 
 ### 🚨 보상 API 에러 응답 JSON 샘플
 
@@ -126,7 +102,7 @@
 ```
 ---
 
-##  공통 에러 코드
+## 4. 공통 에러 코드
 
 | Error Code | HTTP Status | 설명                                  |
 |------------|:-----------:|-------------------------------------|

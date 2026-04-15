@@ -67,11 +67,6 @@ fishaudio:
   api-key: ${FISHAUDIO_API_KEY}
   tts:
     url: https://api.fish.audio/v1/tts
-  voice-id:
-    a: ${FISHAUDIO_VOICE_A}
-    b: ${FISHAUDIO_VOICE_B}
-    user: ${FISHAUDIO_VOICE_USER}
-    narrator: ${FISHAUDIO_VOICE_NARRATOR}
 
 elevenlabs:
   api-key: ${ELEVENLABS_API_KEY}
@@ -105,6 +100,8 @@ picke:
   s3:
     presigned-url:
       expiration-hours: 6
+  local-storage:
+    root: ${PICKE_LOCAL_STORAGE_ROOT:${java.io.tmpdir}/picke-local-storage}
 
 # 9. 미디어 처리 설정 (FFmpeg)
 media:

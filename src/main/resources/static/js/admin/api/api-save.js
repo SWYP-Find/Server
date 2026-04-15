@@ -1,219 +1,335 @@
-// action 파라미터: 'PENDING'(임시저장), 'EDIT'(단순수정), 'PUBLISH'(발행 및 오디오생성)
-window.saveContent = async (action) => {
-    const targetStatus = action === 'PENDING' ? 'PENDING' : 'PUBLISHED';
-
+﻿window.saveContent = async (action) => {
     const loader = document.getElementById('global-loader');
     const loaderText = document.getElementById('loader-text');
+
+    const statusFromAction = action === 'PENDING' ? 'PENDING' : 'PUBLISHED';
+
     if (loader) {
         if (loaderText) {
-            if (action === 'PUBLISH') loaderText.innerText = "발행 및 오디오 생성 중...";
-            else if (action === 'EDIT') loaderText.innerText = "수정된 내용 저장 중...";
-            else loaderText.innerText = "임시저장 중...";
+            if (action === 'PUBLISHED' || action === 'PUBLISH') loaderText.innerText = '콘텐츠를 발행하는 중입니다...';
+            else if (action === 'EDIT') loaderText.innerText = '콘텐츠를 수정하는 중입니다...';
+            else loaderText.innerText = '임시 저장 중입니다...';
         }
         loader.classList.remove('hidden');
         loader.classList.add('flex');
     }
 
+    const toUrlString = (urlObj) => {
+        if (!urlObj) return null;
+        if (typeof urlObj === 'string') return urlObj;
+        return urlObj.s3Key || urlObj.presignedUrl || String(urlObj);
+    };
+
+    const asIntOrNull = (value) => {
+        if (value == null || value === '') return null;
+        const parsed = Number(value);
+        return Number.isNaN(parsed) ? null : parsed;
+    };
+
+    const getTargetDate = (type) => {
+        const inputIdByType = {
+            BATTLE: 'battle-target-date',
+            QUIZ: 'quiz-target-date',
+            POLL: 'poll-target-date'
+        };
+        return document.getElementById(inputIdByType[type])?.value || PickeData.currentTargetDate || new Date().toISOString().split('T')[0];
+    };
+
+    const getStatus = (type) => {
+        if (action === 'PENDING') return 'PENDING';
+        if (action === 'PUBLISHED' || action === 'PUBLISH') return 'PUBLISHED';
+
+        const statusInputByType = {
+            BATTLE: 'battle-status',
+            QUIZ: 'quiz-status',
+            POLL: 'poll-status'
+        };
+        return document.getElementById(statusInputByType[type])?.value || statusFromAction;
+    };
+
     try {
+        const currentType = PickeData.currentContentType;
+        const previousStatus = PickeData.currentStatus;
+        const targetDate = getTargetDate(currentType);
+        const resolvedStatus = getStatus(currentType);
+        const shouldUploadAssets = action === 'PUBLISHED' || action === 'PUBLISH';
+        const shouldUploadLocalDraft = action === 'PENDING';
+
+        PickeData.currentTargetDate = targetDate;
+
         let thumbnailUrl = PickeData.existingUrls.thumbnail;
         let charAUrl = PickeData.existingUrls.charA;
         let charBUrl = PickeData.existingUrls.charB;
 
-        try {
-            if (PickeData.uploadedFiles.thumbnail) thumbnailUrl = await window.uploadImageToServer(PickeData.uploadedFiles.thumbnail, 'BATTLE');
-            if (PickeData.uploadedFiles.charA) charAUrl = await window.uploadImageToServer(PickeData.uploadedFiles.charA, 'PHILOSOPHER');
-            if (PickeData.uploadedFiles.charB) charBUrl = await window.uploadImageToServer(PickeData.uploadedFiles.charB, 'PHILOSOPHER');
-        } catch (e) { throw new Error("이미지 업로드에 실패했습니다."); }
+        if (currentType === 'BATTLE') {
+            const uploadByAction = async (file, category) => {
+                if (!file) return null;
+                if (shouldUploadAssets) return window.uploadImageToServer(file, category);
+                if (shouldUploadLocalDraft) return window.uploadImageToLocalDraft(file);
+                return null;
+            };
 
-        if (thumbnailUrl && typeof thumbnailUrl === 'object') {
-            thumbnailUrl = thumbnailUrl.s3Key || thumbnailUrl.presignedUrl || String(thumbnailUrl);
-        }
-        if (charAUrl && typeof charAUrl === 'object') {
-            charAUrl = charAUrl.s3Key || charAUrl.presignedUrl || String(charAUrl);
-        }
-        if (charBUrl && typeof charBUrl === 'object') {
-            charBUrl = charBUrl.s3Key || charBUrl.presignedUrl || String(charBUrl);
-        }
-
-        // 1. 페이로드 구조
-        let payload = {
-            status: targetStatus,
-            type: PickeData.currentContentType,
-            tagIds: PickeData.selections.BASIC,
-            thumbnailUrl: thumbnailUrl,
-            targetDate: new Date().toISOString().split('T')[0],
-            title: '',
-            titlePrefix: null,
-            titleSuffix: null,
-            itemA: null,
-            itemADesc: null,
-            itemB: null,
-            itemBDesc: null,
-            summary: '',
-            description: '',
-            options: []
-        };
-
-        // 2. 타입별 데이터 매핑
-        // [BATTLE]
-        if (PickeData.currentContentType === 'BATTLE') {
-            payload.title = document.getElementById('content-title')?.value || '';
-            payload.summary = document.getElementById('content-summary')?.value || '';
-            payload.description = document.getElementById('content-desc')?.value || '';
-            payload.options = [
-                { label: 'A', title: document.getElementById('char-a-title')?.value || '', stance: document.getElementById('char-a-stance')?.value || '', representative: document.getElementById('char-a-rep')?.value || '', /*quote: document.getElementById('char-a-quote')?.value || '',*/ imageUrl: charAUrl, tagIds: PickeData.selections.A },
-                { label: 'B', title: document.getElementById('char-b-title')?.value || '', stance: document.getElementById('char-b-stance')?.value || '', representative: document.getElementById('char-b-rep')?.value || '', quote: document.getElementById('char-b-quote')?.value || '', imageUrl: charBUrl, tagIds: PickeData.selections.B }
-            ];
-        }
-        // [QUIZ]
-        else if (PickeData.currentContentType === 'QUIZ') {
-            payload.title = document.getElementById('quiz-question')?.value || '';
-            payload.description = document.getElementById('quiz-desc')?.value || '';
-            payload.itemA = document.getElementById('quiz-perf-a')?.value || '';
-            payload.itemADesc = document.getElementById('quiz-detail-a')?.value || '';
-            payload.itemB = document.getElementById('quiz-perf-b')?.value || '';
-            payload.itemBDesc = document.getElementById('quiz-detail-b')?.value || '';
-            payload.options = [
-                {
-                    label: 'A',
-                    title: document.getElementById('quiz-o-text')?.value || '',
-                    stance: document.getElementById('quiz-o-desc')?.value || '',
-                    isCorrect: document.getElementById('quiz-answer-a')?.checked || false,
-                    imageUrl: null,
-                    tagIds: []
-                },
-                {
-                    label: 'B',
-                    title: document.getElementById('quiz-x-text')?.value || '',
-                    stance: document.getElementById('quiz-x-desc')?.value || '',
-                    isCorrect: document.getElementById('quiz-answer-b')?.checked || false,
-                    imageUrl: null,
-                    tagIds: []
-                }
-            ];
-        }
-        // [VOTE]
-        else if (PickeData.currentContentType === 'VOTE') {
-            payload.titlePrefix = document.getElementById('vote-q-prefix')?.value || '';
-            payload.titleSuffix = document.getElementById('vote-q-suffix')?.value || '';
-            payload.title = payload.titlePrefix;
-
-            payload.description = document.getElementById('vote-desc')?.value || '';
-            const voteOpts = [];
-            for (let i = 1; i <= 4; i++) {
-                const val = document.getElementById(`vote-opt-${i}`)?.value.trim();
-                if (val) {
-                    voteOpts.push({ label: String.fromCharCode(64 + i), title: val, stance: '', imageUrl: null, tagIds: [] });
-                }
+            if (PickeData.uploadedFiles.thumbnail) {
+                thumbnailUrl = await uploadByAction(PickeData.uploadedFiles.thumbnail, 'BATTLE');
             }
-            payload.options = voteOpts;
+            if (PickeData.uploadedFiles.charA) {
+                charAUrl = await uploadByAction(PickeData.uploadedFiles.charA, 'PHILOSOPHER');
+            }
+            if (PickeData.uploadedFiles.charB) {
+                charBUrl = await uploadByAction(PickeData.uploadedFiles.charB, 'PHILOSOPHER');
+            }
         }
 
-        // 백엔드 DTO(String)에 맞게 모든 이미지 URL 객체를 문자열로 변환
-        const extractUrlString = (urlObj) => {
-            if (!urlObj) return null;
-            if (typeof urlObj === 'string') return urlObj;
-            return urlObj.s3Key || urlObj.presignedUrl || String(urlObj);
-        };
+        thumbnailUrl = toUrlString(thumbnailUrl);
+        charAUrl = toUrlString(charAUrl);
+        charBUrl = toUrlString(charBUrl);
 
-        // 1. 썸네일 변환
-        payload.thumbnailUrl = extractUrlString(payload.thumbnailUrl);
+        let payload = null;
+        let requestUrl = '';
 
-        // 2. 선택지(options) 안의 모든 이미지 변환
-        if (payload.options && payload.options.length > 0) {
-            payload.options.forEach(opt => {
-                opt.imageUrl = extractUrlString(opt.imageUrl);
-            });
+        if (currentType === 'BATTLE') {
+            payload = {
+                status: resolvedStatus,
+                title: document.getElementById('content-title')?.value || '',
+                summary: document.getElementById('content-summary')?.value || '',
+                description: document.getElementById('content-desc')?.value || '',
+                thumbnailUrl: thumbnailUrl || document.getElementById('battle-thumbnail-url')?.value || null,
+                targetDate,
+                audioDuration: asIntOrNull(document.getElementById('battle-audio-duration')?.value),
+                tagIds: PickeData.selections.CATEGORY || [],
+                options: [
+                    {
+                        label: 'A',
+                        title: document.getElementById('char-a-title')?.value || '',
+                        stance: document.getElementById('char-a-stance')?.value || '',
+                        representative: document.getElementById('char-a-rep')?.value || '',
+                        imageUrl: charAUrl || document.getElementById('char-a-image-url')?.value || null,
+                        displayOrder: asIntOrNull(document.getElementById('char-a-display-order')?.value) || 1,
+                        tagIds: [
+                            ...(PickeData.selections.BATTLE_A_PHILOSOPHER || []),
+                            ...(PickeData.selections.BATTLE_A_VALUE || [])
+                        ]
+                    },
+                    {
+                        label: 'B',
+                        title: document.getElementById('char-b-title')?.value || '',
+                        stance: document.getElementById('char-b-stance')?.value || '',
+                        representative: document.getElementById('char-b-rep')?.value || '',
+                        imageUrl: charBUrl || document.getElementById('char-b-image-url')?.value || null,
+                        displayOrder: asIntOrNull(document.getElementById('char-b-display-order')?.value) || 2,
+                        tagIds: [
+                            ...(PickeData.selections.BATTLE_B_PHILOSOPHER || []),
+                            ...(PickeData.selections.BATTLE_B_VALUE || [])
+                        ]
+                    }
+                ]
+            };
+            requestUrl = PickeData.isEditMode ? PickeData.API.BATTLE_UPDATE(PickeData.currentContentId) : PickeData.API.BATTLE_CREATE;
+        } else if (currentType === 'QUIZ') {
+            payload = {
+                title: document.getElementById('quiz-title')?.value || '',
+                targetDate,
+                status: resolvedStatus,
+                options: [
+                    {
+                        label: 'A',
+                        text: document.getElementById('quiz-option-a-title')?.value || '',
+                        detailText: document.getElementById('quiz-option-a-detail')?.value || '',
+                        isCorrect: document.getElementById('quiz-answer-a')?.checked || false,
+                        displayOrder: asIntOrNull(document.getElementById('quiz-option-a-display-order')?.value) || 1
+                    },
+                    {
+                        label: 'B',
+                        text: document.getElementById('quiz-option-b-title')?.value || '',
+                        detailText: document.getElementById('quiz-option-b-detail')?.value || '',
+                        isCorrect: document.getElementById('quiz-answer-b')?.checked || false,
+                        displayOrder: asIntOrNull(document.getElementById('quiz-option-b-display-order')?.value) || 2
+                    }
+                ]
+            };
+            requestUrl = PickeData.isEditMode ? PickeData.API.QUIZ_UPDATE(PickeData.currentContentId) : PickeData.API.QUIZ_CREATE;
+        } else {
+            const pollOptions = [
+                { label: 'A', titleId: 'poll-option-1-title', orderId: 'poll-option-1-display-order' },
+                { label: 'B', titleId: 'poll-option-2-title', orderId: 'poll-option-2-display-order' },
+                { label: 'C', titleId: 'poll-option-3-title', orderId: 'poll-option-3-display-order' },
+                { label: 'D', titleId: 'poll-option-4-title', orderId: 'poll-option-4-display-order' }
+            ]
+                .map((option, index) => ({
+                    label: option.label,
+                    title: document.getElementById(option.titleId)?.value || '',
+                    displayOrder: asIntOrNull(document.getElementById(option.orderId)?.value) || (index + 1)
+                }))
+                .filter((option) => option.title.trim().length > 0);
+
+            payload = {
+                titlePrefix: document.getElementById('poll-title-prefix')?.value || '',
+                titleSuffix: document.getElementById('poll-title-suffix')?.value || '',
+                targetDate,
+                status: resolvedStatus,
+                options: pollOptions
+            };
+            requestUrl = PickeData.isEditMode ? PickeData.API.POLL_UPDATE(PickeData.currentContentId) : PickeData.API.POLL_CREATE;
         }
 
-        // 3. 요청 및 시나리오 로직
-        const battleUrl = PickeData.isEditMode ? PickeData.API.BATTLE_UPDATE(PickeData.currentContentId) : PickeData.API.BATTLE_CREATE;
-        console.log("[STEP 1] 서버로 보내는 데이터(Payload):", payload);
-        const battleRes = await fetch(battleUrl, {
+        const saveRes = await fetch(requestUrl, {
             method: PickeData.isEditMode ? 'PATCH' : 'POST',
             headers: PickeData.getAuthHeaders(),
             body: JSON.stringify(payload)
         });
-        if (!battleRes.ok) throw new Error("컨텐츠 정보 저장 실패");
+        if (!saveRes.ok) throw new Error('콘텐츠 저장에 실패했습니다.');
 
-        const battleData = await battleRes.json();
-        const savedBattleId = PickeData.isEditMode ? PickeData.currentContentId : (
-            battleData.result?.battleId || battleData.result?.id || battleData.data?.battleId || battleData.id
-        );
+        const saved = await saveRes.json();
+        const result = saved.result || saved.data || {};
+        const savedId = result.battleId || result.quizId || result.pollId || result.id || PickeData.currentContentId;
 
         if (!PickeData.isEditMode) {
-            PickeData.currentContentId = savedBattleId;
+            PickeData.currentContentId = savedId;
             PickeData.isEditMode = true;
         }
 
-        // [SCENARIO]
-        if (PickeData.currentContentType === 'BATTLE') {
-            if (!savedBattleId) throw new Error("배틀 생성 후 ID를 가져오지 못했습니다.");
+        if (currentType === 'BATTLE') {
             const isInteractive = !document.getElementById('branch-container')?.classList.contains('hidden');
-            const nodes = [];
+
             const extractScripts = (containerId) => {
                 const scripts = [];
-                document.querySelectorAll(`#${containerId} .script-block`).forEach(block => {
+                document.querySelectorAll(`#${containerId} .script-block`).forEach((block) => {
                     const speakerSelect = block.querySelector('.speaker-select');
                     const scriptTextArea = block.querySelector('.script-text');
-                    if (speakerSelect && scriptTextArea) {
-                        const speakerType = speakerSelect.value;
-                        let speakerName = '나레이터';
-                        if (speakerType === 'A') speakerName = document.getElementById('char-a-rep')?.value || '인물 A';
-                        if (speakerType === 'B') speakerName = document.getElementById('char-b-rep')?.value || '인물 B';
-                        scripts.push({ speakerType, speakerName, text: scriptTextArea.value });
-                    }
+                    if (!speakerSelect || !scriptTextArea) return;
+
+                    const speakerType = speakerSelect.value;
+                    let speakerName = 'NARRATOR';
+                    if (speakerType === 'A') speakerName = document.getElementById('char-a-rep')?.value || 'A';
+                    if (speakerType === 'B') speakerName = document.getElementById('char-b-rep')?.value || 'B';
+                    scripts.push({ speakerType, speakerName, text: scriptTextArea.value });
                 });
                 return scripts;
             };
+
             const startOptions = [];
             if (isInteractive) {
                 startOptions.push({ label: document.getElementById('branch-a-label')?.value || 'A', nextNodeName: 'BRANCH_A' });
                 startOptions.push({ label: document.getElementById('branch-b-label')?.value || 'B', nextNodeName: 'BRANCH_B' });
             }
-            nodes.push({ nodeName: 'START', isStartNode: true, autoNextNode: isInteractive ? null : 'CLOSING', scripts: extractScripts('start-node-container'), interactiveOptions: startOptions });
+
+            const nodes = [
+                {
+                    nodeName: 'START',
+                    isStartNode: true,
+                    autoNextNode: isInteractive ? null : 'CLOSING',
+                    scripts: extractScripts('start-node-container'),
+                    interactiveOptions: startOptions
+                }
+            ];
+
             if (isInteractive) {
                 nodes.push({ nodeName: 'BRANCH_A', isStartNode: false, autoNextNode: 'CLOSING', scripts: extractScripts('branch-a-node-container'), interactiveOptions: [] });
                 nodes.push({ nodeName: 'BRANCH_B', isStartNode: false, autoNextNode: 'CLOSING', scripts: extractScripts('branch-b-node-container'), interactiveOptions: [] });
             }
-            nodes.push({ nodeName: 'CLOSING', isStartNode: false, autoNextNode: null, scripts: extractScripts('closing-node-container'), interactiveOptions: [] });
-            const scenarioPayload = { battleId: savedBattleId, isInteractive, nodes, status: targetStatus };
-            const scenMethod = PickeData.scenarioId ? 'PUT' : 'POST';
-            const scenUrl = PickeData.scenarioId ? `/api/v1/admin/scenarios/${PickeData.scenarioId}` : `/api/v1/admin/scenarios`;
-            const scenRes = await fetch(scenUrl, { method: scenMethod, headers: PickeData.getAuthHeaders(), body: JSON.stringify(scenarioPayload) });
-            if (!scenRes.ok) throw new Error("시나리오 데이터 저장 실패");
-            const scenData = await scenRes.json();
-            if (!PickeData.scenarioId) PickeData.scenarioId = scenData.result?.scenarioId || scenData.result?.id || scenData.data?.scenarioId || scenData.data?.id || scenData.result || scenData.data || null;
 
-            // 발행(PUBLISH) 버튼을 눌렀을 때만 오디오 생성
-            if (action === 'PUBLISH' && PickeData.scenarioId) {
-                await fetch(`/api/v1/admin/scenarios/${PickeData.scenarioId}`, {
-                    method: 'PATCH', headers: PickeData.getAuthHeaders(), body: JSON.stringify({ status: 'PUBLISHED' })
+            nodes.push({ nodeName: 'CLOSING', isStartNode: false, autoNextNode: null, scripts: extractScripts('closing-node-container'), interactiveOptions: [] });
+
+            const voiceSettings = {};
+            const voiceInputMap = {
+                NARRATOR: 'tts-voice-narrator',
+                A: 'tts-voice-a',
+                B: 'tts-voice-b',
+                USER: 'tts-voice-user'
+            };
+
+            Object.entries(voiceInputMap).forEach(([speakerType, inputId]) => {
+                const value = document.getElementById(inputId)?.value?.trim();
+                if (value) voiceSettings[speakerType] = value;
+            });
+
+            if (action === 'PUBLISHED' || action === 'PUBLISH') {
+                const requiredSpeakers = new Set();
+                nodes.forEach((node) => {
+                    (node.scripts || []).forEach((script) => {
+                        if (script.speakerType) requiredSpeakers.add(script.speakerType);
+                    });
                 });
+
+                const missingVoiceSpeakers = Array.from(requiredSpeakers).filter((speakerType) => !voiceSettings[speakerType]);
+                if (missingVoiceSpeakers.length > 0) {
+                    throw new Error(`다음 화자의 Fish Audio reference_id가 없습니다: ${missingVoiceSpeakers.join(', ')}`);
+                }
+            }
+
+            const scenarioPayload = {
+                battleId: savedId,
+                isInteractive,
+                nodes,
+                status: resolvedStatus,
+                voiceSettings
+            };
+
+            const scenarioExisted = !!PickeData.scenarioId;
+            const scenarioMethod = scenarioExisted ? 'PUT' : 'POST';
+            const scenarioUrl = scenarioExisted ? `/api/v1/admin/scenarios/${PickeData.scenarioId}` : '/api/v1/admin/scenarios';
+
+            const scenarioRes = await fetch(scenarioUrl, {
+                method: scenarioMethod,
+                headers: PickeData.getAuthHeaders(),
+                body: JSON.stringify(scenarioPayload)
+            });
+            if (!scenarioRes.ok) throw new Error('시나리오 저장에 실패했습니다.');
+
+            const scenarioData = await scenarioRes.json();
+            if (!scenarioExisted) {
+                const scenarioResult = scenarioData.result || scenarioData.data || {};
+                PickeData.scenarioId = scenarioResult.scenarioId || scenarioResult.id || null;
+            }
+
+            if (scenarioExisted && PickeData.scenarioId) {
+                const shouldPatchScenarioStatus = action === 'PUBLISH' || previousStatus !== resolvedStatus;
+                if (shouldPatchScenarioStatus) {
+                    const statusRes = await fetch(`/api/v1/admin/scenarios/${PickeData.scenarioId}`, {
+                        method: 'PATCH',
+                        headers: PickeData.getAuthHeaders(),
+                        body: JSON.stringify({ status: resolvedStatus })
+                    });
+                    if (!statusRes.ok) throw new Error('시나리오 상태 업데이트에 실패했습니다.');
+                }
             }
         }
 
-        if (loader) { loader.classList.add('hidden'); loader.classList.remove('flex'); }
-        const modal = document.getElementById('custom-modal');
-        if (modal) {
-            document.getElementById('custom-modal-title').innerText = "저장 완료";
+        PickeData.currentStatus = resolvedStatus;
 
-            let resultMsg = "";
-            if (action === 'PENDING') resultMsg = "임시저장 되었습니다.";
-            else if (action === 'EDIT') resultMsg = "수정 내용이 저장되었습니다.\n(오디오 갱신 안 됨)";
-            else resultMsg = "발행 되었습니다!\n(새 오디오 생성 처리됨)";
-
-            document.getElementById('custom-modal-message').innerText = resultMsg;
-
-            modal.classList.remove('hidden');
-            setTimeout(() => { modal.classList.add('opacity-100'); modal.classList.remove('opacity-0'); }, 10);
-            document.getElementById('custom-modal-confirm').onclick = () => { window.location.href = "/api/v1/admin/picke/list"; };
-        } else {
-            window.location.href = "/api/v1/admin/picke/list";
+        if (loader) {
+            loader.classList.add('hidden');
+            loader.classList.remove('flex');
         }
+
+        const modal = document.getElementById('custom-modal');
+        if (!modal) {
+            window.location.href = '/api/v1/admin/picke/list';
+            return;
+        }
+
+        document.getElementById('custom-modal-title').innerText = '완료';
+        document.getElementById('custom-modal-message').innerText = action === 'PENDING'
+            ? '임시 저장되었습니다.'
+            : action === 'EDIT'
+                ? '수정이 완료되었습니다.'
+                : '발행이 완료되었습니다.';
+
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.classList.add('opacity-100');
+            modal.classList.remove('opacity-0');
+        }, 10);
+
+        document.getElementById('custom-modal-confirm').onclick = () => {
+            window.location.href = '/api/v1/admin/picke/list';
+        };
     } catch (e) {
-        if (loader) { loader.classList.add('hidden'); loader.classList.remove('flex'); }
-        console.error(e);
-        alert(`저장 중 오류: ${e.message}`);
+        if (loader) {
+            loader.classList.add('hidden');
+            loader.classList.remove('flex');
+        }
+        console.error('저장 중 오류:', e);
+        alert(`저장에 실패했습니다: ${e.message}`);
     }
 };

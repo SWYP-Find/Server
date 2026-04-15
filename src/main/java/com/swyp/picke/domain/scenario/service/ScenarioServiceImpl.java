@@ -139,6 +139,11 @@ public class ScenarioServiceImpl implements ScenarioService {
                 if (mergedAudioUrl != null) s3Service.deleteFile(mergedAudioUrl);
             }
             scenario.clearAudios();
+
+            // 발행 상태에서 시나리오가 변경되면 merged 오디오를 다시 생성한다.
+            if (scenario.getStatus() == ScenarioStatus.PUBLISHED) {
+                triggerAudioPipeline(scenarioId);
+            }
         }
     }
 
@@ -259,12 +264,17 @@ public class ScenarioServiceImpl implements ScenarioService {
     }
 
     private void triggerAudioPipeline(Long scenarioId) {
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                audioPipelineService.generateAndMergeAudioAsync(scenarioId);
-            }
-        });
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    audioPipelineService.generateAndMergeAudioAsync(scenarioId);
+                }
+            });
+            return;
+        }
+
+        audioPipelineService.generateAndMergeAudioAsync(scenarioId);
     }
 
     private boolean updateScriptsSmartly(ScenarioNode existingNode, java.util.List<ScriptRequest> requestedScripts, Map<String, String> speakerMap) {

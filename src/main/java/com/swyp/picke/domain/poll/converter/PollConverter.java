@@ -25,6 +25,7 @@ public class PollConverter {
         return Poll.builder()
                 .titlePrefix(request.titlePrefix())
                 .titleSuffix(request.titleSuffix())
+                .targetDate(request.targetDate())
                 .status(request.status())
                 .build();
     }

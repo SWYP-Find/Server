@@ -48,7 +48,7 @@ public class PollOption extends BaseEntity {
     }
 
 
-    public void update(String title) {
+    public void update(String title, Integer displayOrder) {
         if (title != null) this.title = title;
         if (displayOrder != null) this.displayOrder = displayOrder;
     }

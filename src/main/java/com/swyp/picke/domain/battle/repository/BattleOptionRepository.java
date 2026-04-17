@@ -23,4 +23,13 @@ public interface BattleOptionRepository extends JpaRepository<BattleOption, Long
             "WHERE bo.battle IN :battles " +
             "ORDER BY bo.battle.id, COALESCE(bo.displayOrder, 9999), bo.label, bo.id")
     List<BattleOption> findByBattleIn(@Param("battles") List<Battle> battles);
+
+    @Query("SELECT COUNT(bo) FROM BattleOption bo " +
+            "WHERE bo.battle.deletedAt IS NULL " +
+            "AND bo.imageUrl = :imageUrl " +
+            "AND (:excludeOptionId IS NULL OR bo.id <> :excludeOptionId)")
+    long countActiveImageReferences(
+            @Param("imageUrl") String imageUrl,
+            @Param("excludeOptionId") Long excludeOptionId
+    );
 }

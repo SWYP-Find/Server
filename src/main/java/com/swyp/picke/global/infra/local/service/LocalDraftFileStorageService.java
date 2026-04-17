@@ -11,13 +11,16 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Optional;
-import java.util.UUID;
+import java.util.stream.Stream;
 
 @Service
 public class LocalDraftFileStorageService {
@@ -38,10 +41,20 @@ public class LocalDraftFileStorageService {
 
         String originalName = Optional.ofNullable(multipartFile.getOriginalFilename()).orElse("draft.bin");
         String sanitizedName = sanitizeFileName(originalName);
-        String fileName = UUID.randomUUID() + "_" + sanitizedName;
-        String localKey = LOCAL_DRAFT_PREFIX + fileName;
+        if (sanitizedName.isBlank()) {
+            sanitizedName = "draft.bin";
+        }
+
+        byte[] fileBytes = multipartFile.getBytes();
+        String incomingHash = calculateSha256(fileBytes);
+        String localKey = resolveAvailableLocalKey(sanitizedName, incomingHash);
 
         Path targetPath = resolvePath(localKey);
+        if (Files.exists(targetPath)) {
+            // Same content already exists with this key. Reuse without writing again.
+            return localKey;
+        }
+
         Files.createDirectories(targetPath.getParent());
         Files.copy(multipartFile.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
 
@@ -104,7 +117,6 @@ public class LocalDraftFileStorageService {
         String fileName = extractFileName(normalized);
         String s3Key = category.getPath() + "/" + fileName;
         s3UploadService.uploadFile(s3Key, localPath.toFile());
-        deleteIfLocalReference(normalized);
         return s3Key;
     }
 
@@ -180,10 +192,112 @@ public class LocalDraftFileStorageService {
     }
 
     private String sanitizeFileName(String fileName) {
-        return fileName
+        String sanitized = fileName
+                .trim()
                 .replace("\\", "_")
                 .replace("/", "_")
                 .replace("..", "_")
-                .replaceAll("[^a-zA-Z0-9._-]", "_");
+                .replaceAll("\\s+", "_")
+                .replaceAll("[^\\p{L}\\p{N}._-]", "_");
+        return sanitized.isBlank() ? "draft.bin" : sanitized;
+    }
+
+    private String resolveAvailableLocalKey(String sanitizedName, String incomingHash) throws IOException {
+        String existingByHash = findExistingLocalKeyByHash(incomingHash);
+        if (existingByHash != null) {
+            return existingByHash;
+        }
+
+        String[] split = splitNameAndExtension(sanitizedName);
+        String baseName = split[0];
+        String extension = split[1];
+
+        int sequence = 0;
+        while (true) {
+            String candidateName = sequence == 0
+                    ? sanitizedName
+                    : String.format("%s-%d%s", baseName, sequence + 1, extension);
+            String candidateKey = LOCAL_DRAFT_PREFIX + candidateName;
+            Path candidatePath = resolvePath(candidateKey);
+
+            if (!Files.exists(candidatePath)) {
+                return candidateKey;
+            }
+
+            String existingHash = calculateSha256(candidatePath);
+            if (incomingHash.equals(existingHash)) {
+                return candidateKey;
+            }
+            sequence++;
+        }
+    }
+
+    private String findExistingLocalKeyByHash(String incomingHash) throws IOException {
+        Path draftsDir = resolvePath(LOCAL_DRAFT_PREFIX);
+        if (!Files.exists(draftsDir) || !Files.isDirectory(draftsDir)) {
+            return null;
+        }
+
+        try (Stream<Path> pathStream = Files.walk(draftsDir)) {
+            Optional<Path> matchedPath = pathStream
+                    .filter(Files::isRegularFile)
+                    .filter(path -> {
+                        try {
+                            return incomingHash.equals(calculateSha256(path));
+                        } catch (IOException ignored) {
+                            return false;
+                        }
+                    })
+                    .findFirst();
+
+            if (matchedPath.isEmpty()) {
+                return null;
+            }
+
+            String relative = draftsDir.relativize(matchedPath.get()).toString().replace("\\", "/");
+            return LOCAL_DRAFT_PREFIX + relative;
+        }
+    }
+
+    private String[] splitNameAndExtension(String fileName) {
+        int dotIndex = fileName.lastIndexOf('.');
+        if (dotIndex <= 0 || dotIndex == fileName.length() - 1) {
+            return new String[]{fileName, ""};
+        }
+        return new String[]{fileName.substring(0, dotIndex), fileName.substring(dotIndex)};
+    }
+
+    private String calculateSha256(byte[] content) {
+        MessageDigest digest = newSha256Digest();
+        digest.update(content);
+        return toHex(digest.digest());
+    }
+
+    private String calculateSha256(Path filePath) throws IOException {
+        MessageDigest digest = newSha256Digest();
+        try (InputStream inputStream = Files.newInputStream(filePath)) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = inputStream.read(buffer)) != -1) {
+                digest.update(buffer, 0, read);
+            }
+        }
+        return toHex(digest.digest());
+    }
+
+    private MessageDigest newSha256Digest() {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm is not available", e);
+        }
+    }
+
+    private String toHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder(bytes.length * 2);
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 }

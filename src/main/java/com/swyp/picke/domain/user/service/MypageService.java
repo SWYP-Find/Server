@@ -26,7 +26,8 @@ import com.swyp.picke.domain.vote.entity.BattleVote;
 import com.swyp.picke.domain.vote.service.VoteQueryService;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
-import com.swyp.picke.global.infra.s3.service.S3PresignedUrlService;
+import com.swyp.picke.global.infra.s3.enums.FileCategory;
+import com.swyp.picke.global.infra.s3.util.ResourceUrlProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,7 +49,7 @@ public class MypageService {
     private final VoteQueryService voteQueryService;
     private final BattleQueryService battleQueryService;
     private final PerspectiveQueryService perspectiveQueryService;
-    private final S3PresignedUrlService s3PresignedUrlService;
+    private final ResourceUrlProvider resourceUrlProvider;
 
     @Transactional
     public MypageResponse getMypage() {
@@ -74,7 +75,7 @@ public class MypageService {
                         philosopherType.getLabel(),
                         philosopherType.getTypeName(),
                         philosopherType.getDescription(),
-                        s3PresignedUrlService.generatePresignedUrl(
+                        resourceUrlProvider.getImageUrl(FileCategory.PHILOSOPHER,
                                 PhilosopherType.resolveImageKey(philosopherType.getLabel())
                         ))
                 : null;
@@ -355,7 +356,7 @@ public class MypageService {
                 type.getTypeName(),
                 type.getDescription(),
                 type.getKeywordTags(),
-                s3PresignedUrlService.generatePresignedUrl(
+                resourceUrlProvider.getImageUrl(FileCategory.PHILOSOPHER,
                         PhilosopherType.resolveImageKey(type.getLabel())
                 )
         );
@@ -379,7 +380,9 @@ public class MypageService {
 
     private String resolveCharacterImageUrl(CharacterType characterType) {
         String imageKey = CharacterType.resolveImageKey(characterType);
-        return imageKey != null ? s3PresignedUrlService.generatePresignedUrl(imageKey) : null;
+        return imageKey != null
+                ? resourceUrlProvider.getImageUrl(FileCategory.CHARACTER, imageKey)
+                : null;
     }
 
     private String resolveCharacterImageUrl(String characterType) {
@@ -387,7 +390,7 @@ public class MypageService {
             return null;
         }
         String imageKey = CharacterType.resolveImageKey(characterType);
-        return s3PresignedUrlService.generatePresignedUrl(imageKey);
+        return resourceUrlProvider.getImageUrl(FileCategory.CHARACTER, imageKey);
     }
 }
 

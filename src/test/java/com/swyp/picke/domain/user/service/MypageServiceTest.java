@@ -31,7 +31,7 @@ import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.enums.VoteSide;
 import com.swyp.picke.domain.vote.entity.BattleVote;
 import com.swyp.picke.domain.vote.service.VoteQueryService;
-import com.swyp.picke.global.infra.s3.service.S3PresignedUrlService;
+import com.swyp.picke.global.infra.s3.util.ResourceUrlProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,6 +50,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -69,7 +70,7 @@ class MypageServiceTest {
     @Mock
     private PerspectiveQueryService perspectiveQueryService;
     @Mock
-    private S3PresignedUrlService s3PresignedUrlService;
+    private ResourceUrlProvider resourceUrlProvider;
 
     @InjectMocks
     private MypageService mypageService;
@@ -90,7 +91,7 @@ class MypageServiceTest {
         when(userService.findCurrentUser()).thenReturn(user);
         when(userService.findUserProfile(1L)).thenReturn(profile);
         when(creditService.getTotalPoints(1L)).thenReturn(0);
-        when(s3PresignedUrlService.generatePresignedUrl(anyString())).thenReturn("https://presigned-url");
+        when(resourceUrlProvider.getImageUrl(any(), anyString())).thenReturn("http://localhost:8080/api/v1/resources/images/CHARACTER/owl.png");
 
         MypageResponse response = mypageService.getMypage();
 
@@ -114,7 +115,7 @@ class MypageServiceTest {
 
         when(userService.findCurrentUser()).thenReturn(user);
         when(userService.findUserProfile(1L)).thenReturn(profile);
-        when(s3PresignedUrlService.generatePresignedUrl(anyString())).thenReturn("https://presigned-url");
+        when(resourceUrlProvider.getImageUrl(any(), anyString())).thenReturn("http://localhost:8080/api/v1/resources/images/PHILOSOPHER/kant.png");
         when(voteQueryService.countTotalParticipation(1L)).thenReturn(15L);
         when(voteQueryService.countOpinionChanges(1L)).thenReturn(3L);
         when(voteQueryService.calculateBattleWinRate(1L)).thenReturn(70);

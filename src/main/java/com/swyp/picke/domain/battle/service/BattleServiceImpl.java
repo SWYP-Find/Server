@@ -344,6 +344,8 @@ public class BattleServiceImpl implements BattleService {
                         Collectors.mapping(BattleOptionTag::getTag, Collectors.toList())
                 ));
 
+        cleanupUnreferencedDraftAssets(request.thumbnailUrl(), request.options());
+
         return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), savedOptions, optionTagsMap);
     }
 
@@ -373,7 +375,7 @@ public class BattleServiceImpl implements BattleService {
         String existingThumbnailKey = normalizeStoredImageReference(battle.getThumbnailUrl(), FileCategory.BATTLE);
         String resolvedThumbnailKey = resolveStoredImageKey(request.thumbnailUrl(), request.status(), FileCategory.BATTLE);
         if (existingThumbnailKey != null && !existingThumbnailKey.equals(resolvedThumbnailKey)) {
-            deleteStoredAsset(existingThumbnailKey);
+            deleteStoredAsset(existingThumbnailKey, battle.getId(), null);
         }
 
         battle.update(
@@ -421,7 +423,7 @@ public class BattleServiceImpl implements BattleService {
                 } else {
                     String existingOptionImageKey = normalizeStoredImageReference(option.getImageUrl(), FileCategory.PHILOSOPHER);
                     if (existingOptionImageKey != null && !existingOptionImageKey.equals(resolvedOptionImageKey)) {
-                        deleteStoredAsset(existingOptionImageKey);
+                        deleteStoredAsset(existingOptionImageKey, null, option.getId());
                     }
                     option.update(optionRequest.title(), optionRequest.stance(),
                             optionRequest.representative(), resolvedOptionImageKey);
@@ -435,7 +437,7 @@ public class BattleServiceImpl implements BattleService {
                     .toList();
 
             for (BattleOption removedOption : removedOptions) {
-                deleteStoredAsset(removedOption.getImageUrl());
+                deleteStoredAsset(removedOption.getImageUrl(), null, removedOption.getId());
                 List<BattleOptionTag> optionTags = battleOptionTagRepository.findByBattleOption(removedOption);
                 if (!optionTags.isEmpty()) {
                     battleOptionTagRepository.deleteAll(optionTags);
@@ -446,6 +448,8 @@ public class BattleServiceImpl implements BattleService {
                 battleOptionRepository.deleteAll(removedOptions);
             }
         }
+
+        cleanupUnreferencedDraftAssets(request.thumbnailUrl(), request.options());
 
         List<BattleOption> updatedOptions = battleOptionRepository.findByBattle(battle);
         Map<Long, List<Tag>> optionTagsMap = battleOptionTagRepository.findByBattleWithTags(battle)
@@ -585,9 +589,13 @@ public class BattleServiceImpl implements BattleService {
         return value;
     }
 
-    private void deleteStoredAsset(String rawReference) {
+    private void deleteStoredAsset(String rawReference, Long excludeBattleId, Long excludeOptionId) {
         String normalized = normalizeStoredImageReference(rawReference, null);
         if (normalized == null) {
+            return;
+        }
+
+        if (hasOtherActiveReferences(normalized, excludeBattleId, excludeOptionId)) {
             return;
         }
 
@@ -597,6 +605,30 @@ public class BattleServiceImpl implements BattleService {
         }
 
         s3UploadService.deleteFile(normalized);
+    }
+
+    private boolean hasOtherActiveReferences(String normalizedReference, Long excludeBattleId, Long excludeOptionId) {
+        long thumbnailReferences = battleRepository.countActiveThumbnailReferences(normalizedReference, excludeBattleId);
+        long optionImageReferences = battleOptionRepository.countActiveImageReferences(normalizedReference, excludeOptionId);
+        return (thumbnailReferences + optionImageReferences) > 0;
+    }
+
+    private void cleanupUnreferencedDraftAssets(String thumbnailUrl, List<AdminBattleOptionRequest> options) {
+        Set<String> candidates = new LinkedHashSet<>();
+        if (thumbnailUrl != null && !thumbnailUrl.isBlank()) {
+            candidates.add(thumbnailUrl);
+        }
+        if (options != null) {
+            options.stream()
+                    .map(AdminBattleOptionRequest::imageUrl)
+                    .filter(Objects::nonNull)
+                    .filter(imageUrl -> !imageUrl.isBlank())
+                    .forEach(candidates::add);
+        }
+
+        for (String rawReference : candidates) {
+            deleteStoredAsset(rawReference, null, null);
+        }
     }
 
     private BattleStatus parseBattleStatus(String status) {

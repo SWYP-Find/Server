@@ -24,7 +24,7 @@ public class BattleController {
 
     private final BattleService battleService;
 
-    @Operation(summary = "오늘의 배틀 목록 조회 (최대 5개)")
+    @Operation(summary = "오늘의 배틀 목록 조회 (최대 3개)")
     @GetMapping("/today")
     public ApiResponse<TodayBattleListResponse> getTodayBattles() {
         return ApiResponse.onSuccess(battleService.getTodayBattles());

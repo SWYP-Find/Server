@@ -82,7 +82,8 @@ public class PerspectiveService {
             throw new CustomException(ErrorCode.PERSPECTIVE_ALREADY_EXISTS);
         }
 
-        BattleOption option = BattleVoteService.findPreVoteOption(battleId, userId);
+        Long postVoteOptionId = BattleVoteService.findPostVoteOptionId(battleId, userId);
+        BattleOption option = battleService.findOptionById(postVoteOptionId);
 
         Perspective perspective = Perspective.builder()
                 .battle(battle)

@@ -21,6 +21,7 @@ import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.domain.user.repository.UserSettingsRepository;
 import com.swyp.picke.domain.user.repository.UserTendencyScoreRepository;
 import com.swyp.picke.domain.user.repository.UserWithdrawalRepository;
+import com.swyp.picke.domain.user.service.CreditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,6 +49,7 @@ class OAuthServiceTest {
     @Mock private UserTendencyScoreRepository userTendencyScoreRepository;
     @Mock private UserWithdrawalRepository userWithdrawalRepository;
     @Mock private JwtProvider jwtProvider;
+    @Mock private CreditService creditService;
 
     private AuthService authService;
 
@@ -59,7 +61,7 @@ class OAuthServiceTest {
                 socialAccountRepository, refreshTokenRepository,
                 userProfileRepository, userSettingsRepository, userTendencyScoreRepository,
                 userWithdrawalRepository,
-                jwtProvider
+                jwtProvider, creditService
         );
     }
 

@@ -135,6 +135,33 @@ class NotificationServiceTest {
     }
 
     @Test
+    @DisplayName("content broadcast is visible to users")
+    void getNotifications_includes_content_broadcast_notifications() {
+        Long userId = 1L;
+        Notification broadcastContent = Notification.builder()
+                .user(null)
+                .category(NotificationCategory.CONTENT)
+                .detailCode(NotificationDetailCode.NEW_BATTLE)
+                .title("New content")
+                .body("Broadcast content notification")
+                .referenceId(77L)
+                .build();
+
+        setNotificationId(broadcastContent, 77L);
+
+        when(notificationRepository.findVisibleNotifications(eq(userId), eq(NotificationCategory.CONTENT), any(Pageable.class)))
+                .thenReturn(new SliceImpl<>(List.of(broadcastContent)));
+        when(notificationReadRepository.findByUserIdAndNotificationIdIn(userId, List.of(77L)))
+                .thenReturn(List.of());
+
+        NotificationListResponse response = notificationService.getNotifications(userId, NotificationCategory.CONTENT, 0, 20);
+
+        assertThat(response.items()).hasSize(1);
+        assertThat(response.items().getFirst().category()).isEqualTo(NotificationCategory.CONTENT);
+        assertThat(response.items().getFirst().isRead()).isFalse();
+    }
+
+    @Test
     @DisplayName("존재하지 않는 알림 읽음 처리 시 예외를 던진다")
     void markAsRead_throws_when_not_found() {
         when(notificationRepository.findById(999L)).thenReturn(Optional.empty());

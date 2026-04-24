@@ -12,6 +12,7 @@ import com.swyp.picke.domain.oauth.jwt.JwtProvider;
 import com.swyp.picke.domain.oauth.repository.AuthRefreshTokenRepository;
 import com.swyp.picke.domain.oauth.repository.UserSocialAccountRepository;
 import com.swyp.picke.domain.user.enums.CharacterType;
+import com.swyp.picke.domain.user.enums.CreditType;
 import com.swyp.picke.domain.user.enums.UserRole;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.entity.UserProfile;
@@ -24,6 +25,7 @@ import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.domain.user.repository.UserSettingsRepository;
 import com.swyp.picke.domain.user.repository.UserTendencyScoreRepository;
 import com.swyp.picke.domain.user.repository.UserWithdrawalRepository;
+import com.swyp.picke.domain.user.service.CreditService;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -84,6 +86,7 @@ public class AuthService {
     private final UserTendencyScoreRepository userTendencyScoreRepository;
     private final UserWithdrawalRepository userWithdrawalRepository;
     private final JwtProvider jwtProvider;
+    private final CreditService creditService;
 
     public LoginResponse login(String provider, LoginRequest request) {
 
@@ -119,6 +122,9 @@ public class AuthService {
                     .providerEmail(oAuthUserInfo.getEmail())
                     .build();
             socialAccountRepository.save(socialAccount);
+
+            // 크레딧 지급 (30 크레딧)
+            creditService.addCredit(user.getId(), CreditType.DEFAULT_CREDIT, user.getId());
             isNewUser = true;
         } else {
             user = socialAccount.getUser();

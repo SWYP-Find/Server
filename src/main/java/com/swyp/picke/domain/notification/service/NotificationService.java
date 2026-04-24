@@ -80,7 +80,7 @@ public class NotificationService {
                 userId, filterCategory, PageRequest.of(page, pageSize));
 
         List<Long> broadcastIds = slice.getContent().stream()
-                .filter(n -> n.getCategory() != NotificationCategory.CONTENT)
+                .filter(n -> n.getUser() == null)
                 .map(Notification::getId)
                 .toList();
 
@@ -102,7 +102,7 @@ public class NotificationService {
     public NotificationDetailResponse getNotificationDetail(Long userId, Long notificationId) {
         Notification notification = getAccessibleNotification(userId, notificationId);
 
-        if (notification.getCategory() == NotificationCategory.CONTENT) {
+        if (notification.getUser() != null) {
             return toDetailResponse(notification, notification.isRead(), notification.getReadAt());
         }
 
@@ -114,7 +114,7 @@ public class NotificationService {
     public void markAsRead(Long userId, Long notificationId) {
         Notification notification = getAccessibleNotification(userId, notificationId);
 
-        if (notification.getCategory() == NotificationCategory.CONTENT) {
+        if (notification.getUser() != null) {
             notification.markAsRead();
             return;
         }
@@ -144,9 +144,8 @@ public class NotificationService {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
 
-        boolean isAccessible = notification.getCategory() == NotificationCategory.CONTENT
-                ? notification.getUser() != null && notification.getUser().getId().equals(userId)
-                : notification.getUser() == null;
+        boolean isAccessible = notification.getUser() == null
+                || notification.getUser().getId().equals(userId);
 
         if (!isAccessible) {
             throw new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND);
@@ -156,10 +155,9 @@ public class NotificationService {
     }
 
     private boolean resolveIsRead(Notification notification, Set<Long> readBroadcastIds) {
-        if (notification.getCategory() == NotificationCategory.CONTENT) {
-            return notification.isRead();
-        }
-        return readBroadcastIds.contains(notification.getId());
+        return notification.getUser() != null
+                ? notification.isRead()
+                : readBroadcastIds.contains(notification.getId());
     }
 
     private NotificationDetailResponse toDetailResponse(Notification notification, boolean isRead, java.time.LocalDateTime readAt) {

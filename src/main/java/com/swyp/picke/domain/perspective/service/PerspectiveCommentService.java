@@ -65,7 +65,7 @@ public class PerspectiveCommentService {
         Long postVoteOptionId = BattleVoteService.findPostVoteOptionId(perspective.getBattle().getId(), userId);
         String stance = null;
         if (postVoteOptionId != null) {
-            stance = battleService.findOptionById(postVoteOptionId).getStance();
+            stance = battleService.findOptionById(postVoteOptionId).getLabel().name();
         }
         return new CreateCommentResponse(
                 comment.getId(),
@@ -100,7 +100,7 @@ public class PerspectiveCommentService {
                     String stance = null;
                     if (postVoteOptionId != null) {
                         BattleOption option = battleService.findOptionById(postVoteOptionId);
-                        stance = option.getStance();
+                        stance = option.getLabel().name();
                     }
                     boolean isLiked = commentLikeRepository.existsByCommentAndUserId(c, userId);
                     return new CommentListResponse.Item(

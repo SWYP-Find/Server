@@ -14,9 +14,8 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Query("""
             SELECT n FROM Notification n
             WHERE (
-                (n.category = com.swyp.picke.domain.notification.enums.NotificationCategory.CONTENT AND n.user.id = :userId)
-                OR
-                (n.category <> com.swyp.picke.domain.notification.enums.NotificationCategory.CONTENT AND n.user IS NULL)
+                (n.user IS NOT NULL AND n.user.id = :userId)
+                OR n.user IS NULL
             )
             AND (:category IS NULL OR n.category = :category)
             ORDER BY n.createdAt DESC

@@ -201,9 +201,10 @@ public class BattleServiceImpl implements BattleService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public BattleUserDetailResponse getBattleDetail(Long battleId) {
         Battle battle = findById(battleId);
+        battle.increaseViewCount();
         List<Tag> tags = getTagsByBattle(battle);
         List<BattleOption> options = battleOptionRepository.findByBattle(battle);
         Map<Long, List<Tag>> optionTagsMap = battleOptionTagRepository.findByBattleWithTags(battle)

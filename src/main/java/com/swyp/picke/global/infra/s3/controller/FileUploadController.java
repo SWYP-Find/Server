@@ -46,7 +46,8 @@ public class FileUploadController {
 
         File tempFile = convertMultiPartToFile(multipartFile);
         try {
-            String fileName = category.getPath() + "/" + UUID.randomUUID() + "_" + multipartFile.getOriginalFilename();
+            String safeName = sanitizeFileName(multipartFile.getOriginalFilename());
+            String fileName = category.getPath() + "/" + safeName;
             String s3Key = s3UploadService.uploadFile(fileName, tempFile);
             String presignedUrl = s3PresignedUrlService.generatePresignedUrl(s3Key);
             return ApiResponse.onSuccess(new FileUploadResponse(s3Key, presignedUrl));
@@ -69,14 +70,27 @@ public class FileUploadController {
     }
 
     private File convertMultiPartToFile(MultipartFile file) throws IOException {
-        String safeName = (file.getOriginalFilename() == null || file.getOriginalFilename().isBlank())
-                ? "upload.bin"
-                : file.getOriginalFilename().replaceAll("[\\\\/:*?\"<>|]", "_");
+        String safeName = sanitizeFileName(file.getOriginalFilename());
 
         File convFile = new File(System.getProperty("java.io.tmpdir") + "/" + UUID.randomUUID() + "_" + safeName);
         try (FileOutputStream fos = new FileOutputStream(convFile)) {
             fos.write(file.getBytes());
         }
         return convFile;
+    }
+
+    private String sanitizeFileName(String originalFilename) {
+        if (originalFilename == null || originalFilename.isBlank()) {
+            return "upload.bin";
+        }
+
+        String sanitized = originalFilename
+                .trim()
+                .replace("\\", "_")
+                .replace("/", "_")
+                .replace("..", "_")
+                .replaceAll("\\s+", "_")
+                .replaceAll("[^\\p{L}\\p{N}._-]", "_");
+        return sanitized.isBlank() ? "upload.bin" : sanitized;
     }
 }

@@ -64,6 +64,15 @@ public interface BattleRepository extends JpaRepository<Battle, Long> {
     // 주간 배치: 특정 기간(targetDate BETWEEN from AND to)의 배틀 조회
     List<Battle> findByTargetDateBetweenAndStatusAndDeletedAtIsNull(LocalDate from, LocalDate to, BattleStatus status);
 
+    @Query("SELECT COUNT(b) FROM Battle b " +
+            "WHERE b.deletedAt IS NULL " +
+            "AND b.thumbnailUrl = :thumbnailUrl " +
+            "AND (:excludeBattleId IS NULL OR b.id <> :excludeBattleId)")
+    long countActiveThumbnailReferences(
+            @Param("thumbnailUrl") String thumbnailUrl,
+            @Param("excludeBattleId") Long excludeBattleId
+    );
+
     // 탐색 탭: 전체 배틀 검색
     @Query("SELECT b FROM Battle b WHERE b.status = 'PUBLISHED' AND b.deletedAt IS NULL")
     List<Battle> searchAll(Pageable pageable);

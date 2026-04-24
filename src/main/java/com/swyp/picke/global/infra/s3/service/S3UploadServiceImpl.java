@@ -10,14 +10,24 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.Map;
 
 @Slf4j
 @Primary
@@ -26,15 +36,11 @@ import java.time.Duration;
 public class S3UploadServiceImpl implements S3UploadService {
 
     private final S3Client s3Client;
-    private final S3Presigner s3Presigner; // 보안 URL 생성을 위한 프레시그너 추가
+    private final S3Presigner s3Presigner;
 
     @Value("${spring.cloud.aws.s3.bucket}")
     private String bucketName;
 
-    /**
-     * S3 파일 업로드
-     * @return 저장된 파일의 'Key(경로)' 또는 필요 시 전체 URL
-     */
     @Override
     public String uploadFile(String key, File file) {
         if (file == null || !file.exists()) {
@@ -42,34 +48,47 @@ public class S3UploadServiceImpl implements S3UploadService {
         }
 
         try {
-            log.info("[AWS S3] 업로드 시작 - 버킷: {}, 키: {}", bucketName, key);
+            String normalizedKey = extractKey(key);
+            log.info("[AWS S3] Upload start - bucket: {}, key: {}", bucketName, normalizedKey);
 
-            // Content-Type 자동 감지 (오디오 등 확장자 대응)
-            String contentType = Files.probeContentType(file.toPath());
-            if (contentType == null) {
-                contentType = determineContentType(key);
+            // Reuse immediately when key already exists (same file name/path).
+            if (objectExists(normalizedKey)) {
+                log.info("[AWS S3] Reusing existing object by key: {}", normalizedKey);
+                return normalizedKey;
             }
 
-            // S3 업로드 요청 생성
+            String contentType = Files.probeContentType(file.toPath());
+            if (contentType == null) {
+                contentType = determineContentType(normalizedKey);
+            }
+
+            // Reuse existing key when same content hash already exists in this prefix.
+            String sha256 = calculateSha256(file.toPath());
+            String md5 = calculateMd5(file.toPath());
+            String prefix = extractPrefix(normalizedKey);
+            String existingSameContentKey = findExistingKeyByContentDigest(prefix, sha256, md5);
+            if (existingSameContentKey != null) {
+                log.info("[AWS S3] Reusing existing object by content hash: {}", existingSameContentKey);
+                return existingSameContentKey;
+            }
+
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                     .bucket(bucketName)
-                    .key(key)
+                    .key(normalizedKey)
                     .contentType(contentType)
+                    .metadata(Map.of("sha256", sha256))
                     .build();
 
             s3Client.putObject(putObjectRequest, RequestBody.fromFile(file));
-            log.info("[AWS S3] 업로드 완료! 키: {}, Content-Type: {}", key, contentType);
-            return key;
+            log.info("[AWS S3] Upload complete - key: {}, Content-Type: {}", normalizedKey, contentType);
+            return normalizedKey;
 
         } catch (Exception e) {
-            log.error("[AWS S3] 업로드 실패 - 키: {}", key, e);
+            log.error("[AWS S3] Upload failed - key: {}", key, e);
             throw new RuntimeException(ErrorCode.FILE_UPLOAD_FAILED.getMessage());
         }
     }
 
-    /**
-     * S3에서 파일을 다운로드하여 로컬 임시 파일로 반환
-     */
     @Override
     public File downloadFile(String fileUrl) {
         if (fileUrl == null || fileUrl.isBlank()) {
@@ -77,40 +96,30 @@ public class S3UploadServiceImpl implements S3UploadService {
         }
 
         try {
-            // URL에서 순수 Key만 추출
-            String pureKey = fileUrl.contains(".com/") ? fileUrl.split(".com/")[1] : fileUrl;
+            String pureKey = extractKey(fileUrl);
 
-            // 다운로드 받을 로컬 임시 파일 생성
             File tempFile = File.createTempFile("s3_download_", ".mp3");
             Path tempFilePath = tempFile.toPath();
 
-            // S3 다운로드 요청
             GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                     .bucket(bucketName)
                     .key(pureKey)
                     .build();
 
-            // S3에서 파일을 읽어서 로컬 임시 파일에 쓰기
             s3Client.getObject(getObjectRequest, tempFilePath);
-
-            return tempFile; // FFmpeg 병합 완료 후 cleanUpFiles에서 알아서 지워짐
+            return tempFile;
 
         } catch (Exception e) {
-            log.error("[AWS S3] 파일 다운로드 실패 - URL: {}", fileUrl, e);
+            log.error("[AWS S3] Download failed - URL: {}", fileUrl, e);
             throw new RuntimeException("S3 오디오 조각 다운로드 실패", e);
         }
     }
 
-    /**
-     * 관리자 전용: 특정 시점에만 유효한 임시 보안 URL 생성 (Presigned URL)
-     * @param key S3에 저장된 파일의 경로 (예: images/battles/uuid.png)
-     * @param durationUrl 유효 시간 (예: Duration.ofMinutes(10))
-     */
+    @Override
     public String getPresignedUrl(String key, Duration durationUrl) {
         if (key == null || key.isEmpty()) return null;
 
-        // URL에서 도메인을 제외한 순수 'Key'만 추출 (만약 전체 URL이 들어올 경우를 대비)
-        String pureKey = key.contains(".com/") ? key.split(".com/")[1] : key;
+        String pureKey = extractKey(key);
 
         GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
                 .signatureDuration(durationUrl)
@@ -127,18 +136,6 @@ public class S3UploadServiceImpl implements S3UploadService {
         return "application/octet-stream";
     }
 
-    private void deleteLocalFile(File file) {
-        if (file != null && file.exists()) {
-            if (!file.delete()) {
-                log.warn("[로컬 파일 삭제 실패]: {}", file.getAbsolutePath());
-            }
-        }
-    }
-
-    /**
-     * S3 파일 삭제
-     * @param fileUrl 삭제할 파일의 전체 URL 또는 Key
-     */
     @Override
     public void deleteFile(String fileUrl) {
         if (fileUrl == null || fileUrl.isBlank()) {
@@ -146,22 +143,159 @@ public class S3UploadServiceImpl implements S3UploadService {
         }
 
         try {
-            // 1. 전체 URL에서 순수 Key 추출 (기존 getPresignedUrl에 있던 방식과 동일하게 처리)
-            String pureKey = fileUrl.contains(".com/") ? fileUrl.split(".com/")[1] : fileUrl;
+            String pureKey = extractKey(fileUrl);
 
-            // 2. AWS SDK v2 전용 삭제 요청 객체 생성
             DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
                     .bucket(bucketName)
                     .key(pureKey)
                     .build();
 
-            // 3. S3에서 파일 삭제 실행
             s3Client.deleteObject(deleteObjectRequest);
-            log.info("[AWS S3] 파일 삭제 성공: {}", pureKey);
+            log.info("[AWS S3] Delete success: {}", pureKey);
 
         } catch (Exception e) {
-            // 파일 삭제 실패가 전체 서비스(수정 로직 등)의 예외(Rollback)로 번지지 않도록 로그만 남깁니다.
-            log.error("[AWS S3] 파일 삭제 실패 - URL: {}", fileUrl, e);
+            log.error("[AWS S3] Delete failed - URL: {}", fileUrl, e);
         }
     }
+
+    private boolean objectExists(String key) {
+        try {
+            HeadObjectResponse response = s3Client.headObject(
+                    HeadObjectRequest.builder()
+                            .bucket(bucketName)
+                            .key(key)
+                            .build()
+            );
+            return response != null;
+        } catch (S3Exception e) {
+            if (isNotFound(e)) {
+                return false;
+            }
+            throw e;
+        }
+    }
+
+    private String findExistingKeyByContentDigest(String prefix, String sha256, String md5) {
+        String continuationToken = null;
+
+        do {
+            ListObjectsV2Request.Builder requestBuilder = ListObjectsV2Request.builder()
+                    .bucket(bucketName)
+                    .prefix(prefix)
+                    .maxKeys(1000);
+
+            if (continuationToken != null) {
+                requestBuilder.continuationToken(continuationToken);
+            }
+
+            ListObjectsV2Response response = s3Client.listObjectsV2(requestBuilder.build());
+            if (response == null || response.contents() == null || response.contents().isEmpty()) {
+                return null;
+            }
+
+            for (S3Object object : response.contents()) {
+                if (object == null || object.key() == null || object.key().endsWith("/")) {
+                    continue;
+                }
+
+                // Fast path: ETag usually equals MD5 for single-part uploads.
+                String normalizedETag = normalizeEtag(object.eTag());
+                if (normalizedETag != null && normalizedETag.equalsIgnoreCase(md5)) {
+                    return object.key();
+                }
+
+                String existingHash = fetchSha256Metadata(object.key());
+                if (sha256.equals(existingHash)) {
+                    return object.key();
+                }
+            }
+
+            continuationToken = Boolean.TRUE.equals(response.isTruncated())
+                    ? response.nextContinuationToken()
+                    : null;
+
+        } while (continuationToken != null && !continuationToken.isBlank());
+
+        return null;
+    }
+
+    private String fetchSha256Metadata(String key) {
+        try {
+            HeadObjectResponse response = s3Client.headObject(
+                    HeadObjectRequest.builder()
+                            .bucket(bucketName)
+                            .key(key)
+                            .build()
+            );
+            if (response == null || response.metadata() == null || response.metadata().isEmpty()) {
+                return null;
+            }
+            return response.metadata().get("sha256");
+        } catch (S3Exception e) {
+            if (isNotFound(e)) {
+                return null;
+            }
+            throw e;
+        }
+    }
+
+    private String calculateSha256(Path filePath) throws IOException {
+        return calculateDigest(filePath, "SHA-256");
+    }
+
+    private String calculateMd5(Path filePath) throws IOException {
+        return calculateDigest(filePath, "MD5");
+    }
+
+    private String calculateDigest(Path filePath, String algorithm) throws IOException {
+        try {
+            MessageDigest digest = MessageDigest.getInstance(algorithm);
+            byte[] bytes = Files.readAllBytes(filePath);
+            byte[] hashed = digest.digest(bytes);
+            StringBuilder sb = new StringBuilder(hashed.length * 2);
+            for (byte b : hashed) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(algorithm + " algorithm is not available", e);
+        }
+    }
+
+    private String extractPrefix(String key) {
+        if (key == null || key.isBlank()) {
+            return "";
+        }
+        int idx = key.lastIndexOf('/');
+        if (idx < 0) {
+            return "";
+        }
+        return key.substring(0, idx + 1);
+    }
+
+    private String extractKey(String keyOrUrl) {
+        if (keyOrUrl == null) {
+            return null;
+        }
+        return keyOrUrl.contains(".com/") ? keyOrUrl.split(".com/")[1] : keyOrUrl;
+    }
+
+    private boolean isNotFound(S3Exception e) {
+        if (e == null) {
+            return false;
+        }
+        if (e.statusCode() == 404) {
+            return true;
+        }
+        return e.awsErrorDetails() != null
+                && "NotFound".equalsIgnoreCase(e.awsErrorDetails().errorCode());
+    }
+
+    private String normalizeEtag(String etag) {
+        if (etag == null || etag.isBlank()) {
+            return null;
+        }
+        return etag.replace("\"", "").trim();
+    }
 }
+

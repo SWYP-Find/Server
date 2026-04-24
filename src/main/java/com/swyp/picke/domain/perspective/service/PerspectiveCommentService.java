@@ -20,7 +20,8 @@ import com.swyp.picke.domain.user.service.UserService;
 import com.swyp.picke.domain.vote.service.BattleVoteService;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
-import com.swyp.picke.global.infra.s3.service.S3PresignedUrlService;
+import com.swyp.picke.global.infra.s3.enums.FileCategory;
+import com.swyp.picke.global.infra.s3.util.ResourceUrlProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -43,7 +44,7 @@ public class PerspectiveCommentService {
     private final UserService userQueryService;
     private final BattleVoteService BattleVoteService;
     private final BattleService battleService;
-    private final S3PresignedUrlService s3PresignedUrlService;
+    private final ResourceUrlProvider resourceUrlProvider;
 
     @Transactional
     public CreateCommentResponse createComment(Long perspectiveId, Long userId, CreateCommentRequest request) {
@@ -207,6 +208,9 @@ public class PerspectiveCommentService {
         if (characterType == null || characterType.isBlank()) {
             return null;
         }
-        return s3PresignedUrlService.generatePresignedUrl(CharacterType.resolveImageKey(characterType));
+        return resourceUrlProvider.getImageUrl(
+                FileCategory.CHARACTER,
+                CharacterType.resolveImageKey(characterType)
+        );
     }
 }

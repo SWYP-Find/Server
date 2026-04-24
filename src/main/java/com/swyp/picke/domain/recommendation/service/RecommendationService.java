@@ -2,10 +2,11 @@ package com.swyp.picke.domain.recommendation.service;
 
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
-import com.swyp.picke.domain.battle.entity.BattleOptionTag;
+import com.swyp.picke.domain.battle.entity.BattleTag;
 import com.swyp.picke.domain.battle.repository.BattleOptionRepository;
 import com.swyp.picke.domain.battle.repository.BattleOptionTagRepository;
 import com.swyp.picke.domain.battle.repository.BattleRepository;
+import com.swyp.picke.domain.battle.repository.BattleTagRepository;
 import com.swyp.picke.domain.battle.service.BattleService;
 import com.swyp.picke.domain.recommendation.dto.response.RecommendationListResponse;
 import com.swyp.picke.domain.tag.enums.TagType;
@@ -35,6 +36,7 @@ public class RecommendationService {
     private final BattleRepository battleRepository;
     private final BattleOptionRepository battleOptionRepository;
     private final BattleOptionTagRepository battleOptionTagRepository;
+    private final BattleTagRepository battleTagRepository;
     private final BattleVoteRepository BattleVoteRepository;
     private final UserService userService;
     private final ResourceUrlProvider urlProvider;
@@ -101,12 +103,9 @@ public class RecommendationService {
                 ))
                 .toList();
 
-        // CATEGORY 태그만 노출
-        List<RecommendationListResponse.TagSummary> tagSummaries = options.stream()
-                .flatMap(opt -> battleOptionTagRepository.findByBattleOption(opt).stream())
-                .map(BattleOptionTag::getTag)
+        List<RecommendationListResponse.TagSummary> tagSummaries = battleTagRepository.findByBattle(battle).stream()
+                .map(BattleTag::getTag)
                 .filter(tag -> tag.getType() == TagType.CATEGORY)
-                .distinct()
                 .map(tag -> new RecommendationListResponse.TagSummary(tag.getId(), tag.getName()))
                 .toList();
 

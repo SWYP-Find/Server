@@ -20,7 +20,7 @@ public class GptModerationService {
 
     // 프롬프트는 추후 결정
     private static final String SYSTEM_PROMPT =
-            "당신은 콘텐츠 검수 AI입니다. 입력된 텍스트에 욕설, 혐오 발언, 폭력적 표현, 성적 표현, 특정인을 향한 공격적 내용이 포함되어 있는지 판단하세요. " +
+            "당신은 콘텐츠 검수 AI입니다. 입력된 텍스트에 강한 욕설 (욕설 연상 단어 포함), 강한 폭력적 표현, 특정인을 향한 공격적 내용이 포함되어 있는지 판단하세요. 다만 수위가 약하다면 허용하겠습니다." +
             "문제가 있으면 'REJECT', 없으면 'APPROVE' 딱 한 단어만 응답하세요.";
 
     private static final int MAX_ATTEMPTS = 2;

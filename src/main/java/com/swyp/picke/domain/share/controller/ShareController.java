@@ -11,8 +11,7 @@ import org.springframework.web.servlet.view.RedirectView;
 @Controller
 public class ShareController {
 
-    //출시 이후 URL 필요
-    @Value("${picke.store.android:https://play.google.com/store/apps/details?id=com.swyp.picke}")
+    @Value("${picke.store.android:https://play.google.com/store/apps/details?id=com.picke.app}")
     private String androidStoreUrl;
 
     @GetMapping("/report/{reportId}")

@@ -1,28 +1,42 @@
-# 1. 환경 설정 (기본값을 local로 지정)
+# 1. 환경 설정 및 프로파일 동적 바인딩
 spring:
   profiles:
-    active: local
+    active: ${SPRING_PROFILES_ACTIVE:local}
   servlet:
     multipart:
       enabled: true
       max-file-size: 50MB
       max-request-size: 50MB
 
-# 2. 클라우드 인프라 설정 (AWS, GCP)
-cloud:
-  aws:
-    s3:
-      bucket: ${AWS_S3_BUCKET}
-    region:
-      static: ${AWS_REGION}
-    credentials:
-      access-key: ${AWS_ACCESS_KEY}
-      secret-key: ${AWS_SECRET_KEY}
-  gcp:
-    credentials:
-      location: ${GCP_CREDENTIALS_PATH}
+  # 2. 통합 데이터소스 및 엔티티 매핑 설정
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
 
-# 3. 인증 및 보안 설정 (OAuth2, JWT)
+  # 3. spring.cloud 하위로 AWS 및 GCP 인프라 세팅 이동 (오류 해결 핵심)
+  cloud:
+    aws:
+      s3:
+        bucket: ${AWS_S3_BUCKET}
+      region:
+        static: ${AWS_REGION}
+      credentials:
+        access-key: ${AWS_ACCESS_KEY}
+        secret-key: ${AWS_SECRET_KEY}
+    gcp:
+      credentials:
+        location: ${GCP_CREDENTIALS_PATH}
+
+# 4. 인증 및 보안 설정 (OAuth2, JWT)
 oauth:
   kakao:
     client-id: ${KAKAO_CLIENT_ID}
@@ -36,7 +50,7 @@ oauth:
     key-id: ${APPLE_KEY_ID}
     private-key: ${APPLE_PRIVATE_KEY}
 
-# 4. 외부 API 설정 (AdMob, OpenAI, Fish Audio, ElevenLabs 등)
+# 5. 외부 API 설정 (AdMob, OpenAI, Fish Audio, ElevenLabs 등)
 admob:
   app-id: ${ADMOB_APP_ID}
   reward:
@@ -69,7 +83,7 @@ elevenlabs:
     user: ${ELEVENLABS_VOICE_USER}
     narrator: ${ELEVENLABS_VOICE_NARRATOR}
 
-# 5. 기타 설정 (Swagger, JWT, 미디어 등)
+# 6. 기타 인프라 스트럭처 컴포넌트 세팅
 springdoc:
   default-consumes-media-type: application/json
   default-produces-media-type: application/json

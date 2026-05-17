@@ -3,10 +3,15 @@ package com.swyp.picke.domain.oauth.dto;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
-// 클라이언트가 서버로 요청을 보낼 때, 데이터를 담는 DTO
 @Getter
 @AllArgsConstructor
 public class LoginRequest {
+    // 1. 구글, 카카오용 인가 코드 및 애플용 authorizationCode 공용 필드
     private String authorizationCode;
+
+    // 2. 구글, 카카오용 선택 필드
     private String redirectUri;
+
+    // 3. 애플 로그인에 사용되는 필수 자격 증명 토큰
+    private String identityToken;
 }

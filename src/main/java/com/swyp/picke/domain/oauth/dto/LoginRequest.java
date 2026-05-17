@@ -1,17 +1,29 @@
 package com.swyp.picke.domain.oauth.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 @Getter
 @AllArgsConstructor
+@Schema(description = "소셜 로그인 요청 객체")
 public class LoginRequest {
-    // 1. 구글, 카카오용 인가 코드 및 애플용 authorizationCode 공용 필드
+
+    @Schema(
+            description = "인가 코드 (구글/카카오 로그인 시 필수, 애플 로그인 시에도 선택 또는 필수 전달)",
+            example = "4/0AeanS0..."
+    )
     private String authorizationCode;
 
-    // 2. 구글, 카카오용 선택 필드
+    @Schema(
+            description = "리다이렉트 URI (구글/카카오 로그인 시 사용)",
+            example = "https://picke.store/login/callback"
+    )
     private String redirectUri;
 
-    // 3. 애플 로그인에 사용되는 필수 자격 증명 토큰
+    @Schema(
+            description = "애플 identityToken (애플 로그인 시 필수)",
+            example = "eyJhbGciOiJSUzI1NiIsImtpZCI6..."
+    )
     private String identityToken;
 }

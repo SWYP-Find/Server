@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.oauth.service;
 
+import com.swyp.picke.domain.oauth.client.AppleOAuthClient;
 import com.swyp.picke.domain.oauth.client.GoogleOAuthClient;
 import com.swyp.picke.domain.oauth.client.KakaoOAuthClient;
 import com.swyp.picke.domain.oauth.dto.LoginRequest;
@@ -78,6 +79,7 @@ public class AuthService {
 
     private final KakaoOAuthClient kakaoOAuthClient;
     private final GoogleOAuthClient googleOAuthClient;
+    private final AppleOAuthClient appleOAuthClient;
     private final UserRepository userRepository;
     private final UserSocialAccountRepository socialAccountRepository;
     private final AuthRefreshTokenRepository refreshTokenRepository;
@@ -90,13 +92,13 @@ public class AuthService {
 
     public LoginResponse login(String provider, LoginRequest request) {
 
-        // 0. Provider를 미리 대문자로 통일
-        String providerUpper = provider.toUpperCase();
+        // 1. Provider 가공 시 대문자 통일 및 문자열 정제 전처리 적용
+        String providerUpper = provider.trim().toUpperCase();
 
-        // 1. 소셜 사용자 정보 조회
-        OAuthUserInfo oAuthUserInfo = getOAuthUserInfo(providerUpper, request.getAuthorizationCode(), request.getRedirectUri());
+        // 2. 소셜 사용자 정보 조회 통합 엔드포인트 연동
+        OAuthUserInfo oAuthUserInfo = getOAuthUserInfo(providerUpper, request);
 
-        // 2. 기존 소셜 계정 조회
+        // 3. 기존 소셜 계정 조회
         UserSocialAccount socialAccount = socialAccountRepository
                 .findByProviderAndProviderUserId(providerUpper, oAuthUserInfo.getProviderUserId())
                 .orElse(null);
@@ -114,13 +116,20 @@ public class AuthService {
             userRepository.save(user);
             initializeUserDomain(user);
 
-            // 소셜 계정 연결
+            // 소셜 계정 연결 및 생성 파이프라인 수행
             socialAccount = UserSocialAccount.builder()
                     .user(user)
                     .provider(providerUpper)
                     .providerUserId(oAuthUserInfo.getProviderUserId())
                     .providerEmail(oAuthUserInfo.getEmail())
                     .build();
+
+            // 5. 애플 로그인인 경우 애플용 리프레시 토큰 발급 후 엔티티에 기록 위임
+            if ("APPLE".equals(providerUpper)) {
+                String appleRefreshToken = appleOAuthClient.getAppleRefreshToken(request.getAuthorizationCode());
+                socialAccount.updateAppleRefreshToken(appleRefreshToken);
+            }
+
             socialAccountRepository.save(socialAccount);
 
             // 크레딧 지급 (30 크레딧)
@@ -128,9 +137,16 @@ public class AuthService {
             isNewUser = true;
         } else {
             user = socialAccount.getUser();
+
+            // 6. 기존 가입 유저더라도 애플의 경우 리프레시 토큰 데이터 갱신 보강
+            if ("APPLE".equals(providerUpper)) {
+                String appleRefreshToken = appleOAuthClient.getAppleRefreshToken(request.getAuthorizationCode());
+                socialAccount.updateAppleRefreshToken(appleRefreshToken);
+                socialAccountRepository.save(socialAccount);
+            }
         }
 
-        // 3. 제재 유저 체크
+        // 제재 유저 체크
         if (user.getStatus() == UserStatus.BANNED) {
             throw new CustomException(ErrorCode.USER_BANNED);
         }
@@ -138,13 +154,13 @@ public class AuthService {
             throw new CustomException(ErrorCode.USER_SUSPENDED);
         }
 
-        // 4. 기존 refresh token 삭제 후 새로 발급
+        // 기존 refresh token 삭제 후 새로 발급
         refreshTokenRepository.deleteByUser(user);
 
         String accessToken = jwtProvider.createAccessToken(user.getId(), user.getRole().name());
         String refreshToken = jwtProvider.createRefreshToken();
 
-        // 5. refresh token 해시해서 저장
+        // refresh token 해시해서 저장
         refreshTokenRepository.save(AuthRefreshToken.builder()
                                             .user(user)
                                             .tokenHash(hashToken(refreshToken))
@@ -162,26 +178,26 @@ public class AuthService {
 
     public LoginResponse refresh(String refreshToken) {
 
-        // 1. refresh token 해시해서 DB 조회
+        // refresh token 해시해서 DB 조회
         String tokenHash = hashToken(refreshToken);
         AuthRefreshToken authRefreshToken = refreshTokenRepository
                 .findByTokenHash(tokenHash)
                 .orElseThrow(() -> new CustomException(ErrorCode.AUTH_REFRESH_TOKEN_EXPIRED));
 
-        // 2. 만료 여부 확인
+        // 만료 여부 확인
         if (authRefreshToken.isExpired()) {
             refreshTokenRepository.delete(authRefreshToken);
             throw new CustomException(ErrorCode.AUTH_REFRESH_TOKEN_EXPIRED);
         }
 
-        // 3. 기존 토큰 삭제 후 새 토큰 발급
+        // 기존 token 삭제 후 새 토큰 발급
         User user = authRefreshToken.getUser();
         refreshTokenRepository.delete(authRefreshToken);
 
         String newAccessToken = jwtProvider.createAccessToken(user.getId(), user.getRole().name());
         String newRefreshToken = jwtProvider.createRefreshToken();
 
-        // 4. 새 refresh token 저장
+        // 새 refresh token 저장
         refreshTokenRepository.save(AuthRefreshToken.builder()
                                             .user(user)
                                             .tokenHash(hashToken(newRefreshToken))
@@ -214,9 +230,9 @@ public class AuthService {
 
         if (!userWithdrawalRepository.existsByUser_Id(userId)) {
             userWithdrawalRepository.save(UserWithdrawal.builder()
-                    .user(user)
-                    .reason(request.reason())
-                    .build());
+                                                  .user(user)
+                                                  .reason(request.reason())
+                                                  .build());
         }
 
         socialAccountRepository.findByUser(user).ifPresent(socialAccountRepository::delete);
@@ -224,16 +240,21 @@ public class AuthService {
         user.delete();
     }
 
-    // provider에 따라 소셜 사용자 정보 조회
-    private OAuthUserInfo getOAuthUserInfo(String provider, String code, String redirectUri) {
+    // 7. 애플 분기 조건 스위치 매핑 구조 보완 및 파라미터 규격 최적화
+    private OAuthUserInfo getOAuthUserInfo(String provider, LoginRequest request) {
         return switch (provider.toUpperCase()) {
+            case "TRACK" -> throw new CustomException(ErrorCode.INVALID_PROVIDER);
             case "KAKAO" -> {
-                String token = kakaoOAuthClient.getAccessToken(code, redirectUri);
+                String token = kakaoOAuthClient.getAccessToken(request.getAuthorizationCode(), request.getRedirectUri());
                 yield kakaoOAuthClient.getUserInfo(token);
             }
             case "GOOGLE" -> {
-                String token = googleOAuthClient.getAccessToken(code, redirectUri);
+                String token = googleOAuthClient.getAccessToken(request.getAuthorizationCode(), request.getRedirectUri());
                 yield googleOAuthClient.getUserInfo(token);
+            }
+            case "APPLE" -> {
+                // 애플 로그인 검증은 클라이언트가 보낸 identityToken을 직통으로 위임
+                yield appleOAuthClient.getUserInfo(request.getIdentityToken());
             }
             default -> throw new CustomException(ErrorCode.INVALID_PROVIDER);
         };
@@ -248,31 +269,31 @@ public class AuthService {
         CharacterType characterType = CharacterType.random();
 
         userProfileRepository.save(UserProfile.builder()
-                .user(user)
-                .nickname(generateDefaultNickname(characterType))
-                .characterType(characterType)
-                .mannerTemperature(BigDecimal.valueOf(36.5))
-                .build());
+                                           .user(user)
+                                           .nickname(generateDefaultNickname(characterType))
+                                           .characterType(characterType)
+                                           .mannerTemperature(BigDecimal.valueOf(36.5))
+                                           .build());
 
         userSettingsRepository.save(UserSettings.builder()
-                .user(user)
-                .newBattleEnabled(false)
-                .battleResultEnabled(true)
-                .commentReplyEnabled(true)
-                .newCommentEnabled(false)
-                .contentLikeEnabled(false)
-                .marketingEventEnabled(true)
-                .build());
+                                            .user(user)
+                                            .newBattleEnabled(false)
+                                            .battleResultEnabled(true)
+                                            .commentReplyEnabled(true)
+                                            .newCommentEnabled(false)
+                                            .contentLikeEnabled(false)
+                                            .marketingEventEnabled(true)
+                                            .build());
 
         userTendencyScoreRepository.save(UserTendencyScore.builder()
-                .user(user)
-                .principle(0)
-                .reason(0)
-                .individual(0)
-                .change(0)
-                .inner(0)
-                .ideal(0)
-                .build());
+                                                 .user(user)
+                                                 .principle(0)
+                                                 .reason(0)
+                                                 .individual(0)
+                                                 .change(0)
+                                                 .inner(0)
+                                                 .ideal(0)
+                                                 .build());
     }
 
     private String generateDefaultNickname(CharacterType characterType) {

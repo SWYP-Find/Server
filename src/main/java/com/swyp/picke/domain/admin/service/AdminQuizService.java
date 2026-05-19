@@ -31,6 +31,6 @@ public class AdminQuizService {
     }
 
     public Object getQuizzes(int page, int size, String status) {
-        return quizService.getQuizzes(page, size);
+        return quizService.getQuizzes(page, size, status);
     }
 }

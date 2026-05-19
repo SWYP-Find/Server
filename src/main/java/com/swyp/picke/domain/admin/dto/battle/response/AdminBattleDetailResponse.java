@@ -20,6 +20,7 @@ public record AdminBattleDetailResponse(
         String thumbnailUrl,
         Integer audioDuration,
         LocalDate targetDate,
+        LocalDateTime publishAt,
         BattleStatus status,
         BattleCreatorType creatorType,
         List<BattleTagResponse> tags,

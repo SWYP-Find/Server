@@ -36,11 +36,9 @@ public class BattleController {
             @Parameter(description = "페이지 번호 (1부터 시작)", example = "1")
             @RequestParam(value = "page", defaultValue = "1") int page,
             @Parameter(description = "페이지 크기", example = "10")
-            @RequestParam(value = "size", defaultValue = "10") int size,
-            @Parameter(description = "콘텐츠 상태 (ALL, PENDING, PUBLISHED, REJECTED, ARCHIVED)", example = "ALL")
-            @RequestParam(value = "status", required = false, defaultValue = "ALL") String status
+            @RequestParam(value = "size", defaultValue = "10") int size
     ) {
-        return ApiResponse.onSuccess(battleService.getBattles(page, size, status));
+        return ApiResponse.onSuccess(battleService.getPublishedBattles(page, size));
     }
 
     @Operation(summary = "배틀 상세 조회")

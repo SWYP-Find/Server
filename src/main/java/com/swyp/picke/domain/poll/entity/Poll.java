@@ -15,6 +15,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -33,6 +34,9 @@ public class Poll extends BaseEntity {
     @Column(name = "target_date")
     private LocalDate targetDate;
 
+    @Column(name = "publish_at")
+    private LocalDateTime publishAt;
+
     @Column(name = "total_participants_count", nullable = false)
     private Long totalParticipantsCount;
 
@@ -44,10 +48,11 @@ public class Poll extends BaseEntity {
     private final List<PollOption> options = new ArrayList<>();
 
     @Builder
-    public Poll(String titlePrefix, String titleSuffix, LocalDate targetDate, PollStatus status) {
+    public Poll(String titlePrefix, String titleSuffix, LocalDate targetDate, LocalDateTime publishAt, PollStatus status) {
         this.titlePrefix = titlePrefix;
         this.titleSuffix = titleSuffix;
         this.targetDate = targetDate;
+        this.publishAt = publishAt;
         this.status = status;
         this.totalParticipantsCount = 0L;
     }
@@ -57,6 +62,14 @@ public class Poll extends BaseEntity {
         if (titleSuffix != null) this.titleSuffix = titleSuffix;
         if (targetDate != null) this.targetDate = targetDate;
         if (status != null) this.status = status;
+    }
+
+    public void updatePublishAt(LocalDateTime publishAt) {
+        this.publishAt = publishAt;
+    }
+
+    public void publish() {
+        this.status = PollStatus.PUBLISHED;
     }
 
     public void increaseTotalParticipantsCount() {

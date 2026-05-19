@@ -28,6 +28,7 @@ public class UserTendencyScoreHistory extends BaseEntity {
 
     private int individual;
 
+    @Column(name = "change_score")
     private int change;
 
     @Column(name = "inner_score")

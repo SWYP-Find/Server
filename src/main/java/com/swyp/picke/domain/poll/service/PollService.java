@@ -8,12 +8,15 @@ import com.swyp.picke.domain.poll.dto.response.PollDetailResponse;
 import com.swyp.picke.domain.poll.dto.response.PollListResponse;
 import com.swyp.picke.domain.poll.entity.Poll;
 import com.swyp.picke.domain.poll.entity.PollOption;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface PollService {
     Poll findById(Long pollId);
 
     PollListResponse getPolls(int page, int size);
+
+    PollListResponse getPolls(int page, int size, String status);
 
     List<Poll> getTodayPicks(int limit);
 
@@ -30,6 +33,8 @@ public interface PollService {
     AdminPollDetailResponse updatePoll(Long pollId, AdminPollUpdateRequest request);
 
     AdminPollDeleteResponse deletePoll(Long pollId);
+
+    int openReadyPolls(LocalDateTime now);
 }
 
 

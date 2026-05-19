@@ -37,6 +37,8 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class QuizServiceImpl implements QuizService {
 
+    private static final int PUBLISH_BATCH_SIZE = 100;
+
     private final QuizRepository quizRepository;
     private final QuizOptionRepository quizOptionRepository;
     private final QuizConverter quizConverter;
@@ -50,7 +52,23 @@ public class QuizServiceImpl implements QuizService {
     @Override
     public QuizListResponse getQuizzes(int page, int size) {
         int pageNumber = Math.max(0, page - 1);
-        Page<Quiz> quizPage = quizRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(pageNumber, size));
+        Page<Quiz> quizPage = quizRepository.findByStatusOrderByCreatedAtDesc(
+                QuizStatus.PUBLISHED,
+                PageRequest.of(pageNumber, size)
+        );
+        return quizConverter.toListResponse(quizPage);
+    }
+
+    @Override
+    public QuizListResponse getQuizzes(int page, int size, String status) {
+        int pageNumber = Math.max(0, page - 1);
+        PageRequest pageRequest = PageRequest.of(pageNumber, size);
+        QuizStatus quizStatus = parseQuizStatus(status);
+
+        Page<Quiz> quizPage = quizStatus == null
+                ? quizRepository.findAllByOrderByCreatedAtDesc(pageRequest)
+                : quizRepository.findByStatusOrderByCreatedAtDesc(quizStatus, pageRequest);
+
         return quizConverter.toListResponse(quizPage);
     }
 
@@ -77,6 +95,9 @@ public class QuizServiceImpl implements QuizService {
     @Override
     public QuizDetailResponse getQuizDetail(Long quizId) {
         Quiz quiz = findById(quizId);
+        if (quiz.getStatus() != QuizStatus.PUBLISHED) {
+            throw new CustomException(ErrorCode.BATTLE_NOT_FOUND);
+        }
         List<QuizOption> options = quizOptionRepository.findByQuizOrderByDisplayOrderAscLabelAscIdAsc(quiz);
         return quizConverter.toDetailResponse(quiz, options);
     }
@@ -123,6 +144,7 @@ public class QuizServiceImpl implements QuizService {
     public AdminQuizDetailResponse updateQuiz(Long quizId, AdminQuizUpdateRequest request) {
         Quiz quiz = findById(quizId);
         quiz.update(request.title(), request.targetDate(), request.status());
+        quiz.updatePublishAt(request.publishAt());
 
         if (request.options() != null) {
             List<QuizOption> existingOptions = quizOptionRepository.findByQuizOrderByDisplayOrderAscLabelAscIdAsc(quiz);
@@ -178,11 +200,47 @@ public class QuizServiceImpl implements QuizService {
         return new AdminQuizDeleteResponse(true, LocalDateTime.now());
     }
 
+    @Override
+    @Transactional
+    public int openReadyQuizzes(LocalDateTime now) {
+        int openedCount = 0;
+        PageRequest pageRequest = PageRequest.of(0, PUBLISH_BATCH_SIZE);
+
+        while (true) {
+            Page<Quiz> readyPage = quizRepository.findByStatusAndPublishAtLessThanEqual(
+                    QuizStatus.PENDING,
+                    now,
+                    pageRequest
+            );
+            if (readyPage.isEmpty()) {
+                break;
+            }
+
+            readyPage.getContent().forEach(Quiz::publish);
+            openedCount += readyPage.getNumberOfElements();
+            quizRepository.flush();
+        }
+
+        return openedCount;
+    }
+
     private int resolveDisplayOrder(Integer requestedOrder, int fallbackOrder) {
         if (requestedOrder == null || requestedOrder < 1) {
             return fallbackOrder;
         }
         return requestedOrder;
+    }
+
+    private QuizStatus parseQuizStatus(String status) {
+        if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
+            return null;
+        }
+
+        try {
+            return QuizStatus.valueOf(status.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new CustomException(ErrorCode.BAD_REQUEST);
+        }
     }
 
     private void ensureTodayPicks(LocalDate today, int requiredCount) {

@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+@io.swagger.v3.oas.annotations.Hidden
 @Tag(name = "관리자 배틀 제안 API", description = "주제 제안 목록 조회 및 채택/미채택 처리")
 @RestController
 @RequestMapping("/api/v1/admin/battles")

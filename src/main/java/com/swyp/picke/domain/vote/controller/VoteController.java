@@ -144,6 +144,7 @@ public class VoteController {
         return ApiResponse.onSuccess(null);
     }
 
+    @io.swagger.v3.oas.annotations.Hidden
     @Operation(summary = "[관리자] 배틀 투표 기록 삭제")
     @DeleteMapping("/admin/votes/battle/{battleId}")
     @PreAuthorize("hasRole('ADMIN')")
@@ -152,6 +153,7 @@ public class VoteController {
         return ApiResponse.onSuccess(null);
     }
 
+    @io.swagger.v3.oas.annotations.Hidden
     @Operation(summary = "[관리자] 퀴즈 투표 기록 삭제")
     @DeleteMapping("/admin/votes/quiz/{battleId}")
     @PreAuthorize("hasRole('ADMIN')")
@@ -160,6 +162,7 @@ public class VoteController {
         return ApiResponse.onSuccess(null);
     }
 
+    @io.swagger.v3.oas.annotations.Hidden
     @Operation(summary = "[관리자] 투표 콘텐츠 투표 기록 삭제")
     @DeleteMapping("/admin/votes/poll/{battleId}")
     @PreAuthorize("hasRole('ADMIN')")

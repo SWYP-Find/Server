@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+@io.swagger.v3.oas.annotations.Hidden
 @Tag(name = "관리자 시나리오 API", description = "관리자 시나리오 생성, 조회, 수정, 삭제")
 @RestController
 @RequestMapping("/api/v1/admin")

@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@io.swagger.v3.oas.annotations.Hidden
 @Tag(name = "관리자 공지 API", description = "공지사항/이벤트 작성 및 조회")
 @RestController
 @RequestMapping("/api/v1/admin/notices")

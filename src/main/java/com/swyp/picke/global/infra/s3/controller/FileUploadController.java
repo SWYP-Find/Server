@@ -24,6 +24,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.UUID;
 
+@io.swagger.v3.oas.annotations.Hidden
 @Tag(name = "파일 업로드 API", description = "관리자 파일 업로드 (S3 / 로컬 임시저장)")
 @RestController
 @RequestMapping("/api/v1/files")

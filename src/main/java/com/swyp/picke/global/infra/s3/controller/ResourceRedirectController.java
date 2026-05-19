@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
 
+@io.swagger.v3.oas.annotations.Hidden
 @Tag(name = "리소스 리다이렉트 API", description = "공개 리소스 요청을 S3 Presigned URL 또는 로컬 임시파일로 전달")
 @RestController
 @RequestMapping("/api/v1/resources")

@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@io.swagger.v3.oas.annotations.Hidden
 @Tag(name = "관리자 배틀 API", description = "관리자 배틀 콘텐츠 생성, 조회, 수정, 삭제")
 @RestController
 @RequestMapping("/api/v1/admin/battles")

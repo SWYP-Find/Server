@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@io.swagger.v3.oas.annotations.Hidden
 @Tag(name = "[Test] BestCommentScheduler", description = "스케줄러 테스트 API")
 @RestController
 @RequestMapping("/api/test/scheduler")

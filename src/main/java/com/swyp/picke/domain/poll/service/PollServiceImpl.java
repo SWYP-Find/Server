@@ -37,6 +37,8 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class PollServiceImpl implements PollService {
 
+    private static final int PUBLISH_BATCH_SIZE = 100;
+
     private final PollRepository pollRepository;
     private final PollOptionRepository pollOptionRepository;
     private final PollConverter pollConverter;
@@ -50,7 +52,23 @@ public class PollServiceImpl implements PollService {
     @Override
     public PollListResponse getPolls(int page, int size) {
         int pageNumber = Math.max(0, page - 1);
-        Page<Poll> pollPage = pollRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(pageNumber, size));
+        Page<Poll> pollPage = pollRepository.findByStatusOrderByCreatedAtDesc(
+                PollStatus.PUBLISHED,
+                PageRequest.of(pageNumber, size)
+        );
+        return pollConverter.toListResponse(pollPage);
+    }
+
+    @Override
+    public PollListResponse getPolls(int page, int size, String status) {
+        int pageNumber = Math.max(0, page - 1);
+        PageRequest pageRequest = PageRequest.of(pageNumber, size);
+        PollStatus pollStatus = parsePollStatus(status);
+
+        Page<Poll> pollPage = pollStatus == null
+                ? pollRepository.findAllByOrderByCreatedAtDesc(pageRequest)
+                : pollRepository.findByStatusOrderByCreatedAtDesc(pollStatus, pageRequest);
+
         return pollConverter.toListResponse(pollPage);
     }
 
@@ -77,6 +95,9 @@ public class PollServiceImpl implements PollService {
     @Override
     public PollDetailResponse getPollDetail(Long pollId) {
         Poll poll = findById(pollId);
+        if (poll.getStatus() != PollStatus.PUBLISHED) {
+            throw new CustomException(ErrorCode.BATTLE_NOT_FOUND);
+        }
         List<PollOption> options = pollOptionRepository.findByPollOrderByDisplayOrderAscLabelAscIdAsc(poll);
         return pollConverter.toDetailResponse(poll, options);
     }
@@ -126,6 +147,7 @@ public class PollServiceImpl implements PollService {
                 request.targetDate(),
                 request.status()
         );
+        poll.updatePublishAt(request.publishAt());
 
         if (request.options() != null) {
             List<PollOption> existingOptions = pollOptionRepository.findByPollOrderByDisplayOrderAscLabelAscIdAsc(poll);
@@ -174,11 +196,47 @@ public class PollServiceImpl implements PollService {
         return new AdminPollDeleteResponse(true, LocalDateTime.now());
     }
 
+    @Override
+    @Transactional
+    public int openReadyPolls(LocalDateTime now) {
+        int openedCount = 0;
+        PageRequest pageRequest = PageRequest.of(0, PUBLISH_BATCH_SIZE);
+
+        while (true) {
+            Page<Poll> readyPage = pollRepository.findByStatusAndPublishAtLessThanEqual(
+                    PollStatus.PENDING,
+                    now,
+                    pageRequest
+            );
+            if (readyPage.isEmpty()) {
+                break;
+            }
+
+            readyPage.getContent().forEach(Poll::publish);
+            openedCount += readyPage.getNumberOfElements();
+            pollRepository.flush();
+        }
+
+        return openedCount;
+    }
+
     private int resolveDisplayOrder(Integer requestedOrder, int fallbackOrder) {
         if (requestedOrder == null || requestedOrder < 1) {
             return fallbackOrder;
         }
         return requestedOrder;
+    }
+
+    private PollStatus parsePollStatus(String status) {
+        if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
+            return null;
+        }
+
+        try {
+            return PollStatus.valueOf(status.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new CustomException(ErrorCode.BAD_REQUEST);
+        }
     }
 
     private void ensureTodayPicks(LocalDate today, int requiredCount) {

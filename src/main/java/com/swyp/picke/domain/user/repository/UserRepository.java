@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.user.repository;
 
 import com.swyp.picke.domain.user.entity.User;
+import com.swyp.picke.domain.user.enums.UserRole;
 import com.swyp.picke.domain.user.enums.UserStatus;
 import java.util.List;
 import java.util.Optional;
@@ -26,4 +27,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     int decrementCreditIfEnough(@Param("id") Long id, @Param("amount") int amount);
 
     List<User> findAllByStatus(UserStatus status);
+
+    List<User> findAllByRole(UserRole role);
 }

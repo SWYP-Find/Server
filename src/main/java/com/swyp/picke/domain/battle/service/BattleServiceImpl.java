@@ -72,6 +72,7 @@ public class BattleServiceImpl implements BattleService {
     private final S3UploadService s3UploadService;
     private final LocalDraftFileStorageService localDraftFileStorageService;
     private final UserBattleService userBattleService;
+    private final BattleAutoSeedService battleAutoSeedService;
 
     @Override
     public Battle findById(Long battleId) {
@@ -344,6 +345,8 @@ public class BattleServiceImpl implements BattleService {
                         bot -> bot.getBattleOption().getId(),
                         Collectors.mapping(BattleOptionTag::getTag, Collectors.toList())
                 ));
+
+        battleAutoSeedService.seed(battle, savedOptions);
 
         return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), savedOptions, optionTagsMap);
     }

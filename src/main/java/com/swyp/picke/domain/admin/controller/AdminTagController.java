@@ -5,6 +5,7 @@ import com.swyp.picke.domain.admin.dto.tag.response.TagDeleteResponse;
 import com.swyp.picke.domain.admin.dto.tag.response.TagResponse;
 import com.swyp.picke.domain.admin.service.AdminTagService;
 import com.swyp.picke.global.common.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,7 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@io.swagger.v3.oas.annotations.Hidden
+@Hidden
 @Tag(name = "관리자 태그 API", description = "관리자 태그 생성, 수정, 삭제")
 @RestController
 @RequiredArgsConstructor

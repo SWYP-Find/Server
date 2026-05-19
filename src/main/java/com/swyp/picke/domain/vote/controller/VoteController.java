@@ -13,6 +13,7 @@ import com.swyp.picke.domain.vote.service.PollVoteService;
 import com.swyp.picke.domain.vote.service.QuizVoteService;
 import com.swyp.picke.domain.vote.sse.SseEmitterRegistry;
 import com.swyp.picke.global.common.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.IOException;
@@ -144,7 +145,7 @@ public class VoteController {
         return ApiResponse.onSuccess(null);
     }
 
-    @io.swagger.v3.oas.annotations.Hidden
+    @Hidden
     @Operation(summary = "[관리자] 배틀 투표 기록 삭제")
     @DeleteMapping("/admin/votes/battle/{battleId}")
     @PreAuthorize("hasRole('ADMIN')")
@@ -153,7 +154,7 @@ public class VoteController {
         return ApiResponse.onSuccess(null);
     }
 
-    @io.swagger.v3.oas.annotations.Hidden
+    @Hidden
     @Operation(summary = "[관리자] 퀴즈 투표 기록 삭제")
     @DeleteMapping("/admin/votes/quiz/{battleId}")
     @PreAuthorize("hasRole('ADMIN')")
@@ -162,7 +163,7 @@ public class VoteController {
         return ApiResponse.onSuccess(null);
     }
 
-    @io.swagger.v3.oas.annotations.Hidden
+    @Hidden
     @Operation(summary = "[관리자] 투표 콘텐츠 투표 기록 삭제")
     @DeleteMapping("/admin/votes/poll/{battleId}")
     @PreAuthorize("hasRole('ADMIN')")

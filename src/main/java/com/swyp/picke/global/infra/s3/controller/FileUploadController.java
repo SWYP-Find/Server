@@ -6,6 +6,7 @@ import com.swyp.picke.global.infra.s3.dto.FileUploadResponse;
 import com.swyp.picke.global.infra.s3.enums.FileCategory;
 import com.swyp.picke.global.infra.s3.service.S3PresignedUrlService;
 import com.swyp.picke.global.infra.s3.service.S3UploadService;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -24,7 +25,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.UUID;
 
-@io.swagger.v3.oas.annotations.Hidden
+@Hidden
 @Tag(name = "파일 업로드 API", description = "관리자 파일 업로드 (S3 / 로컬 임시저장)")
 @RestController
 @RequestMapping("/api/v1/files")

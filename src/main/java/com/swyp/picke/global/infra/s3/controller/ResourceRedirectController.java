@@ -3,6 +3,7 @@ package com.swyp.picke.global.infra.s3.controller;
 import com.swyp.picke.global.infra.local.service.LocalDraftFileStorageService;
 import com.swyp.picke.global.infra.s3.enums.FileCategory;
 import com.swyp.picke.global.infra.s3.service.S3PresignedUrlService;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
 
-@io.swagger.v3.oas.annotations.Hidden
+@Hidden
 @Tag(name = "리소스 리다이렉트 API", description = "공개 리소스 요청을 S3 Presigned URL 또는 로컬 임시파일로 전달")
 @RestController
 @RequestMapping("/api/v1/resources")

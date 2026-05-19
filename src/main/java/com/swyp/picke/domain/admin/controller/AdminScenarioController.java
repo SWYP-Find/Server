@@ -8,6 +8,7 @@ import com.swyp.picke.domain.admin.dto.scenario.response.AdminScenarioDetailResp
 import com.swyp.picke.domain.admin.dto.scenario.response.AdminScenarioResponse;
 import com.swyp.picke.domain.admin.service.AdminScenarioService;
 import com.swyp.picke.global.common.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +25,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-@io.swagger.v3.oas.annotations.Hidden
+@Hidden
 @Tag(name = "관리자 시나리오 API", description = "관리자 시나리오 생성, 조회, 수정, 삭제")
 @RestController
 @RequestMapping("/api/v1/admin")

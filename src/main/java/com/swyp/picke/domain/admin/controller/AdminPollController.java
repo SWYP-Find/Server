@@ -6,6 +6,7 @@ import com.swyp.picke.domain.admin.dto.poll.response.AdminPollDeleteResponse;
 import com.swyp.picke.domain.admin.dto.poll.response.AdminPollDetailResponse;
 import com.swyp.picke.domain.admin.service.AdminPollService;
 import com.swyp.picke.global.common.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Hidden
 @Tag(name = "관리자 투표 콘텐츠 API", description = "관리자 투표 콘텐츠 생성, 조회, 수정, 삭제")
 @RestController
 @RequestMapping("/api/v1/admin/polls")

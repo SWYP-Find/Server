@@ -68,6 +68,7 @@
                 <th class="px-6 py-4 font-bold w-24">유형</th>
                 <th class="px-6 py-4 font-bold">제목</th>
                 <th class="px-6 py-4 font-bold w-32">상태</th>
+                <th class="px-6 py-4 font-bold w-40">예약 발행</th>
                 <th class="px-6 py-4 font-bold w-32">생성일</th>
                 <th class="px-6 py-4 font-bold w-24 text-center">관리</th>
             </tr>
@@ -292,6 +293,15 @@
                 const date = item.createdAt
                     ? new Date(item.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })
                     : '-';
+                const publishAt = item.publishAt
+                    ? new Date(item.publishAt).toLocaleString('ko-KR', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    })
+                    : '-';
 
                 const typeBadge = {
                     BATTLE: '<span class="px-2 py-1 bg-purple-100 text-purple-700 text-[10px] font-bold rounded">배틀</span>',
@@ -301,7 +311,9 @@
 
                 const statusBadge = {
                     PUBLISHED: '<span class="flex items-center text-green-600 text-xs font-bold"><span class="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>발행</span>',
-                    PENDING: '<span class="flex items-center text-yellow-600 text-xs font-bold"><span class="w-1.5 h-1.5 rounded-full bg-yellow-400 mr-1.5"></span>임시 저장</span>',
+                    PENDING: item.publishAt
+                        ? '<span class="flex items-center text-purple-600 text-xs font-bold"><span class="w-1.5 h-1.5 rounded-full bg-purple-500 mr-1.5"></span>예약 대기</span>'
+                        : '<span class="flex items-center text-yellow-600 text-xs font-bold"><span class="w-1.5 h-1.5 rounded-full bg-yellow-400 mr-1.5"></span>임시 저장</span>',
                     REJECTED: '<span class="flex items-center text-red-500 text-xs font-bold"><span class="w-1.5 h-1.5 rounded-full bg-red-400 mr-1.5"></span>반려</span>',
                     ARCHIVED: '<span class="flex items-center text-gray-400 text-xs font-bold"><span class="w-1.5 h-1.5 rounded-full bg-gray-400 mr-1.5"></span>보관</span>'
                 }[status] ?? `<span class="text-xs font-bold text-gray-500">${status}</span>`;
@@ -320,6 +332,7 @@
                 <td class="px-6 py-4">${typeBadge}</td>
                 <td class="px-6 py-4 font-bold text-gray-900">${title}</td>
                 <td class="px-6 py-4">${statusBadge}</td>
+                <td class="px-6 py-4 text-gray-500 text-xs">${publishAt}</td>
                 <td class="px-6 py-4 text-gray-500 text-xs">${date}</td>
                 <td class="px-6 py-4 text-center">
                     <button class="delete-btn text-gray-400 hover:text-red-500 font-bold text-xs px-2 py-1 border border-gray-200 rounded bg-white hover:border-red-200 transition"

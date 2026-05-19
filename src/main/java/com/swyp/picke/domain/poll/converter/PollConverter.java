@@ -26,6 +26,7 @@ public class PollConverter {
                 .titlePrefix(request.titlePrefix())
                 .titleSuffix(request.titleSuffix())
                 .targetDate(request.targetDate())
+                .publishAt(request.publishAt())
                 .status(request.status())
                 .build();
     }
@@ -42,7 +43,9 @@ public class PollConverter {
                 poll.getId(),
                 poll.getTitlePrefix(),
                 poll.getTitleSuffix(),
-                poll.getStatus()
+                poll.getStatus(),
+                poll.getPublishAt(),
+                poll.getCreatedAt()
         );
     }
 
@@ -52,6 +55,7 @@ public class PollConverter {
                 poll.getTitlePrefix(),
                 poll.getTitleSuffix(),
                 poll.getTargetDate(),
+                poll.getPublishAt(),
                 poll.getStatus(),
                 toOptionResponses(options)
         );

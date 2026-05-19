@@ -14,6 +14,7 @@ import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.enums.BattleOptionLabel;
 import com.swyp.picke.domain.user.dto.response.UserBattleStatusResponse;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface BattleService {
@@ -33,6 +34,8 @@ public interface BattleService {
     List<TodayBattleResponse> getTodayPicks();
 
     List<TodayBattleResponse> getNewBattles(List<Long> excludeIds);
+
+    BattleListResponse getPublishedBattles(int page, int size);
 
     BattleListResponse getBattles(int page, int size, String status);
 
@@ -55,4 +58,6 @@ public interface BattleService {
     AdminBattleDeleteResponse deleteBattle(Long battleId);
 
     void seedBattle(Long battleId, int botCount);
+
+    int openReadyBattles(LocalDateTime now);
 }

@@ -15,6 +15,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,6 +31,9 @@ public class Quiz extends BaseEntity {
     @Column(name = "target_date")
     private LocalDate targetDate;
 
+    @Column(name = "publish_at")
+    private LocalDateTime publishAt;
+
     @Column(name = "total_participants_count", nullable = false)
     private Long totalParticipantsCount;
 
@@ -41,9 +45,10 @@ public class Quiz extends BaseEntity {
     private final List<QuizOption> options = new ArrayList<>();
 
     @Builder
-    public Quiz(String title, LocalDate targetDate, QuizStatus status) {
+    public Quiz(String title, LocalDate targetDate, LocalDateTime publishAt, QuizStatus status) {
         this.title = title;
         this.targetDate = targetDate;
+        this.publishAt = publishAt;
         this.status = status;
         this.totalParticipantsCount = 0L;
     }
@@ -52,6 +57,14 @@ public class Quiz extends BaseEntity {
         if (title != null) this.title = title;
         if (targetDate != null) this.targetDate = targetDate;
         if (status != null) this.status = status;
+    }
+
+    public void updatePublishAt(LocalDateTime publishAt) {
+        this.publishAt = publishAt;
+    }
+
+    public void publish() {
+        this.status = QuizStatus.PUBLISHED;
     }
 
     public void increaseTotalParticipantsCount() {

@@ -25,6 +25,7 @@ public class QuizConverter {
         return Quiz.builder()
                 .title(request.title())
                 .targetDate(request.targetDate())
+                .publishAt(request.publishAt())
                 .status(request.status())
                 .build();
     }
@@ -41,6 +42,7 @@ public class QuizConverter {
                 quiz.getId(),
                 quiz.getTitle(),
                 quiz.getStatus(),
+                quiz.getPublishAt(),
                 quiz.getCreatedAt()
         );
     }
@@ -50,6 +52,7 @@ public class QuizConverter {
                 quiz.getId(),
                 quiz.getTitle(),
                 quiz.getTargetDate(),
+                quiz.getPublishAt(),
                 quiz.getStatus(),
                 toOptionResponses(options)
         );

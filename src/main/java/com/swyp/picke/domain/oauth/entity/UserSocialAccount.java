@@ -35,6 +35,9 @@ public class UserSocialAccount extends BaseEntity {
     @Column(name = "provider_email")
     private String providerEmail;
 
+    @Column(name = "apple_refresh_token")
+    private String appleRefreshToken;
+
     @Builder
     public UserSocialAccount(User user, String provider,
                              String providerUserId, String providerEmail) {
@@ -42,5 +45,9 @@ public class UserSocialAccount extends BaseEntity {
         this.provider = provider;
         this.providerUserId = providerUserId;
         this.providerEmail = providerEmail;
+    }
+
+    public void updateAppleRefreshToken(String appleRefreshToken) {
+        this.appleRefreshToken = appleRefreshToken;
     }
 }

@@ -2,11 +2,12 @@
     const loader = document.getElementById('global-loader');
     const loaderText = document.getElementById('loader-text');
 
-    const statusFromAction = action === 'PENDING' ? 'PENDING' : 'PUBLISHED';
+    const statusFromAction = action === 'PENDING' || action === 'SCHEDULED' ? 'PENDING' : 'PUBLISHED';
 
     if (loader) {
         if (loaderText) {
             if (action === 'PUBLISHED' || action === 'PUBLISH') loaderText.innerText = '콘텐츠를 발행하는 중입니다...';
+            else if (action === 'SCHEDULED') loaderText.innerText = '콘텐츠를 예약 저장 중입니다...';
             else if (action === 'EDIT') loaderText.innerText = '콘텐츠를 수정하는 중입니다...';
             else loaderText.innerText = '임시 저장 중입니다...';
         }
@@ -40,8 +41,18 @@
         return document.getElementById(inputIdByType[type])?.value || PickeData.currentTargetDate || new Date().toISOString().split('T')[0];
     };
 
+    const getPublishAt = (type) => {
+        const inputIdByType = {
+            BATTLE: 'battle-publish-at',
+            QUIZ: 'quiz-publish-at',
+            POLL: 'poll-publish-at'
+        };
+        const value = document.getElementById(inputIdByType[type])?.value;
+        return value ? value : null;
+    };
+
     const getStatus = (type) => {
-        if (action === 'PENDING') return 'PENDING';
+        if (action === 'PENDING' || action === 'SCHEDULED') return 'PENDING';
         if (action === 'PUBLISHED' || action === 'PUBLISH') return 'PUBLISHED';
 
         const statusInputByType = {
@@ -56,13 +67,18 @@
         const currentType = PickeData.currentContentType;
         const previousStatus = PickeData.currentStatus;
         const targetDate = getTargetDate(currentType);
+        const publishAt = getPublishAt(currentType);
         const resolvedStatus = getStatus(currentType);
         const hasNewBattleImageUploads = currentType === 'BATTLE'
             && !!(PickeData.uploadedFiles.thumbnail || PickeData.uploadedFiles.charA || PickeData.uploadedFiles.charB);
         const shouldUploadAssets = action === 'PUBLISHED' || action === 'PUBLISH' || (action === 'EDIT' && hasNewBattleImageUploads);
-        const shouldUploadLocalDraft = action === 'PENDING';
+        const shouldUploadLocalDraft = action === 'PENDING' || action === 'SCHEDULED';
 
         PickeData.currentTargetDate = targetDate;
+
+        if (action === 'SCHEDULED' && !publishAt) {
+            throw new Error('예약 발행 시각을 입력해 주세요.');
+        }
 
         let thumbnailUrl = PickeData.existingUrls.thumbnail;
         let charAUrl = PickeData.existingUrls.charA;
@@ -110,6 +126,7 @@
                 description: document.getElementById('content-desc')?.value || '',
                 thumbnailUrl: thumbnailUrl || document.getElementById('battle-thumbnail-url')?.value || null,
                 targetDate,
+                publishAt,
                 audioDuration: asIntOrNull(document.getElementById('battle-audio-duration')?.value),
                 tagIds: PickeData.selections.CATEGORY || [],
                 options: [
@@ -144,6 +161,7 @@
             payload = {
                 title: document.getElementById('quiz-title')?.value || '',
                 targetDate,
+                publishAt,
                 status: resolvedStatus,
                 options: [
                     {
@@ -181,6 +199,7 @@
                 titlePrefix: document.getElementById('poll-title-prefix')?.value || '',
                 titleSuffix: document.getElementById('poll-title-suffix')?.value || '',
                 targetDate,
+                publishAt,
                 status: resolvedStatus,
                 options: pollOptions
             };
@@ -329,6 +348,8 @@
         document.getElementById('custom-modal-title').innerText = '완료';
         document.getElementById('custom-modal-message').innerText = action === 'PENDING'
             ? '임시 저장되었습니다.'
+            : action === 'SCHEDULED'
+                ? '예약 저장되었습니다.'
             : action === 'EDIT'
                 ? '수정이 완료되었습니다.'
                 : '발행이 완료되었습니다.';

@@ -53,4 +53,6 @@ public interface BattleService {
     AdminBattleDetailResponse updateBattle(Long battleId, AdminBattleUpdateRequest request);
 
     AdminBattleDeleteResponse deleteBattle(Long battleId);
+
+    void seedBattle(Long battleId, int botCount);
 }

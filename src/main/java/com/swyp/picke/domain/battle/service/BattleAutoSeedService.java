@@ -29,8 +29,6 @@ import java.util.concurrent.ThreadLocalRandom;
 @RequiredArgsConstructor
 public class BattleAutoSeedService {
 
-    private static final int BOT_PERSPECTIVE_COUNT = 5;
-
     private final UserRepository userRepository;
     private final BattleVoteRepository battleVoteRepository;
     private final UserBattleService userBattleService;
@@ -39,7 +37,7 @@ public class BattleAutoSeedService {
     private final GptPerspectiveGenerationService gptPerspectiveGenerationService;
 
     @Transactional
-    public void seed(Battle battle, List<BattleOption> options) {
+    public void seed(Battle battle, List<BattleOption> options, int botCount) {
         if (options.size() < 2) {
             log.warn("옵션이 2개 미만이라 관점 자동 생성을 건너뜁니다. battleId={}", battle.getId());
             return;
@@ -53,15 +51,14 @@ public class BattleAutoSeedService {
 
         List<User> selectedBots = new ArrayList<>(bots);
         Collections.shuffle(selectedBots);
-        if (selectedBots.size() > BOT_PERSPECTIVE_COUNT) {
-            selectedBots = selectedBots.subList(0, BOT_PERSPECTIVE_COUNT);
-        }
+        int n = Math.min(botCount, selectedBots.size());
+        selectedBots = selectedBots.subList(0, n);
 
         BattleOption optionA = options.get(0);
         BattleOption optionB = options.get(1);
 
-        // (2,3) 또는 (3,2) 랜덤 결정
-        int optionACount = ThreadLocalRandom.current().nextBoolean() ? 2 : 3;
+        int half = n / 2;
+        int optionACount = (n % 2 == 0) ? half : (ThreadLocalRandom.current().nextBoolean() ? half : half + 1);
 
         for (int i = 0; i < selectedBots.size(); i++) {
             User bot = selectedBots.get(i);

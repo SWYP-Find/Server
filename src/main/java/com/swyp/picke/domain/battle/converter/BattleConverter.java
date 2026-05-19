@@ -38,6 +38,7 @@ public class BattleConverter {
                 .description(request.description())
                 .thumbnailUrl(request.thumbnailUrl())
                 .targetDate(request.targetDate())
+                .publishAt(request.publishAt())
                 .audioDuration(request.audioDuration())
                 .status(request.status())
                 .creatorType(BattleCreatorType.ADMIN)
@@ -65,6 +66,7 @@ public class BattleConverter {
                 battle.getTitle(),
                 urlProvider.getImageUrl(FileCategory.BATTLE, battle.getThumbnailUrl()),
                 battle.getStatus() != null ? battle.getStatus().name() : "PENDING",
+                battle.getPublishAt(),
                 battle.getCreatedAt()
         );
     }
@@ -78,6 +80,7 @@ public class BattleConverter {
                 urlProvider.getImageUrl(FileCategory.BATTLE, battle.getThumbnailUrl()),
                 battle.getAudioDuration(),
                 battle.getTargetDate(),
+                battle.getPublishAt(),
                 battle.getStatus(),
                 battle.getCreatorType(),
                 toTagResponses(tags, null),

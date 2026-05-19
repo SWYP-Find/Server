@@ -8,7 +8,9 @@ public record PollSimpleResponse(
         Long pollId,
         String titlePrefix,
         String titleSuffix,
-        PollStatus status
+        PollStatus status,
+        LocalDateTime publishAt,
+        LocalDateTime createdAt
 ) {
 }
 

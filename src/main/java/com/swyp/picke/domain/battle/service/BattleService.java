@@ -57,5 +57,7 @@ public interface BattleService {
 
     AdminBattleDeleteResponse deleteBattle(Long battleId);
 
+    void seedBattle(Long battleId, int botCount);
+
     int openReadyBattles(LocalDateTime now);
 }

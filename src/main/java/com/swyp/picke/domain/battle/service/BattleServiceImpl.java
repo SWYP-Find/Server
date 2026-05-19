@@ -79,6 +79,7 @@ public class BattleServiceImpl implements BattleService {
     private final S3UploadService s3UploadService;
     private final LocalDraftFileStorageService localDraftFileStorageService;
     private final UserBattleService userBattleService;
+    private final BattleAutoSeedService battleAutoSeedService;
     private final ScenarioRepository scenarioRepository;
     private final ScenarioAudioPipelineService scenarioAudioPipelineService;
 
@@ -365,6 +366,8 @@ public class BattleServiceImpl implements BattleService {
                         Collectors.mapping(BattleOptionTag::getTag, Collectors.toList())
                 ));
 
+        battleAutoSeedService.seed(battle, savedOptions, request.botCount());
+
         return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), savedOptions, optionTagsMap);
     }
 
@@ -487,6 +490,15 @@ public class BattleServiceImpl implements BattleService {
         Battle battle = findById(battleId);
         battle.delete();
         return new AdminBattleDeleteResponse(true, LocalDateTime.now());
+    }
+
+    @Override
+    @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
+    public void seedBattle(Long battleId, int botCount) {
+        Battle battle = findById(battleId);
+        List<BattleOption> options = battleOptionRepository.findByBattle(battle);
+        battleAutoSeedService.seed(battle, options, botCount);
     }
 
     @Override

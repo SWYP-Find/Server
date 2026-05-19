@@ -15,6 +15,7 @@ public record AdminBattleCreateRequest(
         Integer audioDuration,
         BattleStatus status,
         List<Long> tagIds,
-        List<AdminBattleOptionRequest> options
+        List<AdminBattleOptionRequest> options,
+        int botCount
 ) {}
 

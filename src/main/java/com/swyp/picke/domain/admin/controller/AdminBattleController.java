@@ -74,4 +74,14 @@ public class AdminBattleController {
     ) {
         return ApiResponse.onSuccess(adminBattleService.getBattles(page, size, status));
     }
+
+    @Operation(summary = "기존 배틀에 BOT 관점 자동 생성")
+    @PostMapping("/{battleId}/seed")
+    public ApiResponse<Void> seedBattle(
+            @PathVariable Long battleId,
+            @RequestParam int botCount
+    ) {
+        adminBattleService.seedBattle(battleId, botCount);
+        return ApiResponse.onSuccess(null);
+    }
 }

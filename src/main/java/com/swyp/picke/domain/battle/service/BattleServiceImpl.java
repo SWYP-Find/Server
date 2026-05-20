@@ -19,6 +19,10 @@ import com.swyp.picke.domain.battle.repository.BattleOptionRepository;
 import com.swyp.picke.domain.battle.repository.BattleOptionTagRepository;
 import com.swyp.picke.domain.battle.repository.BattleRepository;
 import com.swyp.picke.domain.battle.repository.BattleTagRepository;
+import com.swyp.picke.domain.scenario.entity.Scenario;
+import com.swyp.picke.domain.scenario.enums.ScenarioStatus;
+import com.swyp.picke.domain.scenario.repository.ScenarioRepository;
+import com.swyp.picke.domain.scenario.service.ScenarioAudioPipelineService;
 import com.swyp.picke.domain.tag.entity.Tag;
 import com.swyp.picke.domain.tag.enums.TagType;
 import com.swyp.picke.domain.tag.repository.TagRepository;
@@ -40,6 +44,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -59,6 +65,7 @@ public class BattleServiceImpl implements BattleService {
     private static final int HOME_BEST_LIMIT = 3;
     private static final int HOME_TODAY_PICK_LIMIT = 1;
     private static final int HOME_NEW_LIMIT = 3;
+    private static final int PUBLISH_BATCH_SIZE = 100;
     private static final Pattern RESOURCE_IMAGE_PATH_PATTERN = Pattern.compile("/api/v1/resources/images/([A-Z_]+)/(.+)");
 
     private final BattleRepository battleRepository;
@@ -72,12 +79,23 @@ public class BattleServiceImpl implements BattleService {
     private final S3UploadService s3UploadService;
     private final LocalDraftFileStorageService localDraftFileStorageService;
     private final UserBattleService userBattleService;
+    private final BattleAutoSeedService battleAutoSeedService;
+    private final ScenarioRepository scenarioRepository;
+    private final ScenarioAudioPipelineService scenarioAudioPipelineService;
 
     @Override
     public Battle findById(Long battleId) {
         Battle battle = battleRepository.findById(battleId)
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_NOT_FOUND));
         if (battle.getDeletedAt() != null) {
+            throw new CustomException(ErrorCode.BATTLE_NOT_FOUND);
+        }
+        return battle;
+    }
+
+    private Battle findPublishedById(Long battleId) {
+        Battle battle = findById(battleId);
+        if (battle.getStatus() != BattleStatus.PUBLISHED) {
             throw new CustomException(ErrorCode.BATTLE_NOT_FOUND);
         }
         return battle;
@@ -146,6 +164,17 @@ public class BattleServiceImpl implements BattleService {
     }
 
     @Override
+    public BattleListResponse getPublishedBattles(int page, int size) {
+        int pageNumber = Math.max(0, page - 1);
+        PageRequest pageRequest = PageRequest.of(pageNumber, size);
+        Page<Battle> battlePage = battleRepository.findByStatusAndDeletedAtIsNullOrderByCreatedAtDesc(
+                BattleStatus.PUBLISHED,
+                pageRequest
+        );
+        return toBattleListResponse(battlePage);
+    }
+
+    @Override
     public BattleListResponse getBattles(int page, int size, String status) {
         int pageNumber = Math.max(0, page - 1);
         PageRequest pageRequest = PageRequest.of(pageNumber, size);
@@ -161,16 +190,7 @@ public class BattleServiceImpl implements BattleService {
             );
         }
 
-        List<BattleSimpleResponse> items = battlePage.getContent().stream()
-                .map(battleConverter::toSimpleResponse)
-                .toList();
-
-        return new BattleListResponse(
-                items,
-                battlePage.getNumber() + 1,
-                battlePage.getTotalPages(),
-                battlePage.getTotalElements()
-        );
+        return toBattleListResponse(battlePage);
     }
 
     @Override
@@ -203,7 +223,7 @@ public class BattleServiceImpl implements BattleService {
     @Override
     @Transactional
     public BattleUserDetailResponse getBattleDetail(Long battleId) {
-        Battle battle = findById(battleId);
+        Battle battle = findPublishedById(battleId);
         battle.increaseViewCount();
         List<Tag> tags = getTagsByBattle(battle);
         List<BattleOption> options = battleOptionRepository.findByBattle(battle);
@@ -240,14 +260,14 @@ public class BattleServiceImpl implements BattleService {
 
     @Override
     public BattleScenarioResponse getBattleScenario(Long battleId) {
-        Battle battle = findById(battleId);
+        Battle battle = findPublishedById(battleId);
         List<BattleOption> options = battleOptionRepository.findByBattle(battle);
         return battleConverter.toScenarioResponse(battle, options);
     }
 
     @Override
     public UserBattleStatusResponse getUserBattleStatus(Long battleId) {
-        Battle battle = findById(battleId);
+        Battle battle = findPublishedById(battleId);
         Long currentUserId = SecurityUtil.getCurrentUserId();
         User user = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
@@ -258,7 +278,7 @@ public class BattleServiceImpl implements BattleService {
     @Override
     @Transactional
     public BattleVoteResponse BattleVote(Long battleId, Long optionId) {
-        Battle battle = findById(battleId);
+        Battle battle = findPublishedById(battleId);
         BattleOption newOption = battleOptionRepository.findById(optionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));
 
@@ -304,6 +324,7 @@ public class BattleServiceImpl implements BattleService {
                 request.description(),
                 resolvedThumbnailKey,
                 request.targetDate(),
+                request.publishAt(),
                 request.audioDuration(),
                 request.status()
         );
@@ -345,6 +366,8 @@ public class BattleServiceImpl implements BattleService {
                         Collectors.mapping(BattleOptionTag::getTag, Collectors.toList())
                 ));
 
+        battleAutoSeedService.seed(battle, savedOptions, request.botCount());
+
         return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), savedOptions, optionTagsMap);
     }
 
@@ -383,6 +406,7 @@ public class BattleServiceImpl implements BattleService {
                 request.description(),
                 resolvedThumbnailKey,
                 request.targetDate(),
+                request.publishAt(),
                 request.audioDuration(),
                 request.status()
         );
@@ -466,6 +490,109 @@ public class BattleServiceImpl implements BattleService {
         Battle battle = findById(battleId);
         battle.delete();
         return new AdminBattleDeleteResponse(true, LocalDateTime.now());
+    }
+
+    @Override
+    @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
+    public void seedBattle(Long battleId, int botCount) {
+        Battle battle = findById(battleId);
+        List<BattleOption> options = battleOptionRepository.findByBattle(battle);
+        battleAutoSeedService.seed(battle, options, botCount);
+    }
+
+    @Override
+    @Transactional
+    public int openReadyBattles(LocalDateTime now) {
+        int openedCount = 0;
+        PageRequest pageRequest = PageRequest.of(0, PUBLISH_BATCH_SIZE);
+
+        while (true) {
+            Page<Battle> readyPage = battleRepository.findByStatusAndPublishAtLessThanEqualAndDeletedAtIsNull(
+                    BattleStatus.PENDING,
+                    now,
+                    pageRequest
+            );
+            if (readyPage.isEmpty()) {
+                break;
+            }
+
+            for (Battle battle : readyPage.getContent()) {
+                publishBattleAssets(battle);
+                battle.publish();
+                publishScenarioIfPresent(battle);
+            }
+
+            openedCount += readyPage.getNumberOfElements();
+            battleRepository.flush();
+        }
+
+        return openedCount;
+    }
+
+    private BattleListResponse toBattleListResponse(Page<Battle> battlePage) {
+        List<BattleSimpleResponse> items = battlePage.getContent().stream()
+                .map(battleConverter::toSimpleResponse)
+                .toList();
+
+        return new BattleListResponse(
+                items,
+                battlePage.getNumber() + 1,
+                battlePage.getTotalPages(),
+                battlePage.getTotalElements()
+        );
+    }
+
+    private void publishBattleAssets(Battle battle) {
+        String resolvedThumbnailKey = resolveStoredImageKey(
+                battle.getThumbnailUrl(),
+                BattleStatus.PUBLISHED,
+                FileCategory.BATTLE
+        );
+        battle.update(
+                null,
+                null,
+                null,
+                resolvedThumbnailKey,
+                null,
+                battle.getPublishAt(),
+                null,
+                null
+        );
+
+        List<BattleOption> options = battleOptionRepository.findByBattle(battle);
+        for (BattleOption option : options) {
+            String resolvedImageKey = resolveStoredImageKey(
+                    option.getImageUrl(),
+                    BattleStatus.PUBLISHED,
+                    FileCategory.PHILOSOPHER
+            );
+            option.update(null, null, null, resolvedImageKey);
+        }
+    }
+
+    private void publishScenarioIfPresent(Battle battle) {
+        scenarioRepository.findByBattleId(battle.getId())
+                .filter(scenario -> scenario.getStatus() != ScenarioStatus.ARCHIVED)
+                .ifPresent(scenario -> {
+                    scenario.updateStatus(ScenarioStatus.PUBLISHED);
+                    triggerScenarioAudioAfterCommit(scenario);
+                });
+    }
+
+    private void triggerScenarioAudioAfterCommit(Scenario scenario) {
+        Long scenarioId = scenario.getId();
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    scenarioAudioPipelineService.generateAndMergeAudioAsync(scenarioId);
+                }
+            });
+            return;
+        }
+
+        scenarioAudioPipelineService.generateAndMergeAudioAsync(scenarioId);
     }
 
     private List<TodayBattleResponse> convertToTodayResponses(List<Battle> battles) {

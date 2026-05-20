@@ -112,6 +112,7 @@
 
         const json = await res.json();
         const data = json.result || json.data || json;
+        const toDatetimeLocal = (value) => value ? String(value).slice(0, 16) : '';
 
         document.querySelector(`[data-target="${formTargetByType[type]}"]`)?.click();
         PickeData.currentContentType = type;
@@ -130,6 +131,7 @@
             PickeData.setValue('content-desc', data.description || '');
             PickeData.setValue('battle-audio-duration', data.audioDuration ?? '');
             PickeData.setValue('battle-status', data.status || 'PENDING');
+            PickeData.setValue('battle-publish-at', toDatetimeLocal(data.publishAt));
             PickeData.setValue('battle-thumbnail-url', data.thumbnailUrl || '');
 
             if (data.thumbnailUrl) {
@@ -202,6 +204,7 @@
         if (type === 'QUIZ') {
             PickeData.setValue('quiz-title', data.title || '');
             PickeData.setValue('quiz-status', data.status || 'PENDING');
+            PickeData.setValue('quiz-publish-at', toDatetimeLocal(data.publishAt));
 
             const options = data.options || [];
             const optionA = options.find((option) => option.label === 'A');
@@ -226,6 +229,7 @@
             PickeData.setValue('poll-title-prefix', data.titlePrefix || '');
             PickeData.setValue('poll-title-suffix', data.titleSuffix || '');
             PickeData.setValue('poll-status', data.status || 'PENDING');
+            PickeData.setValue('poll-publish-at', toDatetimeLocal(data.publishAt));
 
             const optionTargetByLabel = {
                 A: { titleId: 'poll-option-1-title', orderId: 'poll-option-1-display-order' },
@@ -258,6 +262,7 @@
 
 window.updateButtonStates = function (currentStatus) {
     const btnPending = document.getElementById('btn-save-pending');
+    const btnScheduled = document.getElementById('btn-save-scheduled');
     const btnPublish = document.getElementById('btn-save-publish');
     const btnRepublish = document.getElementById('btn-republish-audio');
 
@@ -276,6 +281,10 @@ window.updateButtonStates = function (currentStatus) {
             btnPending.disabled = true;
             btnPending.classList.add('opacity-50', 'cursor-not-allowed', 'bg-gray-200', 'text-gray-400');
         }
+        if (btnScheduled) {
+            btnScheduled.disabled = true;
+            btnScheduled.classList.add('opacity-50', 'cursor-not-allowed', 'bg-gray-200', 'text-gray-400');
+        }
         if (btnRepublish && PickeData.currentContentType === 'BATTLE') {
             btnRepublish.classList.remove('hidden');
         }
@@ -284,6 +293,10 @@ window.updateButtonStates = function (currentStatus) {
         if (btnPending) {
             btnPending.disabled = false;
             btnPending.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-gray-200', 'text-gray-400');
+        }
+        if (btnScheduled) {
+            btnScheduled.disabled = false;
+            btnScheduled.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-gray-200', 'text-gray-400');
         }
     }
 };

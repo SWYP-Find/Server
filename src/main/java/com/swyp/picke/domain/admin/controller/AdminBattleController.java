@@ -6,6 +6,7 @@ import com.swyp.picke.domain.admin.dto.battle.response.AdminBattleDetailResponse
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleUpdateRequest;
 import com.swyp.picke.domain.admin.service.AdminBattleService;
 import com.swyp.picke.global.common.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Hidden
 @Tag(name = "관리자 배틀 API", description = "관리자 배틀 콘텐츠 생성, 조회, 수정, 삭제")
 @RestController
 @RequestMapping("/api/v1/admin/battles")
@@ -71,5 +73,15 @@ public class AdminBattleController {
             @RequestParam(value = "status", required = false) String status
     ) {
         return ApiResponse.onSuccess(adminBattleService.getBattles(page, size, status));
+    }
+
+    @Operation(summary = "기존 배틀에 BOT 관점 자동 생성")
+    @PostMapping("/{battleId}/seed")
+    public ApiResponse<Void> seedBattle(
+            @PathVariable Long battleId,
+            @RequestParam int botCount
+    ) {
+        adminBattleService.seedBattle(battleId, botCount);
+        return ApiResponse.onSuccess(null);
     }
 }

@@ -31,6 +31,6 @@ public class AdminPollService {
     }
 
     public Object getPolls(int page, int size, String status) {
-        return pollService.getPolls(page, size);
+        return pollService.getPolls(page, size, status);
     }
 }

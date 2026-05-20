@@ -49,7 +49,6 @@ public class SecurityConfig {
                                 "/api/v1/admob/reward/**",
                                 "/report/**",
                                 "/battle/**",
-                                "/recap/**",
                                 "/.well-known/**"
                         ).permitAll()
 

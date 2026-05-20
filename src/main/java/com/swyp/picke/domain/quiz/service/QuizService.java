@@ -8,12 +8,15 @@ import com.swyp.picke.domain.quiz.dto.response.QuizDetailResponse;
 import com.swyp.picke.domain.quiz.dto.response.QuizListResponse;
 import com.swyp.picke.domain.quiz.entity.Quiz;
 import com.swyp.picke.domain.quiz.entity.QuizOption;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface QuizService {
     Quiz findById(Long quizId);
 
     QuizListResponse getQuizzes(int page, int size);
+
+    QuizListResponse getQuizzes(int page, int size, String status);
 
     List<Quiz> getTodayPicks(int limit);
 
@@ -30,6 +33,8 @@ public interface QuizService {
     AdminQuizDetailResponse updateQuiz(Long quizId, AdminQuizUpdateRequest request);
 
     AdminQuizDeleteResponse deleteQuiz(Long quizId);
+
+    int openReadyQuizzes(LocalDateTime now);
 }
 
 

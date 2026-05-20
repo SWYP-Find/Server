@@ -6,6 +6,7 @@ import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeListResp
 import com.swyp.picke.domain.admin.service.AdminNotificationService;
 import com.swyp.picke.domain.notification.enums.NotificationCategory;
 import com.swyp.picke.global.common.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Hidden
 @Tag(name = "관리자 공지 API", description = "공지사항/이벤트 작성 및 조회")
 @RestController
 @RequestMapping("/api/v1/admin/notices")

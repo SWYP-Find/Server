@@ -33,4 +33,8 @@ public class AdminBattleService {
     public Object getBattles(int page, int size, String status) {
         return battleService.getBattles(page, size, status);
     }
+
+    public void seedBattle(Long battleId, int botCount) {
+        battleService.seedBattle(battleId, botCount);
+    }
 }

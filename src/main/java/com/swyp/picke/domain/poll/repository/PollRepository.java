@@ -3,6 +3,7 @@ package com.swyp.picke.domain.poll.repository;
 import com.swyp.picke.domain.poll.entity.Poll;
 import com.swyp.picke.domain.poll.enums.PollStatus;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -12,6 +13,12 @@ import org.springframework.data.repository.query.Param;
 
 public interface PollRepository extends JpaRepository<Poll, Long> {
     Page<Poll> findAllByOrderByCreatedAtDesc(Pageable pageable);
+    Page<Poll> findByStatusOrderByCreatedAtDesc(PollStatus status, Pageable pageable);
+    Page<Poll> findByStatusAndPublishAtLessThanEqual(
+            PollStatus status,
+            LocalDateTime publishAt,
+            Pageable pageable
+    );
 
     @Query("SELECT p FROM Poll p WHERE p.status = :status AND p.targetDate = :targetDate ORDER BY p.createdAt ASC")
     List<Poll> findTodayPicks(

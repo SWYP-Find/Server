@@ -7,5 +7,6 @@ public record BattleSimpleResponse(
         String title,
         String thumbnailUrl,
         String status,
+        LocalDateTime publishAt,
         LocalDateTime createdAt
 ) {}

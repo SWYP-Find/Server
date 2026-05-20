@@ -4,6 +4,7 @@ import com.swyp.picke.domain.poll.dto.response.PollOptionResponse;
 import com.swyp.picke.domain.poll.enums.PollStatus;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public record AdminPollDetailResponse(
@@ -11,6 +12,7 @@ public record AdminPollDetailResponse(
         String titlePrefix,
         String titleSuffix,
         LocalDate targetDate,
+        LocalDateTime publishAt,
         PollStatus status,
         List<PollOptionResponse> options
 ) {}

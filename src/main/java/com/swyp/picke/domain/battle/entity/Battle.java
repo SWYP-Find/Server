@@ -49,6 +49,9 @@ public class Battle extends BaseEntity {
     @Column(name = "target_date")
     private LocalDate targetDate;
 
+    @Column(name = "publish_at")
+    private LocalDateTime publishAt;
+
     @Column(name = "audio_duration")
     private Integer audioDuration;
 
@@ -83,6 +86,7 @@ public class Battle extends BaseEntity {
             String description,
             String thumbnailUrl,
             LocalDate targetDate,
+            LocalDateTime publishAt,
             Integer audioDuration,
             BattleStatus status,
             BattleCreatorType creatorType,
@@ -93,6 +97,7 @@ public class Battle extends BaseEntity {
         this.description = description;
         this.thumbnailUrl = thumbnailUrl;
         this.targetDate = targetDate;
+        this.publishAt = publishAt;
         this.audioDuration = audioDuration;
         this.status = status;
         this.creatorType = creatorType;
@@ -110,6 +115,7 @@ public class Battle extends BaseEntity {
             String description,
             String thumbnailUrl,
             LocalDate targetDate,
+            LocalDateTime publishAt,
             Integer audioDuration,
             BattleStatus status
     ) {
@@ -128,6 +134,7 @@ public class Battle extends BaseEntity {
         if (targetDate != null) {
             this.targetDate = targetDate;
         }
+        this.publishAt = publishAt;
         if (audioDuration != null) {
             this.audioDuration = audioDuration;
         }
@@ -155,6 +162,10 @@ public class Battle extends BaseEntity {
 
     public void updateTargetDate(LocalDate targetDate) {
         this.targetDate = targetDate;
+    }
+
+    public void publish() {
+        this.status = BattleStatus.PUBLISHED;
     }
 
 }

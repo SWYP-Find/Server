@@ -8,6 +8,7 @@ public record QuizSimpleResponse(
         Long quizId,
         String title,
         QuizStatus status,
+        LocalDateTime publishAt,
         LocalDateTime createdAt
 ) {
 }

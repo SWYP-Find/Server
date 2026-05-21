@@ -21,6 +21,8 @@ import com.swyp.picke.domain.vote.repository.BattleVoteRepository;
 import com.swyp.picke.domain.vote.sse.VoteUpdatedEvent;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
+import com.swyp.picke.global.infra.s3.enums.FileCategory;
+import com.swyp.picke.global.infra.s3.util.ResourceUrlProvider;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -45,6 +47,7 @@ public class BattleVoteServiceImpl implements BattleVoteService {
     private final UserBattleService userBattleService;
     private final CreditService creditService;
     private final ApplicationEventPublisher eventPublisher;
+    private final ResourceUrlProvider urlProvider;
 
     @Override
     public BattleOption findPreVoteOption(Long battleId, Long userId) {
@@ -82,8 +85,7 @@ public class BattleVoteServiceImpl implements BattleVoteService {
                             : 0.0;
                     return new VoteStatsResponse.OptionStat(
                             option.getId(),
-                            option.getLabel().name(),
-                            option.getTitle(),
+                            urlProvider.getImageUrl(FileCategory.PHILOSOPHER, option.getImageUrl()),
                             count,
                             ratio
                     );

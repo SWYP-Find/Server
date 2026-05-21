@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.battle.dto.response;
 
 import com.swyp.picke.domain.battle.enums.BattleOptionLabel;
+
 /**
  * 유저 - 옵션별 실시간 통계
  * 역할: 각 선택지별로 몇 명이 선택했는지, 퍼센트(%)는 얼마인지 담습니다.

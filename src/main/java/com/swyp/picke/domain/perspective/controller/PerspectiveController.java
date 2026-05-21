@@ -57,10 +57,10 @@ public class PerspectiveController {
             @AuthenticationPrincipal Long userId,
             @RequestParam(required = false) String cursor,
             @RequestParam(required = false) Integer size,
-            @RequestParam(required = false) String optionLabel,
+            @RequestParam(required = false) Long optionId,
             @RequestParam(required = false, defaultValue = "latest") String sort
     ) {
-        return ApiResponse.onSuccess(perspectiveService.getPerspectives(battleId, userId, cursor, size, optionLabel, sort));
+        return ApiResponse.onSuccess(perspectiveService.getPerspectives(battleId, userId, cursor, size, optionId, sort));
     }
 
     @Operation(summary = "내 관점 조회", description = "해당 배틀에서 본인이 작성한 관점을 조회합니다.")

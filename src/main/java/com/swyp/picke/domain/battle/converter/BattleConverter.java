@@ -6,6 +6,7 @@ import com.swyp.picke.domain.battle.dto.response.*;
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.enums.BattleCreatorType;
+import com.swyp.picke.domain.battle.util.BattleOptionDisplay;
 import com.swyp.picke.domain.tag.entity.Tag;
 import com.swyp.picke.domain.tag.enums.TagType;
 import com.swyp.picke.domain.user.entity.User;
@@ -84,7 +85,7 @@ public class BattleConverter {
                 battle.getStatus(),
                 battle.getCreatorType(),
                 toTagResponses(tags, null),
-                toOptionResponses(options, optionTagsMap),
+                toOptionResponses(options, optionTagsMap, false),
                 battle.getCreatedAt(),
                 battle.getUpdatedAt()
         );
@@ -103,7 +104,7 @@ public class BattleConverter {
                 participantsCount == null ? 0L : participantsCount,
                 battle.getAudioDuration() == null ? 0 : battle.getAudioDuration(),
                 toTagResponses(tags, null),
-                toOptionResponses(options, optionTagsMap)
+                toOptionResponses(options, optionTagsMap, true)
         );
 
         return new BattleUserDetailResponse(
@@ -130,7 +131,11 @@ public class BattleConverter {
         return new BattleScenarioResponse(battle.getTitle(), profiles);
     }
 
-    private List<BattleOptionResponse> toOptionResponses(List<BattleOption> options, Map<Long, List<Tag>> optionTagsMap) {
+    private List<BattleOptionResponse> toOptionResponses(
+            List<BattleOption> options,
+            Map<Long, List<Tag>> optionTagsMap,
+            boolean useDisplayLabel
+    ) {
         if (options == null) return List.of();
         return options.stream()
                 .sorted(OPTION_SORTER)
@@ -138,7 +143,9 @@ public class BattleConverter {
                     List<Tag> optionTags = optionTagsMap.getOrDefault(option.getId(), List.of());
                     return new BattleOptionResponse(
                             option.getId(),
-                            option.getLabel(),
+                            useDisplayLabel
+                                    ? BattleOptionDisplay.opinion(option)
+                                    : (option.getLabel() == null ? null : option.getLabel().name()),
                             option.getTitle(),
                             option.getStance(),
                             option.getRepresentative(),

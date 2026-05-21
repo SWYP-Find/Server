@@ -89,3 +89,5 @@
 - Poll 투표 응답: `PollVoteResponse`
   - `selectedOptionId`, `totalCount`, `stats[].ratio` 포함
 - 배틀 투표 응답: `VoteResultResponse`, `VoteStatsResponse`, `MyVoteResponse`
+  - `VoteStatsResponse.options[].imageUrl`은 철학자 이미지 리소스 리다이렉트 URL을 반환
+  - `MyVoteResponse.*Vote.label`은 A/B가 아니라 옵션 `title`과 같은 의견 문구를 반환

@@ -2,6 +2,7 @@ package com.swyp.picke.domain.oauth.service;
 
 import com.swyp.picke.domain.oauth.client.GoogleOAuthClient;
 import com.swyp.picke.domain.oauth.client.KakaoOAuthClient;
+import com.swyp.picke.domain.oauth.client.AppleOAuthClient;
 import com.swyp.picke.domain.oauth.dto.LoginRequest;
 import com.swyp.picke.domain.oauth.dto.LoginResponse;
 import com.swyp.picke.domain.oauth.dto.OAuthUserInfo;
@@ -41,6 +42,7 @@ class OAuthServiceTest {
 
     @Mock private KakaoOAuthClient kakaoOAuthClient;
     @Mock private GoogleOAuthClient googleOAuthClient;
+    @Mock private AppleOAuthClient appleOAuthClient;
     @Mock private UserRepository userRepository;
     @Mock private UserSocialAccountRepository socialAccountRepository;
     @Mock private AuthRefreshTokenRepository refreshTokenRepository;
@@ -57,7 +59,7 @@ class OAuthServiceTest {
     void setUp() {
         // 수동 주입으로 안정성 확보
         authService = new AuthService(
-                kakaoOAuthClient, googleOAuthClient, userRepository,
+                kakaoOAuthClient, googleOAuthClient, appleOAuthClient, userRepository,
                 socialAccountRepository, refreshTokenRepository,
                 userProfileRepository, userSettingsRepository, userTendencyScoreRepository,
                 userWithdrawalRepository,
@@ -69,7 +71,7 @@ class OAuthServiceTest {
     void login_카카오_기존유저_로그인_성공() {
         // 1. 준비 (Given)
         String provider = "KAKAO";
-        LoginRequest request = new LoginRequest("auth-code", "redirect-uri");
+        LoginRequest request = new LoginRequest("auth-code", "redirect-uri", null);
         OAuthUserInfo userInfo = new OAuthUserInfo("kakao_123", "bex@test.com", "profile_url");
 
         // 유저 엔티티에 ID가 없으므로 식별자 필드만 세팅 (UserTag 등)
@@ -104,7 +106,7 @@ class OAuthServiceTest {
     @Test
     void login_구글_신규유저_기본_user_domain_초기화() {
         String provider = "GOOGLE";
-        LoginRequest request = new LoginRequest("auth-code", "redirect-uri");
+        LoginRequest request = new LoginRequest("auth-code", "redirect-uri", null);
         OAuthUserInfo userInfo = new OAuthUserInfo("google_123", "new@test.com", "profile_url");
 
         User savedUser = User.builder()

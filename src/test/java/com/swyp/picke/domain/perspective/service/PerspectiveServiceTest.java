@@ -104,9 +104,9 @@ class PerspectiveServiceTest {
     private BattleOption option(Long id, Battle battle, BattleOptionLabel label, String title) {
         BattleOption option = BattleOption.builder()
                 .battle(battle)
-                .label(label)
                 .title(title)
                 .stance("stance")
+                .displayOrder(label == BattleOptionLabel.A ? 1 : 2)
                 .build();
         ReflectionTestUtils.setField(option, "id", id);
         return option;

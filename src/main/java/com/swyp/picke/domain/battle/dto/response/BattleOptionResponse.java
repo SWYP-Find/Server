@@ -4,7 +4,6 @@ import java.util.List;
 
 public record BattleOptionResponse(
         Long optionId,
-        String label,
         String title,
         String stance,
         String representative,

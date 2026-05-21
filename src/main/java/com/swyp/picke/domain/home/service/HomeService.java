@@ -75,8 +75,8 @@ public class HomeService {
         return new HomeEditorPickResponse(
                 battle.battleId(),
                 battle.thumbnailUrl(),
-                findOptionTitle(battle.options(), BattleOptionLabel.A),
-                findOptionTitle(battle.options(), BattleOptionLabel.B),
+                findOptionTitle(battle.options(), 0),
+                findOptionTitle(battle.options(), 1),
                 battle.title(),
                 battle.summary(),
                 battle.tags(),
@@ -98,8 +98,8 @@ public class HomeService {
     private HomeBestBattleResponse toBestBattle(TodayBattleResponse battle) {
         return new HomeBestBattleResponse(
                 battle.battleId(),
-                findOptionRepresentative(battle.options(), BattleOptionLabel.A),
-                findOptionRepresentative(battle.options(), BattleOptionLabel.B),
+                findOptionRepresentative(battle.options(), 0),
+                findOptionRepresentative(battle.options(), 1),
                 battle.title(),
                 battle.tags(),
                 battle.audioDuration(),
@@ -159,43 +159,45 @@ public class HomeService {
                 battle.thumbnailUrl(),
                 battle.title(),
                 battle.summary(),
-                findOptionRepresentative(battle.options(), BattleOptionLabel.A),
-                findOptionTitle(battle.options(), BattleOptionLabel.A),
-                findRepresentativeImageUrl(battle.options(), BattleOptionLabel.A),
-                findOptionRepresentative(battle.options(), BattleOptionLabel.B),
-                findOptionTitle(battle.options(), BattleOptionLabel.B),
-                findRepresentativeImageUrl(battle.options(), BattleOptionLabel.B),
+                findOptionRepresentative(battle.options(), 0),
+                findOptionTitle(battle.options(), 0),
+                findRepresentativeImageUrl(battle.options(), 0),
+                findOptionRepresentative(battle.options(), 1),
+                findOptionTitle(battle.options(), 1),
+                findRepresentativeImageUrl(battle.options(), 1),
                 battle.tags(),
                 battle.audioDuration(),
                 battle.viewCount()
         );
     }
 
-    private String findOptionTitle(List<TodayOptionResponse> options, BattleOptionLabel label) {
-        return Optional.ofNullable(options).orElse(List.of()).stream()
-                .filter(option -> option.label() == label)
+    private String findOptionTitle(List<TodayOptionResponse> options, int optionIndex) {
+        return findBattleOption(options, optionIndex)
                 .map(TodayOptionResponse::title)
                 .filter(Objects::nonNull)
-                .findFirst()
                 .orElse(null);
     }
 
-    private String findOptionRepresentative(List<TodayOptionResponse> options, BattleOptionLabel label) {
-        return Optional.ofNullable(options).orElse(List.of()).stream()
-                .filter(option -> option.label() == label)
+    private String findOptionRepresentative(List<TodayOptionResponse> options, int optionIndex) {
+        return findBattleOption(options, optionIndex)
                 .map(TodayOptionResponse::representative)
                 .filter(Objects::nonNull)
-                .findFirst()
                 .orElse(null);
     }
 
-    private String findRepresentativeImageUrl(List<TodayOptionResponse> options, BattleOptionLabel label) {
-        return Optional.ofNullable(options).orElse(List.of()).stream()
-                .filter(option -> option.label() == label)
+    private String findRepresentativeImageUrl(List<TodayOptionResponse> options, int optionIndex) {
+        return findBattleOption(options, optionIndex)
                 .map(TodayOptionResponse::imageUrl)
                 .filter(Objects::nonNull)
-                .findFirst()
                 .orElse(null);
+    }
+
+    private Optional<TodayOptionResponse> findBattleOption(List<TodayOptionResponse> options, int optionIndex) {
+        List<TodayOptionResponse> safeOptions = Optional.ofNullable(options).orElse(List.of());
+        if (optionIndex < 0 || optionIndex >= safeOptions.size()) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(safeOptions.get(optionIndex));
     }
 
     private QuizOption findQuizOption(List<QuizOption> options, QuizOptionLabel label) {

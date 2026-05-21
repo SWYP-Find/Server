@@ -11,8 +11,8 @@ import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.entity.BattleOptionTag;
 import com.swyp.picke.domain.battle.entity.BattleTag;
-import com.swyp.picke.domain.battle.enums.BattleOptionLabel;
 import com.swyp.picke.domain.battle.enums.BattleStatus;
+import com.swyp.picke.domain.battle.util.BattleOptionDisplay;
 import com.swyp.picke.domain.user.dto.response.UserBattleStatusResponse;
 import com.swyp.picke.domain.user.enums.UserBattleStep;
 import com.swyp.picke.domain.battle.repository.BattleOptionRepository;
@@ -244,7 +244,7 @@ public class BattleServiceImpl implements BattleService {
         VoteSide voteStatus = optionalVote
                 .map(BattleVote -> {
                     if (BattleVote.getPostVoteOption() != null) {
-                        return BattleVote.getPostVoteOption().getLabel() == BattleOptionLabel.A ? VoteSide.PRO : VoteSide.CON;
+                        return BattleOptionDisplay.voteSide(BattleVote.getPostVoteOption());
                     }
                     return null;
                 })
@@ -303,7 +303,7 @@ public class BattleServiceImpl implements BattleService {
             Long voteCount = option.getVoteCount() == null ? 0L : option.getVoteCount();
             Long totalCount = battle.getTotalParticipantsCount() == null ? 0L : battle.getTotalParticipantsCount();
             Double ratio = (totalCount == 0L) ? 0.0 : Math.round((double) voteCount / totalCount * 1000) / 10.0;
-            return new OptionStatResponse(option.getId(), option.getLabel(), option.getTitle(), voteCount, ratio);
+            return new OptionStatResponse(option.getId(), option.getTitle(), voteCount, ratio);
         }).toList();
     }
 
@@ -336,7 +336,8 @@ public class BattleServiceImpl implements BattleService {
 
         List<BattleOption> savedOptions = new ArrayList<>();
         if (request.options() != null) {
-            for (AdminBattleOptionRequest optionRequest : request.options()) {
+            for (int optionIndex = 0; optionIndex < request.options().size(); optionIndex++) {
+                AdminBattleOptionRequest optionRequest = request.options().get(optionIndex);
                 String resolvedImageKey = resolveStoredImageKey(
                         optionRequest.imageUrl(),
                         request.status(),
@@ -344,11 +345,11 @@ public class BattleServiceImpl implements BattleService {
                 );
                 BattleOption option = BattleOption.builder()
                         .battle(battle)
-                        .label(optionRequest.label())
                         .title(optionRequest.title())
                         .stance(optionRequest.stance())
                         .representative(optionRequest.representative())
                         .imageUrl(resolvedImageKey)
+                        .displayOrder(resolveDisplayOrder(optionRequest, optionIndex))
                         .build();
                 option = battleOptionRepository.save(option);
 
@@ -419,15 +420,10 @@ public class BattleServiceImpl implements BattleService {
 
         if (request.options() != null) {
             List<BattleOption> existingOptions = battleOptionRepository.findByBattle(battle);
-            Map<BattleOptionLabel, BattleOption> existingOptionMap = existingOptions.stream()
-                    .collect(Collectors.toMap(BattleOption::getLabel, option -> option));
-
-            Set<BattleOptionLabel> requestedLabels = new HashSet<>();
-
-            for (AdminBattleOptionRequest optionRequest : request.options()) {
-                requestedLabels.add(optionRequest.label());
-
-                BattleOption option = existingOptionMap.get(optionRequest.label());
+            for (int optionIndex = 0; optionIndex < request.options().size(); optionIndex++) {
+                AdminBattleOptionRequest optionRequest = request.options().get(optionIndex);
+                BattleOption option = optionIndex < existingOptions.size() ? existingOptions.get(optionIndex) : null;
+                int displayOrder = resolveDisplayOrder(optionRequest, optionIndex);
                 String resolvedOptionImageKey = resolveStoredImageKey(
                         optionRequest.imageUrl(),
                         request.status(),
@@ -436,11 +432,11 @@ public class BattleServiceImpl implements BattleService {
                 if (option == null) {
                     option = BattleOption.builder()
                             .battle(battle)
-                            .label(optionRequest.label())
                             .title(optionRequest.title())
                             .stance(optionRequest.stance())
                             .representative(optionRequest.representative())
                             .imageUrl(resolvedOptionImageKey)
+                            .displayOrder(displayOrder)
                             .build();
                     option = battleOptionRepository.save(option);
                 } else {
@@ -449,14 +445,14 @@ public class BattleServiceImpl implements BattleService {
                         deleteStoredAsset(existingOptionImageKey);
                     }
                     option.update(optionRequest.title(), optionRequest.stance(),
-                            optionRequest.representative(), resolvedOptionImageKey);
+                            optionRequest.representative(), resolvedOptionImageKey, displayOrder);
                 }
 
                 replaceBattleOptionTags(option, optionRequest.tagIds());
             }
 
             List<BattleOption> removedOptions = existingOptions.stream()
-                    .filter(existing -> !requestedLabels.contains(existing.getLabel()))
+                    .skip(request.options().size())
                     .toList();
 
             for (BattleOption removedOption : removedOptions) {
@@ -567,7 +563,7 @@ public class BattleServiceImpl implements BattleService {
                     BattleStatus.PUBLISHED,
                     FileCategory.PHILOSOPHER
             );
-            option.update(null, null, null, resolvedImageKey);
+            option.update(null, null, null, resolvedImageKey, null);
         }
     }
 
@@ -651,13 +647,6 @@ public class BattleServiceImpl implements BattleService {
     @Override
     public BattleOption findOptionById(Long optionId) {
         return battleOptionRepository.findById(optionId)
-                .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));
-    }
-
-    @Override
-    public BattleOption findOptionByBattleIdAndLabel(Long battleId, BattleOptionLabel label) {
-        Battle battle = findById(battleId);
-        return battleOptionRepository.findByBattleAndLabel(battle, label)
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));
     }
 
@@ -747,6 +736,10 @@ public class BattleServiceImpl implements BattleService {
         if (count < 2 || count > 4) {
             throw new CustomException(ErrorCode.BATTLE_INVALID_OPTION_COUNT);
         }
+    }
+
+    private int resolveDisplayOrder(AdminBattleOptionRequest optionRequest, int optionIndex) {
+        return optionRequest.displayOrder() == null ? optionIndex + 1 : optionRequest.displayOrder();
     }
 }
 

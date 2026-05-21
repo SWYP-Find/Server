@@ -2,7 +2,6 @@ package com.swyp.picke.domain.user.service.batch;
 
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
-import com.swyp.picke.domain.battle.enums.BattleOptionLabel;
 import com.swyp.picke.domain.battle.enums.BattleStatus;
 import com.swyp.picke.domain.battle.repository.BattleRepository;
 import com.swyp.picke.domain.perspective.entity.Perspective;
@@ -123,9 +122,9 @@ class BestCommentRewardJobTest {
     private Perspective perspective(Long id, Battle battle, User user, int likeCount) {
         BattleOption option = BattleOption.builder()
                 .battle(battle)
-                .label(BattleOptionLabel.A)
                 .title("A")
                 .stance("stance")
+                .displayOrder(1)
                 .build();
 
         Perspective perspective = Perspective.builder()

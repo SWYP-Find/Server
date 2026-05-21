@@ -6,7 +6,6 @@ import com.swyp.picke.domain.battle.dto.response.*;
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.enums.BattleCreatorType;
-import com.swyp.picke.domain.battle.util.BattleOptionDisplay;
 import com.swyp.picke.domain.tag.entity.Tag;
 import com.swyp.picke.domain.tag.enums.TagType;
 import com.swyp.picke.domain.user.entity.User;
@@ -29,7 +28,6 @@ public class BattleConverter {
     private static final String BASE_SHARE_URL = "https://pique.app/battles/";
     private static final Comparator<BattleOption> OPTION_SORTER =
             Comparator.comparing((BattleOption option) -> option.getDisplayOrder() == null ? Integer.MAX_VALUE : option.getDisplayOrder())
-                    .thenComparing(option -> option.getLabel() == null ? "" : option.getLabel().name())
                     .thenComparing(BattleOption::getId);
 
     public Battle toEntity(AdminBattleCreateRequest request, User admin) {
@@ -85,7 +83,7 @@ public class BattleConverter {
                 battle.getStatus(),
                 battle.getCreatorType(),
                 toTagResponses(tags, null),
-                toOptionResponses(options, optionTagsMap, false),
+                toOptionResponses(options, optionTagsMap),
                 battle.getCreatedAt(),
                 battle.getUpdatedAt()
         );
@@ -104,7 +102,7 @@ public class BattleConverter {
                 participantsCount == null ? 0L : participantsCount,
                 battle.getAudioDuration() == null ? 0 : battle.getAudioDuration(),
                 toTagResponses(tags, null),
-                toOptionResponses(options, optionTagsMap, true)
+                toOptionResponses(options, optionTagsMap)
         );
 
         return new BattleUserDetailResponse(
@@ -122,7 +120,6 @@ public class BattleConverter {
     public BattleScenarioResponse toScenarioResponse(Battle battle, List<BattleOption> options) {
         List<BattleScenarioResponse.PhilosopherProfileResponse> profiles = options.stream()
                 .map(opt -> new BattleScenarioResponse.PhilosopherProfileResponse(
-                        opt.getLabel().name(),
                         opt.getRepresentative(),
                         opt.getStance(),
                         urlProvider.getImageUrl(FileCategory.PHILOSOPHER, opt.getImageUrl())
@@ -133,8 +130,7 @@ public class BattleConverter {
 
     private List<BattleOptionResponse> toOptionResponses(
             List<BattleOption> options,
-            Map<Long, List<Tag>> optionTagsMap,
-            boolean useDisplayLabel
+            Map<Long, List<Tag>> optionTagsMap
     ) {
         if (options == null) return List.of();
         return options.stream()
@@ -143,9 +139,6 @@ public class BattleConverter {
                     List<Tag> optionTags = optionTagsMap.getOrDefault(option.getId(), List.of());
                     return new BattleOptionResponse(
                             option.getId(),
-                            useDisplayLabel
-                                    ? BattleOptionDisplay.opinion(option)
-                                    : (option.getLabel() == null ? null : option.getLabel().name()),
                             option.getTitle(),
                             option.getStance(),
                             option.getRepresentative(),
@@ -161,7 +154,6 @@ public class BattleConverter {
                 .sorted(OPTION_SORTER)
                 .map(option -> new TodayOptionResponse(
                         option.getId(),
-                        option.getLabel(),
                         option.getTitle(),
                         option.getRepresentative(),
                         option.getStance(),

@@ -68,9 +68,10 @@ public class ScenarioServiceImpl implements ScenarioService {
         if (optionalVote.isPresent()) {
             BattleVote vote = optionalVote.get();
             if (scenario.getIsInteractive()) {
-                if (vote.getPreVoteOption().getLabel().name().equalsIgnoreCase("A")) {
+                Integer displayOrder = vote.getPreVoteOption().getDisplayOrder();
+                if (displayOrder != null && displayOrder == 1) {
                     recommendedKey = AudioPathType.PATH_A;
-                } else if (vote.getPreVoteOption().getLabel().name().equalsIgnoreCase("B")) {
+                } else if (displayOrder != null && displayOrder == 2) {
                     recommendedKey = AudioPathType.PATH_B;
                 }
             }
@@ -334,12 +335,25 @@ public class ScenarioServiceImpl implements ScenarioService {
 
         if (options != null) {
             for (BattleOption option : options) {
-                String key = String.valueOf(option.getLabel());
-                map.put(key, option.getRepresentative());
+                String key = toSpeakerKey(option);
+                if (key != null) {
+                    map.put(key, option.getRepresentative());
+                }
             }
         }
 
         return map;
+    }
+
+    private String toSpeakerKey(BattleOption option) {
+        if (option == null || option.getDisplayOrder() == null) {
+            return null;
+        }
+        return switch (option.getDisplayOrder()) {
+            case 1 -> "A";
+            case 2 -> "B";
+            default -> null;
+        };
     }
 
     private Set<SpeakerType> updateVoiceSettings(Scenario scenario, Map<SpeakerType, String> requestedVoiceSettings) {

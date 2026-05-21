@@ -23,7 +23,6 @@ public record RecommendationListResponse(List<Item> items, String nextCursor, bo
     @Schema(name = "RecommendationOptionSummary")
     public record OptionSummary(
             Long optionId,
-            String label,
             String title,
             String stance,
             String representative,

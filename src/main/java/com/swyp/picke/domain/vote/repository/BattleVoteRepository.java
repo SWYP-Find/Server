@@ -2,7 +2,6 @@ package com.swyp.picke.domain.vote.repository;
 
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
-import com.swyp.picke.domain.battle.enums.BattleOptionLabel;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.vote.entity.BattleVote;
 import org.springframework.data.domain.Pageable;
@@ -35,14 +34,22 @@ public interface BattleVoteRepository extends JpaRepository<BattleVote, Long> {
     List<BattleVote> findByUserIdOrderByCreatedAtDesc(@Param("userId") Long userId, Pageable pageable);
 
     @Query("SELECT v FROM BattleVote v JOIN FETCH v.battle JOIN FETCH v.preVoteOption " +
-           "WHERE v.user.id = :userId AND v.preVoteOption.label = :label ORDER BY v.createdAt DESC")
-    List<BattleVote> findByUserIdAndPreVoteOptionLabelOrderByCreatedAtDesc(
-            @Param("userId") Long userId, @Param("label") BattleOptionLabel label, Pageable pageable);
+           "WHERE v.user.id = :userId AND v.preVoteOption.displayOrder = :displayOrder ORDER BY v.createdAt DESC")
+    List<BattleVote> findByUserIdAndPreVoteOptionDisplayOrderOrderByCreatedAtDesc(
+            @Param("userId") Long userId, @Param("displayOrder") Integer displayOrder, Pageable pageable);
+
+    @Query("SELECT v FROM BattleVote v JOIN FETCH v.battle JOIN FETCH v.preVoteOption " +
+           "WHERE v.user.id = :userId AND v.preVoteOption.displayOrder <> :displayOrder ORDER BY v.createdAt DESC")
+    List<BattleVote> findByUserIdAndPreVoteOptionDisplayOrderNotOrderByCreatedAtDesc(
+            @Param("userId") Long userId, @Param("displayOrder") Integer displayOrder, Pageable pageable);
 
     long countByUserId(Long userId);
 
-    @Query("SELECT COUNT(v) FROM BattleVote v WHERE v.user.id = :userId AND v.preVoteOption.label = :label")
-    long countByUserIdAndPreVoteOptionLabel(@Param("userId") Long userId, @Param("label") BattleOptionLabel label);
+    @Query("SELECT COUNT(v) FROM BattleVote v WHERE v.user.id = :userId AND v.preVoteOption.displayOrder = :displayOrder")
+    long countByUserIdAndPreVoteOptionDisplayOrder(@Param("userId") Long userId, @Param("displayOrder") Integer displayOrder);
+
+    @Query("SELECT COUNT(v) FROM BattleVote v WHERE v.user.id = :userId AND v.preVoteOption.displayOrder <> :displayOrder")
+    long countByUserIdAndPreVoteOptionDisplayOrderNot(@Param("userId") Long userId, @Param("displayOrder") Integer displayOrder);
 
     @Query("SELECT COUNT(v) FROM BattleVote v WHERE v.user.id = :userId " +
             "AND v.postVoteOption IS NOT NULL " +

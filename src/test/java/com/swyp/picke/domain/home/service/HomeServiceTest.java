@@ -193,8 +193,8 @@ class HomeServiceTest {
                 90,
                 List.of(),
                 List.of(
-                        new TodayOptionResponse(1001L, BattleOptionLabel.A, "A", "rep-a", "stance-a", "image-a"),
-                        new TodayOptionResponse(1002L, BattleOptionLabel.B, "B", "rep-b", "stance-b", "image-b")
+                        new TodayOptionResponse(1001L, "A", "rep-a", "stance-a", "image-a"),
+                        new TodayOptionResponse(1002L, "B", "rep-b", "stance-b", "image-b")
                 )
         );
     }

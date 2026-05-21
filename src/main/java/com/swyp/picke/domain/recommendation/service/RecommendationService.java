@@ -92,7 +92,6 @@ public class RecommendationService {
         List<RecommendationListResponse.OptionSummary> optionSummaries = options.stream()
                 .map(opt -> new RecommendationListResponse.OptionSummary(
                         opt.getId(),
-                        opt.getLabel().name(),
                         opt.getTitle(),
                         opt.getStance(),
                         opt.getRepresentative(),

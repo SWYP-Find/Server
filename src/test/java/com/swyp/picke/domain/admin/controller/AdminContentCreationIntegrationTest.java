@@ -156,15 +156,15 @@ class AdminContentCreationIntegrationTest {
         assertThat(savedBattle.getTargetDate()).isEqualTo(targetDate);
 
         assertThat(options).hasSize(2);
-        BattleOption optionA = options.stream().filter(option -> option.getLabel().name().equals("A")).findFirst().orElseThrow();
-        BattleOption optionB = options.stream().filter(option -> option.getLabel().name().equals("B")).findFirst().orElseThrow();
+        BattleOption optionA = options.stream().filter(option -> option.getDisplayOrder() == 1).findFirst().orElseThrow();
+        BattleOption optionB = options.stream().filter(option -> option.getDisplayOrder() == 2).findFirst().orElseThrow();
 
         assertThat(optionA.getTitle()).isEqualTo("A 선택지");
         assertThat(optionA.getRepresentative()).isEqualTo("소크라테스");
-        assertThat(optionA.getDisplayOrder()).isNull();
+        assertThat(optionA.getDisplayOrder()).isEqualTo(1);
         assertThat(optionB.getTitle()).isEqualTo("B 선택지");
         assertThat(optionB.getRepresentative()).isEqualTo("플라톤");
-        assertThat(optionB.getDisplayOrder()).isNull();
+        assertThat(optionB.getDisplayOrder()).isEqualTo(2);
 
         assertThat(battleTagRepository.findByBattle(savedBattle)).hasSize(1);
         assertThat(battleOptionTagRepository.findByBattleOption(optionA)).hasSize(2);

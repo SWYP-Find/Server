@@ -235,7 +235,13 @@ public class AuthService {
                                                   .build());
         }
 
-        socialAccountRepository.findByUser(user).ifPresent(socialAccountRepository::delete);
+        socialAccountRepository.findByUser(user).ifPresent(socialAccount -> {
+            if ("APPLE".equalsIgnoreCase(socialAccount.getProvider()) && socialAccount.getAppleRefreshToken() != null) {
+                // 2. appleOAuthClient 컴포넌트 내부에 회원탈퇴(Revoke) 기능 호출 위임 추가
+                appleOAuthClient.revokeAppleAccount(socialAccount.getAppleRefreshToken());
+            }
+            socialAccountRepository.delete(socialAccount);
+        });
 
         user.delete();
     }

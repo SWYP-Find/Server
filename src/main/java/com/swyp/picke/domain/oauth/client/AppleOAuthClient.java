@@ -150,6 +150,37 @@ public class AppleOAuthClient {
                 .compact();
     }
 
+    public void revokeAppleAccount(String appleRefreshToken) {
+        try {
+            String clientSecret = createClientSecret();
+
+            log.info("[Apple Withdrawal] 연동 해제(Revoke) 요청 시작");
+
+            WebClient.create()
+                    .post()
+                    .uri("https://appleid.apple.com/auth/revoke")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body(BodyInserters.fromFormData("client_id", clientId)
+                                  .with("client_secret", clientSecret)
+                                  .with("token", appleRefreshToken)
+                                  .with("token_type_hint", "refresh_token"))
+                    .retrieve()
+                    .onStatus(HttpStatusCode::isError, clientResponse ->
+                            clientResponse.bodyToMono(String.class).flatMap(errorBody -> {
+                                log.error("[Apple Revoke Error] 상세 내용: {}", errorBody);
+                                return Mono.error(new RuntimeException("애플 연동 해제 실패"));
+                            })
+                    )
+                    .toBodilessEntity() // 애플 응답 스펙인 200 OK 빈 바디 수신 처리
+                    .block();
+
+            log.info("[Apple Withdrawal] 연동 해제(Revoke) 완료 안내 메일 발송 트리거 성공");
+        } catch (Exception e) {
+            log.error("[Apple Revoke Error] 연동 해제 처리 실패", e);
+            throw new RuntimeException("애플 회원 연동 해제 처리 실패");
+        }
+    }
+
     private PrivateKey getPrivateKey() {
         try {
             String pem = privateKeyStr.replace("\\n", "\n");
@@ -162,4 +193,6 @@ public class AppleOAuthClient {
             throw new RuntimeException("애플 비밀키 생성 실패");
         }
     }
+
+
 }

@@ -27,6 +27,10 @@ public interface BattleVoteRepository extends JpaRepository<BattleVote, Long> {
 
     long countByBattleAndPreVoteOption(Battle battle, BattleOption preVoteOption);
 
+    long countByBattleAndPostVoteOption(Battle battle, BattleOption postVoteOption);
+
+    long countByBattleAndPostVoteOptionIsNotNull(Battle battle);
+
     Optional<BattleVote> findTopByBattleOrderByUpdatedAtDesc(Battle battle);
 
     @Query("SELECT v FROM BattleVote v JOIN FETCH v.battle JOIN FETCH v.preVoteOption " +

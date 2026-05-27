@@ -2,8 +2,8 @@ package com.swyp.picke.domain.perspective.service;
 
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
-import com.swyp.picke.domain.battle.enums.BattleOptionLabel;
 import com.swyp.picke.domain.battle.service.BattleService;
+import com.swyp.picke.domain.battle.util.BattleOptionDisplay;
 import com.swyp.picke.domain.perspective.enums.PerspectiveStatus;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.repository.UserRepository;
@@ -62,7 +62,7 @@ public class PerspectiveService {
         return new PerspectiveDetailResponse(
                 perspective.getId(),
                 new PerspectiveDetailResponse.UserSummary(user.userTag(), user.nickname(), user.characterType(), characterImageUrl),
-                new PerspectiveDetailResponse.OptionSummary(option.getId(), option.getLabel().name(), option.getTitle(), option.getStance()),
+                new PerspectiveDetailResponse.OptionSummary(option.getId(), BattleOptionDisplay.opinion(option), option.getTitle(), option.getStance()),
                 perspective.getContent(),
                 perspective.getLikeCount(),
                 perspective.getCommentCount(),
@@ -92,13 +92,15 @@ public class PerspectiveService {
                 .content(request.content())
                 .build();
 
+        // 댓글 검수 비활성화 및 댓글 작성 승인
+        perspective.updateStatus(PerspectiveStatus.PUBLISHED);
         Perspective saved = perspectiveRepository.save(perspective);
-        gptModerationService.moderate(saved.getId(), saved.getContent());
+        // gptModerationService.moderate(saved.getId(), saved.getContent());
         return new CreatePerspectiveResponse(saved.getId(), saved.getStatus(), saved.getCreatedAt());
     }
 
-    public PerspectiveListResponse getPerspectives(Long battleId, Long userId, String cursor, Integer size, String optionLabel, String sort) {
-        battleService.findById(battleId);
+    public PerspectiveListResponse getPerspectives(Long battleId, Long userId, String cursor, Integer size, Long optionId, String sort) {
+        Battle battle = battleService.findById(battleId);
 
         int pageSize = (size == null || size <= 0) ? DEFAULT_PAGE_SIZE : size;
         PageRequest pageable = PageRequest.of(0, pageSize);
@@ -106,9 +108,8 @@ public class PerspectiveService {
         boolean isPopular = "popular".equalsIgnoreCase(sort);
         List<Perspective> perspectives;
 
-        if (optionLabel != null) {
-            BattleOptionLabel label = BattleOptionLabel.valueOf(optionLabel.toUpperCase());
-            BattleOption option = battleService.findOptionByBattleIdAndLabel(battleId, label);
+        if (optionId != null) {
+            BattleOption option = findFilterOption(battle, optionId);
             perspectives = isPopular
                     ? perspectiveRepository.findByBattleIdAndOptionIdAndStatusOrderByLikeCountDescCreatedAtDesc(battleId, option.getId(), PerspectiveStatus.PUBLISHED, pageable)
                     : cursor == null
@@ -131,7 +132,7 @@ public class PerspectiveService {
                     return new PerspectiveListResponse.Item(
                             p.getId(),
                             new PerspectiveListResponse.UserSummary(user.userTag(), user.nickname(), user.characterType(), characterImageUrl),
-                            new PerspectiveListResponse.OptionSummary(option.getId(), option.getLabel().name(), option.getTitle(), option.getStance()),
+                            new PerspectiveListResponse.OptionSummary(option.getId(), BattleOptionDisplay.opinion(option), option.getTitle(), option.getStance()),
                             p.getContent(),
                             p.getLikeCount(),
                             p.getCommentCount(),
@@ -162,8 +163,9 @@ public class PerspectiveService {
         Perspective perspective = findPerspectiveById(perspectiveId);
         validateOwnership(perspective, userId);
         perspective.updateContent(request.content());
-        perspective.updateStatus(PerspectiveStatus.PENDING);
-        gptModerationService.moderate(perspective.getId(), perspective.getContent());
+        // 댓글 검수 미수행 및 댓글 바로 적용
+        perspective.updateStatus(PerspectiveStatus.PUBLISHED);
+        // gptModerationService.moderate(perspective.getId(), perspective.getContent());
         return new UpdatePerspectiveResponse(perspective.getId(), perspective.getContent(), perspective.getUpdatedAt());
     }
 
@@ -180,7 +182,7 @@ public class PerspectiveService {
         return new MyPerspectiveResponse(
                 perspective.getId(),
                 new MyPerspectiveResponse.UserSummary(user.userTag(), user.nickname(), user.characterType(), characterImageUrl),
-                new MyPerspectiveResponse.OptionSummary(option.getId(), option.getLabel().name(), option.getTitle(), option.getStance()),
+                new MyPerspectiveResponse.OptionSummary(option.getId(), BattleOptionDisplay.opinion(option), option.getTitle(), option.getStance()),
                 perspective.getContent(),
                 perspective.getLikeCount(),
                 perspective.getCommentCount(),
@@ -210,6 +212,14 @@ public class PerspectiveService {
         if (!perspective.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.PERSPECTIVE_FORBIDDEN);
         }
+    }
+
+    private BattleOption findFilterOption(Battle battle, Long optionId) {
+        BattleOption option = battleService.findOptionById(optionId);
+        if (option.getBattle() == null || !battle.getId().equals(option.getBattle().getId())) {
+            throw new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND);
+        }
+        return option;
     }
 
     private String resolveCharacterImageUrl(String characterType) {

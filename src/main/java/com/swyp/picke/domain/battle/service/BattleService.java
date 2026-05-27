@@ -12,7 +12,6 @@ import com.swyp.picke.domain.battle.dto.response.TodayBattleListResponse;
 import com.swyp.picke.domain.battle.dto.response.TodayBattleResponse;
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
-import com.swyp.picke.domain.battle.enums.BattleOptionLabel;
 import com.swyp.picke.domain.user.dto.response.UserBattleStatusResponse;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,8 +21,6 @@ public interface BattleService {
     Battle findById(Long battleId);
 
     BattleOption findOptionById(Long optionId);
-
-    BattleOption findOptionByBattleIdAndLabel(Long battleId, BattleOptionLabel label);
 
     List<TodayBattleResponse> getEditorPicks();
 

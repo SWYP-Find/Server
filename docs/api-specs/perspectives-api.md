@@ -96,7 +96,7 @@
 - 파라미터        |    타입    | 필수 | 설명
 - cursor        |   string  |  X  | 커서 페이지네이션
 -  size         |   number  |  X  | 기본값 20 (임의 설정했음)
--  option_label |   string  |  X  | A or B 투표 옵션 필터
+-  optionId |   number  |  X  | 옵션 ID 필터
 
 
 #### 성공 응답 `200 OK`
@@ -115,8 +115,8 @@
         },
         "option": {
           "option_id": "option_A",
-          "label": "A",
-          "title": "찬성"
+          "label": "예술이 아니다",
+          "title": "예술이 아니다"
         },
         "content": "자기결정권은 가장 기본적인 인권이라고 생각해요.",
         "like_count": 12,

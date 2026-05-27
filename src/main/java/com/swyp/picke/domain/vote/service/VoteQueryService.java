@@ -1,7 +1,7 @@
 package com.swyp.picke.domain.vote.service;
 
 import com.swyp.picke.domain.battle.entity.BattleOption;
-import com.swyp.picke.domain.battle.enums.BattleOptionLabel;
+import com.swyp.picke.domain.user.enums.VoteSide;
 import com.swyp.picke.domain.vote.entity.BattleVote;
 import com.swyp.picke.domain.vote.repository.BattleVoteRepository;
 import java.util.List;
@@ -18,17 +18,25 @@ public class VoteQueryService {
 
     private final BattleVoteRepository battleVoteRepository;
 
-    public List<BattleVote> findUserVotes(Long userId, int offset, int size, BattleOptionLabel label) {
+    public List<BattleVote> findUserVotes(Long userId, int offset, int size, VoteSide voteSide) {
         PageRequest pageable = PageRequest.of(offset / size, size);
-        return label != null
-                ? battleVoteRepository.findByUserIdAndPreVoteOptionLabelOrderByCreatedAtDesc(userId, label, pageable)
-                : battleVoteRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
+        if (voteSide == VoteSide.PRO) {
+            return battleVoteRepository.findByUserIdAndPreVoteOptionDisplayOrderOrderByCreatedAtDesc(userId, 1, pageable);
+        }
+        if (voteSide == VoteSide.CON) {
+            return battleVoteRepository.findByUserIdAndPreVoteOptionDisplayOrderNotOrderByCreatedAtDesc(userId, 1, pageable);
+        }
+        return battleVoteRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
     }
 
-    public long countUserVotes(Long userId, BattleOptionLabel label) {
-        return label != null
-                ? battleVoteRepository.countByUserIdAndPreVoteOptionLabel(userId, label)
-                : battleVoteRepository.countByUserId(userId);
+    public long countUserVotes(Long userId, VoteSide voteSide) {
+        if (voteSide == VoteSide.PRO) {
+            return battleVoteRepository.countByUserIdAndPreVoteOptionDisplayOrder(userId, 1);
+        }
+        if (voteSide == VoteSide.CON) {
+            return battleVoteRepository.countByUserIdAndPreVoteOptionDisplayOrderNot(userId, 1);
+        }
+        return battleVoteRepository.countByUserId(userId);
     }
 
     public long countTotalParticipation(Long userId) {

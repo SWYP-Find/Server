@@ -2,8 +2,8 @@ package com.swyp.picke.domain.user.service;
 
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
-import com.swyp.picke.domain.battle.enums.BattleOptionLabel;
 import com.swyp.picke.domain.battle.service.BattleQueryService;
+import com.swyp.picke.domain.battle.util.BattleOptionDisplay;
 import com.swyp.picke.domain.perspective.entity.Perspective;
 import com.swyp.picke.domain.perspective.entity.PerspectiveComment;
 import com.swyp.picke.domain.perspective.entity.PerspectiveLike;
@@ -147,10 +147,8 @@ public class MypageService {
         int pageOffset = offset == null || offset < 0 ? 0 : offset;
         int pageSize = size == null || size <= 0 ? DEFAULT_PAGE_SIZE : size;
 
-        BattleOptionLabel label = voteSide != null ? toOptionLabel(voteSide) : null;
-
-        List<BattleVote> votes = voteQueryService.findUserVotes(user.getId(), pageOffset, pageSize, label);
-        long totalCount = voteQueryService.countUserVotes(user.getId(), label);
+        List<BattleVote> votes = voteQueryService.findUserVotes(user.getId(), pageOffset, pageSize, voteSide);
+        long totalCount = voteQueryService.countUserVotes(user.getId(), voteSide);
 
         List<Long> battleIds = votes.stream().map(v -> v.getBattle().getId()).toList();
         Map<Long, String> categoryMap = battleQueryService.getCategoryNamesByBattleIds(battleIds); // 배틀별 카테고리명 조회
@@ -160,8 +158,7 @@ public class MypageService {
                     Battle battle = BattleVote.getBattle();
                     BattleOption selectedOption = BattleVote.getPostVoteOption() != null
                             ? BattleVote.getPostVoteOption() : BattleVote.getPreVoteOption();
-                    VoteSide side = selectedOption.getLabel() == BattleOptionLabel.A
-                            ? VoteSide.PRO : VoteSide.CON;
+                    VoteSide side = BattleOptionDisplay.voteSide(selectedOption);
                     String category = categoryMap.get(battle.getId());
 
                     return new BattleRecordListResponse.BattleRecordItem(
@@ -254,9 +251,7 @@ public class MypageService {
                 characterImageUrl
         );
 
-        VoteSide voteSide = option != null
-                ? (option.getLabel() == BattleOptionLabel.A ? VoteSide.PRO : VoteSide.CON)
-                : null;
+        VoteSide voteSide = BattleOptionDisplay.voteSide(option);
 
         return new ContentActivityListResponse.ContentActivityItem(
                 activityId, activityType,
@@ -359,14 +354,6 @@ public class MypageService {
                         PhilosopherType.resolveImageKey(type.getLabel())
                 )
         );
-    }
-
-    private VoteSide toVoteSide(BattleOptionLabel label) {
-        return label == BattleOptionLabel.A ? VoteSide.PRO : VoteSide.CON;
-    }
-
-    private BattleOptionLabel toOptionLabel(VoteSide voteSide) {
-        return voteSide == VoteSide.PRO ? BattleOptionLabel.A : BattleOptionLabel.B;
     }
 
     private NotificationSettingsResponse toNotificationSettingsResponse(UserSettings settings) {

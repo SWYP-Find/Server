@@ -97,6 +97,7 @@ public class BattleAutoSeedService {
 
             } catch (Exception e) {
                 log.error("봇 관점 자동 생성 실패. botId={}, battleId={}", bot.getId(), battle.getId(), e);
+                throw new RuntimeException("봇 관점 자동 생성 실패로 전체 롤백. botId=" + bot.getId(), e);
             }
         }
     }

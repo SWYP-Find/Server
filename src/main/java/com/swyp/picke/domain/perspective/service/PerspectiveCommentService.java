@@ -2,6 +2,7 @@ package com.swyp.picke.domain.perspective.service;
 
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.service.BattleService;
+import com.swyp.picke.domain.battle.util.BattleOptionDisplay;
 import com.swyp.picke.domain.perspective.dto.request.CreateCommentRequest;
 import com.swyp.picke.domain.perspective.dto.request.UpdateCommentRequest;
 import com.swyp.picke.domain.perspective.dto.response.CommentListResponse;
@@ -65,7 +66,7 @@ public class PerspectiveCommentService {
         Long postVoteOptionId = BattleVoteService.findPostVoteOptionId(perspective.getBattle().getId(), userId);
         String stance = null;
         if (postVoteOptionId != null) {
-            stance = battleService.findOptionById(postVoteOptionId).getLabel().name();
+            stance = BattleOptionDisplay.opinion(battleService.findOptionById(postVoteOptionId));
         }
         return new CreateCommentResponse(
                 comment.getId(),
@@ -100,7 +101,7 @@ public class PerspectiveCommentService {
                     String stance = null;
                     if (postVoteOptionId != null) {
                         BattleOption option = battleService.findOptionById(postVoteOptionId);
-                        stance = option.getLabel().name();
+                        stance = BattleOptionDisplay.opinion(option);
                     }
                     boolean isLiked = commentLikeRepository.existsByCommentAndUserId(c, userId);
                     return new CommentListResponse.Item(
@@ -144,7 +145,7 @@ public class PerspectiveCommentService {
                     String stance = null;
                     if (postVoteOptionId != null) {
                         BattleOption option = battleService.findOptionById(postVoteOptionId);
-                        stance = option.getLabel().name();
+                        stance = BattleOptionDisplay.opinion(option);
                     }
                     boolean isLiked = commentLikeRepository.existsByCommentAndUserId(c, userId);
                     return new CommentListResponse.Item(

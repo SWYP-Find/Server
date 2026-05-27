@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.vote.converter;
 
 import com.swyp.picke.domain.battle.entity.BattleOption;
+import com.swyp.picke.domain.battle.util.BattleOptionDisplay;
 import com.swyp.picke.domain.user.enums.UserBattleStep;
 import com.swyp.picke.domain.vote.dto.response.MyVoteResponse;
 import com.swyp.picke.domain.vote.dto.response.VoteResultResponse;
@@ -41,6 +42,6 @@ public class VoteConverter {
         if (option == null) {
             return null;
         }
-        return new MyVoteResponse.OptionInfo(option.getId(), option.getLabel().name(), option.getTitle());
+        return new MyVoteResponse.OptionInfo(option.getId(), BattleOptionDisplay.opinion(option), option.getTitle());
     }
 }

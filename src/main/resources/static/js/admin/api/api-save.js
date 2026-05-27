@@ -131,7 +131,6 @@
                 tagIds: PickeData.selections.CATEGORY || [],
                 options: [
                     {
-                        label: 'A',
                         title: document.getElementById('char-a-title')?.value || '',
                         stance: document.getElementById('char-a-stance')?.value || '',
                         representative: document.getElementById('char-a-rep')?.value || '',
@@ -143,7 +142,6 @@
                         ]
                     },
                     {
-                        label: 'B',
                         title: document.getElementById('char-b-title')?.value || '',
                         stance: document.getElementById('char-b-stance')?.value || '',
                         representative: document.getElementById('char-b-rep')?.value || '',

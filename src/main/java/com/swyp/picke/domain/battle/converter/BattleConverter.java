@@ -28,7 +28,6 @@ public class BattleConverter {
     private static final String BASE_SHARE_URL = "https://pique.app/battles/";
     private static final Comparator<BattleOption> OPTION_SORTER =
             Comparator.comparing((BattleOption option) -> option.getDisplayOrder() == null ? Integer.MAX_VALUE : option.getDisplayOrder())
-                    .thenComparing(option -> option.getLabel() == null ? "" : option.getLabel().name())
                     .thenComparing(BattleOption::getId);
 
     public Battle toEntity(AdminBattleCreateRequest request, User admin) {
@@ -121,7 +120,6 @@ public class BattleConverter {
     public BattleScenarioResponse toScenarioResponse(Battle battle, List<BattleOption> options) {
         List<BattleScenarioResponse.PhilosopherProfileResponse> profiles = options.stream()
                 .map(opt -> new BattleScenarioResponse.PhilosopherProfileResponse(
-                        opt.getLabel().name(),
                         opt.getRepresentative(),
                         opt.getStance(),
                         urlProvider.getImageUrl(FileCategory.PHILOSOPHER, opt.getImageUrl())
@@ -130,7 +128,10 @@ public class BattleConverter {
         return new BattleScenarioResponse(battle.getTitle(), profiles);
     }
 
-    private List<BattleOptionResponse> toOptionResponses(List<BattleOption> options, Map<Long, List<Tag>> optionTagsMap) {
+    private List<BattleOptionResponse> toOptionResponses(
+            List<BattleOption> options,
+            Map<Long, List<Tag>> optionTagsMap
+    ) {
         if (options == null) return List.of();
         return options.stream()
                 .sorted(OPTION_SORTER)
@@ -138,7 +139,6 @@ public class BattleConverter {
                     List<Tag> optionTags = optionTagsMap.getOrDefault(option.getId(), List.of());
                     return new BattleOptionResponse(
                             option.getId(),
-                            option.getLabel(),
                             option.getTitle(),
                             option.getStance(),
                             option.getRepresentative(),
@@ -154,7 +154,6 @@ public class BattleConverter {
                 .sorted(OPTION_SORTER)
                 .map(option -> new TodayOptionResponse(
                         option.getId(),
-                        option.getLabel(),
                         option.getTitle(),
                         option.getRepresentative(),
                         option.getStance(),

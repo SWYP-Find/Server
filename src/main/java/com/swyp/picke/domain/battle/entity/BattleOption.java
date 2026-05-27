@@ -1,12 +1,9 @@
 package com.swyp.picke.domain.battle.entity;
 
-import com.swyp.picke.domain.battle.enums.BattleOptionLabel;
 import com.swyp.picke.global.common.BaseEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -28,10 +25,6 @@ public class BattleOption extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "battle_id", nullable = false)
     private Battle battle;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
-    private BattleOptionLabel label;
 
     @Column(nullable = false, length = 100)
     private String title;
@@ -57,7 +50,6 @@ public class BattleOption extends BaseEntity {
     @Builder
     public BattleOption(
             Battle battle,
-            BattleOptionLabel label,
             String title,
             String stance,
             String representative,
@@ -65,7 +57,6 @@ public class BattleOption extends BaseEntity {
             Integer displayOrder
     ) {
         this.battle = battle;
-        this.label = label;
         this.title = title;
         this.stance = stance;
         this.representative = representative;
@@ -84,7 +75,7 @@ public class BattleOption extends BaseEntity {
         }
     }
 
-    public void update(String title, String stance, String representative, String imageUrl) {
+    public void update(String title, String stance, String representative, String imageUrl, Integer displayOrder) {
         if (title != null) {
             this.title = title;
         }

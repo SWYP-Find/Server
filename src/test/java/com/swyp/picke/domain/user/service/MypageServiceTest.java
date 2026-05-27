@@ -212,12 +212,12 @@ class MypageServiceTest {
         User user = createUser(1L, "tag");
 
         when(userService.findCurrentUser()).thenReturn(user);
-        when(voteQueryService.findUserVotes(1L, 0, 20, BattleOptionLabel.A)).thenReturn(List.of());
-        when(voteQueryService.countUserVotes(1L, BattleOptionLabel.A)).thenReturn(0L);
+        when(voteQueryService.findUserVotes(1L, 0, 20, VoteSide.PRO)).thenReturn(List.of());
+        when(voteQueryService.countUserVotes(1L, VoteSide.PRO)).thenReturn(0L);
 
         mypageService.getBattleRecords(null, null, VoteSide.PRO);
 
-        verify(voteQueryService).findUserVotes(eq(1L), eq(0), eq(20), eq(BattleOptionLabel.A));
+        verify(voteQueryService).findUserVotes(eq(1L), eq(0), eq(20), eq(VoteSide.PRO));
     }
 
     @Test
@@ -408,9 +408,9 @@ class MypageServiceTest {
     private BattleOption createOption(Battle battle, BattleOptionLabel label) {
         BattleOption option = BattleOption.builder()
                 .battle(battle)
-                .label(label)
                 .title(label.name())
                 .stance("stance-" + label.name())
+                .displayOrder(label == BattleOptionLabel.A ? 1 : 2)
                 .build();
         ReflectionTestUtils.setField(option, "id", generateId());
         return option;

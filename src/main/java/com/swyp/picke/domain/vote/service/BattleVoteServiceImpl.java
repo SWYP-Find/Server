@@ -75,11 +75,11 @@ public class BattleVoteServiceImpl implements BattleVoteService {
     public VoteStatsResponse getVoteStats(Long battleId) {
         Battle battle = battleService.findById(battleId);
         List<BattleOption> options = battleOptionRepository.findByBattle(battle);
-        long totalCount = battleVoteRepository.countByBattle(battle);
+        long totalCount = battleVoteRepository.countByBattleAndPostVoteOptionIsNotNull(battle);
 
         List<VoteStatsResponse.OptionStat> stats = options.stream()
                 .map(option -> {
-                    long count = battleVoteRepository.countByBattleAndPreVoteOption(battle, option);
+                    long count = battleVoteRepository.countByBattleAndPostVoteOption(battle, option);
                     double ratio = totalCount > 0
                             ? Math.round((double) count / totalCount * 1000.0) / 10.0
                             : 0.0;

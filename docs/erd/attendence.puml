@@ -1,0 +1,61 @@
+@startuml
+hide circle
+hide methods
+skinparam linetype ortho
+
+entity "ATTENDANCE_RECORDS\n일별 출석 기록" as attendance_records {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK>>
+  attended_date : DATE
+  points_earned : INT
+  created_at : TIMESTAMP
+}
+
+entity "ATTENDANCE_STREAKS\n연속 출석 상태" as attendance_streaks {
+  * user_id : BIGINT <<PK, FK>>
+  --
+  current_streak : INT
+  max_streak : INT
+  streak_week_start : DATE
+  is_streak_achieved : BOOLEAN
+  updated_at : TIMESTAMP
+}
+
+entity "ATTENDANCE_POINT_HISTORIES\n출석 포인트 지급 이력" as attendance_point_histories {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK>>
+  points : INT
+  reason : ENUM('DAILY_ATTENDANCE', 'STREAK_BONUS')
+  consecutive_days : INT
+  created_at : TIMESTAMP
+}
+
+attendance_records -[hidden]down- attendance_streaks
+attendance_streaks -[hidden]down- attendance_point_histories
+
+USERS ||--o{ attendance_records : ""
+USERS ||--|| attendance_streaks : ""
+USERS ||--o{ attendance_point_histories : ""
+
+note right of attendance_records
+  (user_id, attended_date) UNIQUE 제약으로
+  하루 1회 출석만 허용한다.
+end note
+
+note right of attendance_streaks
+  user_id 가 PK 이므로 유저당 1개 row 유지.
+  매주 월요일 00:00 에 current_streak 과
+  is_streak_achieved 를 초기화한다.
+  streak_week_start 는 해당 주 월요일 날짜.
+end note
+
+note bottom of attendance_point_histories
+  reason 값
+  - DAILY_ATTENDANCE : 일일 출석 보상 (+5P)
+  - STREAK_BONUS     : 7일 연속 달성 보상 (+7P)
+  consecutive_days 는 지급 시점의 연속 출석 일수.
+end note
+
+@enduml

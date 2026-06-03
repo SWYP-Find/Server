@@ -10,6 +10,7 @@ public record VoteStatsResponse(
 ) {
     public record OptionStat(
             Long optionId,
+            String title,
             String imageUrl,
             long voteCount,
             double ratio

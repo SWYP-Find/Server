@@ -85,6 +85,7 @@ public class BattleVoteServiceImpl implements BattleVoteService {
                             : 0.0;
                     return new VoteStatsResponse.OptionStat(
                             option.getId(),
+                            option.getTitle(),
                             urlProvider.getImageUrl(FileCategory.PHILOSOPHER, option.getImageUrl()),
                             count,
                             ratio

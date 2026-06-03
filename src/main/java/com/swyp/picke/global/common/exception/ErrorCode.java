@@ -111,7 +111,10 @@ public enum ErrorCode {
 
     // MyPage
     PHILOSOPHER_CALC_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "USER_500_PHIL", "철학자 유형을 계산할 수 없습니다."),
-    RECAP_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_404_RECAP", "존재하지 않는 리캡입니다.");
+    RECAP_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_404_RECAP", "존재하지 않는 리캡입니다."),
+
+    // Attendance
+    ATTENDANCE_ALREADY_CHECKED(HttpStatus.CONFLICT, "ATTENDANCE_409", "오늘 이미 출석체크를 완료했습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

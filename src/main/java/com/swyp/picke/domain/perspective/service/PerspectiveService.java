@@ -92,10 +92,8 @@ public class PerspectiveService {
                 .content(request.content())
                 .build();
 
-        // 댓글 검수 비활성화 및 댓글 작성 승인
         perspective.updateStatus(PerspectiveStatus.PUBLISHED);
         Perspective saved = perspectiveRepository.save(perspective);
-        // gptModerationService.moderate(saved.getId(), saved.getContent());
         return new CreatePerspectiveResponse(saved.getId(), saved.getStatus(), saved.getCreatedAt());
     }
 
@@ -163,9 +161,7 @@ public class PerspectiveService {
         Perspective perspective = findPerspectiveById(perspectiveId);
         validateOwnership(perspective, userId);
         perspective.updateContent(request.content());
-        // 댓글 검수 미수행 및 댓글 바로 적용
         perspective.updateStatus(PerspectiveStatus.PUBLISHED);
-        // gptModerationService.moderate(perspective.getId(), perspective.getContent());
         return new UpdatePerspectiveResponse(perspective.getId(), perspective.getContent(), perspective.getUpdatedAt());
     }
 

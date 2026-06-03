@@ -116,4 +116,11 @@ public class CreditService {
             throw new CustomException(ErrorCode.CREDIT_REFERENCE_REQUIRED);
         }
     }
+
+    /**
+     * 크레딧 적립/소비 기록 조회
+     */
+    public boolean existsHistory(Long userId, CreditType creditType, Long referenceId) {
+        return creditHistoryRepository.existsByUserIdAndCreditTypeAndReferenceId(userId, creditType, referenceId);
+    }
 }

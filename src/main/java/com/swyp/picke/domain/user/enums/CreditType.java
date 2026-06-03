@@ -5,6 +5,7 @@ import lombok.Getter;
 @Getter
 public enum CreditType {
     TODAY_CREDIT(5),        // 출석체크: 하루 1회
+    ATTENDANCE_STREAK(7),   // 7일 연속 출석 보너스
     DEFAULT_CREDIT(30),     // 기본 크레딧: 회원가입 시 기본 지급
     BATTLE_VOTE(5),         // 배틀 참여 보상: 사후 투표 완료 시 즉시 지급
     BATTLE_ENTRY(-5),       // 지난 배틀 이용 비용: 사전 투표 최초 진입 시 차감

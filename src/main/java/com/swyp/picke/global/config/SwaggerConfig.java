@@ -72,7 +72,11 @@ public class SwaggerConfig {
             "GET /api/v1/share/recap/{shareKey}",
             "POST /api/v1/battles/proposals",
             "GET /api/v1/battles/{battleId}/recommendations/interesting",
-            "GET /api/v1/battles/{battleId}/scenario"
+            "GET /api/v1/battles/{battleId}/scenario",
+            // Attendance
+            "POST /api/v1/attendance/check",
+            "GET /api/v1/attendance/weekly",
+            "GET /api/v1/attendance/summary"
     );
 
     @Bean

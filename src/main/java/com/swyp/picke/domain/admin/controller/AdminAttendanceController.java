@@ -4,7 +4,6 @@ import com.swyp.picke.domain.admin.dto.attendance.response.AdminAttendanceRespon
 import com.swyp.picke.domain.admin.dto.attendance.response.AdminAttendanceResponse.UserAttendanceResponse;
 import com.swyp.picke.domain.admin.service.AdminAttendanceService;
 import com.swyp.picke.global.common.response.ApiResponse;
-import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +17,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 
-@Hidden
 @Tag(name = "관리자 출석체크 API", description = "출석 현황 집계 및 특정 유저 출석 이력 조회")
 @RestController
 @RequestMapping("/api/v1/admin/attendance")

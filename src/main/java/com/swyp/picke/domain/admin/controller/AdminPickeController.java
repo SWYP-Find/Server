@@ -7,7 +7,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-@Hidden // 스웨거 노출 차단
+@Hidden
 @Controller
 @RequestMapping("/api/v1/admin")
 public class AdminPickeController {

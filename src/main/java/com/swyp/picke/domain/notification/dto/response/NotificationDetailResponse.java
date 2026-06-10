@@ -11,6 +11,7 @@ public record NotificationDetailResponse(
         String title,
         String body,
         Long referenceId,
+        Long perspectiveId,
         boolean isRead,
         LocalDateTime createdAt,
         LocalDateTime readAt

@@ -46,6 +46,9 @@ public class Notification extends BaseEntity {
     @Column(name = "reference_id")
     private Long referenceId;
 
+    @Column(name = "perspective_id")
+    private Long perspectiveId;
+
     @Column(name = "is_read", nullable = false)
     private boolean read;
 
@@ -54,13 +57,14 @@ public class Notification extends BaseEntity {
 
     @Builder
     private Notification(User user, NotificationCategory category, NotificationDetailCode detailCode,
-                         String title, String body, Long referenceId) {
+                         String title, String body, Long referenceId, Long perspectiveId) {
         this.user = user;
         this.category = category;
         this.detailCode = detailCode;
         this.title = title;
         this.body = body;
         this.referenceId = referenceId;
+        this.perspectiveId = perspectiveId;
         this.read = false;
     }
 

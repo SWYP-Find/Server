@@ -41,6 +41,11 @@ spring:
       credentials:
         location: ${GCP_CREDENTIALS_PATH}
 
+# 3-1. Firebase Admin SDK (FCM 푸시 알림)
+firebase:
+  credentials:
+    location: ${FCM_CREDENTIALS_PATH}
+
 # 4. 인증 및 보안 설정 (OAuth2, JWT)
 oauth:
   kakao:

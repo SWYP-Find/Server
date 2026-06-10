@@ -3,6 +3,7 @@ package com.swyp.picke.domain.perspective.service;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.service.BattleService;
 import com.swyp.picke.domain.battle.util.BattleOptionDisplay;
+import com.swyp.picke.domain.notification.service.NotificationDispatchService;
 import com.swyp.picke.domain.perspective.dto.request.CreateCommentRequest;
 import com.swyp.picke.domain.perspective.dto.request.UpdateCommentRequest;
 import com.swyp.picke.domain.perspective.dto.response.CommentListResponse;
@@ -26,6 +27,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -45,6 +48,7 @@ public class PerspectiveCommentService {
     private final BattleVoteService BattleVoteService;
     private final BattleService battleService;
     private final S3PresignedUrlService s3PresignedUrlService;
+    private final NotificationDispatchService notificationDispatchService;
 
     @Transactional
     public CreateCommentResponse createComment(Long perspectiveId, Long userId, CreateCommentRequest request) {
@@ -60,6 +64,8 @@ public class PerspectiveCommentService {
 
         commentRepository.save(comment);
         perspective.incrementCommentCount();
+
+        notifyNewCommentAfterCommit(comment, perspective, userId);
 
         UserSummary userSummary = userQueryService.findSummaryById(userId);
         String characterImageUrl = resolveCharacterImageUrl(userSummary.characterType());
@@ -78,6 +84,28 @@ public class PerspectiveCommentService {
                 true,
                 comment.getCreatedAt()
         );
+    }
+
+    private void notifyNewCommentAfterCommit(PerspectiveComment comment, Perspective perspective, Long commenterId) {
+        Long perspectiveAuthorId = perspective.getUser().getId();
+        if (perspectiveAuthorId.equals(commenterId)) {
+            return;
+        }
+
+        Long commentId = comment.getId();
+        Long perspectiveId = perspective.getId();
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    notificationDispatchService.notifyNewComment(perspectiveAuthorId, perspectiveId, commentId);
+                }
+            });
+            return;
+        }
+
+        notificationDispatchService.notifyNewComment(perspectiveAuthorId, perspectiveId, commentId);
     }
 
     public CommentListResponse getComments(Long perspectiveId, Long userId, String cursor, Integer size) {

@@ -19,6 +19,7 @@ import com.swyp.picke.domain.battle.repository.BattleOptionRepository;
 import com.swyp.picke.domain.battle.repository.BattleOptionTagRepository;
 import com.swyp.picke.domain.battle.repository.BattleRepository;
 import com.swyp.picke.domain.battle.repository.BattleTagRepository;
+import com.swyp.picke.domain.notification.service.NotificationDispatchService;
 import com.swyp.picke.domain.scenario.entity.Scenario;
 import com.swyp.picke.domain.scenario.enums.ScenarioStatus;
 import com.swyp.picke.domain.scenario.repository.ScenarioRepository;
@@ -82,6 +83,7 @@ public class BattleServiceImpl implements BattleService {
     private final BattleAutoSeedService battleAutoSeedService;
     private final ScenarioRepository scenarioRepository;
     private final ScenarioAudioPipelineService scenarioAudioPipelineService;
+    private final NotificationDispatchService notificationDispatchService;
 
     @Override
     public Battle findById(Long battleId) {
@@ -517,6 +519,7 @@ public class BattleServiceImpl implements BattleService {
                 publishBattleAssets(battle);
                 battle.publish();
                 publishScenarioIfPresent(battle);
+                notifyNewBattleAfterCommit(battle);
             }
 
             openedCount += readyPage.getNumberOfElements();
@@ -574,6 +577,22 @@ public class BattleServiceImpl implements BattleService {
                     scenario.updateStatus(ScenarioStatus.PUBLISHED);
                     triggerScenarioAudioAfterCommit(scenario);
                 });
+    }
+
+    private void notifyNewBattleAfterCommit(Battle battle) {
+        Long battleId = battle.getId();
+        String title = battle.getTitle();
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    notificationDispatchService.notifyNewBattle(battleId, title);
+                }
+            });
+            return;
+        }
+
+        notificationDispatchService.notifyNewBattle(battleId, title);
     }
 
     private void triggerScenarioAudioAfterCommit(Scenario scenario) {

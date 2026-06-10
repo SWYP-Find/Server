@@ -50,18 +50,19 @@ public class CommentLikeService {
         Long commentId = comment.getId();
         Long commentAuthorId = comment.getUser().getId();
         Long perspectiveId = comment.getPerspective().getId();
+        String battleTitle = comment.getPerspective().getBattle().getTitle();
 
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    notificationDispatchService.notifyCommentLike(commentAuthorId, perspectiveId, commentId);
+                    notificationDispatchService.notifyCommentLike(commentAuthorId, perspectiveId, commentId, battleTitle);
                 }
             });
             return;
         }
 
-        notificationDispatchService.notifyCommentLike(commentAuthorId, perspectiveId, commentId);
+        notificationDispatchService.notifyCommentLike(commentAuthorId, perspectiveId, commentId, battleTitle);
     }
 
     @Transactional

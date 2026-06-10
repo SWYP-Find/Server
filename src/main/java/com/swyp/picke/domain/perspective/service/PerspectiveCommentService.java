@@ -94,18 +94,19 @@ public class PerspectiveCommentService {
 
         Long commentId = comment.getId();
         Long perspectiveId = perspective.getId();
+        String battleTitle = perspective.getBattle().getTitle();
 
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    notificationDispatchService.notifyNewComment(perspectiveAuthorId, perspectiveId, commentId);
+                    notificationDispatchService.notifyNewComment(perspectiveAuthorId, perspectiveId, commentId, battleTitle);
                 }
             });
             return;
         }
 
-        notificationDispatchService.notifyNewComment(perspectiveAuthorId, perspectiveId, commentId);
+        notificationDispatchService.notifyNewComment(perspectiveAuthorId, perspectiveId, commentId, battleTitle);
     }
 
     public CommentListResponse getComments(Long perspectiveId, Long userId, String cursor, Integer size) {

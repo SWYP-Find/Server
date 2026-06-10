@@ -46,8 +46,8 @@ public class NotificationDispatchService {
     /**
      * 내가 작성한 답글에 좋아요가 달렸을 때 답글 작성자에게 인앱 알림 + FCM 푸시를 발송한다.
      */
-    public void notifyCommentLike(Long commentAuthorId, Long perspectiveId, Long commentId) {
-        String body = "내가 남긴 답글에 좋아요가 달렸어요.";
+    public void notifyCommentLike(Long commentAuthorId, Long perspectiveId, Long commentId, String battleTitle) {
+        String body = "\"" + battleTitle + "\" 배틀에 남긴 내 답글에 좋아요가 달렸어요.";
 
         notificationService.createNotification(
                 commentAuthorId, NotificationDetailCode.COMMENT_LIKE, body, commentId, perspectiveId);
@@ -58,8 +58,8 @@ public class NotificationDispatchService {
     /**
      * 내가 작성한 글에 새로운 답글이 달렸을 때 글 작성자에게 인앱 알림 + FCM 푸시를 발송한다.
      */
-    public void notifyNewComment(Long perspectiveAuthorId, Long perspectiveId, Long commentId) {
-        String body = "내가 작성한 글에 새로운 답글이 달렸어요.";
+    public void notifyNewComment(Long perspectiveAuthorId, Long perspectiveId, Long commentId, String battleTitle) {
+        String body = "\"" + battleTitle + "\" 배틀에 남긴 내 글에 새로운 답글이 달렸어요.";
 
         notificationService.createNotification(
                 perspectiveAuthorId, NotificationDetailCode.NEW_COMMENT, body, commentId, perspectiveId);

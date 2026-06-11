@@ -30,46 +30,42 @@ public class AdMobRewardServiceImpl implements AdMobRewardService {
     @Override
     @Transactional
     public String processReward(AdMobRewardRequest request) {
+        log.info("[AdMob] SSV 처리 시작: transaction_id={}, userTag={}, reward_amount={}, ad_unit={}",
+                request.transaction_id(), request.getUserTag(), request.reward_amount(), request.ad_unit());
+
         // 1. 서명 검증 (공식 파라미터 기반)
         /*if (!verifyAdMobSignature(request)) {
-            log.warn("AdMob 서명 검증 실패: transaction_id={}", request.transaction_id());
+            log.warn("[AdMob] 서명 검증 실패: transaction_id={}", request.transaction_id());
             throw new CustomException(ErrorCode.REWARD_INVALID_SIGNATURE);
         }*/
 
         // 2. 중복 처리 방지
         if (adRewardHistoryRepository.existsByTransactionId(request.transaction_id())) {
-            log.info("이미 처리된 광고 요청입니다: transaction_id={}", request.transaction_id());
+            log.info("[AdMob] 이미 처리된 요청: transaction_id={}", request.transaction_id());
             return "Already Processed";
         }
 
-        // 3. 유저 확인 (UserTag를 이용해 UserService에서 실제 유저 확보)
-        // request.getUserTag()는 custom_data 혹은 user_id를 반환합니다.
+        // 3. 유저 확인 (custom_data → user_id 순으로 조회)
+        log.info("[AdMob] 유저 조회 시도: userTag={}", request.getUserTag());
         User user = userService.findByUserTag(request.getUserTag());
+        log.info("[AdMob] 유저 확인 완료: userId={}", user.getId());
 
-        // 4. 보상 이력(AdRewardHistory) 저장
+        // 4. 보상 이력 저장 후 즉시 id 확보 (saveAndFlush)
         AdRewardHistory history = AdRewardHistory.builder()
                 .transactionId(request.transaction_id())
                 .user(user)
                 .rewardAmount(request.reward_amount())
-                .rewardItem(request.getRewardType()) // // Enum 명칭 저장
+                .rewardItem(request.getRewardType())
                 .build();
-        adRewardHistoryRepository.save(history);
+        adRewardHistoryRepository.saveAndFlush(history);
+        log.info("[AdMob] 보상 이력 저장 완료: historyId={}", history.getId());
 
-        // // 5. 크레딧 적립
-        Long refId = parseTransactionId(request.transaction_id());
-        creditService.addCredit(user.getId(), CreditType.FREE_CHARGE, request.reward_amount(), refId);
+        // 5. 크레딧 적립 (history.getId()를 referenceId로 사용해 unique 충돌 방지)
+        creditService.addCredit(user.getId(), CreditType.FREE_CHARGE, request.reward_amount(), history.getId());
+        log.info("[AdMob] 포인트 적립 완료: userId={}, amount={}, historyId={}",
+                user.getId(), request.reward_amount(), history.getId());
 
-        log.info("보상 지급 완료: userTag={}, userId={}, amount={}",
-                 user.getUserTag(), user.getId(), request.reward_amount());
         return "OK";
-    }
-
-    private Long parseTransactionId(String transactionId) {
-        try {
-            return Long.parseLong(transactionId.replaceAll("[^0-9]", ""));
-        } catch (Exception e) {
-            return (long) Math.abs(transactionId.hashCode());
-        }
     }
 
     /**

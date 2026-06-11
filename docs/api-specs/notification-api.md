@@ -1,13 +1,13 @@
-# 알림 API 명세서 (인앱 알림 + FCM 푸시)
+# 알림 API 명세서 (인앱 알림 + 푸시)
 
 ---
 
 ## 1. 설계 메모
 
-- 알림은 **인앱 알림(알림함)** 과 **FCM 푸시**, 두 트랙으로 동작합니다.
+- 알림은 **인앱 알림(알림함)** 과 **푸시**, 두 트랙으로 동작합니다.
   - 인앱 알림: `GET /api/v1/notifications`로 조회하는 알림함 데이터
-  - FCM 푸시: 앱이 백그라운드/종료 상태일 때 기기로 직접 발송되는 푸시
-- **NEW_BATTLE / COMMENT_LIKE / NEW_COMMENT** 는 인앱 알림 + FCM 푸시 둘 다 발송됩니다.
+  - 푸시: 앱이 백그라운드/종료 상태일 때 기기로 직접 발송되는 푸시. Android는 FCM, iOS는 APNs로 직접 발송됩니다.
+- **NEW_BATTLE / COMMENT_LIKE / NEW_COMMENT** 는 인앱 알림 + 푸시 둘 다 발송됩니다.
 - **CREDIT_EARNED / POLICY_CHANGE / PROMOTION** 은 인앱 알림만 발송됩니다 (푸시 없음).
 - **VOTE_RESULT** 는 현재 보류 상태로, 발생하지 않습니다.
 - 인증이 필요한 모든 API는 `Authorization: Bearer {access_token}` 헤더를 요구합니다.
@@ -38,11 +38,11 @@
 
 ---
 
-## 2. 디바이스(FCM 토큰) 등록/해제 API
+## 2. 디바이스(푸시 토큰) 등록/해제 API
 
 ### 2.1 `POST /api/v1/devices`
 
-로그인 성공 직후, 또는 FCM 토큰이 갱신될 때(`onNewToken` 등) 호출합니다. 이미 등록된 토큰이면 현재 로그인한 유저로 재할당됩니다(같은 기기에서 계정을 바꿔 로그인하는 경우 대응).
+로그인 성공 직후, 또는 푸시 토큰이 갱신될 때 호출합니다. 이미 등록된 토큰이면 현재 로그인한 유저로 재할당됩니다(같은 기기에서 계정을 바꿔 로그인하는 경우 대응).
 
 요청 헤더:
 
@@ -52,14 +52,14 @@
 
 ```json
 {
-  "fcmToken": "fcm_device_token_string",
+  "fcmToken": "device_push_token_string",
   "platform": "ANDROID"
 }
 ```
 
 | 필드 | 타입 | 필수 | 설명 |
 |---|---|---|---|
-| `fcmToken` | `string` | Y | FCM 디바이스 토큰 |
+| `fcmToken` | `string` | Y | `platform=ANDROID`이면 FCM 토큰, `platform=IOS`이면 APNs 디바이스 토큰(`didRegisterForRemoteNotificationsWithDeviceToken`에서 받은 토큰을 hex 문자열로 변환한 값) |
 | `platform` | `string` | Y | `ANDROID` \| `IOS` |
 
 성공 응답 `200 OK`:
@@ -86,7 +86,7 @@
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |---|---|---|---|
-| `fcmToken` | `string` | Y | 해제할 FCM 디바이스 토큰 |
+| `fcmToken` | `string` | Y | 해제할 디바이스 푸시 토큰 |
 
 성공 응답 `200 OK`:
 
@@ -242,20 +242,22 @@
 
 ---
 
-## 4. FCM 푸시 처리 가이드 (Android / iOS)
+## 4. 푸시 처리 가이드 (Android: FCM / iOS: APNs)
 
-`NEW_BATTLE`, `COMMENT_LIKE`, `NEW_COMMENT` 발생 시 등록된 디바이스로 FCM 메시지가 발송됩니다. 플랫폼별 메시지 구성이 다르므로 주의해주세요.
+`NEW_BATTLE`, `COMMENT_LIKE`, `NEW_COMMENT` 발생 시 등록된 디바이스로 푸시가 발송됩니다. Android는 FCM, iOS는 FCM을 거치지 않고 APNs로 직접 발송되며, 플랫폼별 메시지 구성이 다르므로 주의해주세요.
 
-### 4.1 Android
+### 4.1 Android (FCM)
 
 - **data-only** 메시지로 발송됩니다 (notification 블록 없음).
 - 앱이 직접 `data`를 파싱해 로컬 알림(Notification)을 생성하고, 알림 탭 시에도 `data`로 라우팅을 처리해야 합니다.
 
-### 4.2 iOS
+### 4.2 iOS (APNs 직접 발송)
 
-- **notification + data** 메시지로 발송됩니다.
-- OS가 자동으로 알림을 표시합니다. 알림 탭 시 `data` 페이로드(또는 `url`의 유니버설 링크)로 라우팅합니다.
+- FCM을 거치지 않고 서버가 APNs로 직접 발송하는 **alert(`aps.alert`) + 커스텀 데이터** 페이로드입니다. 커스텀 데이터(`type`, `battleId`, `url` 등)는 `aps`와 동일 레벨의 top-level 키로 들어갑니다.
+- OS가 자동으로 알림을 표시합니다. 알림 탭 시 `userInfo`의 커스텀 키(또는 `url`의 유니버설 링크)로 라우팅합니다.
 - `apple-app-site-association`이 `paths: ["*"]` 와일드카드로 설정되어 있어, `url`에 포함된 모든 경로가 유니버설 링크로 동작합니다. 별도 서버 설정 변경 없이 사용 가능합니다.
+- **Firebase SDK가 더 이상 필요하지 않습니다.** 디바이스 등록 시 보내는 토큰은 FCM 토큰이 아니라 `didRegisterForRemoteNotificationsWithDeviceToken`에서 받는 APNs 디바이스 토큰(hex 문자열)입니다.
+- 서버의 APNs 환경(sandbox/production)은 전역 설정 1개로 고정됩니다. 개발/TestFlight 빌드(sandbox 토큰)와 App Store 빌드(production 토큰)를 동시에 지원하려면 별도 협의가 필요합니다.
 
 ### 4.3 `data` 페이로드 포맷
 

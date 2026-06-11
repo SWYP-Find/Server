@@ -58,8 +58,11 @@ dependencies {
     // Google Cloud TTS
     implementation 'com.google.cloud:google-cloud-texttospeech:2.58.0'
 
-    // Firebase Admin SDK (FCM 푸시 알림)
+    // Firebase Admin SDK (FCM 푸시 알림 - Android)
     implementation 'com.google.firebase:firebase-admin:9.9.0'
+
+    // Pushy (다이렉트 APNs 푸시 알림 - iOS)
+    implementation 'com.eatthepath:pushy:0.15.4'
 
     // AWS S3
     implementation 'io.awspring.cloud:spring-cloud-aws-starter-s3:3.3.0'

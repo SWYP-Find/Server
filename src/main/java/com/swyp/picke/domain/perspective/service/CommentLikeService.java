@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.perspective.service;
 
+import com.swyp.picke.domain.notification.service.NotificationDispatchService;
 import com.swyp.picke.domain.perspective.dto.response.LikeResponse;
 import com.swyp.picke.domain.perspective.entity.CommentLike;
 import com.swyp.picke.domain.perspective.entity.PerspectiveComment;
@@ -10,6 +11,8 @@ import com.swyp.picke.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 @RequiredArgsConstructor
@@ -18,6 +21,7 @@ public class CommentLikeService {
 
     private final PerspectiveCommentRepository commentRepository;
     private final CommentLikeRepository commentLikeRepository;
+    private final NotificationDispatchService notificationDispatchService;
 
     @Transactional
     public LikeResponse addLike(Long commentId, Long userId) {
@@ -37,7 +41,28 @@ public class CommentLikeService {
                 .build());
         comment.incrementLikeCount();
 
+        notifyCommentLikeAfterCommit(comment);
+
         return new LikeResponse(comment.getId(), comment.getLikeCount(), true);
+    }
+
+    private void notifyCommentLikeAfterCommit(PerspectiveComment comment) {
+        Long commentId = comment.getId();
+        Long commentAuthorId = comment.getUser().getId();
+        Long perspectiveId = comment.getPerspective().getId();
+        String battleTitle = comment.getPerspective().getBattle().getTitle();
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    notificationDispatchService.notifyCommentLike(commentAuthorId, perspectiveId, commentId, battleTitle);
+                }
+            });
+            return;
+        }
+
+        notificationDispatchService.notifyCommentLike(commentAuthorId, perspectiveId, commentId, battleTitle);
     }
 
     @Transactional

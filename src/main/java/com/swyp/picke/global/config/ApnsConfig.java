@@ -68,6 +68,7 @@ public class ApnsConfig {
                     .build();
 
             Path tempFile = Files.createTempFile("apns-key", ".p8");
+            Files.delete(tempFile);
             tempFile.toFile().deleteOnExit();
             s3Client.getObject(request, tempFile);
             return tempFile.toFile();

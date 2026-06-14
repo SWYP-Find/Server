@@ -15,8 +15,12 @@ import com.swyp.picke.domain.perspective.dto.response.PerspectiveDetailResponse;
 import com.swyp.picke.domain.perspective.dto.response.PerspectiveListResponse;
 import com.swyp.picke.domain.perspective.dto.response.UpdatePerspectiveResponse;
 import com.swyp.picke.domain.perspective.entity.Perspective;
+import com.swyp.picke.domain.perspective.entity.PerspectiveComment;
+import com.swyp.picke.domain.perspective.repository.CommentLikeRepository;
+import com.swyp.picke.domain.perspective.repository.CommentReportRepository;
 import com.swyp.picke.domain.perspective.repository.PerspectiveCommentRepository;
 import com.swyp.picke.domain.perspective.repository.PerspectiveLikeRepository;
+import com.swyp.picke.domain.perspective.repository.PerspectiveReportRepository;
 import com.swyp.picke.domain.perspective.repository.PerspectiveRepository;
 import com.swyp.picke.domain.user.dto.response.UserSummary;
 import com.swyp.picke.domain.user.enums.CharacterType;
@@ -43,6 +47,9 @@ public class PerspectiveService {
     private final PerspectiveRepository perspectiveRepository;
     private final PerspectiveCommentRepository perspectiveCommentRepository;
     private final PerspectiveLikeRepository perspectiveLikeRepository;
+    private final PerspectiveReportRepository perspectiveReportRepository;
+    private final CommentLikeRepository commentLikeRepository;
+    private final CommentReportRepository commentReportRepository;
     private final BattleService battleService;
     private final BattleVoteService BattleVoteService;
     private final UserService userQueryService;
@@ -152,7 +159,16 @@ public class PerspectiveService {
     public void deletePerspective(Long perspectiveId, Long userId) {
         Perspective perspective = findPerspectiveById(perspectiveId);
         validateOwnership(perspective, userId);
+
+        List<PerspectiveComment> comments = perspectiveCommentRepository.findByPerspective(perspective);
+        if (!comments.isEmpty()) {
+            commentLikeRepository.deleteAllByCommentIn(comments);
+            commentReportRepository.deleteAllByCommentIn(comments);
+        }
         perspectiveCommentRepository.deleteAllByPerspective(perspective);
+
+        perspectiveLikeRepository.deleteAllByPerspective(perspective);
+        perspectiveReportRepository.deleteAllByPerspective(perspective);
         perspectiveRepository.delete(perspective);
     }
 

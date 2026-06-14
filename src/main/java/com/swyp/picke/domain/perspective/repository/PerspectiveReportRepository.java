@@ -9,4 +9,6 @@ public interface PerspectiveReportRepository extends JpaRepository<PerspectiveRe
     boolean existsByPerspectiveAndUserId(Perspective perspective, Long userId);
 
     long countByPerspective(Perspective perspective);
+
+    void deleteAllByPerspective(Perspective perspective);
 }

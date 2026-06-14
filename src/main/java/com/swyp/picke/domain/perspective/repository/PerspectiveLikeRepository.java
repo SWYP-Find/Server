@@ -22,4 +22,6 @@ public interface PerspectiveLikeRepository extends JpaRepository<PerspectiveLike
     List<PerspectiveLike> findByUserIdOrderByCreatedAtDesc(@Param("userId") Long userId, Pageable pageable);
 
     long countByUserId(Long userId);
+
+    void deleteAllByPerspective(Perspective perspective);
 }

@@ -12,6 +12,7 @@ import com.swyp.picke.domain.perspective.dto.response.UpdateCommentResponse;
 import com.swyp.picke.domain.perspective.entity.Perspective;
 import com.swyp.picke.domain.perspective.entity.PerspectiveComment;
 import com.swyp.picke.domain.perspective.repository.CommentLikeRepository;
+import com.swyp.picke.domain.perspective.repository.CommentReportRepository;
 import com.swyp.picke.domain.perspective.repository.PerspectiveCommentRepository;
 import com.swyp.picke.domain.perspective.repository.PerspectiveRepository;
 import com.swyp.picke.domain.user.dto.response.UserSummary;
@@ -44,6 +45,7 @@ public class PerspectiveCommentService {
     private final PerspectiveCommentRepository commentRepository;
     private final UserRepository userRepository;
     private final CommentLikeRepository commentLikeRepository;
+    private final CommentReportRepository commentReportRepository;
     private final UserService userQueryService;
     private final BattleVoteService BattleVoteService;
     private final BattleService battleService;
@@ -203,6 +205,8 @@ public class PerspectiveCommentService {
         PerspectiveComment comment = findCommentById(commentId);
         validateOwnership(comment, userId);
 
+        commentLikeRepository.deleteAllByComment(comment);
+        commentReportRepository.deleteAllByComment(comment);
         commentRepository.delete(comment);
         perspective.decrementCommentCount();
     }

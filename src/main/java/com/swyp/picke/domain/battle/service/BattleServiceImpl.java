@@ -219,6 +219,7 @@ public class BattleServiceImpl implements BattleService {
         List<Battle> candidates = battleRepository.findAutoAssignableTodayPicks(today, PageRequest.of(0, missingCount));
         for (Battle candidate : candidates) {
             candidate.updateTargetDate(today);
+            notifyNewBattleAfterCommit(candidate);
         }
     }
 

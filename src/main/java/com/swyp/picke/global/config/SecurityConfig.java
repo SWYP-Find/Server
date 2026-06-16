@@ -49,7 +49,8 @@ public class SecurityConfig {
                                 "/api/v1/admob/reward/**",
                                 "/report/**",
                                 "/battle/**",
-                                "/.well-known/**"
+                                "/.well-known/**",
+                                "/app-ads.txt"
                         ).permitAll()
 
                         // 2. 관리자 HTML 화면 렌더링 요청

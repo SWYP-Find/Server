@@ -3,6 +3,7 @@ package com.swyp.picke.domain.perspective.service;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.service.BattleService;
 import com.swyp.picke.domain.battle.util.BattleOptionDisplay;
+import com.swyp.picke.domain.notification.service.NotificationDispatchService;
 import com.swyp.picke.domain.perspective.dto.request.CreateCommentRequest;
 import com.swyp.picke.domain.perspective.dto.request.UpdateCommentRequest;
 import com.swyp.picke.domain.perspective.dto.response.CommentListResponse;
@@ -11,6 +12,7 @@ import com.swyp.picke.domain.perspective.dto.response.UpdateCommentResponse;
 import com.swyp.picke.domain.perspective.entity.Perspective;
 import com.swyp.picke.domain.perspective.entity.PerspectiveComment;
 import com.swyp.picke.domain.perspective.repository.CommentLikeRepository;
+import com.swyp.picke.domain.perspective.repository.CommentReportRepository;
 import com.swyp.picke.domain.perspective.repository.PerspectiveCommentRepository;
 import com.swyp.picke.domain.perspective.repository.PerspectiveRepository;
 import com.swyp.picke.domain.user.dto.response.UserSummary;
@@ -26,6 +28,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -41,10 +45,12 @@ public class PerspectiveCommentService {
     private final PerspectiveCommentRepository commentRepository;
     private final UserRepository userRepository;
     private final CommentLikeRepository commentLikeRepository;
+    private final CommentReportRepository commentReportRepository;
     private final UserService userQueryService;
     private final BattleVoteService BattleVoteService;
     private final BattleService battleService;
     private final S3PresignedUrlService s3PresignedUrlService;
+    private final NotificationDispatchService notificationDispatchService;
 
     @Transactional
     public CreateCommentResponse createComment(Long perspectiveId, Long userId, CreateCommentRequest request) {
@@ -60,6 +66,8 @@ public class PerspectiveCommentService {
 
         commentRepository.save(comment);
         perspective.incrementCommentCount();
+
+        notifyNewCommentAfterCommit(comment, perspective, userId);
 
         UserSummary userSummary = userQueryService.findSummaryById(userId);
         String characterImageUrl = resolveCharacterImageUrl(userSummary.characterType());
@@ -78,6 +86,29 @@ public class PerspectiveCommentService {
                 true,
                 comment.getCreatedAt()
         );
+    }
+
+    private void notifyNewCommentAfterCommit(PerspectiveComment comment, Perspective perspective, Long commenterId) {
+        Long perspectiveAuthorId = perspective.getUser().getId();
+        if (perspectiveAuthorId.equals(commenterId)) {
+            return;
+        }
+
+        Long commentId = comment.getId();
+        Long perspectiveId = perspective.getId();
+        String battleTitle = perspective.getBattle().getTitle();
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    notificationDispatchService.notifyNewComment(perspectiveAuthorId, perspectiveId, commentId, battleTitle);
+                }
+            });
+            return;
+        }
+
+        notificationDispatchService.notifyNewComment(perspectiveAuthorId, perspectiveId, commentId, battleTitle);
     }
 
     public CommentListResponse getComments(Long perspectiveId, Long userId, String cursor, Integer size) {
@@ -174,6 +205,8 @@ public class PerspectiveCommentService {
         PerspectiveComment comment = findCommentById(commentId);
         validateOwnership(comment, userId);
 
+        commentLikeRepository.deleteAllByComment(comment);
+        commentReportRepository.deleteAllByComment(comment);
         commentRepository.delete(comment);
         perspective.decrementCommentCount();
     }

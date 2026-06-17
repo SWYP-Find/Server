@@ -36,6 +36,11 @@ public class NotificationService {
 
     @Transactional
     public Notification createNotification(Long userId, NotificationDetailCode detailCode, String body, Long referenceId) {
+        return createNotification(userId, detailCode, body, referenceId, null);
+    }
+
+    @Transactional
+    public Notification createNotification(Long userId, NotificationDetailCode detailCode, String body, Long referenceId, Long perspectiveId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
@@ -46,6 +51,7 @@ public class NotificationService {
                 .title(detailCode.getDefaultTitle())
                 .body(body)
                 .referenceId(referenceId)
+                .perspectiveId(perspectiveId)
                 .build();
 
         return notificationRepository.save(notification);
@@ -168,6 +174,7 @@ public class NotificationService {
                 notification.getTitle(),
                 notification.getBody(),
                 notification.getReferenceId(),
+                notification.getPerspectiveId(),
                 isRead,
                 notification.getCreatedAt(),
                 readAt
@@ -182,6 +189,7 @@ public class NotificationService {
                 notification.getTitle(),
                 notification.getBody(),
                 notification.getReferenceId(),
+                notification.getPerspectiveId(),
                 isRead,
                 notification.getCreatedAt()
         );

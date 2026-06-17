@@ -8,6 +8,7 @@ import com.swyp.picke.domain.notification.entity.Notification;
 import com.swyp.picke.domain.notification.enums.NotificationCategory;
 import com.swyp.picke.domain.notification.enums.NotificationDetailCode;
 import com.swyp.picke.domain.notification.repository.NotificationRepository;
+import com.swyp.picke.domain.notification.service.NotificationDispatchService;
 import com.swyp.picke.domain.notification.service.NotificationService;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
@@ -25,6 +26,7 @@ public class AdminNotificationService {
     private static final int DEFAULT_PAGE_SIZE = 20;
 
     private final NotificationService notificationService;
+    private final NotificationDispatchService notificationDispatchService;
     private final NotificationRepository notificationRepository;
 
     @Transactional
@@ -36,6 +38,12 @@ public class AdminNotificationService {
                 request.body(),
                 null
         );
+
+        if (detailCode.getCategory() == NotificationCategory.NOTICE
+                || detailCode.getCategory() == NotificationCategory.EVENT) {
+            notificationDispatchService.notifyAdminNotice(detailCode, request.title(), request.body());
+        }
+
         return toDetailResponse(notification);
     }
 

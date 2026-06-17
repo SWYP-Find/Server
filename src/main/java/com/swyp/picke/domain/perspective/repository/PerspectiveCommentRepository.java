@@ -12,6 +12,8 @@ import java.util.List;
 
 public interface PerspectiveCommentRepository extends JpaRepository<PerspectiveComment, Long> {
 
+    List<PerspectiveComment> findByPerspective(Perspective perspective);
+
     List<PerspectiveComment> findByPerspectiveOrderByCreatedAtDesc(Perspective perspective, Pageable pageable);
 
     List<PerspectiveComment> findByPerspectiveAndCreatedAtBeforeOrderByCreatedAtDesc(Perspective perspective, LocalDateTime cursor, Pageable pageable);

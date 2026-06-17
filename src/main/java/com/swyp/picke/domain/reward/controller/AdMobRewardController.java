@@ -4,7 +4,6 @@ import com.swyp.picke.domain.reward.dto.request.AdMobRewardRequest;
 import com.swyp.picke.domain.reward.dto.response.AdMobRewardResponse;
 import com.swyp.picke.domain.reward.service.AdMobRewardService;
 import com.swyp.picke.global.common.response.ApiResponse;
-import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +13,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
-@Hidden
 @Tag(name = "보상 API", description = "AdMob 광고 보상 관련 API")
 @RestController
 @RequestMapping("/api/v1/admob")

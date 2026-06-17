@@ -12,6 +12,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.springdoc.core.customizers.OpenApiCustomizer;
+import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -72,8 +73,38 @@ public class SwaggerConfig {
             "GET /api/v1/share/recap/{shareKey}",
             "POST /api/v1/battles/proposals",
             "GET /api/v1/battles/{battleId}/recommendations/interesting",
-            "GET /api/v1/battles/{battleId}/scenario"
+            "GET /api/v1/battles/{battleId}/scenario",
+            // Attendance
+            "POST /api/v1/attendance/check",
+            "GET /api/v1/attendance/weekly",
+            "GET /api/v1/attendance/summary"
     );
+
+    @Bean
+    public GroupedOpenApi userApi() {
+        return GroupedOpenApi.builder()
+                .group("1. 사용자 API")
+                .pathsToMatch("/api/v1/**")
+                .pathsToExclude("/api/v1/admin/**", "/api/v1/files/**", "/api/v1/resources/**", "/api/test/**", "/api/v1/admob/**")
+                .addOpenApiCustomizer(feUsedApiOnlyCustomizer())
+                .build();
+    }
+
+    @Bean
+    public GroupedOpenApi adminApi() {
+        return GroupedOpenApi.builder()
+                .group("2. 관리자 API")
+                .pathsToMatch("/api/v1/admin/**", "/api/v1/files/**", "/api/v1/resources/**", "/api/test/**", "/api/v1/admob/**")
+                .build();
+    }
+
+    @Bean
+    public GroupedOpenApi allApi() {
+        return GroupedOpenApi.builder()
+                .group("0. 모든 API")
+                .pathsToMatch("/api/**")
+                .build();
+    }
 
     @Bean
     public OpenAPI openAPI() {
@@ -114,7 +145,6 @@ public class SwaggerConfig {
                 .addSecurityItem(securityRequirement);
     }
 
-    @Bean
     public OpenApiCustomizer feUsedApiOnlyCustomizer() {
         return openApi -> {
             if (openApi.getPaths() == null) {

@@ -41,6 +41,23 @@ spring:
       credentials:
         location: ${GCP_CREDENTIALS_PATH}
 
+# 3-1. Firebase Admin SDK (FCM 푸시 알림 - Android)
+firebase:
+  credentials:
+    location: ${FCM_CREDENTIALS_PATH:}
+    s3-key: ${FCM_CREDENTIALS_S3_KEY:}
+
+# 3-2. APNs (다이렉트 APNs 푸시 알림 - iOS)
+apns:
+  enabled: ${APNS_ENABLED:false}
+  credentials:
+    location: ${APNS_CREDENTIALS_PATH:}
+    s3-key: ${APNS_CREDENTIALS_S3_KEY:}
+  key-id: ${APNS_KEY_ID:}
+  team-id: ${APNS_TEAM_ID:${APPLE_TEAM_ID:}}
+  bundle-id: ${APNS_BUNDLE_ID:}
+  production: ${APNS_PRODUCTION:false}
+
 # 4. 인증 및 보안 설정 (OAuth2, JWT)
 oauth:
   kakao:

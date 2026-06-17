@@ -1,5 +1,9 @@
 package com.swyp.picke.domain.user.service;
 
+import com.swyp.picke.domain.battle.entity.Battle;
+import com.swyp.picke.domain.battle.repository.BattleRepository;
+import com.swyp.picke.domain.notification.enums.NotificationDetailCode;
+import com.swyp.picke.domain.notification.service.NotificationService;
 import com.swyp.picke.domain.user.entity.CreditHistory;
 import com.swyp.picke.domain.user.enums.TierCode;
 import com.swyp.picke.domain.user.entity.User;
@@ -23,6 +27,8 @@ public class CreditService {
     private final CreditHistoryRepository creditHistoryRepository;
     private final UserRepository userRepository;
     private final UserService userService;
+    private final NotificationService notificationService;
+    private final BattleRepository battleRepository;
 
     /**
      * 현재 로그인한 유저에게 크레딧 적립 (기본 포인트).
@@ -86,6 +92,12 @@ public class CreditService {
             }
             throw new CustomException(ErrorCode.USER_NOT_FOUND);
         }
+
+        if (amount > 0) {
+            notificationService.createNotification(
+                    userId, NotificationDetailCode.CREDIT_EARNED, buildCreditEarnedMessage(creditType, amount, referenceId), referenceId
+            );
+        }
     }
 
     /**
@@ -115,5 +127,32 @@ public class CreditService {
         if (referenceId == null) {
             throw new CustomException(ErrorCode.CREDIT_REFERENCE_REQUIRED);
         }
+    }
+
+    /**
+     * 적립 타입별 CREDIT_EARNED 인앱 알림 문구 생성.
+     * MAJORITY_WIN은 referenceId(=battleId)로 배틀 제목을 조회해 문구에 포함한다.
+     */
+    private String buildCreditEarnedMessage(CreditType creditType, int amount, Long referenceId) {
+        return switch (creditType) {
+            case DEFAULT_CREDIT -> "픽케에 오신 걸 환영해요! 가입 보너스 +" + amount + "P";
+            case TODAY_CREDIT -> "일일 무료 포인트 +" + amount + " 충전되었어요.";
+            case MAJORITY_WIN -> buildMajorityWinMessage(referenceId, amount);
+            default -> "포인트 +" + amount + "P가 적립되었어요.";
+        };
+    }
+
+    private String buildMajorityWinMessage(Long battleId, int amount) {
+        String title = battleRepository.findById(battleId)
+                .map(Battle::getTitle)
+                .orElse("배틀");
+        return "\"" + title + "\"에서 다수결과 같은 선택을 했어요! +" + amount + "P";
+    }
+
+    /**
+     * 크레딧 적립/소비 기록 조회
+     */
+    public boolean existsHistory(Long userId, CreditType creditType, Long referenceId) {
+        return creditHistoryRepository.existsByUserIdAndCreditTypeAndReferenceId(userId, creditType, referenceId);
     }
 }

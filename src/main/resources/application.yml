@@ -76,7 +76,9 @@ oauth:
 admob:
   app-id: ${ADMOB_APP_ID}
   reward:
-    unit-id: ${ADMOB_REWARD_UNIT_ID}
+    unit-id:
+      ios: ${ADMOB_REWARD_UNIT_ID_IOS}
+      android: ${ADMOB_REWARD_UNIT_ID_ANDROID}
 
 openai:
   api-key: ${OPENAI_API_KEY}

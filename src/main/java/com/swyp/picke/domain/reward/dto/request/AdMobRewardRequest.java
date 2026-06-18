@@ -23,14 +23,14 @@ public record AdMobRewardRequest(
 ) {
     public AdMobRewardRequest(
             @RequestParam(value = "ad_network", required = false) String ad_network,
-            @RequestParam("ad_unit") String ad_unit,
+            @RequestParam(value = "ad_unit", required = false) String ad_unit,
             @RequestParam(value = "custom_data", required = false) String custom_data,
-            @RequestParam("reward_amount") int reward_amount,
-            @RequestParam("reward_item") String reward_item,
-            @RequestParam("timestamp") long timestamp,
-            @RequestParam("transaction_id") String transaction_id,
-            @RequestParam("signature") String signature,
-            @RequestParam("key_id") String key_id,
+            @RequestParam(value = "reward_amount", required = false, defaultValue = "0") int reward_amount,
+            @RequestParam(value = "reward_item", required = false) String reward_item,
+            @RequestParam(value = "timestamp", required = false, defaultValue = "0") long timestamp,
+            @RequestParam(value = "transaction_id", required = false) String transaction_id,
+            @RequestParam(value = "signature", required = false) String signature,
+            @RequestParam(value = "key_id", required = false) String key_id,
             @RequestParam(value = "user_id", required = false) String user_id
     ) {
         this.ad_network = ad_network;

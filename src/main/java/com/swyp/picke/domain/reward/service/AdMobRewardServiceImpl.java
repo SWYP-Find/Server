@@ -38,13 +38,13 @@ public class AdMobRewardServiceImpl implements AdMobRewardService {
         // 1. ad_unit 유효성 검사
         if (!adMobConfig.getAllowedUnitIds().contains(request.ad_unit())) {
             log.warn("[AdMob] 허용되지 않은 ad_unit: {}", request.ad_unit());
-            throw new CustomException(ErrorCode.REWARD_INVALID_SIGNATURE);
+            return "OK";
         }
 
         // 2. 서명 검증 (공식 파라미터 기반)
         if (!verifyAdMobSignature(request)) {
             log.warn("[AdMob] 서명 검증 실패: transaction_id={}", request.transaction_id());
-            throw new CustomException(ErrorCode.REWARD_INVALID_SIGNATURE);
+            return "OK";
         }
 
         // 3. 중복 처리 방지

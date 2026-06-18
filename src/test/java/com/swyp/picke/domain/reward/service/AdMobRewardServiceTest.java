@@ -18,6 +18,7 @@ import com.swyp.picke.domain.user.enums.UserRole;
 import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.service.CreditService;
 import com.swyp.picke.domain.user.service.UserService;
+import com.swyp.picke.global.config.AdMobConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,6 +26,11 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.List;
+
+import static org.mockito.BDDMockito.willDoNothing;
+import static org.mockito.Mockito.doAnswer;
 
 @ExtendWith(MockitoExtension.class)
 class AdMobRewardServiceTest {
@@ -44,6 +50,9 @@ class AdMobRewardServiceTest {
     @Mock
     private CreditService creditService;
 
+    @Mock
+    private AdMobConfig adMobConfig;
+
     @Test
     @DisplayName("// 1. 정상적인 광고 시청 시 보상 이력이 저장되고 크레딧이 적립된다.")
     void processReward_Success() throws Exception {
@@ -57,6 +66,19 @@ class AdMobRewardServiceTest {
                 .status(UserStatus.ACTIVE)
                 .build();
         ReflectionTestUtils.setField(mockUser, "id", 1L);
+
+        // ad_unit 허용 목록 Mock
+        given(adMobConfig.getAllowedUnitIds()).willReturn(List.of("ca-app-pub-3940256099942544/5224354917"));
+
+        // 서명 검증 Mock (검증 통과)
+        willDoNothing().given(rewardedAdsVerifier).verify(org.mockito.ArgumentMatchers.anyString());
+
+        // saveAndFlush 시 ID 세팅 Mock
+        doAnswer(invocation -> {
+            AdRewardHistory history = invocation.getArgument(0);
+            ReflectionTestUtils.setField(history, "id", 1L);
+            return history;
+        }).when(adRewardHistoryRepository).saveAndFlush(any(AdRewardHistory.class));
 
         // // 1. 중복 체크 Mock
         given(adRewardHistoryRepository.existsByTransactionId(request.transaction_id())).willReturn(false);
@@ -76,7 +98,7 @@ class AdMobRewardServiceTest {
 
         // // 4. 호출 검증
         verify(creditService, times(1)).addCredit(eq(1L), eq(CreditType.FREE_CHARGE), eq(100), anyLong());
-        verify(adRewardHistoryRepository, times(1)).save(any(AdRewardHistory.class));
+        verify(adRewardHistoryRepository, times(1)).saveAndFlush(any(AdRewardHistory.class));
         verify(userService, times(1)).findByUserTag("pique-1cc4a030");
     }
 

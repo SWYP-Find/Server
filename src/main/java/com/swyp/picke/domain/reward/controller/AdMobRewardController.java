@@ -31,13 +31,18 @@ public class AdMobRewardController {
             AdMobRewardRequest request) {
         log.info("AdMob SSV 콜백 수신: transaction_id={}", request.transaction_id());
 
-        // 실제 SSV 콜백에는 key_id가 반드시 포함됨 — key_id 없으면 AdMob 콘솔 URL 검증 요청으로 판별
+        // AdMob SSV 스펙: 검증 실패 포함 모든 경우에 200 반환 (비정상 응답 시 구글이 재시도)
         if (request.transaction_id() == null || request.signature() == null || request.key_id() == null) {
             log.info("AdMob URL 검증 요청 수신 - 200 반환");
             return ApiResponse.onSuccess(AdMobRewardResponse.from("OK"));
         }
 
-        String status = rewardService.processReward(request);
-        return ApiResponse.onSuccess(AdMobRewardResponse.from(status));
+        try {
+            String status = rewardService.processReward(request);
+            return ApiResponse.onSuccess(AdMobRewardResponse.from(status));
+        } catch (Exception e) {
+            log.warn("[AdMob] 처리 실패 - 보상 미지급 후 200 반환: transaction_id={}, reason={}", request.transaction_id(), e.getMessage());
+            return ApiResponse.onSuccess(AdMobRewardResponse.from("OK"));
+        }
     }
 }

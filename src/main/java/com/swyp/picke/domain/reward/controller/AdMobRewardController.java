@@ -31,9 +31,9 @@ public class AdMobRewardController {
             AdMobRewardRequest request) {
         log.info("AdMob SSV 콜백 수신: transaction_id={}", request.transaction_id());
 
-        // AdMob 콘솔 URL 검증 요청 (파라미터 없는 빈 요청) 시 200 반환
-        if (request.transaction_id() == null || request.signature() == null) {
-            log.info("AdMob URL 검증 요청 수신 (파라미터 없음) - 200 반환");
+        // 실제 SSV 콜백에는 key_id가 반드시 포함됨 — key_id 없으면 AdMob 콘솔 URL 검증 요청으로 판별
+        if (request.transaction_id() == null || request.signature() == null || request.key_id() == null) {
+            log.info("AdMob URL 검증 요청 수신 - 200 반환");
             return ApiResponse.onSuccess(AdMobRewardResponse.from("OK"));
         }
 

@@ -7,9 +7,10 @@ import com.swyp.picke.domain.reward.repository.AdRewardHistoryRepository;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.enums.CreditType;
 import com.swyp.picke.domain.user.service.CreditService;
-import com.swyp.picke.domain.user.service.UserService; // // 1. UserService 임포트
+import com.swyp.picke.domain.user.service.UserService;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
+import com.swyp.picke.global.config.AdMobConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,8 +25,9 @@ public class AdMobRewardServiceImpl implements AdMobRewardService {
 
     private final RewardedAdsVerifier rewardedAdsVerifier;
     private final AdRewardHistoryRepository adRewardHistoryRepository;
-    private final UserService userService; // // 2. UserRepository 대신 UserService 사용 (태그 조회 로직 집중)
+    private final UserService userService;
     private final CreditService creditService;
+    private final AdMobConfig adMobConfig;
 
     @Override
     @Transactional
@@ -33,24 +35,30 @@ public class AdMobRewardServiceImpl implements AdMobRewardService {
         log.info("[AdMob] SSV 처리 시작: transaction_id={}, userTag={}, reward_amount={}, ad_unit={}",
                 request.transaction_id(), request.getUserTag(), request.reward_amount(), request.ad_unit());
 
-        // 1. 서명 검증 (공식 파라미터 기반)
-        /*if (!verifyAdMobSignature(request)) {
-            log.warn("[AdMob] 서명 검증 실패: transaction_id={}", request.transaction_id());
-            throw new CustomException(ErrorCode.REWARD_INVALID_SIGNATURE);
-        }*/
+        // 1. ad_unit 유효성 검사
+        if (!adMobConfig.getAllowedUnitIds().contains(request.ad_unit())) {
+            log.warn("[AdMob] 허용되지 않은 ad_unit: {}", request.ad_unit());
+            return "OK";
+        }
 
-        // 2. 중복 처리 방지
+        // 2. 서명 검증 (공식 파라미터 기반)
+        if (!verifyAdMobSignature(request)) {
+            log.warn("[AdMob] 서명 검증 실패: transaction_id={}", request.transaction_id());
+            return "OK";
+        }
+
+        // 3. 중복 처리 방지
         if (adRewardHistoryRepository.existsByTransactionId(request.transaction_id())) {
             log.info("[AdMob] 이미 처리된 요청: transaction_id={}", request.transaction_id());
             return "Already Processed";
         }
 
-        // 3. 유저 확인 (custom_data → user_id 순으로 조회)
+        // 4. 유저 확인 (custom_data → user_id 순으로 조회)
         log.info("[AdMob] 유저 조회 시도: userTag={}", request.getUserTag());
         User user = userService.findByUserTag(request.getUserTag());
         log.info("[AdMob] 유저 확인 완료: userId={}", user.getId());
 
-        // 4. 보상 이력 저장 후 즉시 id 확보 (saveAndFlush)
+        // 5. 보상 이력 저장 후 즉시 id 확보 (saveAndFlush)
         AdRewardHistory history = AdRewardHistory.builder()
                 .transactionId(request.transaction_id())
                 .user(user)
@@ -60,7 +68,7 @@ public class AdMobRewardServiceImpl implements AdMobRewardService {
         adRewardHistoryRepository.saveAndFlush(history);
         log.info("[AdMob] 보상 이력 저장 완료: historyId={}", history.getId());
 
-        // 5. 크레딧 적립 (history.getId()를 referenceId로 사용해 unique 충돌 방지)
+        // 6. 크레딧 적립 (history.getId()를 referenceId로 사용해 unique 충돌 방지)
         creditService.addCredit(user.getId(), CreditType.FREE_CHARGE, request.reward_amount(), history.getId());
         log.info("[AdMob] 포인트 적립 완료: userId={}, amount={}, historyId={}",
                 user.getId(), request.reward_amount(), history.getId());

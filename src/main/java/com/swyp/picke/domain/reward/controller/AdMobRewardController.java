@@ -31,10 +31,13 @@ public class AdMobRewardController {
             AdMobRewardRequest request) {
         log.info("AdMob SSV 콜백 수신: transaction_id={}", request.transaction_id());
 
-        // 서비스에서 "OK" 또는 "Already Processed" 수신
-        String status = rewardService.processReward(request);
+        // AdMob 콘솔 URL 검증 요청 (파라미터 없는 빈 요청) 시 200 반환
+        if (request.transaction_id() == null || request.signature() == null) {
+            log.info("AdMob URL 검증 요청 수신 (파라미터 없음) - 200 반환");
+            return ApiResponse.onSuccess(AdMobRewardResponse.from("OK"));
+        }
 
-        // DTO로 감싸서 반환 (명세서의 data { "reward_status": "..." } 구조 완성)
+        String status = rewardService.processReward(request);
         return ApiResponse.onSuccess(AdMobRewardResponse.from(status));
     }
 }

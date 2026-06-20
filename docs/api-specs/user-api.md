@@ -227,7 +227,8 @@
           "nickname": "사색하는고양이",
           "character_type": "CAT"
         },
-        "stance": "반대",
+        "vote_side": "CON",
+        "option_title": "반대합니다",
         "content": "제도가 무서운 건, 사회적 압력이 선택을 의무로 바꿀 수 있다는 거예요.",
         "like_count": 1340,
         "created_at": "2026-03-08T12:00:00"

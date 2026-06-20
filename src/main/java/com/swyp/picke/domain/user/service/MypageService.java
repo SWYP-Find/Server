@@ -252,6 +252,7 @@ public class MypageService {
         );
 
         VoteSide voteSide = BattleOptionDisplay.voteSide(option);
+        String optionTitle = BattleOptionDisplay.opinion(option);
 
         return new ContentActivityListResponse.ContentActivityItem(
                 activityId, activityType,
@@ -260,6 +261,7 @@ public class MypageService {
                 battle != null ? battle.getTitle() : null,
                 authorInfo,
                 voteSide,
+                optionTitle,
                 content,
                 perspective.getLikeCount(),
                 createdAt

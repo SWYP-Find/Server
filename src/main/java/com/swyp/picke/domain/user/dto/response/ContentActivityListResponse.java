@@ -21,6 +21,7 @@ public record ContentActivityListResponse(
             String battleTitle,
             AuthorInfo author,
             VoteSide voteSide,
+            String optionTitle,
             String content,
             int likeCount,
             LocalDateTime createdAt

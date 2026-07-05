@@ -82,9 +82,9 @@ public class AdMobRewardServiceImpl implements AdMobRewardService {
      */
     private boolean verifyAdMobSignature(AdMobRewardRequest request) {
         try {
-            // // 조립 시 signature와 key_id는 제외하고 나머지 8개 파라미터를 조립합니다.
-            // // 순서: ad_network -> ad_unit -> custom_data -> reward_amount -> reward_item -> timestamp -> transaction_id -> user_id
-            StringBuilder sb = new StringBuilder();
+            // RewardedAdsVerifier.verify()는 내부에서 URI.getQuery()를 사용하므로 scheme을 포함한 완전한 URL이어야 함
+            // key_id와 signature는 반드시 마지막 두 파라미터 순서로 위치해야 함 (Tink 라이브러리 스펙)
+            StringBuilder sb = new StringBuilder("https://admob.google.com/reward?");
             if (request.ad_network() != null) sb.append("ad_network=").append(request.ad_network()).append("&");
             sb.append("ad_unit=").append(request.ad_unit()).append("&");
             if (request.custom_data() != null) sb.append("custom_data=").append(request.custom_data()).append("&");
@@ -93,11 +93,12 @@ public class AdMobRewardServiceImpl implements AdMobRewardService {
             sb.append("timestamp=").append(request.timestamp()).append("&");
             sb.append("transaction_id=").append(request.transaction_id());
             if (request.user_id() != null) sb.append("&user_id=").append(request.user_id());
+            sb.append("&key_id=").append(request.key_id());
+            sb.append("&signature=").append(request.signature());
 
-            String fullQueryString = sb.toString();
+            String fullUrl = sb.toString();
 
-            // // Tink 라이브러리를 통해 signature와 key_id를 사용하여 검증
-            rewardedAdsVerifier.verify(fullQueryString);
+            rewardedAdsVerifier.verify(fullUrl);
             return true;
         } catch (GeneralSecurityException e) {
             log.error("보상 서명 보안 에러: {}", e.getMessage());

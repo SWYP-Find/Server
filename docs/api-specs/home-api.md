@@ -48,6 +48,7 @@
 - `options[]`
   - `label`
   - `title`
+  - `imageUrl` (철학자 아이콘 이미지 URL, 미등록 시 `null`)
 
 ---
 

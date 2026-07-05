@@ -199,11 +199,11 @@ public class BattleServiceImpl implements BattleService {
     @Transactional
     public TodayBattleListResponse getTodayBattles() {
         LocalDate today = LocalDate.now();
-        ensureTodayPicks(today, 3);
+        ensureTodayPicks(today, 1);
         List<Battle> battles = battleRepository.findByTargetDateAndStatusAndDeletedAtIsNull(today, BattleStatus.PUBLISHED);
 
         List<Battle> limitedBattles = battles.stream()
-                .limit(3)
+                .limit(1)
                 .collect(Collectors.toList());
 
         List<TodayBattleResponse> items = convertToTodayResponses(limitedBattles);

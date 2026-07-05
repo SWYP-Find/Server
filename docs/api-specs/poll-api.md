@@ -28,6 +28,7 @@
   - `options[]`
     - `label` (`A`, `B`, ...)
     - `title`
+    - `imageUrl` (철학자 아이콘 이미지 경로)
 
 ### 2.2 Poll 목록
 - `GET /api/v1/admin/polls`

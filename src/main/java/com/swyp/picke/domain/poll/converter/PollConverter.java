@@ -8,13 +8,19 @@ import com.swyp.picke.domain.poll.dto.response.PollOptionResponse;
 import com.swyp.picke.domain.poll.dto.response.PollSimpleResponse;
 import com.swyp.picke.domain.poll.entity.Poll;
 import com.swyp.picke.domain.poll.entity.PollOption;
+import com.swyp.picke.global.infra.s3.enums.FileCategory;
+import com.swyp.picke.global.infra.s3.util.ResourceUrlProvider;
 import java.util.Comparator;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class PollConverter {
+
+    private final ResourceUrlProvider urlProvider;
 
     private static final Comparator<PollOption> OPTION_SORTER =
             Comparator.comparing((PollOption option) -> option.getDisplayOrder() == null ? Integer.MAX_VALUE : option.getDisplayOrder())
@@ -83,7 +89,8 @@ public class PollConverter {
                         option.getLabel(),
                         option.getTitle(),
                         option.getDisplayOrder(),
-                        option.getVoteCount()
+                        option.getVoteCount(),
+                        urlProvider.getImageUrl(FileCategory.PHILOSOPHER, option.getImageUrl())
                 ))
                 .toList();
     }

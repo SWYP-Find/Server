@@ -7,7 +7,8 @@ public record PollOptionResponse(
         PollOptionLabel label,
         String title,
         Integer displayOrder,
-        Long voteCount
+        Long voteCount,
+        String imageUrl
 ) {
 }
 

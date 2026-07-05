@@ -5,7 +5,8 @@ import com.swyp.picke.domain.poll.enums.PollOptionLabel;
 public record AdminPollOptionRequest(
         PollOptionLabel label,
         String title,
-        Integer displayOrder
+        Integer displayOrder,
+        String imageUrl
 ) {}
 
 

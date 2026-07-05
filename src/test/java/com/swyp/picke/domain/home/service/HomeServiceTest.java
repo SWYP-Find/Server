@@ -19,6 +19,7 @@ import com.swyp.picke.domain.quiz.enums.QuizOptionLabel;
 import com.swyp.picke.domain.quiz.enums.QuizStatus;
 import com.swyp.picke.domain.quiz.service.QuizService;
 import com.swyp.picke.global.infra.s3.service.S3PresignedUrlService;
+import com.swyp.picke.global.infra.s3.util.ResourceUrlProvider;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -49,6 +50,9 @@ class HomeServiceTest {
 
     @Mock
     private S3PresignedUrlService s3PresignedUrlService;
+
+    @Mock
+    private ResourceUrlProvider urlProvider;
 
     @InjectMocks
     private HomeService homeService;

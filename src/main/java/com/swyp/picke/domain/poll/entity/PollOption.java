@@ -38,19 +38,24 @@ public class PollOption extends BaseEntity {
     @Column(name = "vote_count", nullable = false)
     private Long voteCount;
 
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
+
     @Builder
-    public PollOption(Poll poll, PollOptionLabel label, String title, Integer displayOrder, Long voteCount) {
+    public PollOption(Poll poll, PollOptionLabel label, String title, Integer displayOrder, Long voteCount, String imageUrl) {
         this.poll = poll;
         this.label = label;
         this.title = title;
         this.displayOrder = displayOrder;
         this.voteCount = voteCount == null ? 0L : voteCount;
+        this.imageUrl = imageUrl;
     }
 
 
-    public void update(String title, Integer displayOrder) {
+    public void update(String title, Integer displayOrder, String imageUrl) {
         if (title != null) this.title = title;
         if (displayOrder != null) this.displayOrder = displayOrder;
+        if (imageUrl != null) this.imageUrl = imageUrl;
     }
 
     public void increaseVoteCount() {

@@ -4,5 +4,6 @@ import com.swyp.picke.domain.battle.enums.BattleOptionLabel;
 
 public record HomeTodayVoteOptionResponse(
         BattleOptionLabel label,
-        String title
+        String title,
+        String imageUrl
 ) {}

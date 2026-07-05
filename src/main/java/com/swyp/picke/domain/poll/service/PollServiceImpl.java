@@ -127,6 +127,7 @@ public class PollServiceImpl implements PollService {
                         .label(optionRequest.label())
                         .title(optionRequest.title())
                         .displayOrder(displayOrder)
+                        .imageUrl(optionRequest.imageUrl())
                         .build();
                 option = pollOptionRepository.save(option);
                 savedOptions.add(option);
@@ -169,10 +170,11 @@ public class PollServiceImpl implements PollService {
                             .label(optionRequest.label())
                             .title(optionRequest.title())
                             .displayOrder(displayOrder)
+                            .imageUrl(optionRequest.imageUrl())
                             .build();
                     option = pollOptionRepository.save(option);
                 } else {
-                    option.update(optionRequest.title(), displayOrder);
+                    option.update(optionRequest.title(), displayOrder, optionRequest.imageUrl());
                 }
             }
 

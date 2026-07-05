@@ -21,7 +21,9 @@ import com.swyp.picke.domain.quiz.entity.Quiz;
 import com.swyp.picke.domain.quiz.entity.QuizOption;
 import com.swyp.picke.domain.quiz.enums.QuizOptionLabel;
 import com.swyp.picke.domain.quiz.service.QuizService;
+import com.swyp.picke.global.infra.s3.enums.FileCategory;
 import com.swyp.picke.global.infra.s3.service.S3PresignedUrlService;
+import com.swyp.picke.global.infra.s3.util.ResourceUrlProvider;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -44,6 +46,7 @@ public class HomeService {
     private final PollService pollService;
     private final NotificationService notificationService;
     private final S3PresignedUrlService s3PresignedUrlService;
+    private final ResourceUrlProvider urlProvider;
 
     public HomeResponse getHome(Long userId) {
         boolean newNotice = false;
@@ -139,7 +142,8 @@ public class HomeService {
                         .thenComparing(option -> option.getId() == null ? Long.MAX_VALUE : option.getId()))
                 .map(option -> new HomeTodayVoteOptionResponse(
                         BattleOptionLabel.valueOf(option.getLabel().name()),
-                        option.getTitle()
+                        option.getTitle(),
+                        urlProvider.getImageUrl(FileCategory.PHILOSOPHER, option.getImageUrl())
                 ))
                 .toList();
 

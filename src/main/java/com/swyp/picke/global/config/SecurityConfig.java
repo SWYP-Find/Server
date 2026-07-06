@@ -50,7 +50,8 @@ public class SecurityConfig {
                                 "/report/**",
                                 "/battle/**",
                                 "/.well-known/**",
-                                "/app-ads.txt"
+                                "/app-ads.txt",
+                                "/robots.txt"
                         ).permitAll()
 
                         // 2. 관리자 HTML 화면 렌더링 요청

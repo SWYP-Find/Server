@@ -80,9 +80,11 @@ public class S3UploadServiceImpl implements S3UploadService {
             // URL에서 순수 Key만 추출
             String pureKey = fileUrl.contains(".com/") ? fileUrl.split(".com/")[1] : fileUrl;
 
-            // 다운로드 받을 로컬 임시 파일 생성
+            // 다운로드 받을 로컬 임시 파일 경로 생성
             File tempFile = File.createTempFile("s3_download_", ".mp3");
             Path tempFilePath = tempFile.toPath();
+            // getObject(request, path)는 대상 파일이 이미 존재하면 실패하므로, 생성된 빈 파일을 미리 삭제
+            Files.delete(tempFilePath);
 
             // S3 다운로드 요청
             GetObjectRequest getObjectRequest = GetObjectRequest.builder()

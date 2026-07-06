@@ -46,7 +46,8 @@ public class JwtFilter extends OncePerRequestFilter {
             "/api/v1/share/recap/", 
             "/.well-known",     
             "/api/v1/resources",
-            "/app-ads.txt"
+            "/app-ads.txt",
+            "/robots.txt"
     );
 
     @Override

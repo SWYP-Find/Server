@@ -36,7 +36,6 @@ import java.util.stream.Collectors;
 public class AttendanceService {
 
     private static final ZoneId SEOUL_ZONE = ZoneId.of("Asia/Seoul");
-    private static final int STREAK_BONUS_THRESHOLD = 7;
     private static final int STREAK_REWARD_POINTS = CreditType.ATTENDANCE_STREAK.getDefaultAmount();
 
     private final AttendanceRecordRepository attendanceRecordRepository;
@@ -54,7 +53,11 @@ public class AttendanceService {
             throw new CustomException(ErrorCode.ATTENDANCE_ALREADY_CHECKED);
         }
 
-        int dailyPoints = CreditType.TODAY_CREDIT.getDefaultAmount();
+        // 월~토 개근 후 맞는 일요일에는 5P 대신 7P를 지급(대체), 그 외에는 매일 5P
+        boolean perfectWeekBonus = isSundayWithFullWeekAttendance(user.getId(), today);
+        CreditType creditType = perfectWeekBonus ? CreditType.ATTENDANCE_STREAK : CreditType.TODAY_CREDIT;
+        int dailyPoints = creditType.getDefaultAmount();
+
         AttendanceRecord record = AttendanceRecord.builder()
                 .user(user)
                 .attendedDate(today)
@@ -63,19 +66,19 @@ public class AttendanceService {
         attendanceRecordRepository.save(record);
 
         Long referenceId = toDateLong(today);
-        creditService.addCredit(user.getId(), CreditType.TODAY_CREDIT, referenceId);
+        creditService.addCredit(user.getId(), creditType, referenceId);
 
         AttendanceStreak streak = getOrCreateStreak(user, today);
-        boolean streakBonusEarned = updateStreak(streak, today, user.getId());
+        updateStreak(streak, today);
 
-        int streakBonusPoints = streakBonusEarned ? STREAK_REWARD_POINTS : 0;
+        int streakBonusPoints = perfectWeekBonus ? dailyPoints : 0;
         int totalPoints = creditService.getTotalPoints(user.getId());
 
         return new CheckResponse(
                 user.getUserTag(),
                 LocalDateTime.now(SEOUL_ZONE),
                 dailyPoints,
-                streakBonusEarned,
+                perfectWeekBonus,
                 streakBonusPoints,
                 streak.getCurrentStreak(),
                 totalPoints
@@ -174,10 +177,10 @@ public class AttendanceService {
                 });
     }
 
-    private boolean updateStreak(AttendanceStreak streak, LocalDate today, Long userId) {
+    private void updateStreak(AttendanceStreak streak, LocalDate today) {
         LocalDate yesterday = today.minusDays(1);
         boolean continuedStreak = attendanceRecordRepository
-                .existsByUserIdAndAttendedDate(userId, yesterday);
+                .existsByUserIdAndAttendedDate(streak.getUserId(), yesterday);
 
         if (continuedStreak || streak.getCurrentStreak() == 0) {
             streak.attend(today);
@@ -185,17 +188,17 @@ public class AttendanceService {
             LocalDate weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
             streak.resetStreak(weekStart);
         }
+    }
 
-        boolean justAchieved = streak.getCurrentStreak() >= STREAK_BONUS_THRESHOLD
-                && streak.isStreakAchieved()
-                && !creditService.existsHistory(userId, CreditType.ATTENDANCE_STREAK, toDateLong(streak.getStreakWeekStart()) + 7L);
-
-        if (justAchieved) {
-            Long streakReferenceId = toDateLong(streak.getStreakWeekStart()) + 7L;
-            creditService.addCredit(userId, CreditType.ATTENDANCE_STREAK, streakReferenceId);
+    private boolean isSundayWithFullWeekAttendance(Long userId, LocalDate today) {
+        if (today.getDayOfWeek() != DayOfWeek.SUNDAY) {
+            return false;
         }
-
-        return justAchieved;
+        LocalDate monday = today.minusDays(6);
+        LocalDate saturday = today.minusDays(1);
+        List<AttendanceRecord> monToSatRecords =
+                attendanceRecordRepository.findByUserIdAndAttendedDateBetween(userId, monday, saturday);
+        return monToSatRecords.size() == 6;
     }
 
     private Long toDateLong(LocalDate date) {

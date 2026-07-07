@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -48,6 +49,9 @@ public interface BattleVoteRepository extends JpaRepository<BattleVote, Long> {
             @Param("userId") Long userId, @Param("displayOrder") Integer displayOrder, Pageable pageable);
 
     long countByUserId(Long userId);
+
+    // 오늘의 배틀 무료 참여(일 1회) 제한 체크용: 유저가 오늘 날짜인 배틀에 이미 참여했는지 확인
+    boolean existsByUserIdAndBattle_TargetDate(Long userId, LocalDate targetDate);
 
     @Query("SELECT COUNT(v) FROM BattleVote v WHERE v.user.id = :userId AND v.preVoteOption.displayOrder = :displayOrder")
     long countByUserIdAndPreVoteOptionDisplayOrder(@Param("userId") Long userId, @Param("displayOrder") Integer displayOrder);

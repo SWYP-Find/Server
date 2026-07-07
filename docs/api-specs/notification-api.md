@@ -158,7 +158,35 @@
 
 ---
 
-### 3.2 `GET /api/v1/notifications/{notificationId}`
+### 3.2 `GET /api/v1/notifications/unread`
+
+알림함 벨 아이콘 배지 표시용으로, 미읽음 알림 존재 여부만 가볍게 확인합니다. 목록 조회와 달리 페이지네이션 없이 boolean 하나만 반환합니다.
+
+요청 헤더:
+
+- `Authorization: Bearer {access_token}`
+
+쿼리 파라미터:
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `category` | `string` | N | `ALL` \| `CONTENT` \| `NOTICE` \| `EVENT` (생략 시 전체 기준) |
+
+성공 응답 `200 OK`:
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "hasUnread": true
+  },
+  "error": null
+}
+```
+
+---
+
+### 3.3 `GET /api/v1/notifications/{notificationId}`
 
 알림 상세를 조회합니다. (목록과 동일한 필드 + `readAt`)
 
@@ -202,7 +230,7 @@
 
 ---
 
-### 3.3 `PATCH /api/v1/notifications/{notificationId}/read`
+### 3.4 `PATCH /api/v1/notifications/{notificationId}/read`
 
 알림 1건을 읽음 처리합니다.
 
@@ -222,7 +250,7 @@
 
 ---
 
-### 3.4 `PATCH /api/v1/notifications/read-all`
+### 3.5 `PATCH /api/v1/notifications/read-all`
 
 알림함의 모든 알림을 읽음 처리합니다.
 

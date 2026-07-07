@@ -3,6 +3,7 @@ package com.swyp.picke.domain.notification.service;
 import com.swyp.picke.domain.notification.dto.response.NotificationDetailResponse;
 import com.swyp.picke.domain.notification.dto.response.NotificationListResponse;
 import com.swyp.picke.domain.notification.dto.response.NotificationSummaryResponse;
+import com.swyp.picke.domain.notification.dto.response.NotificationUnreadResponse;
 import com.swyp.picke.domain.notification.entity.Notification;
 import com.swyp.picke.domain.notification.entity.NotificationRead;
 import com.swyp.picke.domain.notification.enums.NotificationCategory;
@@ -144,6 +145,11 @@ public class NotificationService {
 
     public boolean hasNewBroadcast(Long userId, NotificationCategory category) {
         return notificationRepository.hasUnreadBroadcast(userId, category);
+    }
+
+    public NotificationUnreadResponse hasUnread(Long userId, NotificationCategory category) {
+        NotificationCategory filterCategory = (category == null || category == NotificationCategory.ALL) ? null : category;
+        return new NotificationUnreadResponse(notificationRepository.existsUnread(userId, filterCategory));
     }
 
     private Notification getAccessibleNotification(Long userId, Long notificationId) {

@@ -283,6 +283,30 @@ class NotificationServiceTest {
         verify(notificationReadRepository).markAllBroadcastAsRead(userId);
     }
 
+    @Test
+    @DisplayName("ALL 카테고리로 미읽음 여부를 확인하면 카테고리 필터 없이 조회한다")
+    void hasUnread_withAllCategory_queriesWithoutCategoryFilter() {
+        Long userId = 1L;
+        when(notificationRepository.existsUnread(userId, null)).thenReturn(true);
+
+        var response = notificationService.hasUnread(userId, NotificationCategory.ALL);
+
+        assertThat(response.hasUnread()).isTrue();
+        verify(notificationRepository).existsUnread(userId, null);
+    }
+
+    @Test
+    @DisplayName("카테고리를 지정하면 해당 카테고리로 미읽음 여부를 확인한다")
+    void hasUnread_withSpecificCategory_queriesWithCategoryFilter() {
+        Long userId = 1L;
+        when(notificationRepository.existsUnread(userId, NotificationCategory.CONTENT)).thenReturn(false);
+
+        var response = notificationService.hasUnread(userId, NotificationCategory.CONTENT);
+
+        assertThat(response.hasUnread()).isFalse();
+        verify(notificationRepository).existsUnread(userId, NotificationCategory.CONTENT);
+    }
+
     private User createMockUser() {
         return User.builder()
                 .userTag("test-user-tag")

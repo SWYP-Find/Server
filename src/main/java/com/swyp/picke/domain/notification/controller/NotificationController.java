@@ -2,6 +2,7 @@ package com.swyp.picke.domain.notification.controller;
 
 import com.swyp.picke.domain.notification.dto.response.NotificationDetailResponse;
 import com.swyp.picke.domain.notification.dto.response.NotificationListResponse;
+import com.swyp.picke.domain.notification.dto.response.NotificationUnreadResponse;
 import com.swyp.picke.domain.notification.enums.NotificationCategory;
 import com.swyp.picke.domain.notification.service.NotificationService;
 import com.swyp.picke.global.common.response.ApiResponse;
@@ -33,6 +34,15 @@ public class NotificationController {
             @RequestParam(defaultValue = "20") int size
     ) {
         return ApiResponse.onSuccess(notificationService.getNotifications(userId, category, page, size));
+    }
+
+    @Operation(summary = "알림 미읽음 여부 확인 (배지용)")
+    @GetMapping("/unread")
+    public ApiResponse<NotificationUnreadResponse> hasUnread(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam(required = false) NotificationCategory category
+    ) {
+        return ApiResponse.onSuccess(notificationService.hasUnread(userId, category));
     }
 
     @Operation(summary = "알림 상세 조회")

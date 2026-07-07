@@ -38,6 +38,20 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
         """)
     boolean hasUnreadBroadcast(@Param("userId") Long userId, @Param("category") NotificationCategory category);
 
+    @Query("""
+        SELECT CASE WHEN COUNT(n) > 0 THEN true ELSE false END
+        FROM Notification n
+        WHERE (:category IS NULL OR n.category = :category)
+          AND (
+              (n.user.id = :userId AND n.read = false)
+              OR (n.user IS NULL AND NOT EXISTS (
+                  SELECT 1 FROM NotificationRead nr
+                  WHERE nr.notification = n AND nr.userId = :userId
+              ))
+          )
+        """)
+    boolean existsUnread(@Param("userId") Long userId, @Param("category") NotificationCategory category);
+
     @Modifying
     @Query("""
             UPDATE Notification n SET n.read = true, n.readAt = CURRENT_TIMESTAMP

@@ -129,7 +129,7 @@ public class BattleVoteServiceImpl implements BattleVoteService {
             vote = existingVote.get();
             vote.updatePreVote(option);
         } else {
-            if (shouldChargeBattleEntryCredit(battle)) {
+            if (shouldChargeBattleEntryCredit(battle, user)) {
                 creditService.addCredit(user.getId(), CreditType.BATTLE_ENTRY, battle.getId());
             }
             vote = BattleVote.createPreVote(user, battle, option);
@@ -202,8 +202,13 @@ public class BattleVoteServiceImpl implements BattleVoteService {
         userBattleService.upsertStep(user, battle, UserBattleStep.POST_VOTE);
     }
 
-    private boolean shouldChargeBattleEntryCredit(Battle battle) {
+    // 오늘의 배틀(targetDate == 오늘)은 하루 1회에 한해 무료 진입, 그 외 진입 또는 이미 오늘 무료 진입을 사용한 경우 -5P 차감
+    private boolean shouldChargeBattleEntryCredit(Battle battle, User user) {
         LocalDate today = LocalDate.now(KST);
-        return battle.getTargetDate() == null || !battle.getTargetDate().isEqual(today);
+        boolean isTodayBattle = battle.getTargetDate() != null && battle.getTargetDate().isEqual(today);
+        if (!isTodayBattle) {
+            return true;
+        }
+        return battleVoteRepository.existsByUserIdAndBattle_TargetDate(user.getId(), today);
     }
 }

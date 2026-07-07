@@ -104,6 +104,27 @@ class BattleVoteServiceImplTest {
     }
 
     @Test
+    @DisplayName("오늘의 배틀이라도 오늘 이미 무료 진입을 사용했다면 크레딧을 차감한다")
+    void preVote_chargesBattleEntryCreditWhenFreeEntryAlreadyUsedToday() {
+        Battle battle = battle(100L, LocalDate.now());
+        User user = user(10L);
+        BattleOption option = option(201L, battle, BattleOptionLabel.A);
+
+        when(battleService.findById(100L)).thenReturn(battle);
+        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+        when(battleOptionRepository.findById(201L)).thenReturn(Optional.of(option));
+        when(battleVoteRepository.findByBattleAndUser(battle, user)).thenReturn(Optional.empty());
+        when(battleVoteRepository.existsByUserIdAndBattle_TargetDate(10L, LocalDate.now())).thenReturn(true);
+        when(userBattleService.getUserBattleStatus(user, battle))
+                .thenReturn(new UserBattleStatusResponse(100L, UserBattleStep.NONE));
+
+        VoteResultResponse response = battleVoteService.preVote(100L, 10L, new VoteRequest(201L));
+
+        assertThat(response.status()).isEqualTo(UserBattleStep.PRE_VOTE);
+        verify(creditService).addCredit(10L, CreditType.BATTLE_ENTRY, 100L);
+    }
+
+    @Test
     @DisplayName("이미 사전 투표한 배틀이면 옵션 변경 시 추가 차감하지 않는다")
     void preVote_doesNotChargeAgainWhenVoteAlreadyExists() {
         Battle battle = battle(100L, LocalDate.now().minusDays(1));

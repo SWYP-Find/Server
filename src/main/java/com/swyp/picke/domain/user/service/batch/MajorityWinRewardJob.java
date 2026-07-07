@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
  * 다수결 보상 배치.
  * runDate(월요일) 기준 targetDate ∈ [runDate-20, runDate-14] 범위의 배틀 중
  * 최다 득표 옵션(= 다수결 승자 옵션)을 선정하고,
- * 그 옵션을 사전 투표한 사용자 전원에게 +10P (CreditType.MAJORITY_WIN) 를 지급한다.
+ * 그 옵션을 사전 투표한 사용자 전원에게 +5P (CreditType.MAJORITY_WIN) 를 지급한다.
  *
  * referenceId = battleId. CreditHistory 유니크 제약으로 같은 배틀 재실행 시 중복 지급 없음.
  */

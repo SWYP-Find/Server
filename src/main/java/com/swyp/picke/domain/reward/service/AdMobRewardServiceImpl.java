@@ -69,9 +69,10 @@ public class AdMobRewardServiceImpl implements AdMobRewardService {
         log.info("[AdMob] 보상 이력 저장 완료: historyId={}", history.getId());
 
         // 6. 크레딧 적립 (history.getId()를 referenceId로 사용해 unique 충돌 방지)
-        creditService.addCredit(user.getId(), CreditType.FREE_CHARGE, request.reward_amount(), history.getId());
+        // AdMob이 보낸 reward_amount는 콘솔 설정에 따라 달라질 수 있어 신뢰하지 않고, 정책상 고정값(FREE_CHARGE)만 지급한다
+        creditService.addCredit(user.getId(), CreditType.FREE_CHARGE, CreditType.FREE_CHARGE.getDefaultAmount(), history.getId());
         log.info("[AdMob] 포인트 적립 완료: userId={}, amount={}, historyId={}",
-                user.getId(), request.reward_amount(), history.getId());
+                user.getId(), CreditType.FREE_CHARGE.getDefaultAmount(), history.getId());
 
         return "OK";
     }

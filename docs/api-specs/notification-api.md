@@ -258,12 +258,14 @@
 
 - `Authorization: Bearer {access_token}`
 
-성공 응답 `200 OK`:
+성공 응답 `200 OK`: 처리 직후 미읽음 알림 존재 여부(`hasUnread`)를 함께 내려줍니다. 모든 알림을 읽었다면 `hasUnread`는 `false`입니다.
 
 ```json
 {
   "statusCode": 200,
-  "data": null,
+  "data": {
+    "hasUnread": false
+  },
   "error": null
 }
 ```

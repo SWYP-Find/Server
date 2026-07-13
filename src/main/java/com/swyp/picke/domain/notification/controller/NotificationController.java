@@ -66,8 +66,8 @@ public class NotificationController {
 
     @Operation(summary = "알림 전체 읽음 처리")
     @PatchMapping("/read-all")
-    public ApiResponse<Void> markAllAsRead(@AuthenticationPrincipal Long userId) {
+    public ApiResponse<NotificationUnreadResponse> markAllAsRead(@AuthenticationPrincipal Long userId) {
         notificationService.markAllAsRead(userId);
-        return ApiResponse.onSuccess(null);
+        return ApiResponse.onSuccess(notificationService.hasUnread(userId, NotificationCategory.ALL));
     }
 }

@@ -33,7 +33,7 @@ public class CreditService {
     /**
      * 현재 로그인한 유저에게 크레딧 적립 (기본 포인트).
      * 일반적인 유저 액션(투표, 관점 작성, 좋아요 등)에서 사용.
-     * 예: creditService.addCredit(CreditType.BATTLE_VOTE, voteId);
+     * 예: creditService.addCredit(CreditType.BATTLE_ENTRY, battleId);
      */
     @Transactional
     public void addCredit(CreditType creditType, Long referenceId) {

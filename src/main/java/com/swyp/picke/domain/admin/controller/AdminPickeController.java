@@ -1,52 +1,52 @@
 package com.swyp.picke.domain.admin.controller;
 
 import io.swagger.v3.oas.annotations.Hidden;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
+/**
+ * 관리자 페이지는 별도 Next.js 앱(admin-web)으로 이관되었다.
+ * 기존 admin 경로(picke.store/api/v1/admin/**)는 새 앱으로 리다이렉트한다.
+ * OAuth 콜백(?code=...)은 쿼리스트링을 보존해 새 앱 로그인 페이지로 전달한다.
+ */
 @Hidden
 @Controller
 @RequestMapping("/api/v1/admin")
 public class AdminPickeController {
 
-    @Value("${oauth.kakao.client-id}")
-    private String kakaoClientId;
+    @Value("${admin.web.url:https://admin-web-production-f2a2.up.railway.app}")
+    private String adminWebUrl;
 
-    @Value("${oauth.google.client-id}")
-    private String googleClientId;
-
-    @Value("${picke.baseUrl}")
-    private String baseUrl;
+    private String redirect(String path, HttpServletRequest request) {
+        String qs = request.getQueryString();
+        return "redirect:" + adminWebUrl + path + (qs != null ? "?" + qs : "");
+    }
 
     @GetMapping({"", "/"})
-    public String index() {
-        return "redirect:/api/v1/admin/login";
+    public String index(HttpServletRequest request) {
+        return redirect("/login", request);
     }
 
     @GetMapping("/login")
-    public String adminLoginPage(Model model) {
-        model.addAttribute("kakaoClientId", kakaoClientId);
-        model.addAttribute("googleClientId", googleClientId);
-        model.addAttribute("redirectUri", baseUrl + "/api/v1/admin/login");
-
-        return "admin/admin-login";
+    public String adminLoginPage(HttpServletRequest request) {
+        return redirect("/login", request);
     }
 
     @GetMapping("/picke/list")
-    public String pickeListPage() {
-        return "admin/picke-list";
+    public String pickeListPage(HttpServletRequest request) {
+        return redirect("/picke/list", request);
     }
 
     @GetMapping("/picke")
-    public String pickeCreatePage() {
-        return "admin/picke-create";
+    public String pickeCreatePage(HttpServletRequest request) {
+        return redirect("/picke/create", request);
     }
 
     @GetMapping("/picke/notice")
-    public String noticePage() {
-        return "admin/admin-notice";
+    public String noticePage(HttpServletRequest request) {
+        return redirect("/notice", request);
     }
 }

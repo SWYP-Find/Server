@@ -64,25 +64,25 @@ class CreditServiceTest {
         User user = newUser(1L, 0);
         when(userService.findCurrentUser()).thenReturn(user);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userRepository.incrementCredit(1L, CreditType.BATTLE_VOTE.getDefaultAmount())).thenReturn(1);
+        when(userRepository.incrementCredit(1L, CreditType.BEST_COMMENT.getDefaultAmount())).thenReturn(1);
 
-        creditService.addCredit(CreditType.BATTLE_VOTE, 10L);
+        creditService.addCredit(CreditType.BEST_COMMENT, 10L);
 
         ArgumentCaptor<CreditHistory> captor = ArgumentCaptor.forClass(CreditHistory.class);
         verify(creditHistoryRepository).saveAndFlush(captor.capture());
 
         CreditHistory saved = captor.getValue();
         assertThat(saved.getUser().getId()).isEqualTo(1L);
-        assertThat(saved.getCreditType()).isEqualTo(CreditType.BATTLE_VOTE);
-        assertThat(saved.getAmount()).isEqualTo(CreditType.BATTLE_VOTE.getDefaultAmount());
+        assertThat(saved.getCreditType()).isEqualTo(CreditType.BEST_COMMENT);
+        assertThat(saved.getAmount()).isEqualTo(CreditType.BEST_COMMENT.getDefaultAmount());
         assertThat(saved.getReferenceId()).isEqualTo(10L);
-        verify(userRepository).incrementCredit(1L, CreditType.BATTLE_VOTE.getDefaultAmount());
+        verify(userRepository).incrementCredit(1L, CreditType.BEST_COMMENT.getDefaultAmount());
     }
 
     @Test
     @DisplayName("referenceId가 없으면 적립을 거부한다")
     void addCredit_withoutReferenceId_throwsException() {
-        assertThatThrownBy(() -> creditService.addCredit(1L, CreditType.BATTLE_VOTE, 10, null))
+        assertThatThrownBy(() -> creditService.addCredit(1L, CreditType.BEST_COMMENT, 10, null))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.CREDIT_REFERENCE_REQUIRED);
@@ -97,12 +97,12 @@ class CreditServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(creditHistoryRepository.saveAndFlush(any(CreditHistory.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate"));
-        when(creditHistoryRepository.existsByUserIdAndCreditTypeAndReferenceId(1L, CreditType.BATTLE_VOTE, 10L))
+        when(creditHistoryRepository.existsByUserIdAndCreditTypeAndReferenceId(1L, CreditType.BEST_COMMENT, 10L))
                 .thenReturn(true);
 
-        creditService.addCredit(1L, CreditType.BATTLE_VOTE, 5, 10L);
+        creditService.addCredit(1L, CreditType.BEST_COMMENT, 5, 10L);
 
-        verify(creditHistoryRepository).existsByUserIdAndCreditTypeAndReferenceId(1L, CreditType.BATTLE_VOTE, 10L);
+        verify(creditHistoryRepository).existsByUserIdAndCreditTypeAndReferenceId(1L, CreditType.BEST_COMMENT, 10L);
         verify(userRepository, never()).incrementCredit(1L, 5);
     }
 
@@ -142,10 +142,10 @@ class CreditServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(creditHistoryRepository.saveAndFlush(any(CreditHistory.class)))
                 .thenThrow(new DataIntegrityViolationException("broken"));
-        when(creditHistoryRepository.existsByUserIdAndCreditTypeAndReferenceId(1L, CreditType.BATTLE_VOTE, 10L))
+        when(creditHistoryRepository.existsByUserIdAndCreditTypeAndReferenceId(1L, CreditType.BEST_COMMENT, 10L))
                 .thenReturn(false);
 
-        assertThatThrownBy(() -> creditService.addCredit(1L, CreditType.BATTLE_VOTE, 10, 10L))
+        assertThatThrownBy(() -> creditService.addCredit(1L, CreditType.BEST_COMMENT, 10, 10L))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.CREDIT_SAVE_FAILED);

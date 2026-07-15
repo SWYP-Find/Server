@@ -6,11 +6,9 @@ import com.swyp.picke.domain.perspective.entity.Perspective;
 import com.swyp.picke.domain.perspective.repository.PerspectiveRepository;
 import com.swyp.picke.domain.perspective.service.GptPerspectiveGenerationService;
 import com.swyp.picke.domain.user.entity.User;
-import com.swyp.picke.domain.user.enums.CreditType;
 import com.swyp.picke.domain.user.enums.UserBattleStep;
 import com.swyp.picke.domain.user.enums.UserRole;
 import com.swyp.picke.domain.user.repository.UserRepository;
-import com.swyp.picke.domain.user.service.CreditService;
 import com.swyp.picke.domain.user.service.UserBattleService;
 import com.swyp.picke.domain.vote.entity.BattleVote;
 import com.swyp.picke.domain.vote.repository.BattleVoteRepository;
@@ -32,7 +30,6 @@ public class BattleAutoSeedService {
     private final UserRepository userRepository;
     private final BattleVoteRepository battleVoteRepository;
     private final UserBattleService userBattleService;
-    private final CreditService creditService;
     private final PerspectiveRepository perspectiveRepository;
     private final GptPerspectiveGenerationService gptPerspectiveGenerationService;
 
@@ -77,8 +74,6 @@ public class BattleAutoSeedService {
                         .isTtsListened(false)
                         .build();
                 battleVoteRepository.save(vote);
-
-                creditService.addCredit(bot.getId(), CreditType.BATTLE_VOTE, vote.getId());
 
                 userBattleService.upsertStep(bot, battle, UserBattleStep.COMPLETED);
 

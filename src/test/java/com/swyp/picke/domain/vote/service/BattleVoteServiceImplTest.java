@@ -152,8 +152,8 @@ class BattleVoteServiceImplTest {
     }
 
     @Test
-    @DisplayName("사후 투표 완료 시 참여 보상 크레딧을 지급한다")
-    void postVote_rewardsBattleParticipationCredit() {
+    @DisplayName("사후 투표 완료 시 스텝을 완료 상태로 전환한다")
+    void postVote_completesUserBattleStep() {
         Battle battle = battle(100L, null);
         User user = user(10L);
         BattleOption preOption = option(201L, battle, BattleOptionLabel.A);
@@ -178,7 +178,6 @@ class BattleVoteServiceImplTest {
         assertThat(response.voteId()).isEqualTo(300L);
         assertThat(response.status()).isEqualTo(UserBattleStep.COMPLETED);
         verify(userBattleService).upsertStep(user, battle, UserBattleStep.COMPLETED);
-        verify(creditService).addCredit(10L, CreditType.BATTLE_VOTE, 300L);
     }
 
     private Battle battle(Long id, LocalDate targetDate) {

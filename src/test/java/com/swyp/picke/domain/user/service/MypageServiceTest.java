@@ -303,7 +303,7 @@ class MypageServiceTest {
     void getCreditHistory_returns_paginated_history() {
         User user = createUser(1L, "tag");
         CreditHistory latest = creditHistory(301L, user, CreditType.BEST_COMMENT, 50, 91L, LocalDateTime.now());
-        CreditHistory older = creditHistory(300L, user, CreditType.BATTLE_VOTE, 5, 90L, LocalDateTime.now().minusDays(1));
+        CreditHistory older = creditHistory(300L, user, CreditType.MAJORITY_WIN, 5, 90L, LocalDateTime.now().minusDays(1));
 
         when(userService.findCurrentUser()).thenReturn(user);
         when(creditService.getHistory(1L, PageRequest.of(0, 2)))

@@ -124,6 +124,10 @@ jwt:
   access-token-expiration: 3600000
   refresh-token-expiration: 1209600000
 
+admin:
+  web:
+    url: ${ADMIN_WEB_URL:https://picke.up.railway.app}
+
 picke:
   baseUrl: ${PICKE_BASE_URL:https://picke.store}
   s3:

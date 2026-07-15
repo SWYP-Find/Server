@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @RequestMapping("/api/v1/admin")
 public class AdminPickeController {
 
-    @Value("${admin.web.url:https://admin-web-production-f2a2.up.railway.app}")
+    @Value("${admin.web.url:https://picke.up.railway.app}")
     private String adminWebUrl;
 
     private String redirect(String path, HttpServletRequest request) {

@@ -48,6 +48,8 @@ public class JwtFilter extends OncePerRequestFilter {
             "/.well-known",     
             "/api/v1/resources",
             "/app-ads.txt",
+            "/terms",
+            "/privacy-policy",
             "/robots.txt"
     );
 

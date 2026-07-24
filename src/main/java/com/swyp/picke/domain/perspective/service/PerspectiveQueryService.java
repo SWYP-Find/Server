@@ -1,9 +1,11 @@
 package com.swyp.picke.domain.perspective.service;
 
+import com.swyp.picke.domain.perspective.entity.Perspective;
 import com.swyp.picke.domain.perspective.entity.PerspectiveComment;
 import com.swyp.picke.domain.perspective.entity.PerspectiveLike;
 import com.swyp.picke.domain.perspective.repository.PerspectiveCommentRepository;
 import com.swyp.picke.domain.perspective.repository.PerspectiveLikeRepository;
+import com.swyp.picke.domain.perspective.repository.PerspectiveRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -18,14 +20,24 @@ public class PerspectiveQueryService {
 
     private final PerspectiveCommentRepository perspectiveCommentRepository;
     private final PerspectiveLikeRepository perspectiveLikeRepository;
+    private final PerspectiveRepository perspectiveRepository;
 
-    public List<PerspectiveComment> findUserComments(Long userId, int offset, int size) {
-        PageRequest pageable = PageRequest.of(offset / size, size);
+    public List<PerspectiveComment> findUserComments(Long userId, int limit) {
+        PageRequest pageable = PageRequest.of(0, limit);
         return perspectiveCommentRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
     }
 
     public long countUserComments(Long userId) {
         return perspectiveCommentRepository.countByUserId(userId);
+    }
+
+    public List<Perspective> findUserPerspectives(Long userId, int limit) {
+        PageRequest pageable = PageRequest.of(0, limit);
+        return perspectiveRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
+    }
+
+    public long countUserPerspectives(Long userId) {
+        return perspectiveRepository.countByUserId(userId);
     }
 
     public List<PerspectiveLike> findUserLikes(Long userId, int offset, int size) {

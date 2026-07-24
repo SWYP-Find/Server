@@ -21,22 +21,22 @@ public class VoteQueryService {
     public List<BattleVote> findUserVotes(Long userId, int offset, int size, VoteSide voteSide) {
         PageRequest pageable = PageRequest.of(offset / size, size);
         if (voteSide == VoteSide.PRO) {
-            return battleVoteRepository.findByUserIdAndPreVoteOptionDisplayOrderOrderByCreatedAtDesc(userId, 1, pageable);
+            return battleVoteRepository.findByUserIdAndPreVoteOptionDisplayOrderAndPostVoteOptionIsNotNullOrderByCreatedAtDesc(userId, 1, pageable);
         }
         if (voteSide == VoteSide.CON) {
-            return battleVoteRepository.findByUserIdAndPreVoteOptionDisplayOrderNotOrderByCreatedAtDesc(userId, 1, pageable);
+            return battleVoteRepository.findByUserIdAndPreVoteOptionDisplayOrderNotAndPostVoteOptionIsNotNullOrderByCreatedAtDesc(userId, 1, pageable);
         }
-        return battleVoteRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
+        return battleVoteRepository.findByUserIdAndPostVoteOptionIsNotNullOrderByCreatedAtDesc(userId, pageable);
     }
 
     public long countUserVotes(Long userId, VoteSide voteSide) {
         if (voteSide == VoteSide.PRO) {
-            return battleVoteRepository.countByUserIdAndPreVoteOptionDisplayOrder(userId, 1);
+            return battleVoteRepository.countByUserIdAndPreVoteOptionDisplayOrderAndPostVoteOptionIsNotNull(userId, 1);
         }
         if (voteSide == VoteSide.CON) {
-            return battleVoteRepository.countByUserIdAndPreVoteOptionDisplayOrderNot(userId, 1);
+            return battleVoteRepository.countByUserIdAndPreVoteOptionDisplayOrderNotAndPostVoteOptionIsNotNull(userId, 1);
         }
-        return battleVoteRepository.countByUserId(userId);
+        return battleVoteRepository.countByUserIdAndPostVoteOptionIsNotNull(userId);
     }
 
     public long countTotalParticipation(Long userId) {

@@ -166,6 +166,7 @@ class MypageServiceTest {
                 .user(user)
                 .battle(battle)
                 .preVoteOption(optionA)
+                .postVoteOption(optionA)
                 .build();
         ReflectionTestUtils.setField(vote, "id", generateId());
         ReflectionTestUtils.setField(vote, "createdAt", LocalDateTime.now());
@@ -192,6 +193,7 @@ class MypageServiceTest {
                 .user(user)
                 .battle(battle)
                 .preVoteOption(optionA)
+                .postVoteOption(optionA)
                 .build();
         ReflectionTestUtils.setField(vote, "id", generateId());
         ReflectionTestUtils.setField(vote, "createdAt", LocalDateTime.now());

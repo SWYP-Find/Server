@@ -158,8 +158,7 @@ public class MypageService {
         List<BattleRecordListResponse.BattleRecordItem> items = votes.stream()
                 .map(BattleVote -> {
                     Battle battle = BattleVote.getBattle();
-                    BattleOption selectedOption = BattleVote.getPostVoteOption() != null
-                            ? BattleVote.getPostVoteOption() : BattleVote.getPreVoteOption();
+                    BattleOption selectedOption = BattleVote.getPostVoteOption();
                     VoteSide side = BattleOptionDisplay.voteSide(selectedOption);
                     String category = categoryMap.get(battle.getId());
 

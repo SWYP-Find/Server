@@ -34,30 +34,35 @@ public interface BattleVoteRepository extends JpaRepository<BattleVote, Long> {
 
     Optional<BattleVote> findTopByBattleOrderByUpdatedAtDesc(Battle battle);
 
-    @Query("SELECT v FROM BattleVote v JOIN FETCH v.battle JOIN FETCH v.preVoteOption " +
-           "WHERE v.user.id = :userId ORDER BY v.createdAt DESC")
-    List<BattleVote> findByUserIdOrderByCreatedAtDesc(@Param("userId") Long userId, Pageable pageable);
+    // 내 배틀 기록: 사후투표까지 완료한 기록만 노출
+    @Query("SELECT v FROM BattleVote v JOIN FETCH v.battle JOIN FETCH v.preVoteOption JOIN FETCH v.postVoteOption " +
+           "WHERE v.user.id = :userId AND v.postVoteOption IS NOT NULL ORDER BY v.createdAt DESC")
+    List<BattleVote> findByUserIdAndPostVoteOptionIsNotNullOrderByCreatedAtDesc(@Param("userId") Long userId, Pageable pageable);
 
-    @Query("SELECT v FROM BattleVote v JOIN FETCH v.battle JOIN FETCH v.preVoteOption " +
-           "WHERE v.user.id = :userId AND v.preVoteOption.displayOrder = :displayOrder ORDER BY v.createdAt DESC")
-    List<BattleVote> findByUserIdAndPreVoteOptionDisplayOrderOrderByCreatedAtDesc(
+    @Query("SELECT v FROM BattleVote v JOIN FETCH v.battle JOIN FETCH v.preVoteOption JOIN FETCH v.postVoteOption " +
+           "WHERE v.user.id = :userId AND v.preVoteOption.displayOrder = :displayOrder AND v.postVoteOption IS NOT NULL ORDER BY v.createdAt DESC")
+    List<BattleVote> findByUserIdAndPreVoteOptionDisplayOrderAndPostVoteOptionIsNotNullOrderByCreatedAtDesc(
             @Param("userId") Long userId, @Param("displayOrder") Integer displayOrder, Pageable pageable);
 
-    @Query("SELECT v FROM BattleVote v JOIN FETCH v.battle JOIN FETCH v.preVoteOption " +
-           "WHERE v.user.id = :userId AND v.preVoteOption.displayOrder <> :displayOrder ORDER BY v.createdAt DESC")
-    List<BattleVote> findByUserIdAndPreVoteOptionDisplayOrderNotOrderByCreatedAtDesc(
+    @Query("SELECT v FROM BattleVote v JOIN FETCH v.battle JOIN FETCH v.preVoteOption JOIN FETCH v.postVoteOption " +
+           "WHERE v.user.id = :userId AND v.preVoteOption.displayOrder <> :displayOrder AND v.postVoteOption IS NOT NULL ORDER BY v.createdAt DESC")
+    List<BattleVote> findByUserIdAndPreVoteOptionDisplayOrderNotAndPostVoteOptionIsNotNullOrderByCreatedAtDesc(
             @Param("userId") Long userId, @Param("displayOrder") Integer displayOrder, Pageable pageable);
 
+    @Query("SELECT COUNT(v) FROM BattleVote v WHERE v.user.id = :userId AND v.postVoteOption IS NOT NULL")
+    long countByUserIdAndPostVoteOptionIsNotNull(@Param("userId") Long userId);
+
+    @Query("SELECT COUNT(v) FROM BattleVote v WHERE v.user.id = :userId AND v.preVoteOption.displayOrder = :displayOrder AND v.postVoteOption IS NOT NULL")
+    long countByUserIdAndPreVoteOptionDisplayOrderAndPostVoteOptionIsNotNull(@Param("userId") Long userId, @Param("displayOrder") Integer displayOrder);
+
+    @Query("SELECT COUNT(v) FROM BattleVote v WHERE v.user.id = :userId AND v.preVoteOption.displayOrder <> :displayOrder AND v.postVoteOption IS NOT NULL")
+    long countByUserIdAndPreVoteOptionDisplayOrderNotAndPostVoteOptionIsNotNull(@Param("userId") Long userId, @Param("displayOrder") Integer displayOrder);
+
+    // countTotalParticipation 등 "사전투표만 해도 참여로 집계"하는 통계용 — postVoteOption 필터 없음
     long countByUserId(Long userId);
 
     // 오늘의 배틀 무료 참여(일 1회) 제한 체크용: 유저가 오늘 날짜인 배틀에 이미 참여했는지 확인
     boolean existsByUserIdAndBattle_TargetDate(Long userId, LocalDate targetDate);
-
-    @Query("SELECT COUNT(v) FROM BattleVote v WHERE v.user.id = :userId AND v.preVoteOption.displayOrder = :displayOrder")
-    long countByUserIdAndPreVoteOptionDisplayOrder(@Param("userId") Long userId, @Param("displayOrder") Integer displayOrder);
-
-    @Query("SELECT COUNT(v) FROM BattleVote v WHERE v.user.id = :userId AND v.preVoteOption.displayOrder <> :displayOrder")
-    long countByUserIdAndPreVoteOptionDisplayOrderNot(@Param("userId") Long userId, @Param("displayOrder") Integer displayOrder);
 
     @Query("SELECT COUNT(v) FROM BattleVote v WHERE v.user.id = :userId " +
             "AND v.postVoteOption IS NOT NULL " +

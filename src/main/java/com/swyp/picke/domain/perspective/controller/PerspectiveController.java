@@ -24,6 +24,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @Tag(name = "관점 API", description = "관점 생성, 조회, 수정, 삭제")
 @RestController
 @RequestMapping("/api/v1")
@@ -63,9 +65,9 @@ public class PerspectiveController {
         return ApiResponse.onSuccess(perspectiveService.getPerspectives(battleId, userId, cursor, size, optionId, sort));
     }
 
-    @Operation(summary = "내 관점 조회", description = "해당 배틀에서 본인이 작성한 관점을 조회합니다.")
+    @Operation(summary = "내 관점 조회", description = "해당 배틀에서 본인이 작성한 관점 목록을 조회합니다.")
     @GetMapping("/battles/{battleId}/perspectives/me")
-    public ApiResponse<MyPerspectiveResponse> getMyPerspective(
+    public ApiResponse<List<MyPerspectiveResponse>> getMyPerspective(
             @PathVariable Long battleId,
             @AuthenticationPrincipal Long userId) {
         return ApiResponse.onSuccess(perspectiveService.getMyPerspective(battleId, userId));

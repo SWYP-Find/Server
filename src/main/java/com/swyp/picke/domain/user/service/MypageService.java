@@ -33,7 +33,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Stream;
 import java.util.Map;
 
 @Service
@@ -190,25 +192,40 @@ public class MypageService {
     }
 
     private ContentActivityListResponse buildCommentActivities(User user, int pageOffset, int pageSize) {
-        List<PerspectiveComment> comments = perspectiveQueryService.findUserComments(user.getId(), pageOffset, pageSize);
-        long totalCount = perspectiveQueryService.countUserComments(user.getId());
+        int limit = pageOffset + pageSize;
+
+        List<PerspectiveComment> comments = perspectiveQueryService.findUserComments(user.getId(), limit);
+        List<Perspective> myPerspectives = perspectiveQueryService.findUserPerspectives(user.getId(), limit);
 
         UserProfile profile = userService.findUserProfile(user.getId());
         String myCharacterImageUrl = resolveCharacterImageUrl(profile.getCharacterType());
 
-        List<Perspective> perspectives = comments.stream().map(PerspectiveComment::getPerspective).toList();
-        Map<Long, Battle> battleMap = loadBattles(perspectives);
-        Map<Long, BattleOption> optionMap = loadOptions(perspectives);
+        List<Perspective> lookupTargets = new ArrayList<>(comments.stream().map(PerspectiveComment::getPerspective).toList());
+        lookupTargets.addAll(myPerspectives);
+        Map<Long, Battle> battleMap = loadBattles(lookupTargets);
+        Map<Long, BattleOption> optionMap = loadOptions(lookupTargets);
 
-        List<ContentActivityListResponse.ContentActivityItem> items = comments.stream()
+        Stream<ContentActivityListResponse.ContentActivityItem> commentItems = comments.stream()
                 .map(comment -> {
                     Perspective p = comment.getPerspective();
                     return toActivityItem(comment.getId().toString(), ActivityType.COMMENT, p,
                             battleMap.get(p.getBattle().getId()), optionMap.get(p.getOption().getId()),
                             comment.getContent(), comment.getCreatedAt(), myCharacterImageUrl);
-                })
+                });
+
+        Stream<ContentActivityListResponse.ContentActivityItem> perspectiveItems = myPerspectives.stream()
+                .map(p -> toActivityItem(p.getId().toString(), ActivityType.PERSPECTIVE, p,
+                        battleMap.get(p.getBattle().getId()), optionMap.get(p.getOption().getId()),
+                        p.getContent(), p.getCreatedAt(), myCharacterImageUrl));
+
+        List<ContentActivityListResponse.ContentActivityItem> items = Stream.concat(commentItems, perspectiveItems)
+                .sorted(Comparator.comparing(ContentActivityListResponse.ContentActivityItem::createdAt).reversed())
+                .skip(pageOffset)
+                .limit(pageSize)
                 .toList();
 
+        long totalCount = perspectiveQueryService.countUserComments(user.getId())
+                + perspectiveQueryService.countUserPerspectives(user.getId());
         int nextOffset = pageOffset + pageSize;
         boolean hasNext = nextOffset < totalCount;
         return new ContentActivityListResponse(items, hasNext ? nextOffset : null, hasNext);

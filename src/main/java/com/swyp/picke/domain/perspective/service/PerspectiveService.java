@@ -85,10 +85,6 @@ public class PerspectiveService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        if (perspectiveRepository.existsByBattleIdAndUserId(battleId, userId)) {
-            throw new CustomException(ErrorCode.PERSPECTIVE_ALREADY_EXISTS);
-        }
-
         Long postVoteOptionId = BattleVoteService.findPostVoteOptionId(battleId, userId);
         BattleOption option = battleService.findOptionById(postVoteOptionId);
 
@@ -181,27 +177,30 @@ public class PerspectiveService {
         return new UpdatePerspectiveResponse(perspective.getId(), perspective.getContent(), perspective.getUpdatedAt());
     }
 
-    public MyPerspectiveResponse getMyPerspective(Long battleId, Long userId) {
+    public List<MyPerspectiveResponse> getMyPerspective(Long battleId, Long userId) {
         battleService.findById(battleId);
-        Perspective perspective = perspectiveRepository.findByBattleIdAndUserId(battleId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.PERSPECTIVE_NOT_FOUND));
+        List<Perspective> perspectives = perspectiveRepository.findByBattleIdAndUserIdOrderByCreatedAtDesc(battleId, userId);
 
         UserSummary user = userQueryService.findSummaryById(userId);
         String characterImageUrl = resolveCharacterImageUrl(user.characterType());
-        BattleOption option = perspective.getOption();
-        boolean isLiked = perspectiveLikeRepository.existsByPerspectiveAndUserId(perspective, userId);
 
-        return new MyPerspectiveResponse(
-                perspective.getId(),
-                new MyPerspectiveResponse.UserSummary(user.userTag(), user.nickname(), user.characterType(), characterImageUrl),
-                new MyPerspectiveResponse.OptionSummary(option.getId(), BattleOptionDisplay.opinion(option), option.getTitle(), option.getStance()),
-                perspective.getContent(),
-                perspective.getLikeCount(),
-                perspective.getCommentCount(),
-                isLiked,
-                perspective.getStatus(),
-                perspective.getCreatedAt()
-        );
+        return perspectives.stream()
+                .map(perspective -> {
+                    BattleOption option = perspective.getOption();
+                    boolean isLiked = perspectiveLikeRepository.existsByPerspectiveAndUserId(perspective, userId);
+                    return new MyPerspectiveResponse(
+                            perspective.getId(),
+                            new MyPerspectiveResponse.UserSummary(user.userTag(), user.nickname(), user.characterType(), characterImageUrl),
+                            new MyPerspectiveResponse.OptionSummary(option.getId(), BattleOptionDisplay.opinion(option), option.getTitle(), option.getStance()),
+                            perspective.getContent(),
+                            perspective.getLikeCount(),
+                            perspective.getCommentCount(),
+                            isLiked,
+                            perspective.getStatus(),
+                            perspective.getCreatedAt()
+                    );
+                })
+                .toList();
     }
 
     @Transactional

@@ -3,14 +3,19 @@ package com.swyp.picke.domain.oauth.service;
 import com.swyp.picke.domain.oauth.client.AppleOAuthClient;
 import com.swyp.picke.domain.oauth.client.GoogleOAuthClient;
 import com.swyp.picke.domain.oauth.client.KakaoOAuthClient;
+import com.swyp.picke.domain.admin.dto.testaccount.request.CreateTestAccountRequest;
+import com.swyp.picke.domain.admin.dto.testaccount.response.TestAccountResponse;
+import com.swyp.picke.domain.oauth.dto.LocalLoginRequest;
 import com.swyp.picke.domain.oauth.dto.LoginRequest;
 import com.swyp.picke.domain.oauth.dto.LoginResponse;
 import com.swyp.picke.domain.oauth.dto.OAuthUserInfo;
 import com.swyp.picke.domain.oauth.dto.WithdrawRequest;
 import com.swyp.picke.domain.oauth.entity.AuthRefreshToken;
+import com.swyp.picke.domain.oauth.entity.UserLocalAccount;
 import com.swyp.picke.domain.oauth.entity.UserSocialAccount;
 import com.swyp.picke.domain.oauth.jwt.JwtProvider;
 import com.swyp.picke.domain.oauth.repository.AuthRefreshTokenRepository;
+import com.swyp.picke.domain.oauth.repository.UserLocalAccountRepository;
 import com.swyp.picke.domain.oauth.repository.UserSocialAccountRepository;
 import com.swyp.picke.domain.user.enums.CharacterType;
 import com.swyp.picke.domain.user.enums.CreditType;
@@ -30,6 +35,7 @@ import com.swyp.picke.domain.user.service.CreditService;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -82,6 +88,7 @@ public class AuthService {
     private final AppleOAuthClient appleOAuthClient;
     private final UserRepository userRepository;
     private final UserSocialAccountRepository socialAccountRepository;
+    private final UserLocalAccountRepository localAccountRepository;
     private final AuthRefreshTokenRepository refreshTokenRepository;
     private final UserProfileRepository userProfileRepository;
     private final UserSettingsRepository userSettingsRepository;
@@ -89,6 +96,7 @@ public class AuthService {
     private final UserWithdrawalRepository userWithdrawalRepository;
     private final JwtProvider jwtProvider;
     private final CreditService creditService;
+    private final PasswordEncoder passwordEncoder;
 
     public LoginResponse login(String provider, LoginRequest request) {
 
@@ -146,6 +154,45 @@ public class AuthService {
             }
         }
 
+        return issueTokensAndBuildResponse(user, isNewUser);
+    }
+
+    public LoginResponse loginLocal(LocalLoginRequest request) {
+        UserLocalAccount localAccount = localAccountRepository.findByUsername(request.getUsername())
+                .orElseThrow(() -> new CustomException(ErrorCode.AUTH_INVALID_CREDENTIALS));
+
+        if (!passwordEncoder.matches(request.getPassword(), localAccount.getPasswordHash())) {
+            throw new CustomException(ErrorCode.AUTH_INVALID_CREDENTIALS);
+        }
+
+        return issueTokensAndBuildResponse(localAccount.getUser(), false);
+    }
+
+    public TestAccountResponse createLocalTestAccount(CreateTestAccountRequest request) {
+        if (localAccountRepository.existsByUsername(request.getUsername())) {
+            throw new CustomException(ErrorCode.LOCAL_ACCOUNT_USERNAME_DUPLICATED);
+        }
+
+        User user = User.builder()
+                .userTag(generateUserTag())
+                .role(UserRole.USER)
+                .status(UserStatus.ACTIVE)
+                .build();
+        userRepository.save(user);
+        initializeUserDomain(user);
+
+        localAccountRepository.save(UserLocalAccount.builder()
+                                             .user(user)
+                                             .username(request.getUsername())
+                                             .passwordHash(passwordEncoder.encode(request.getPassword()))
+                                             .build());
+
+        creditService.addCredit(user.getId(), CreditType.DEFAULT_CREDIT, user.getId());
+
+        return new TestAccountResponse(request.getUsername(), user.getUserTag());
+    }
+
+    private LoginResponse issueTokensAndBuildResponse(User user, boolean isNewUser) {
         // 제재 유저 체크
         if (user.getStatus() == UserStatus.BANNED) {
             throw new CustomException(ErrorCode.USER_BANNED);

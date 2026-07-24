@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.oauth.controller;
 
+import com.swyp.picke.domain.oauth.dto.LocalLoginRequest;
 import com.swyp.picke.domain.oauth.dto.LoginRequest;
 import com.swyp.picke.domain.oauth.dto.LoginResponse;
 import com.swyp.picke.domain.oauth.dto.LogoutResponse;
@@ -29,6 +30,14 @@ public class AuthController {
             @RequestBody LoginRequest request
     ) {
         return ApiResponse.onSuccess(authService.login(provider, request));
+    }
+
+    @Operation(summary = "로컬(테스트 계정) 로그인")
+    @PostMapping("/auth/login/local")
+    public ApiResponse<LoginResponse> loginLocal(
+            @Valid @RequestBody LocalLoginRequest request
+    ) {
+        return ApiResponse.onSuccess(authService.loginLocal(request));
     }
 
     @Operation(summary = "Access Token 재발급")

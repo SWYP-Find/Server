@@ -26,6 +26,8 @@ public enum ErrorCode {
     AUTH_ACCESS_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "AUTH_401_ACCESS", "Access Token이 만료되었습니다."),
     AUTH_REFRESH_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "AUTH_401_REFRESH", "Refresh Token이 만료되었습니다. 다시 로그인이 필요합니다."),
     AUTH_FORBIDDEN(HttpStatus.FORBIDDEN, "AUTH_403", "해당 API 접근 권한(관리자 권한)이 없습니다."),
+    AUTH_INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH_401_CRED", "아이디 또는 비밀번호가 올바르지 않습니다."),
+    LOCAL_ACCOUNT_USERNAME_DUPLICATED(HttpStatus.CONFLICT, "AUTH_409_USERNAME", "이미 사용 중인 아이디입니다."),
 
     // User
     USER_BANNED(HttpStatus.FORBIDDEN, "USER_403_BAN", "영구 제재된 사용자입니다."),
@@ -78,7 +80,6 @@ public enum ErrorCode {
 
     // Perspective
     PERSPECTIVE_NOT_FOUND(HttpStatus.NOT_FOUND, "PERSPECTIVE_404", "존재하지 않는 관점입니다."),
-    PERSPECTIVE_ALREADY_EXISTS(HttpStatus.CONFLICT, "PERSPECTIVE_409", "이미 관점을 작성한 배틀입니다."),
     PERSPECTIVE_FORBIDDEN(HttpStatus.FORBIDDEN, "PERSPECTIVE_403", "본인 관점만 수정/삭제할 수 있습니다."),
     PERSPECTIVE_POST_VOTE_REQUIRED(HttpStatus.CONFLICT, "PERSPECTIVE_VOTE_409", "사후 투표가 완료되지 않았습니다."),
     PERSPECTIVE_MODERATION_NOT_FAILED(HttpStatus.BAD_REQUEST, "PERSPECTIVE_400", "검수 실패 상태의 관점이 아닙니다."),

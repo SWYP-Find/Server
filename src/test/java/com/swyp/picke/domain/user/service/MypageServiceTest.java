@@ -248,8 +248,10 @@ class MypageServiceTest {
 
         when(userService.findCurrentUser()).thenReturn(user);
         when(userService.findUserProfile(1L)).thenReturn(profile);
-        when(perspectiveQueryService.findUserComments(1L, 0, 20)).thenReturn(List.of(comment));
+        when(perspectiveQueryService.findUserComments(1L, 20)).thenReturn(List.of(comment));
+        when(perspectiveQueryService.findUserPerspectives(1L, 20)).thenReturn(List.of());
         when(perspectiveQueryService.countUserComments(1L)).thenReturn(1L);
+        when(perspectiveQueryService.countUserPerspectives(1L)).thenReturn(0L);
         when(battleQueryService.findBattlesByIds(List.of(battleId))).thenReturn(Map.of(battleId, battle));
         when(battleQueryService.findOptionsByIds(List.of(optionId))).thenReturn(Map.of(optionId, option));
         when(userService.findSummaryById(1L)).thenReturn(new UserSummary("tag", "nick", "OWL"));
@@ -259,6 +261,60 @@ class MypageServiceTest {
         assertThat(response.items()).hasSize(1);
         assertThat(response.items().get(0).activityType()).isEqualTo(ActivityType.COMMENT);
         assertThat(response.items().get(0).content()).isEqualTo("댓글");
+    }
+
+    @Test
+    @DisplayName("COMMENT 타입으로 조회하면 내가 작성한 관점과 댓글이 최신순으로 병합되어 반환된다")
+    void getContentActivities_merges_perspectives_and_comments_by_created_at() {
+        User user = createUser(1L, "tag");
+        UserProfile profile = createProfile(user, "nick", CharacterType.OWL);
+        Battle battle = createBattle("배틀");
+        Long battleId = battle.getId();
+        BattleOption option = createOption(battle, BattleOptionLabel.A);
+        Long optionId = option.getId();
+
+        Perspective myPerspective = Perspective.builder()
+                .battle(battle)
+                .user(user)
+                .option(option)
+                .content("내가 쓴 관점")
+                .build();
+        ReflectionTestUtils.setField(myPerspective, "id", generateId());
+        ReflectionTestUtils.setField(myPerspective, "createdAt", LocalDateTime.now());
+
+        Perspective othersPerspective = Perspective.builder()
+                .battle(battle)
+                .user(user)
+                .option(option)
+                .content("다른 사람 관점")
+                .build();
+        ReflectionTestUtils.setField(othersPerspective, "id", generateId());
+
+        PerspectiveComment comment = PerspectiveComment.builder()
+                .perspective(othersPerspective)
+                .user(user)
+                .content("내가 남긴 댓글")
+                .build();
+        ReflectionTestUtils.setField(comment, "id", generateId());
+        ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.now().minusMinutes(1));
+
+        when(userService.findCurrentUser()).thenReturn(user);
+        when(userService.findUserProfile(1L)).thenReturn(profile);
+        when(perspectiveQueryService.findUserComments(1L, 20)).thenReturn(List.of(comment));
+        when(perspectiveQueryService.findUserPerspectives(1L, 20)).thenReturn(List.of(myPerspective));
+        when(perspectiveQueryService.countUserComments(1L)).thenReturn(1L);
+        when(perspectiveQueryService.countUserPerspectives(1L)).thenReturn(1L);
+        when(battleQueryService.findBattlesByIds(List.of(battleId))).thenReturn(Map.of(battleId, battle));
+        when(battleQueryService.findOptionsByIds(List.of(optionId))).thenReturn(Map.of(optionId, option));
+        when(userService.findSummaryById(1L)).thenReturn(new UserSummary("tag", "nick", "OWL"));
+
+        ContentActivityListResponse response = mypageService.getContentActivities(null, null, ActivityType.COMMENT);
+
+        assertThat(response.items()).hasSize(2);
+        assertThat(response.items().get(0).activityType()).isEqualTo(ActivityType.PERSPECTIVE);
+        assertThat(response.items().get(0).content()).isEqualTo("내가 쓴 관점");
+        assertThat(response.items().get(1).activityType()).isEqualTo(ActivityType.COMMENT);
+        assertThat(response.items().get(1).content()).isEqualTo("내가 남긴 댓글");
     }
 
     @Test

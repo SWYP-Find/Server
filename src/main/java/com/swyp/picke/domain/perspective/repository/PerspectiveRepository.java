@@ -12,6 +12,10 @@ public interface PerspectiveRepository extends JpaRepository<Perspective, Long> 
 
     List<Perspective> findByBattleIdAndUserIdOrderByCreatedAtDesc(Long battleId, Long userId);
 
+    List<Perspective> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
+
+    long countByUserId(Long userId);
+
     List<Perspective> findByBattleIdAndStatusOrderByCreatedAtDesc(Long battleId, PerspectiveStatus status, Pageable pageable);
 
     List<Perspective> findByBattleIdAndStatusAndCreatedAtBeforeOrderByCreatedAtDesc(Long battleId, PerspectiveStatus status, LocalDateTime cursor, Pageable pageable);

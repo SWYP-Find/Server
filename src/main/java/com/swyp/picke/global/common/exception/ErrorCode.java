@@ -26,6 +26,8 @@ public enum ErrorCode {
     AUTH_ACCESS_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "AUTH_401_ACCESS", "Access Token이 만료되었습니다."),
     AUTH_REFRESH_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "AUTH_401_REFRESH", "Refresh Token이 만료되었습니다. 다시 로그인이 필요합니다."),
     AUTH_FORBIDDEN(HttpStatus.FORBIDDEN, "AUTH_403", "해당 API 접근 권한(관리자 권한)이 없습니다."),
+    AUTH_INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH_401_CRED", "아이디 또는 비밀번호가 올바르지 않습니다."),
+    LOCAL_ACCOUNT_USERNAME_DUPLICATED(HttpStatus.CONFLICT, "AUTH_409_USERNAME", "이미 사용 중인 아이디입니다."),
 
     // User
     USER_BANNED(HttpStatus.FORBIDDEN, "USER_403_BAN", "영구 제재된 사용자입니다."),

@@ -13,7 +13,6 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -21,10 +20,7 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(
-        name = "perspectives",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"battle_id", "user_id"})
-)
+@Table(name = "perspectives")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Perspective extends BaseEntity {
 

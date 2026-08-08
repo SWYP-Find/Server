@@ -1,0 +1,76 @@
+package com.swyp.picke.domain.notification.scheduler;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.swyp.picke.domain.notification.entity.NotificationSchedule;
+import com.swyp.picke.domain.notification.enums.NotificationDetailCode;
+import com.swyp.picke.domain.notification.repository.NotificationScheduleRepository;
+import com.swyp.picke.domain.notification.service.NotificationDispatchService;
+import com.swyp.picke.domain.notification.service.NotificationService;
+import java.time.LocalTime;
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+@ExtendWith(MockitoExtension.class)
+class NotificationScheduleDispatcherTest {
+
+    @Mock
+    private NotificationScheduleRepository notificationScheduleRepository;
+
+    @Mock
+    private NotificationService notificationService;
+
+    @Mock
+    private NotificationDispatchService notificationDispatchService;
+
+    @InjectMocks
+    private NotificationScheduleDispatcher notificationScheduleDispatcher;
+
+    @Test
+    @DisplayName("현재 시각과 일치하는 활성 예약만 발송하고 발송일을 기록한다")
+    void dispatchDueSchedules_sendsOnlyMatchingEnabledSchedules() {
+        LocalTime now = LocalTime.now();
+        NotificationSchedule due = NotificationSchedule.builder()
+                .title("오늘의 질문")
+                .subtitle("지금 확인해보세요")
+                .sendTime(LocalTime.of(now.getHour(), now.getMinute()))
+                .enabled(true)
+                .build();
+        NotificationSchedule notDue = NotificationSchedule.builder()
+                .title("다른 알림")
+                .subtitle("다른 소제목")
+                .sendTime(LocalTime.of(now.getHour(), now.getMinute()).plusHours(1))
+                .enabled(true)
+                .build();
+        when(notificationScheduleRepository.findAllByEnabledTrue()).thenReturn(List.of(due, notDue));
+
+        notificationScheduleDispatcher.dispatchDueSchedules();
+
+        verify(notificationService, times(1)).createBroadcastNotification(
+                eq(NotificationDetailCode.DAILY_MESSAGE), eq("오늘의 질문"), eq("지금 확인해보세요"), any());
+        verify(notificationDispatchService, times(1)).notifyAdminNotice(
+                eq(NotificationDetailCode.DAILY_MESSAGE), eq("오늘의 질문"), eq("지금 확인해보세요"));
+        verify(notificationDispatchService, never()).notifyAdminNotice(
+                eq(NotificationDetailCode.DAILY_MESSAGE), eq("다른 알림"), any());
+    }
+
+    @Test
+    @DisplayName("발송 대상 예약이 없으면 아무것도 발송하지 않는다")
+    void dispatchDueSchedules_doesNothing_whenNoScheduleIsDue() {
+        when(notificationScheduleRepository.findAllByEnabledTrue()).thenReturn(List.of());
+
+        notificationScheduleDispatcher.dispatchDueSchedules();
+
+        verify(notificationDispatchService, never()).notifyAdminNotice(any(), any(), any());
+    }
+}

@@ -18,7 +18,10 @@ public enum NotificationDetailCode {
     POLICY_CHANGE(4, NotificationCategory.NOTICE, "공지사항"),
 
     // EVENT (5)
-    PROMOTION(5, NotificationCategory.EVENT, "이벤트");
+    PROMOTION(5, NotificationCategory.EVENT, "이벤트"),
+
+    // NOTICE (8)
+    DAILY_MESSAGE(8, NotificationCategory.NOTICE, "오늘의 알림");
 
     private final int code;
     private final NotificationCategory category;

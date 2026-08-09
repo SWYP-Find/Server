@@ -22,6 +22,13 @@ public interface BattleVoteRepository extends JpaRepository<BattleVote, Long> {
     @Query("SELECT v FROM BattleVote v LEFT JOIN FETCH v.postVoteOption WHERE v.battle.id = :battleId AND v.user.id = :userId")
     Optional<BattleVote> findByBattleIdAndUserIdWithOption(@Param("battleId") Long battleId, @Param("userId") Long userId);
 
+    @Query("SELECT v FROM BattleVote v JOIN FETCH v.battle LEFT JOIN FETCH v.postVoteOption " +
+            "WHERE v.user.id = :userId AND v.battle.id IN :battleIds")
+    List<BattleVote> findByUserIdAndBattleIdInWithPostVoteOption(
+            @Param("userId") Long userId,
+            @Param("battleIds") List<Long> battleIds
+    );
+
     Optional<BattleVote> findByBattleAndUser(Battle battle, User user);
 
     long countByBattle(Battle battle);

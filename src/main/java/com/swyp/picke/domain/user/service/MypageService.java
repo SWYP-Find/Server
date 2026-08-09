@@ -203,19 +203,27 @@ public class MypageService {
         lookupTargets.addAll(myPerspectives);
         Map<Long, Battle> battleMap = loadBattles(lookupTargets);
         Map<Long, BattleOption> optionMap = loadOptions(lookupTargets);
+        List<Long> commentedBattleIds = comments.stream()
+                .map(comment -> comment.getPerspective().getBattle().getId())
+                .distinct()
+                .toList();
+        Map<Long, BattleOption> commentOptionMap = voteQueryService.findPostVoteOptionsByBattleIds(
+                user.getId(), commentedBattleIds);
 
         Stream<ContentActivityListResponse.ContentActivityItem> commentItems = comments.stream()
                 .map(comment -> {
                     Perspective p = comment.getPerspective();
                     return toActivityItem(comment.getId().toString(), ActivityType.COMMENT, p,
-                            battleMap.get(p.getBattle().getId()), optionMap.get(p.getOption().getId()),
-                            comment.getContent(), comment.getCreatedAt(), myCharacterImageUrl);
+                            comment.getUser().getId(),
+                            battleMap.get(p.getBattle().getId()), commentOptionMap.get(p.getBattle().getId()),
+                            comment.getContent(), comment.getLikeCount(), comment.getCreatedAt(), myCharacterImageUrl);
                 });
 
         Stream<ContentActivityListResponse.ContentActivityItem> perspectiveItems = myPerspectives.stream()
                 .map(p -> toActivityItem(p.getId().toString(), ActivityType.PERSPECTIVE, p,
+                        p.getUser().getId(),
                         battleMap.get(p.getBattle().getId()), optionMap.get(p.getOption().getId()),
-                        p.getContent(), p.getCreatedAt(), myCharacterImageUrl));
+                        p.getContent(), p.getLikeCount(), p.getCreatedAt(), myCharacterImageUrl));
 
         List<ContentActivityListResponse.ContentActivityItem> items = Stream.concat(commentItems, perspectiveItems)
                 .sorted(Comparator.comparing(ContentActivityListResponse.ContentActivityItem::createdAt).reversed())
@@ -244,8 +252,9 @@ public class MypageService {
                     UserSummary perspectiveAuthor = userService.findSummaryById(p.getUser().getId());
                     String authorCharacterImageUrl = resolveCharacterImageUrl(perspectiveAuthor.characterType());
                     return toActivityItem(like.getId().toString(), ActivityType.LIKE, p,
+                            p.getUser().getId(),
                             battleMap.get(p.getBattle().getId()), optionMap.get(p.getOption().getId()),
-                            p.getContent(), like.getCreatedAt(), authorCharacterImageUrl);
+                            p.getContent(), p.getLikeCount(), like.getCreatedAt(), authorCharacterImageUrl);
                 })
                 .toList();
 
@@ -256,10 +265,11 @@ public class MypageService {
 
     private ContentActivityListResponse.ContentActivityItem toActivityItem(
             String activityId, ActivityType activityType, Perspective perspective,
-            Battle battle, BattleOption option, String content, LocalDateTime createdAt,
+            Long authorUserId,
+            Battle battle, BattleOption option, String content, int likeCount, LocalDateTime createdAt,
             String characterImageUrl) {
 
-        UserSummary author = userService.findSummaryById(perspective.getUser().getId());
+        UserSummary author = userService.findSummaryById(authorUserId);
         ContentActivityListResponse.AuthorInfo authorInfo = new ContentActivityListResponse.AuthorInfo(
                 author.userTag(),
                 author.nickname(),
@@ -279,7 +289,7 @@ public class MypageService {
                 voteSide,
                 optionTitle,
                 content,
-                perspective.getLikeCount(),
+                likeCount,
                 createdAt
         );
     }

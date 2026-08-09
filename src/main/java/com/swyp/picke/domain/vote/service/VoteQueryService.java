@@ -5,7 +5,9 @@ import com.swyp.picke.domain.user.enums.VoteSide;
 import com.swyp.picke.domain.vote.entity.BattleVote;
 import com.swyp.picke.domain.vote.repository.BattleVoteRepository;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -37,6 +39,20 @@ public class VoteQueryService {
             return battleVoteRepository.countByUserIdAndPreVoteOptionDisplayOrderNotAndPostVoteOptionIsNotNull(userId, 1);
         }
         return battleVoteRepository.countByUserIdAndPostVoteOptionIsNotNull(userId);
+    }
+
+    public Map<Long, BattleOption> findPostVoteOptionsByBattleIds(Long userId, List<Long> battleIds) {
+        if (battleIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return battleVoteRepository.findByUserIdAndBattleIdInWithPostVoteOption(userId, battleIds).stream()
+                .filter(vote -> vote.getPostVoteOption() != null)
+                .collect(Collectors.toMap(
+                        vote -> vote.getBattle().getId(),
+                        BattleVote::getPostVoteOption,
+                        (first, second) -> second
+                ));
     }
 
     public long countTotalParticipation(Long userId) {

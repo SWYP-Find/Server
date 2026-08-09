@@ -1,6 +1,9 @@
 package com.swyp.picke.domain.vote.service;
 
+import com.swyp.picke.domain.battle.entity.Battle;
+import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.user.enums.VoteSide;
+import com.swyp.picke.domain.vote.entity.BattleVote;
 import com.swyp.picke.domain.vote.repository.BattleVoteRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -10,12 +13,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
 
 @ExtendWith(MockitoExtension.class)
 class VoteQueryServiceTest {
@@ -79,5 +84,23 @@ class VoteQueryServiceTest {
 
         assertThat(count).isEqualTo(5L);
         verify(battleVoteRepository).countByUserId(1L);
+    }
+
+    @Test
+    @DisplayName("배틀별 사후 투표 선택지를 조회한다")
+    void findPostVoteOptionsByBattleIds_returns_post_vote_options() {
+        Battle battle = mock(Battle.class);
+        BattleOption postVoteOption = mock(BattleOption.class);
+        BattleVote vote = mock(BattleVote.class);
+
+        when(battle.getId()).thenReturn(10L);
+        when(vote.getBattle()).thenReturn(battle);
+        when(vote.getPostVoteOption()).thenReturn(postVoteOption);
+        when(battleVoteRepository.findByUserIdAndBattleIdInWithPostVoteOption(1L, List.of(10L)))
+                .thenReturn(List.of(vote));
+
+        Map<Long, BattleOption> result = voteQueryService.findPostVoteOptionsByBattleIds(1L, List.of(10L));
+
+        assertThat(result).containsEntry(10L, postVoteOption);
     }
 }

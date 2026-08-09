@@ -52,6 +52,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -223,22 +224,25 @@ class MypageServiceTest {
     }
 
     @Test
-    @DisplayName("COMMENT 타입으로 댓글활동을 반환한다")
-    void getContentActivities_returns_comments() {
+    @DisplayName("COMMENT 활동은 댓글의 작성자, 좋아요 수, 선택지, 작성 시간을 반환한다")
+    void getContentActivities_returns_comment_data() {
         User user = createUser(1L, "tag");
+        User perspectiveAuthor = createUser(2L, "perspective-author-tag");
         UserProfile profile = createProfile(user, "nick", CharacterType.OWL);
         Battle battle = createBattle("배틀");
         Long battleId = battle.getId();
         BattleOption option = createOption(battle, BattleOptionLabel.A);
         Long optionId = option.getId();
+        BattleOption commentOption = createOption(battle, BattleOptionLabel.B);
 
         Perspective perspective = Perspective.builder()
                 .battle(battle)
-                .user(user)
+                .user(perspectiveAuthor)
                 .option(option)
                 .content("관점 내용")
                 .build();
         ReflectionTestUtils.setField(perspective, "id", generateId());
+        ReflectionTestUtils.setField(perspective, "likeCount", 7);
 
         PerspectiveComment comment = PerspectiveComment.builder()
                 .perspective(perspective)
@@ -246,7 +250,9 @@ class MypageServiceTest {
                 .content("댓글")
                 .build();
         ReflectionTestUtils.setField(comment, "id", generateId());
-        ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.now());
+        ReflectionTestUtils.setField(comment, "likeCount", 2);
+        LocalDateTime commentCreatedAt = LocalDateTime.now();
+        ReflectionTestUtils.setField(comment, "createdAt", commentCreatedAt);
 
         when(userService.findCurrentUser()).thenReturn(user);
         when(userService.findUserProfile(1L)).thenReturn(profile);
@@ -256,6 +262,8 @@ class MypageServiceTest {
         when(perspectiveQueryService.countUserPerspectives(1L)).thenReturn(0L);
         when(battleQueryService.findBattlesByIds(List.of(battleId))).thenReturn(Map.of(battleId, battle));
         when(battleQueryService.findOptionsByIds(List.of(optionId))).thenReturn(Map.of(optionId, option));
+        when(voteQueryService.findPostVoteOptionsByBattleIds(1L, List.of(battleId)))
+                .thenReturn(Map.of(battleId, commentOption));
         when(userService.findSummaryById(1L)).thenReturn(new UserSummary("tag", "nick", "OWL"));
 
         ContentActivityListResponse response = mypageService.getContentActivities(null, null, ActivityType.COMMENT);
@@ -263,6 +271,14 @@ class MypageServiceTest {
         assertThat(response.items()).hasSize(1);
         assertThat(response.items().get(0).activityType()).isEqualTo(ActivityType.COMMENT);
         assertThat(response.items().get(0).content()).isEqualTo("댓글");
+        assertThat(response.items().get(0).author().userTag()).isEqualTo("tag");
+        assertThat(response.items().get(0).author().nickname()).isEqualTo("nick");
+        assertThat(response.items().get(0).likeCount()).isEqualTo(2);
+        assertThat(response.items().get(0).voteSide()).isEqualTo(VoteSide.CON);
+        assertThat(response.items().get(0).optionTitle()).isEqualTo("B");
+        assertThat(response.items().get(0).createdAt()).isEqualTo(commentCreatedAt);
+        verify(userService).findSummaryById(1L);
+        verify(userService, never()).findSummaryById(2L);
     }
 
     @Test

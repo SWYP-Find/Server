@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.swyp.picke.domain.tag.enums.TagType;
+import com.swyp.picke.domain.user.enums.PhilosopherType;
 
 import java.util.List;
 import java.util.Map;
@@ -84,6 +85,7 @@ public class BattleQueryService {
 
         return optionTags.stream()
                 .filter(bot -> bot.getTag().getType() == TagType.PHILOSOPHER)
+                .filter(bot -> PhilosopherType.fromLabel(bot.getTag().getName()) != null)
                 .collect(Collectors.groupingBy(
                         bot -> bot.getTag().getName(),
                         Collectors.counting()

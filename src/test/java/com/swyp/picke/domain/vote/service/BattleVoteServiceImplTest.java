@@ -5,14 +5,20 @@ import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.enums.BattleOptionLabel;
 import com.swyp.picke.domain.battle.enums.BattleStatus;
 import com.swyp.picke.domain.battle.repository.BattleOptionRepository;
+import com.swyp.picke.domain.battle.repository.BattleOptionTagRepository;
+import com.swyp.picke.domain.battle.entity.BattleOptionTag;
 import com.swyp.picke.domain.battle.service.BattleService;
+import com.swyp.picke.domain.tag.entity.Tag;
+import com.swyp.picke.domain.tag.enums.TagType;
 import com.swyp.picke.domain.user.dto.response.UserBattleStatusResponse;
 import com.swyp.picke.domain.user.entity.User;
+import com.swyp.picke.domain.user.entity.UserTendencyScore;
 import com.swyp.picke.domain.user.enums.CreditType;
 import com.swyp.picke.domain.user.enums.UserBattleStep;
 import com.swyp.picke.domain.user.enums.UserRole;
 import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.repository.UserRepository;
+import com.swyp.picke.domain.user.repository.UserTendencyScoreRepository;
 import com.swyp.picke.domain.user.service.CreditService;
 import com.swyp.picke.domain.user.service.UserBattleService;
 import com.swyp.picke.domain.vote.dto.request.VoteRequest;
@@ -20,6 +26,7 @@ import com.swyp.picke.domain.vote.dto.response.VoteResultResponse;
 import com.swyp.picke.domain.vote.entity.BattleVote;
 import com.swyp.picke.domain.vote.repository.BattleVoteRepository;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -48,7 +55,13 @@ class BattleVoteServiceImplTest {
     private BattleOptionRepository battleOptionRepository;
 
     @Mock
+    private BattleOptionTagRepository battleOptionTagRepository;
+
+    @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private UserTendencyScoreRepository userTendencyScoreRepository;
 
     @Mock
     private UserBattleService userBattleService;
@@ -178,6 +191,76 @@ class BattleVoteServiceImplTest {
         assertThat(response.voteId()).isEqualTo(300L);
         assertThat(response.status()).isEqualTo(UserBattleStep.COMPLETED);
         verify(userBattleService).upsertStep(user, battle, UserBattleStep.COMPLETED);
+    }
+
+    @Test
+    @DisplayName("대표 6개에 없는 반대 가치관도 실제 사후투표 입력 시 -로 계산한다")
+    void postVote_appliesNegativeValueTag() {
+        Battle battle = battle(100L, null);
+        User user = user(10L);
+        BattleOption option = option(202L, battle, BattleOptionLabel.B);
+        BattleVote vote = BattleVote.builder()
+                .user(user)
+                .battle(battle)
+                .preVoteOption(option)
+                .build();
+        UserTendencyScore score = UserTendencyScore.builder().user(user).build();
+        Tag structure = Tag.builder().name("구조").type(TagType.VALUE).build();
+        BattleOptionTag optionTag = BattleOptionTag.builder()
+                .battleOption(option)
+                .tag(structure)
+                .build();
+
+        when(battleService.findById(100L)).thenReturn(battle);
+        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+        when(battleOptionRepository.findById(202L)).thenReturn(Optional.of(option));
+        when(battleVoteRepository.findByBattleAndUser(battle, user)).thenReturn(Optional.of(vote));
+        when(userBattleService.getUserBattleStatus(user, battle))
+                .thenReturn(new UserBattleStatusResponse(100L, UserBattleStep.POST_VOTE));
+        when(userTendencyScoreRepository.findByUserId(10L)).thenReturn(Optional.of(score));
+        when(battleOptionTagRepository.findByBattleOption(option)).thenReturn(List.of(optionTag));
+
+        battleVoteService.postVote(100L, 10L, new VoteRequest(202L));
+
+        assertThat(score.getInner()).isEqualTo(-1);
+    }
+
+    @Test
+    @DisplayName("사후투표를 변경하면 기존 태그 점수를 제거하고 새 태그를 반영한다")
+    void postVote_replacesPreviousValueTagScore() {
+        Battle battle = battle(100L, null);
+        User user = user(10L);
+        BattleOption previousOption = option(201L, battle, BattleOptionLabel.A);
+        BattleOption newOption = option(202L, battle, BattleOptionLabel.B);
+        BattleVote vote = BattleVote.builder()
+                .user(user)
+                .battle(battle)
+                .preVoteOption(previousOption)
+                .postVoteOption(previousOption)
+                .build();
+        UserTendencyScore score = UserTendencyScore.builder().user(user).inner(1).build();
+        BattleOptionTag innerTag = BattleOptionTag.builder()
+                .battleOption(previousOption)
+                .tag(Tag.builder().name("내면").type(TagType.VALUE).build())
+                .build();
+        BattleOptionTag structureTag = BattleOptionTag.builder()
+                .battleOption(newOption)
+                .tag(Tag.builder().name("구조").type(TagType.VALUE).build())
+                .build();
+
+        when(battleService.findById(100L)).thenReturn(battle);
+        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+        when(battleOptionRepository.findById(202L)).thenReturn(Optional.of(newOption));
+        when(battleVoteRepository.findByBattleAndUser(battle, user)).thenReturn(Optional.of(vote));
+        when(userBattleService.getUserBattleStatus(user, battle))
+                .thenReturn(new UserBattleStatusResponse(100L, UserBattleStep.COMPLETED));
+        when(userTendencyScoreRepository.findByUserId(10L)).thenReturn(Optional.of(score));
+        when(battleOptionTagRepository.findByBattleOption(previousOption)).thenReturn(List.of(innerTag));
+        when(battleOptionTagRepository.findByBattleOption(newOption)).thenReturn(List.of(structureTag));
+
+        battleVoteService.postVote(100L, 10L, new VoteRequest(202L));
+
+        assertThat(score.getInner()).isEqualTo(-1);
     }
 
     private Battle battle(Long id, LocalDate targetDate) {

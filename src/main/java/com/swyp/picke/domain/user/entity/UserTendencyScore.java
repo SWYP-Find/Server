@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.user.entity;
 
+import com.swyp.picke.domain.user.enums.ValueAxis;
 import com.swyp.picke.global.common.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -56,5 +57,23 @@ public class UserTendencyScore extends BaseEntity {
         this.change = change;
         this.inner = inner;
         this.ideal = ideal;
+    }
+
+    public void applyValueTag(String tagName) {
+        applyValueTag(tagName, 1);
+    }
+
+    public void applyValueTag(String tagName, int multiplier) {
+        ValueAxis.resolve(tagName).ifPresent(value -> {
+            int direction = value.direction() * multiplier;
+            switch (value.axis()) {
+                case PRINCIPLE -> principle += direction;
+                case REASON -> reason += direction;
+                case INDIVIDUAL -> individual += direction;
+                case CHANGE -> change += direction;
+                case INNER -> inner += direction;
+                case IDEAL -> ideal += direction;
+            }
+        });
     }
 }

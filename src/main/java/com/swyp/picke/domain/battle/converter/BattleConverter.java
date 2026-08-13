@@ -8,6 +8,7 @@ import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.enums.BattleCreatorType;
 import com.swyp.picke.domain.tag.entity.Tag;
 import com.swyp.picke.domain.tag.enums.TagType;
+import com.swyp.picke.domain.user.enums.PhilosopherType;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.enums.UserBattleStep;
 import com.swyp.picke.domain.user.enums.VoteSide;
@@ -165,6 +166,8 @@ public class BattleConverter {
         if (tags == null) return List.of();
         return tags.stream()
                 .filter(tag -> targetType == null || tag.getType() == targetType)
+                .filter(tag -> tag.getType() != TagType.PHILOSOPHER
+                        || PhilosopherType.fromLabel(tag.getName()) != null)
                 .map(tag -> new BattleTagResponse(tag.getId(), tag.getName(), tag.getType()))
                 .toList();
     }

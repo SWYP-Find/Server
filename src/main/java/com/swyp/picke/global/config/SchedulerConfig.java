@@ -1,5 +1,7 @@
 package com.swyp.picke.global.config;
 
+import java.time.Clock;
+import java.time.ZoneId;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -19,5 +21,10 @@ public class SchedulerConfig {
         scheduler.setPoolSize(2);
         scheduler.setThreadNamePrefix("credit-scheduler-");
         return scheduler;
+    }
+
+    @Bean
+    public Clock clock() {
+        return Clock.system(ZoneId.of("Asia/Seoul"));
     }
 }

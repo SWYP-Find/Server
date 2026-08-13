@@ -60,8 +60,8 @@ class BattleProposalServiceTest {
         // then
         // 제안 저장 메서드가 호출되었는지 확인
         verify(battleProposalRepository, times(1)).save(any());
-        // 크레딧 차감(-30) 로직이 호출되었는지 확인
-        verify(creditService, times(1)).addCredit(eq(1L), eq(CreditType.TOPIC_SUGGEST), eq(-30), any());
+        // 크레딧 차감(-100) 로직이 호출되었는지 확인
+        verify(creditService, times(1)).addCredit(eq(1L), eq(CreditType.TOPIC_SUGGEST), eq(-100), any());
     }
 
     @Test

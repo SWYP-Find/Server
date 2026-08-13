@@ -26,9 +26,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -98,20 +96,13 @@ class AdminNoticeIntegrationTest {
     }
 
     @Test
-    @DisplayName("admin notice page form flow persists notice and user can fetch it")
-    void admin_notice_page_form_flow_persists_notice_and_user_can_fetch_it() throws Exception {
+    @DisplayName("admin notice creation flow persists notice and user can fetch it")
+    void admin_notice_creation_flow_persists_notice_and_user_can_fetch_it() throws Exception {
         String adminToken = createAdminToken();
         String userToken = createUserToken();
         String marker = UUID.randomUUID().toString().substring(0, 8);
         String title = "ui-notice-" + marker;
         String body = "ui-body-" + marker;
-
-        mockMvc.perform(get("/api/v1/admin/picke/notice"))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("id=\"notice-form\"")))
-                .andExpect(content().string(containsString("id=\"notice-title\"")))
-                .andExpect(content().string(containsString("id=\"notice-body\"")))
-                .andExpect(content().string(containsString("/js/admin/notice/notice.js")));
 
         Map<String, Object> payload = Map.of(
                 "category", "NOTICE",

@@ -12,6 +12,7 @@ import com.swyp.picke.domain.tag.dto.response.TagListResponse;
 import com.swyp.picke.domain.tag.entity.Tag;
 import com.swyp.picke.domain.tag.enums.TagType;
 import com.swyp.picke.domain.tag.repository.TagRepository;
+import com.swyp.picke.domain.user.enums.PhilosopherType;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -46,13 +47,16 @@ public class TagServiceImpl implements TagService {
         List<Tag> tags = (type != null)
                 ? tagRepository.findAllByTypeAndDeletedAtIsNull(type)
                 : tagRepository.findAllByDeletedAtIsNull();
-        return TagConverter.toListResponse(tags);
+        return TagConverter.toListResponse(tags.stream()
+                .filter(this::isSupportedPhilosopherTag)
+                .toList());
     }
 
     @Override
     @Transactional
     @PreAuthorize("hasRole('ADMIN')")
     public TagResponse createTag(TagRequest request) {
+        validatePhilosopherTag(request.name(), request.type());
         validateDuplicateTag(request.name(), request.type());
 
         Tag newTag = TagConverter.toEntity(request);
@@ -66,6 +70,7 @@ public class TagServiceImpl implements TagService {
     @PreAuthorize("hasRole('ADMIN')")
     public TagResponse updateTag(Long tagId, TagRequest request) {
         Tag tag = findTagById(tagId);
+        validatePhilosopherTag(request.name(), request.type());
         boolean typeChanged = tag.getType() != request.type();
 
         if (!tag.getName().equals(request.name()) || tag.getType() != request.type()) {
@@ -103,6 +108,17 @@ public class TagServiceImpl implements TagService {
         if (tagRepository.existsByNameAndTypeAndDeletedAtIsNull(name, type)) {
             throw new CustomException(ErrorCode.TAG_DUPLICATED);
         }
+    }
+
+    private void validatePhilosopherTag(String name, TagType type) {
+        if (type == TagType.PHILOSOPHER && PhilosopherType.fromLabel(name) == null) {
+            throw new CustomException(ErrorCode.BAD_REQUEST);
+        }
+    }
+
+    private boolean isSupportedPhilosopherTag(Tag tag) {
+        return tag.getType() != TagType.PHILOSOPHER
+                || PhilosopherType.fromLabel(tag.getName()) != null;
     }
 
     private boolean isTagInUse(Tag tag) {

@@ -5,9 +5,9 @@ import com.swyp.picke.domain.notification.enums.NotificationDetailCode;
 import com.swyp.picke.domain.notification.repository.NotificationScheduleRepository;
 import com.swyp.picke.domain.notification.service.NotificationDispatchService;
 import com.swyp.picke.domain.notification.service.NotificationService;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.ZoneId;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,17 +24,16 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class NotificationScheduleDispatcher {
 
-    private static final ZoneId SEOUL_ZONE = ZoneId.of("Asia/Seoul");
-
     private final NotificationScheduleRepository notificationScheduleRepository;
     private final NotificationService notificationService;
     private final NotificationDispatchService notificationDispatchService;
+    private final Clock clock;
 
     @Scheduled(cron = "0 * * * * *", zone = "Asia/Seoul")
     @Transactional
     public void dispatchDueSchedules() {
-        LocalTime now = LocalTime.now(SEOUL_ZONE);
-        LocalDate today = LocalDate.now(SEOUL_ZONE);
+        LocalTime now = LocalTime.now(clock);
+        LocalDate today = LocalDate.now(clock);
 
         List<NotificationSchedule> dueSchedules = notificationScheduleRepository.findAllByEnabledTrue().stream()
                 .filter(schedule -> schedule.isDue(now, today))

@@ -41,6 +41,12 @@ class CreditServiceTest {
     @Mock
     private UserService userService;
 
+    @Mock
+    private com.swyp.picke.domain.notification.service.NotificationService notificationService;
+
+    @Mock
+    private com.swyp.picke.domain.battle.repository.BattleRepository battleRepository;
+
     @InjectMocks
     private CreditService creditService;
 

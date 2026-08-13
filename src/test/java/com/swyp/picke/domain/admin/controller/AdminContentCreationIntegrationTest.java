@@ -99,7 +99,7 @@ class AdminContentCreationIntegrationTest {
         LocalDate targetDate = LocalDate.now();
 
         Tag category = createTag("battle-category", TagType.CATEGORY);
-        Tag philosopher = createTag("battle-philosopher", TagType.PHILOSOPHER);
+        Tag philosopher = createTag("소크라테스", TagType.PHILOSOPHER);
         Tag value = createTag("battle-value", TagType.VALUE);
 
         Map<String, Object> payload = Map.of(
@@ -395,6 +395,9 @@ class AdminContentCreationIntegrationTest {
     }
 
     private Tag createTag(String prefix, TagType type) {
+        if (type == TagType.PHILOSOPHER) {
+            return tagRepository.save(Tag.builder().name(prefix).type(type).build());
+        }
         String normalizedPrefix = prefix.length() > 10 ? prefix.substring(0, 10) : prefix;
         return tagRepository.save(
                 Tag.builder()

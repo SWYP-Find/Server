@@ -15,6 +15,7 @@ import com.swyp.picke.domain.battle.enums.BattleStatus;
 import com.swyp.picke.domain.battle.util.BattleOptionDisplay;
 import com.swyp.picke.domain.user.dto.response.UserBattleStatusResponse;
 import com.swyp.picke.domain.user.enums.UserBattleStep;
+import com.swyp.picke.domain.user.enums.PhilosopherType;
 import com.swyp.picke.domain.battle.repository.BattleOptionRepository;
 import com.swyp.picke.domain.battle.repository.BattleOptionTagRepository;
 import com.swyp.picke.domain.battle.repository.BattleRepository;
@@ -649,6 +650,8 @@ public class BattleServiceImpl implements BattleService {
         tagRepository.findAllById(tagIds).stream()
                 .filter(tag -> tag.getDeletedAt() == null)
                 .filter(tag -> tag.getType() == TagType.PHILOSOPHER || tag.getType() == TagType.VALUE)
+                .filter(tag -> tag.getType() != TagType.PHILOSOPHER
+                        || PhilosopherType.fromLabel(tag.getName()) != null)
                 .forEach(tag -> battleOptionTagRepository.save(
                         BattleOptionTag.builder().battleOption(option).tag(tag).build()));
     }

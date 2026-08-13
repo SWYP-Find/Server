@@ -25,6 +25,17 @@ spring:
       credentials:
         location: file:/tmp/dummy.json
 
+firebase:
+  credentials:
+    location: src/test/resources/firebase-test-credentials.json
+
+admob:
+  app-id: dummy
+  reward:
+    unit-id:
+      ios: dummy
+      android: dummy
+
 oauth:
   kakao:
     client-id: dummy
@@ -32,6 +43,11 @@ oauth:
   google:
     client-id: dummy
     client-secret: dummy
+  apple:
+    team-id: dummy
+    client-id: dummy
+    key-id: dummy
+    private-key: dummy
 
 openai:
   api-key: dummy

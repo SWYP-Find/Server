@@ -3,12 +3,16 @@ package com.swyp.picke.domain.vote.service;
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.repository.BattleOptionRepository;
+import com.swyp.picke.domain.battle.repository.BattleOptionTagRepository;
 import com.swyp.picke.domain.battle.service.BattleService;
+import com.swyp.picke.domain.tag.enums.TagType;
 import com.swyp.picke.domain.user.dto.response.UserBattleStatusResponse;
 import com.swyp.picke.domain.user.entity.User;
+import com.swyp.picke.domain.user.entity.UserTendencyScore;
 import com.swyp.picke.domain.user.enums.CreditType;
 import com.swyp.picke.domain.user.enums.UserBattleStep;
 import com.swyp.picke.domain.user.repository.UserRepository;
+import com.swyp.picke.domain.user.repository.UserTendencyScoreRepository;
 import com.swyp.picke.domain.user.service.CreditService;
 import com.swyp.picke.domain.user.service.UserBattleService;
 import com.swyp.picke.domain.vote.converter.VoteConverter;
@@ -43,7 +47,9 @@ public class BattleVoteServiceImpl implements BattleVoteService {
     private final BattleVoteRepository battleVoteRepository;
     private final BattleService battleService;
     private final BattleOptionRepository battleOptionRepository;
+    private final BattleOptionTagRepository battleOptionTagRepository;
     private final UserRepository userRepository;
+    private final UserTendencyScoreRepository userTendencyScoreRepository;
     private final UserBattleService userBattleService;
     private final CreditService creditService;
     private final ApplicationEventPublisher eventPublisher;
@@ -165,11 +171,25 @@ public class BattleVoteServiceImpl implements BattleVoteService {
             throw new CustomException(ErrorCode.PRE_VOTE_REQUIRED);
         }
 
+        BattleOption previousOption = vote.getPostVoteOption();
         vote.doPostVote(option);
+        userTendencyScoreRepository.findByUserId(userId).ifPresent(score -> {
+            if (previousOption != null) {
+                applyValueTags(score, previousOption, -1);
+            }
+            applyValueTags(score, option, 1);
+        });
         userBattleService.upsertStep(user, battle, UserBattleStep.COMPLETED);
         eventPublisher.publishEvent(new VoteUpdatedEvent(battleId));
 
         return new VoteResultResponse(vote.getId(), UserBattleStep.COMPLETED);
+    }
+
+    private void applyValueTags(UserTendencyScore score, BattleOption option, int multiplier) {
+        battleOptionTagRepository.findByBattleOption(option).stream()
+                .map(optionTag -> optionTag.getTag())
+                .filter(tag -> tag.getType() == TagType.VALUE)
+                .forEach(tag -> score.applyValueTag(tag.getName(), multiplier));
     }
 
     @Override

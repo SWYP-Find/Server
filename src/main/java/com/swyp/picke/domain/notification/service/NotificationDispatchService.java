@@ -95,6 +95,17 @@ public class NotificationDispatchService {
     }
 
     /**
+     * 관리자가 특정 유저에게 알림 설정(ON/OFF) 체크 없이 즉시 테스트 푸시를 발송한다.
+     */
+    public void sendTestPush(Long userId, String title, String body) {
+        Map<String, String> data = Map.of("type", "TEST");
+
+        for (UserDevice device : userDeviceRepository.findAllByUserId(userId)) {
+            sendPush(device, title, body, data);
+        }
+    }
+
+    /**
      * 유저의 알림 ON/OFF 설정을 확인한다. 설정이 없는 경우(레거시 유저 등) 기본값은 true.
      */
     private boolean isPushEnabled(Long userId, Predicate<UserSettings> condition) {

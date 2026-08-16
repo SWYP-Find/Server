@@ -2,9 +2,9 @@ name: Java CI for Picke
 
 on:
   push:
-    branches: [ "develop", "main" ]
+    branches: [ "dev", "main" ]
   pull_request:
-    branches: [ "develop", "main" ]
+    branches: [ "dev", "main" ]
 
 jobs:
   build:
@@ -20,6 +20,9 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           cache: gradle # 1. 빌드 속도를 획기적으로 줄이기 위해 그래들 캐시 적용
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew

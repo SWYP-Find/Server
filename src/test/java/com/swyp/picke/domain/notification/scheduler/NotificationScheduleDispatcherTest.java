@@ -12,17 +12,21 @@ import com.swyp.picke.domain.notification.enums.NotificationDetailCode;
 import com.swyp.picke.domain.notification.repository.NotificationScheduleRepository;
 import com.swyp.picke.domain.notification.service.NotificationDispatchService;
 import com.swyp.picke.domain.notification.service.NotificationService;
+import java.time.Clock;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationScheduleDispatcherTest {
+
+    private static final ZoneId SEOUL_ZONE = ZoneId.of("Asia/Seoul");
 
     @Mock
     private NotificationScheduleRepository notificationScheduleRepository;
@@ -33,13 +37,21 @@ class NotificationScheduleDispatcherTest {
     @Mock
     private NotificationDispatchService notificationDispatchService;
 
-    @InjectMocks
     private NotificationScheduleDispatcher notificationScheduleDispatcher;
+
+    @BeforeEach
+    void setUp() {
+        Clock fixedClock = Clock.fixed(
+                LocalTime.of(9, 0).atDate(java.time.LocalDate.now(SEOUL_ZONE)).atZone(SEOUL_ZONE).toInstant(),
+                SEOUL_ZONE);
+        notificationScheduleDispatcher = new NotificationScheduleDispatcher(
+                notificationScheduleRepository, notificationService, notificationDispatchService, fixedClock);
+    }
 
     @Test
     @DisplayName("현재 시각과 일치하는 활성 예약만 발송하고 발송일을 기록한다")
     void dispatchDueSchedules_sendsOnlyMatchingEnabledSchedules() {
-        LocalTime now = LocalTime.now();
+        LocalTime now = LocalTime.of(9, 0);
         NotificationSchedule due = NotificationSchedule.builder()
                 .title("오늘의 질문")
                 .subtitle("지금 확인해보세요")

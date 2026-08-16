@@ -1,10 +1,12 @@
 package com.swyp.picke.domain.admin.controller;
 
 import com.swyp.picke.domain.admin.dto.notification.request.AdminNoticeCreateRequest;
+import com.swyp.picke.domain.admin.dto.notification.request.AdminNotificationTestRequest;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeDetailResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeListResponse;
 import com.swyp.picke.domain.admin.service.AdminNotificationService;
 import com.swyp.picke.domain.notification.enums.NotificationCategory;
+import com.swyp.picke.domain.notification.service.NotificationDispatchService;
 import com.swyp.picke.global.common.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminNotificationController {
 
     private final AdminNotificationService adminNotificationService;
+    private final NotificationDispatchService notificationDispatchService;
 
     @Operation(summary = "공지사항 작성")
     @PostMapping
@@ -50,5 +53,14 @@ public class AdminNotificationController {
     @GetMapping("/{noticeId}")
     public ApiResponse<AdminNoticeDetailResponse> getNoticeDetail(@PathVariable Long noticeId) {
         return ApiResponse.onSuccess(adminNotificationService.getNoticeDetail(noticeId));
+    }
+
+    @Operation(summary = "푸시 알림 발송 테스트", description = "특정 유저의 등록된 디바이스로 알림 설정(ON/OFF) 무관하게 즉시 테스트 푸시를 발송한다.")
+    @PostMapping("/test")
+    public ApiResponse<Void> sendTestPush(
+            @RequestBody @Valid AdminNotificationTestRequest request
+    ) {
+        notificationDispatchService.sendTestPush(request.userId(), request.title(), request.body());
+        return ApiResponse.onSuccess(null);
     }
 }

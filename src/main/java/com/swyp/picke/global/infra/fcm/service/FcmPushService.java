@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @Slf4j
@@ -23,9 +24,13 @@ public class FcmPushService {
      * iOS는 FCM을 거치지 않고 ApnsPushService가 APNs로 직접 발송한다.
      */
     public void send(UserDevice device, String title, String body, Map<String, String> data) {
+        Map<String, String> payload = new HashMap<>(data);
+        payload.put("title", title);
+        payload.put("body", body);
+
         Message message = Message.builder()
                 .setToken(device.getFcmToken())
-                .putAllData(data)
+                .putAllData(payload)
                 .setAndroidConfig(AndroidConfig.builder()
                         .setPriority(AndroidConfig.Priority.HIGH)
                         .build())

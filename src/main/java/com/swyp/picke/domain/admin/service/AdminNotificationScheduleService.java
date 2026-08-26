@@ -1,11 +1,13 @@
 package com.swyp.picke.domain.admin.service;
 
 import com.swyp.picke.domain.admin.dto.notification.request.AdminNotificationScheduleRequest;
+import com.swyp.picke.domain.admin.dto.notification.request.AdminNotificationScheduleTestRequest;
 import com.swyp.picke.domain.admin.dto.notification.request.AdminNotificationScheduleToggleRequest;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNotificationScheduleListResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNotificationScheduleResponse;
 import com.swyp.picke.domain.notification.entity.NotificationSchedule;
 import com.swyp.picke.domain.notification.repository.NotificationScheduleRepository;
+import com.swyp.picke.domain.notification.service.NotificationDispatchService;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdminNotificationScheduleService {
 
     private final NotificationScheduleRepository notificationScheduleRepository;
+    private final NotificationDispatchService notificationDispatchService;
 
     @Transactional
     public AdminNotificationScheduleResponse create(AdminNotificationScheduleRequest request) {
@@ -55,6 +58,11 @@ public class AdminNotificationScheduleService {
         NotificationSchedule schedule = getExistingSchedule(scheduleId);
         schedule.changeEnabled(request.enabled());
         return toResponse(schedule);
+    }
+
+    public void sendTest(Long scheduleId, AdminNotificationScheduleTestRequest request) {
+        NotificationSchedule schedule = getExistingSchedule(scheduleId);
+        notificationDispatchService.sendTestPush(request.userId(), schedule.getTitle(), schedule.getSubtitle());
     }
 
     @Transactional

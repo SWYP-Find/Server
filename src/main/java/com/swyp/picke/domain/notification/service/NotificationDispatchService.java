@@ -1,8 +1,10 @@
 package com.swyp.picke.domain.notification.service;
 
+import com.swyp.picke.domain.notification.entity.NotificationDeliveryResult;
 import com.swyp.picke.domain.notification.entity.UserDevice;
 import com.swyp.picke.domain.notification.enums.DevicePlatform;
 import com.swyp.picke.domain.notification.enums.NotificationDetailCode;
+import com.swyp.picke.domain.notification.repository.NotificationDeliveryResultRepository;
 import com.swyp.picke.domain.notification.repository.UserDeviceRepository;
 import com.swyp.picke.domain.user.entity.UserSettings;
 import com.swyp.picke.domain.user.repository.UserSettingsRepository;
@@ -10,6 +12,7 @@ import com.swyp.picke.global.infra.apns.service.ApnsPushService;
 import com.swyp.picke.global.infra.fcm.service.FcmPushService;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +30,7 @@ public class NotificationDispatchService {
     private final NotificationService notificationService;
     private final UserDeviceRepository userDeviceRepository;
     private final UserSettingsRepository userSettingsRepository;
+    private final NotificationDeliveryResultRepository notificationDeliveryResultRepository;
     private final FcmPushService fcmPushService;
     private final ApnsPushService apnsPushService;
 
@@ -83,15 +87,33 @@ public class NotificationDispatchService {
     }
 
     /**
-     * 관리자가 등록한 공지/이벤트 알림에 대해 '이벤트 및 소식 알림' 설정이 ON인 사용자에게 푸시를 발송한다.
+     * 관리자가 등록한 공지/이벤트 알림에 대해 '이벤트 및 소식 알림' 설정이 ON인 사용자에게 푸시를 발송하고,
+     * 발송 결과(성공/실패 건수)를 {@link NotificationDeliveryResult}에 기록한다.
      */
-    public void notifyAdminNotice(NotificationDetailCode detailCode, String title, String body) {
+    public void notifyAdminNotice(Long notificationId, NotificationDetailCode detailCode, String title, String body) {
         Map<String, String> data = Map.of("type", detailCode.getCategory().name());
 
         List<Long> userIds = userSettingsRepository.findUserIdsByMarketingEventEnabledTrue();
-        for (UserDevice device : userDeviceRepository.findAllByUserIdIn(userIds)) {
-            sendPush(device, title, body, data);
-        }
+        List<UserDevice> devices = userDeviceRepository.findAllByUserIdIn(userIds);
+
+        notificationDeliveryResultRepository.save(
+                NotificationDeliveryResult.builder()
+                        .notificationId(notificationId)
+                        .targetCount(devices.size())
+                        .build()
+        );
+
+        List<CompletableFuture<Boolean>> results = devices.stream()
+                .map(device -> sendPush(device, title, body, data))
+                .toList();
+
+        CompletableFuture.allOf(results.toArray(new CompletableFuture[0]))
+                .whenComplete((ignored, throwable) -> {
+                    long successCount = results.stream().filter(CompletableFuture::join).count();
+                    long failureCount = results.size() - successCount;
+                    notificationDeliveryResultRepository.updateResult(
+                            notificationId, (int) successCount, (int) failureCount);
+                });
     }
 
     /**
@@ -128,11 +150,10 @@ public class NotificationDispatchService {
         }
     }
 
-    private void sendPush(UserDevice device, String title, String body, Map<String, String> data) {
+    private CompletableFuture<Boolean> sendPush(UserDevice device, String title, String body, Map<String, String> data) {
         if (device.getPlatform() == DevicePlatform.IOS) {
-            apnsPushService.send(device, title, body, data);
-        } else {
-            fcmPushService.send(device, title, body, data);
+            return apnsPushService.send(device, title, body, data);
         }
+        return fcmPushService.send(device, title, body, data);
     }
 }

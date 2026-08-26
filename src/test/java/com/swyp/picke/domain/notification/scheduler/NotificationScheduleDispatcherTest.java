@@ -7,7 +7,9 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.swyp.picke.domain.notification.entity.Notification;
 import com.swyp.picke.domain.notification.entity.NotificationSchedule;
+import com.swyp.picke.domain.notification.enums.NotificationCategory;
 import com.swyp.picke.domain.notification.enums.NotificationDetailCode;
 import com.swyp.picke.domain.notification.repository.NotificationScheduleRepository;
 import com.swyp.picke.domain.notification.service.NotificationDispatchService;
@@ -22,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationScheduleDispatcherTest {
@@ -66,14 +69,26 @@ class NotificationScheduleDispatcherTest {
                 .build();
         when(notificationScheduleRepository.findAllByEnabledTrue()).thenReturn(List.of(due, notDue));
 
+        Notification notification = Notification.builder()
+                .user(null)
+                .category(NotificationCategory.CONTENT)
+                .detailCode(NotificationDetailCode.DAILY_MESSAGE)
+                .title("오늘의 질문")
+                .body("지금 확인해보세요")
+                .build();
+        ReflectionTestUtils.setField(notification, "id", 1L);
+        when(notificationService.createBroadcastNotification(
+                eq(NotificationDetailCode.DAILY_MESSAGE), eq("오늘의 질문"), eq("지금 확인해보세요"), any()))
+                .thenReturn(notification);
+
         notificationScheduleDispatcher.dispatchDueSchedules();
 
         verify(notificationService, times(1)).createBroadcastNotification(
                 eq(NotificationDetailCode.DAILY_MESSAGE), eq("오늘의 질문"), eq("지금 확인해보세요"), any());
         verify(notificationDispatchService, times(1)).notifyAdminNotice(
-                eq(NotificationDetailCode.DAILY_MESSAGE), eq("오늘의 질문"), eq("지금 확인해보세요"));
+                eq(1L), eq(NotificationDetailCode.DAILY_MESSAGE), eq("오늘의 질문"), eq("지금 확인해보세요"));
         verify(notificationDispatchService, never()).notifyAdminNotice(
-                eq(NotificationDetailCode.DAILY_MESSAGE), eq("다른 알림"), any());
+                any(), eq(NotificationDetailCode.DAILY_MESSAGE), eq("다른 알림"), any());
     }
 
     @Test
@@ -83,6 +98,6 @@ class NotificationScheduleDispatcherTest {
 
         notificationScheduleDispatcher.dispatchDueSchedules();
 
-        verify(notificationDispatchService, never()).notifyAdminNotice(any(), any(), any());
+        verify(notificationDispatchService, never()).notifyAdminNotice(any(), any(), any(), any());
     }
 }

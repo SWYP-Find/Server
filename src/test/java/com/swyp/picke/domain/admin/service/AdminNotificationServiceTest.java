@@ -7,8 +7,10 @@ import static org.mockito.Mockito.when;
 import com.swyp.picke.domain.admin.dto.notification.request.AdminNoticeUpdateRequest;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeDetailResponse;
 import com.swyp.picke.domain.notification.entity.Notification;
+import com.swyp.picke.domain.notification.entity.NotificationDeliveryResult;
 import com.swyp.picke.domain.notification.enums.NotificationCategory;
 import com.swyp.picke.domain.notification.enums.NotificationDetailCode;
+import com.swyp.picke.domain.notification.repository.NotificationDeliveryResultRepository;
 import com.swyp.picke.domain.notification.repository.NotificationRepository;
 import com.swyp.picke.domain.notification.service.NotificationDispatchService;
 import com.swyp.picke.domain.notification.service.NotificationService;
@@ -32,6 +34,9 @@ class AdminNotificationServiceTest {
 
     @Mock
     private NotificationRepository notificationRepository;
+
+    @Mock
+    private NotificationDeliveryResultRepository notificationDeliveryResultRepository;
 
     @InjectMocks
     private AdminNotificationService adminNotificationService;
@@ -86,6 +91,47 @@ class AdminNotificationServiceTest {
         when(notificationRepository.findByIdAndDeletedAtIsNull(999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> adminNotificationService.deleteNotice(999L))
+                .isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("공지사항 발송 결과를 조회한다")
+    void getDeliveryResult_returnsResult() {
+        Notification notification = newNotice("제목", "본문");
+        when(notificationRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(notification));
+        NotificationDeliveryResult deliveryResult = NotificationDeliveryResult.builder()
+                .notificationId(1L)
+                .targetCount(10)
+                .build();
+        when(notificationDeliveryResultRepository.findByNotificationId(1L))
+                .thenReturn(Optional.of(deliveryResult));
+
+        var response = adminNotificationService.getDeliveryResult(1L);
+
+        assertThat(response.notificationId()).isEqualTo(1L);
+        assertThat(response.targetCount()).isEqualTo(10);
+        assertThat(response.successCount()).isEqualTo(0);
+        assertThat(response.failureCount()).isEqualTo(0);
+        assertThat(response.pending()).isTrue();
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 공지사항의 발송 결과를 조회하면 예외를 던진다")
+    void getDeliveryResult_throws_whenNoticeNotFound() {
+        when(notificationRepository.findByIdAndDeletedAtIsNull(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> adminNotificationService.getDeliveryResult(999L))
+                .isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("발송 결과가 아직 집계되지 않은 공지사항을 조회하면 예외를 던진다")
+    void getDeliveryResult_throws_whenResultNotFound() {
+        Notification notification = newNotice("제목", "본문");
+        when(notificationRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(notification));
+        when(notificationDeliveryResultRepository.findByNotificationId(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> adminNotificationService.getDeliveryResult(1L))
                 .isInstanceOf(CustomException.class);
     }
 }

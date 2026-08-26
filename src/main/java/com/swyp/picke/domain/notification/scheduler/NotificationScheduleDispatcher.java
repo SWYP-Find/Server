@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.notification.scheduler;
 
+import com.swyp.picke.domain.notification.entity.Notification;
 import com.swyp.picke.domain.notification.entity.NotificationSchedule;
 import com.swyp.picke.domain.notification.enums.NotificationDetailCode;
 import com.swyp.picke.domain.notification.repository.NotificationScheduleRepository;
@@ -40,10 +41,10 @@ public class NotificationScheduleDispatcher {
                 .toList();
 
         for (NotificationSchedule schedule : dueSchedules) {
-            notificationService.createBroadcastNotification(
+            Notification notification = notificationService.createBroadcastNotification(
                     NotificationDetailCode.DAILY_MESSAGE, schedule.getTitle(), schedule.getSubtitle(), null);
             notificationDispatchService.notifyAdminNotice(
-                    NotificationDetailCode.DAILY_MESSAGE, schedule.getTitle(), schedule.getSubtitle());
+                    notification.getId(), NotificationDetailCode.DAILY_MESSAGE, schedule.getTitle(), schedule.getSubtitle());
             schedule.markSent(today);
             log.info("[NotificationScheduleDispatcher] sent scheduleId={}, title={}", schedule.getId(), schedule.getTitle());
         }

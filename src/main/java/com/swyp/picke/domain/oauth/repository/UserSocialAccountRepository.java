@@ -4,6 +4,7 @@ import com.swyp.picke.domain.oauth.entity.UserSocialAccount;
 import com.swyp.picke.domain.user.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface UserSocialAccountRepository extends JpaRepository<UserSocialAccount, Long> {
@@ -14,4 +15,8 @@ public interface UserSocialAccountRepository extends JpaRepository<UserSocialAcc
     Optional<UserSocialAccount> findByUser(User user);
 
     void deleteByUser(User user);
+
+    List<UserSocialAccount> findByProviderEmailContaining(String keyword);
+
+    List<UserSocialAccount> findByUser_IdIn(List<Long> userIds);
 }

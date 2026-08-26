@@ -334,10 +334,231 @@
 
 ---
 
-## 6. 에러 코드
+## 6. 관리자 API
+
+모든 API는 `ROLE_ADMIN` 권한을 가진 계정만 호출 가능합니다 (`Authorization: Bearer {access_token}`, 403 시 `COMMON_403` 등 공통 권한 에러).
+
+### 6.1 공지/이벤트 (`/api/v1/admin/notices`)
+
+즉시 발송되는 공지사항/이벤트 알림을 관리합니다.
+
+| Method | Path | 설명 |
+|---|---|---|
+| `POST` | `/api/v1/admin/notices` | 공지사항/이벤트 작성 (즉시 전체 발송) |
+| `GET` | `/api/v1/admin/notices/options` | 공지 작성 시 선택 가능한 `category` 목록 조회 |
+| `GET` | `/api/v1/admin/notices/target-count` | 지금 등록하면 몇 대의 디바이스에 발송되는지 미리 조회 |
+| `GET` | `/api/v1/admin/notices` | 공지 목록 조회 (`category`, `page`, `size` 쿼리) |
+| `GET` | `/api/v1/admin/notices/{noticeId}` | 공지 상세 조회 |
+| `PUT` | `/api/v1/admin/notices/{noticeId}` | 공지 수정 (제목/본문) |
+| `DELETE` | `/api/v1/admin/notices/{noticeId}` | 공지 삭제 |
+| `GET` | `/api/v1/admin/notices/{noticeId}/delivery-result` | 발송 결과 조회 (대상/성공/실패 건수) |
+| `POST` | `/api/v1/admin/notices/test` | 특정 유저 대상 테스트 푸시 발송 (알림 설정 ON/OFF 무관) |
+
+**`POST /api/v1/admin/notices` 요청 바디**
+
+```json
+{
+  "category": "NOTICE",
+  "title": "서비스 점검 안내",
+  "body": "8/30 02:00~04:00 점검이 진행됩니다."
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `category` | `string` | Y | `CONTENT` \| `NOTICE` \| `EVENT` |
+| `title` | `string` | Y | 알림 제목 |
+| `body` | `string` | Y | 알림 본문 |
+
+응답은 `AdminNoticeDetailResponse` (`notificationId`, `category`, `detailCode`, `title`, `body`, `referenceId`, `createdAt`).
+
+**`GET /api/v1/admin/notices/options`**
+
+공지 작성 폼의 카테고리 선택지를 서버 enum 기준으로 내려줍니다. `ALL`은 목록 조회 필터용이라 작성 옵션에는 포함되지 않습니다.
+
+성공 응답 `200 OK`:
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "categories": ["CONTENT", "NOTICE", "EVENT"]
+  },
+  "error": null
+}
+```
+
+**`GET /api/v1/admin/notices/target-count`**
+
+`NOTICE`/`EVENT` 공지를 지금 등록하면 몇 대의 디바이스에 발송되는지 미리 조회합니다. `notifyAdminNotice`가 사용하는 것과 동일하게 '이벤트 및 소식 알림' 설정이 ON인 유저의 등록된 디바이스 수 기준입니다. `CONTENT` 카테고리 공지는 애초에 이 대상자 산정을 타지 않으므로 참고용으로만 사용하세요.
+
+성공 응답 `200 OK`:
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "targetCount": 1200
+  },
+  "error": null
+}
+```
+
+**`PUT /api/v1/admin/notices/{noticeId}` 요청 바디**
+
+```json
+{
+  "title": "서비스 점검 안내 (수정)",
+  "body": "8/30 02:00~05:00로 점검 시간이 변경되었습니다."
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `title` | `string` | Y | 알림 제목 |
+| `body` | `string` | Y | 알림 본문 |
+
+`category`/`detailCode`는 등록 시점에 확정되어 수정 대상이 아닙니다. 이미 발송된 알림함/푸시는 재발송되지 않고, 알림함에 남아있는 텍스트만 갱신됩니다. 응답은 등록 API와 동일한 `AdminNoticeDetailResponse`.
+
+**`DELETE /api/v1/admin/notices/{noticeId}`**
+
+성공 시 `200 OK`, `data: null`. 삭제된 공지는 알림함에서도 사라집니다.
+
+**`GET /api/v1/admin/notices/{noticeId}/delivery-result`**
+
+`CONTENT` 카테고리를 제외한 `NOTICE`/`EVENT` 공지처럼 실제로 푸시가 발송되는 알림에 한해, 발송 대상 디바이스 수와 성공/실패 건수를 조회합니다. 푸시 발송은 Android(FCM)는 동기, iOS(APNs)는 비동기로 처리되므로, 전체 발송이 끝나기 전에는 `pending: true`로 내려갑니다.
+
+성공 응답 `200 OK`:
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "notificationId": 101,
+    "targetCount": 1200,
+    "successCount": 1180,
+    "failureCount": 20,
+    "pending": false
+  },
+  "error": null
+}
+```
+
+`failureCount`는 만료된 디바이스 토큰(`UNREGISTERED`, APNs의 `BadDeviceToken`/`Unregistered` 등) 정리 대상 건수를 포함한 전체 실패 건수이며, 실패 사유별 세부 분류는 제공하지 않습니다.
+
+예외 응답 `404 - 발송 결과 없음` (공지 자체가 없거나, `CONTENT` 카테고리처럼 관리자 발송 트리거를 거치지 않아 결과가 집계되지 않은 경우):
+
+```json
+{
+  "statusCode": 404,
+  "data": null,
+  "error": {
+    "code": "NOTIFICATION_404_DELIVERY_RESULT",
+    "message": "발송 결과가 집계되지 않은 알림입니다."
+  }
+}
+```
+
+**`POST /api/v1/admin/notices/test` 요청 바디**
+
+```json
+{
+  "userId": 123,
+  "title": "테스트 알림",
+  "body": "테스트 발송입니다."
+}
+```
+
+### 6.2 예약 알림 (`/api/v1/admin/notification-schedules`)
+
+매일 지정된 시각에 전체 유저에게 자동 발송되는 예약 알림(`NotificationSchedule`)을 관리합니다. 매분 `NotificationScheduleDispatcher`가 `enabled=true`인 예약 중 `sendTime`(시:분)이 현재 시각과 일치하는 건을 찾아 발송하며, 같은 날 중복 발송되지 않도록 `lastSentDate`로 발송 이력을 관리합니다.
+
+| Method | Path | 설명 |
+|---|---|---|
+| `POST` | `/api/v1/admin/notification-schedules` | 예약 알림 등록 |
+| `GET` | `/api/v1/admin/notification-schedules` | 예약 알림 전체 목록 조회 |
+| `GET` | `/api/v1/admin/notification-schedules/{scheduleId}` | 예약 알림 상세 조회 |
+| `PUT` | `/api/v1/admin/notification-schedules/{scheduleId}` | 예약 알림 수정 (제목/부제목/발송시간/on-off 전체 교체) |
+| `PATCH` | `/api/v1/admin/notification-schedules/{scheduleId}/toggle` | 예약 알림 On/Off만 전환 |
+| `POST` | `/api/v1/admin/notification-schedules/{scheduleId}/test` | 저장된 제목/부제목으로 특정 유저에게 테스트 발송 |
+| `DELETE` | `/api/v1/admin/notification-schedules/{scheduleId}` | 예약 알림 삭제 |
+
+**`POST` / `PUT` 요청 바디**
+
+```json
+{
+  "title": "오늘의 질문",
+  "subtitle": "지금 확인해보세요",
+  "sendTime": "19:00:00",
+  "enabled": true
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `title` | `string` | Y | 알림 제목 |
+| `subtitle` | `string` | Y | 알림 부제목(본문) |
+| `sendTime` | `string` (`HH:mm:ss`) | Y | 매일 발송할 시각 (KST 기준, 분 단위로 매칭) |
+| `enabled` | `boolean` | Y | 활성화 여부 |
+
+**`PATCH .../toggle` 요청 바디**
+
+```json
+{
+  "enabled": false
+}
+```
+
+**`POST .../test` 요청 바디**
+
+```json
+{
+  "userId": 123
+}
+```
+
+저장되어 있는 예약 알림의 `title`/`subtitle`을 그대로 사용해, 지정한 유저의 등록된 디바이스로 알림 설정(ON/OFF) 무관하게 즉시 테스트 푸시를 발송합니다. 등록/수정 폼에서 저장 전 미리보기 용도로 쓰려면, 먼저 원하는 문구로 `POST`/`PUT`을 호출해 저장한 뒤 이 API로 확인하는 흐름을 권장합니다.
+
+**응답 (`AdminNotificationScheduleResponse`)**
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "id": 3,
+    "title": "오늘의 질문",
+    "subtitle": "지금 확인해보세요",
+    "sendTime": "19:00:00",
+    "enabled": true,
+    "createdAt": "2026-08-20T10:00:00"
+  },
+  "error": null
+}
+```
+
+목록 조회(`GET /api/v1/admin/notification-schedules`) 응답은 `{ "schedules": [AdminNotificationScheduleResponse, ...] }` 형태입니다.
+
+예외 응답 `404 - 예약 알림 없음`:
+
+```json
+{
+  "statusCode": 404,
+  "data": null,
+  "error": {
+    "code": "NOTIFICATION_404_SCHEDULE",
+    "message": "존재하지 않는 알림 예약입니다."
+  }
+}
+```
+
+---
+
+## 7. 에러 코드
 
 | Error Code | HTTP Status | 설명 |
 |---|:---:|---|
 | `COMMON_400` | `400` | 요청 파라미터가 잘못되었습니다. (예: `fcmToken`/`platform` 누락) |
 | `USER_404` | `404` | 존재하지 않는 사용자입니다. |
 | `NOTIFICATION_404` | `404` | 존재하지 않는 알림입니다. (본인 소유가 아닌 알림 포함) |
+| `NOTIFICATION_404_SCHEDULE` | `404` | 존재하지 않는 예약 알림입니다. |
+| `NOTIFICATION_404_DELIVERY_RESULT` | `404` | 발송 결과가 집계되지 않은 알림입니다. |

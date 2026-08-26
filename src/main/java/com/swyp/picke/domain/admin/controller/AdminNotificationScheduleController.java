@@ -1,6 +1,8 @@
 package com.swyp.picke.domain.admin.controller;
 
 import com.swyp.picke.domain.admin.dto.notification.request.AdminNotificationScheduleRequest;
+import com.swyp.picke.domain.admin.dto.notification.request.AdminNotificationScheduleTestRequest;
+import com.swyp.picke.domain.admin.dto.notification.request.AdminNotificationScheduleToggleRequest;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNotificationScheduleListResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNotificationScheduleResponse;
 import com.swyp.picke.domain.admin.service.AdminNotificationScheduleService;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -55,6 +58,25 @@ public class AdminNotificationScheduleController {
             @RequestBody @Valid AdminNotificationScheduleRequest request
     ) {
         return ApiResponse.onSuccess(adminNotificationScheduleService.update(scheduleId, request));
+    }
+
+    @Operation(summary = "예약 알림 On/Off 전환")
+    @PatchMapping("/{scheduleId}/toggle")
+    public ApiResponse<AdminNotificationScheduleResponse> toggle(
+            @PathVariable Long scheduleId,
+            @RequestBody @Valid AdminNotificationScheduleToggleRequest request
+    ) {
+        return ApiResponse.onSuccess(adminNotificationScheduleService.toggle(scheduleId, request));
+    }
+
+    @Operation(summary = "예약 알림 테스트 발송", description = "저장된 예약 알림의 제목/부제목을 특정 유저에게 알림 설정(ON/OFF) 무관하게 즉시 테스트 발송한다.")
+    @PostMapping("/{scheduleId}/test")
+    public ApiResponse<Void> sendTest(
+            @PathVariable Long scheduleId,
+            @RequestBody @Valid AdminNotificationScheduleTestRequest request
+    ) {
+        adminNotificationScheduleService.sendTest(scheduleId, request);
+        return ApiResponse.onSuccess(null);
     }
 
     @Operation(summary = "예약 알림 삭제")

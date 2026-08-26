@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Service
@@ -26,7 +27,7 @@ public class FcmPushService {
      * Android 디바이스에 FCM data-only 메시지를 발송한다.
      * iOS는 FCM을 거치지 않고 ApnsPushService가 APNs로 직접 발송한다.
      */
-    public void send(UserDevice device, String title, String body, Map<String, String> data) {
+    public CompletableFuture<Boolean> send(UserDevice device, String title, String body, Map<String, String> data) {
         Map<String, String> payload = new HashMap<>(data);
         payload.put("title", title);
         payload.put("body", body);
@@ -41,11 +42,13 @@ public class FcmPushService {
 
         try {
             firebaseMessaging.send(message);
+            return CompletableFuture.completedFuture(true);
         } catch (FirebaseMessagingException e) {
             log.warn("FCM 푸시 전송 실패. deviceId={}, error={}", device.getId(), e.getMessage());
             if (e.getMessagingErrorCode() == MessagingErrorCode.UNREGISTERED) {
                 userDeviceRepository.deleteById(device.getId());
             }
+            return CompletableFuture.completedFuture(false);
         }
     }
 }

@@ -153,7 +153,7 @@ public class NotificationService {
     }
 
     private Notification getAccessibleNotification(Long userId, Long notificationId) {
-        Notification notification = notificationRepository.findById(notificationId)
+        Notification notification = notificationRepository.findByIdAndDeletedAtIsNull(notificationId)
                 .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
 
         boolean isAccessible = notification.getUser() == null

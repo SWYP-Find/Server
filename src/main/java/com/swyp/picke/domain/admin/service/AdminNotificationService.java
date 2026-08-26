@@ -1,17 +1,24 @@
 package com.swyp.picke.domain.admin.service;
 
 import com.swyp.picke.domain.admin.dto.notification.request.AdminNoticeCreateRequest;
+import com.swyp.picke.domain.admin.dto.notification.request.AdminNoticeUpdateRequest;
+import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeDeliveryResultResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeDetailResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeListResponse;
+import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeOptionsResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeSummaryResponse;
+import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeTargetCountResponse;
 import com.swyp.picke.domain.notification.entity.Notification;
+import com.swyp.picke.domain.notification.entity.NotificationDeliveryResult;
 import com.swyp.picke.domain.notification.enums.NotificationCategory;
 import com.swyp.picke.domain.notification.enums.NotificationDetailCode;
+import com.swyp.picke.domain.notification.repository.NotificationDeliveryResultRepository;
 import com.swyp.picke.domain.notification.repository.NotificationRepository;
 import com.swyp.picke.domain.notification.service.NotificationDispatchService;
 import com.swyp.picke.domain.notification.service.NotificationService;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
@@ -28,6 +35,7 @@ public class AdminNotificationService {
     private final NotificationService notificationService;
     private final NotificationDispatchService notificationDispatchService;
     private final NotificationRepository notificationRepository;
+    private final NotificationDeliveryResultRepository notificationDeliveryResultRepository;
 
     @Transactional
     public AdminNoticeDetailResponse createNotice(AdminNoticeCreateRequest request) {
@@ -41,7 +49,7 @@ public class AdminNotificationService {
 
         if (detailCode.getCategory() == NotificationCategory.NOTICE
                 || detailCode.getCategory() == NotificationCategory.EVENT) {
-            notificationDispatchService.notifyAdminNotice(detailCode, request.title(), request.body());
+            notificationDispatchService.notifyAdminNotice(notification.getId(), detailCode, request.title(), request.body());
         }
 
         return toDetailResponse(notification);
@@ -66,9 +74,53 @@ public class AdminNotificationService {
     }
 
     public AdminNoticeDetailResponse getNoticeDetail(Long notificationId) {
-        Notification notification = notificationRepository.findById(notificationId)
+        Notification notification = notificationRepository.findByIdAndDeletedAtIsNull(notificationId)
                 .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
         return toDetailResponse(notification);
+    }
+
+    @Transactional
+    public AdminNoticeDetailResponse updateNotice(Long notificationId, AdminNoticeUpdateRequest request) {
+        Notification notification = notificationRepository.findByIdAndDeletedAtIsNull(notificationId)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
+        notification.updateContent(request.title(), request.body());
+        return toDetailResponse(notification);
+    }
+
+    @Transactional
+    public void deleteNotice(Long notificationId) {
+        Notification notification = notificationRepository.findByIdAndDeletedAtIsNull(notificationId)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
+        notification.delete();
+    }
+
+    public AdminNoticeDeliveryResultResponse getDeliveryResult(Long notificationId) {
+        notificationRepository.findByIdAndDeletedAtIsNull(notificationId)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
+
+        NotificationDeliveryResult result = notificationDeliveryResultRepository.findByNotificationId(notificationId)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_DELIVERY_RESULT_NOT_FOUND));
+
+        return new AdminNoticeDeliveryResultResponse(
+                result.getNotificationId(),
+                result.getTargetCount(),
+                result.getSuccessCount(),
+                result.getFailureCount(),
+                result.isPending()
+        );
+    }
+
+    public AdminNoticeTargetCountResponse getTargetCount() {
+        return new AdminNoticeTargetCountResponse(notificationDispatchService.countAdminNoticeTargets());
+    }
+
+    public AdminNoticeOptionsResponse getOptions() {
+        List<String> categories = List.of(
+                NotificationCategory.CONTENT.name(),
+                NotificationCategory.NOTICE.name(),
+                NotificationCategory.EVENT.name()
+        );
+        return new AdminNoticeOptionsResponse(categories);
     }
 
     private NotificationCategory normalizeCategory(NotificationCategory category) {

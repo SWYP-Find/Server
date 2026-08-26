@@ -2,6 +2,7 @@ package com.swyp.picke.domain.notification.repository;
 
 import com.swyp.picke.domain.notification.entity.Notification;
 import com.swyp.picke.domain.notification.enums.NotificationCategory;
+import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,12 +12,15 @@ import org.springframework.data.repository.query.Param;
 
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
+    Optional<Notification> findByIdAndDeletedAtIsNull(Long id);
+
     @Query("""
             SELECT n FROM Notification n
             WHERE (
                 (n.user IS NOT NULL AND n.user.id = :userId)
                 OR n.user IS NULL
             )
+            AND n.deletedAt IS NULL
             AND (:category IS NULL OR n.category = :category)
             ORDER BY n.createdAt DESC
             """)
@@ -30,6 +34,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
         SELECT CASE WHEN COUNT(n) > 0 THEN true ELSE false END
         FROM Notification n
         WHERE n.user IS NULL
+          AND n.deletedAt IS NULL
           AND n.category = :category
           AND NOT EXISTS (
               SELECT 1 FROM NotificationRead nr
@@ -41,7 +46,8 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Query("""
         SELECT CASE WHEN COUNT(n) > 0 THEN true ELSE false END
         FROM Notification n
-        WHERE (:category IS NULL OR n.category = :category)
+        WHERE n.deletedAt IS NULL
+          AND (:category IS NULL OR n.category = :category)
           AND (
               (n.user.id = :userId AND n.read = false)
               OR (n.user IS NULL AND NOT EXISTS (
@@ -61,7 +67,8 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     @Query("""
             SELECT n FROM Notification n
-            WHERE (:category IS NULL OR n.category = :category)
+            WHERE n.deletedAt IS NULL
+            AND (:category IS NULL OR n.category = :category)
             ORDER BY n.createdAt DESC
             """)
     Slice<Notification> findNotificationsForAdmin(

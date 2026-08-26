@@ -7,10 +7,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.swyp.picke.domain.admin.dto.notification.request.AdminNotificationScheduleRequest;
+import com.swyp.picke.domain.admin.dto.notification.request.AdminNotificationScheduleTestRequest;
+import com.swyp.picke.domain.admin.dto.notification.request.AdminNotificationScheduleToggleRequest;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNotificationScheduleListResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNotificationScheduleResponse;
 import com.swyp.picke.domain.notification.entity.NotificationSchedule;
 import com.swyp.picke.domain.notification.repository.NotificationScheduleRepository;
+import com.swyp.picke.domain.notification.service.NotificationDispatchService;
 import com.swyp.picke.global.common.exception.CustomException;
 import java.time.LocalTime;
 import java.util.List;
@@ -27,6 +30,9 @@ class AdminNotificationScheduleServiceTest {
 
     @Mock
     private NotificationScheduleRepository notificationScheduleRepository;
+
+    @Mock
+    private NotificationDispatchService notificationDispatchService;
 
     @InjectMocks
     private AdminNotificationScheduleService adminNotificationScheduleService;
@@ -103,6 +109,58 @@ class AdminNotificationScheduleServiceTest {
                 new AdminNotificationScheduleRequest("제목", "소제목", LocalTime.of(19, 0), true);
 
         assertThatThrownBy(() -> adminNotificationScheduleService.update(999L, request))
+                .isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("예약 알림의 On/Off 상태를 전환한다")
+    void toggle_updatesEnabledState() {
+        NotificationSchedule schedule = NotificationSchedule.builder()
+                .title("오늘의 질문")
+                .subtitle("지금 확인해보세요")
+                .sendTime(LocalTime.of(19, 0))
+                .enabled(true)
+                .build();
+        when(notificationScheduleRepository.findById(1L)).thenReturn(Optional.of(schedule));
+
+        AdminNotificationScheduleResponse response =
+                adminNotificationScheduleService.toggle(1L, new AdminNotificationScheduleToggleRequest(false));
+
+        assertThat(response.enabled()).isFalse();
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 예약 알림을 전환하면 예외를 던진다")
+    void toggle_throws_whenNotFound() {
+        when(notificationScheduleRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> adminNotificationScheduleService.toggle(999L, new AdminNotificationScheduleToggleRequest(true)))
+                .isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("예약 알림 저장 내용으로 특정 유저에게 테스트 발송한다")
+    void sendTest_dispatchesSavedScheduleContent() {
+        NotificationSchedule schedule = NotificationSchedule.builder()
+                .title("오늘의 질문")
+                .subtitle("지금 확인해보세요")
+                .sendTime(LocalTime.of(19, 0))
+                .enabled(true)
+                .build();
+        when(notificationScheduleRepository.findById(1L)).thenReturn(Optional.of(schedule));
+
+        adminNotificationScheduleService.sendTest(1L, new AdminNotificationScheduleTestRequest(123L));
+
+        verify(notificationDispatchService).sendTestPush(123L, "오늘의 질문", "지금 확인해보세요");
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 예약 알림을 테스트 발송하면 예외를 던진다")
+    void sendTest_throws_whenNotFound() {
+        when(notificationScheduleRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> adminNotificationScheduleService.sendTest(
+                999L, new AdminNotificationScheduleTestRequest(123L)))
                 .isInstanceOf(CustomException.class);
     }
 

@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.admin.service;
 
 import com.swyp.picke.domain.admin.dto.notification.request.AdminNoticeCreateRequest;
+import com.swyp.picke.domain.admin.dto.notification.request.AdminNoticeUpdateRequest;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeDetailResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeListResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeSummaryResponse;
@@ -66,9 +67,24 @@ public class AdminNotificationService {
     }
 
     public AdminNoticeDetailResponse getNoticeDetail(Long notificationId) {
-        Notification notification = notificationRepository.findById(notificationId)
+        Notification notification = notificationRepository.findByIdAndDeletedAtIsNull(notificationId)
                 .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
         return toDetailResponse(notification);
+    }
+
+    @Transactional
+    public AdminNoticeDetailResponse updateNotice(Long notificationId, AdminNoticeUpdateRequest request) {
+        Notification notification = notificationRepository.findByIdAndDeletedAtIsNull(notificationId)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
+        notification.updateContent(request.title(), request.body());
+        return toDetailResponse(notification);
+    }
+
+    @Transactional
+    public void deleteNotice(Long notificationId) {
+        Notification notification = notificationRepository.findByIdAndDeletedAtIsNull(notificationId)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
+        notification.delete();
     }
 
     private NotificationCategory normalizeCategory(NotificationCategory category) {

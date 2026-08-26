@@ -164,7 +164,7 @@ class NotificationServiceTest {
     @Test
     @DisplayName("존재하지 않는 알림 읽음 처리 시 예외를 던진다")
     void markAsRead_throws_when_not_found() {
-        when(notificationRepository.findById(999L)).thenReturn(Optional.empty());
+        when(notificationRepository.findByIdAndDeletedAtIsNull(999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> notificationService.markAsRead(1L, 999L))
                 .isInstanceOf(CustomException.class);
@@ -184,7 +184,7 @@ class NotificationServiceTest {
                 .referenceId(50L)
                 .build();
 
-        when(notificationRepository.findById(notificationId)).thenReturn(Optional.of(notification));
+        when(notificationRepository.findByIdAndDeletedAtIsNull(notificationId)).thenReturn(Optional.of(notification));
         when(notificationReadRepository.existsByNotificationIdAndUserId(notificationId, userId)).thenReturn(false);
 
         notificationService.markAsRead(userId, notificationId);
@@ -209,7 +209,7 @@ class NotificationServiceTest {
         setUserId(user, userId);
         setNotificationId(notification, 10L);
 
-        when(notificationRepository.findById(10L)).thenReturn(Optional.of(notification));
+        when(notificationRepository.findByIdAndDeletedAtIsNull(10L)).thenReturn(Optional.of(notification));
 
         NotificationDetailResponse response = notificationService.getNotificationDetail(userId, 10L);
 
@@ -235,7 +235,7 @@ class NotificationServiceTest {
 
         setNotificationId(notification, notificationId);
 
-        when(notificationRepository.findById(notificationId)).thenReturn(Optional.of(notification));
+        when(notificationRepository.findByIdAndDeletedAtIsNull(notificationId)).thenReturn(Optional.of(notification));
         when(notificationReadRepository.existsByNotificationIdAndUserId(notificationId, userId)).thenReturn(false);
 
         NotificationDetailResponse response = notificationService.getNotificationDetail(userId, notificationId);
@@ -263,7 +263,7 @@ class NotificationServiceTest {
                 .build();
 
         setUserId(owner, ownerId);
-        when(notificationRepository.findById(30L)).thenReturn(Optional.of(notification));
+        when(notificationRepository.findByIdAndDeletedAtIsNull(30L)).thenReturn(Optional.of(notification));
 
         assertThatThrownBy(() -> notificationService.getNotificationDetail(requesterId, 30L))
                 .isInstanceOf(CustomException.class);

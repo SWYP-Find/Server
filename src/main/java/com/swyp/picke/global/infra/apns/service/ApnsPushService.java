@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * iOS 디바이스에 FCM을 거치지 않고 APNs로 직접 푸시를 발송한다.
@@ -35,10 +36,10 @@ public class ApnsPushService {
     @Value("${apns.bundle-id}")
     private String bundleId;
 
-    public void send(UserDevice device, String title, String body, Map<String, String> data) {
+    public CompletableFuture<Boolean> send(UserDevice device, String title, String body, Map<String, String> data) {
         if (apnsClient.isEmpty()) {
             log.warn("APNs가 설정되지 않아 푸시를 건너뜁니다. deviceId={}", device.getId());
-            return;
+            return CompletableFuture.completedFuture(false);
         }
 
         ApnsPayloadBuilder payloadBuilder = new SimpleApnsPayloadBuilder()
@@ -51,18 +52,18 @@ public class ApnsPushService {
         SimpleApnsPushNotification notification =
                 new SimpleApnsPushNotification(token, bundleId, payloadBuilder.build());
 
-        apnsClient.get().sendNotification(notification).whenComplete((response, cause) -> {
+        return apnsClient.get().sendNotification(notification).handle((response, cause) -> {
             if (cause != null) {
                 log.warn("APNs 푸시 전송 실패. deviceId={}, error={}", device.getId(), cause.getMessage());
-                return;
+                return false;
             }
-            handleResponse(device, response);
+            return handleResponse(device, response);
         });
     }
 
-    private void handleResponse(UserDevice device, PushNotificationResponse<SimpleApnsPushNotification> response) {
+    private boolean handleResponse(UserDevice device, PushNotificationResponse<SimpleApnsPushNotification> response) {
         if (response.isAccepted()) {
-            return;
+            return true;
         }
 
         String reason = response.getRejectionReason().orElse("UNKNOWN");
@@ -71,5 +72,6 @@ public class ApnsPushService {
         if (INVALID_TOKEN_REASONS.contains(reason)) {
             userDeviceRepository.deleteById(device.getId());
         }
+        return false;
     }
 }

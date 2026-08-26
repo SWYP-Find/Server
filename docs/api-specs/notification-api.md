@@ -349,6 +349,7 @@
 | `GET` | `/api/v1/admin/notices/{noticeId}` | 공지 상세 조회 |
 | `PUT` | `/api/v1/admin/notices/{noticeId}` | 공지 수정 (제목/본문) |
 | `DELETE` | `/api/v1/admin/notices/{noticeId}` | 공지 삭제 |
+| `GET` | `/api/v1/admin/notices/{noticeId}/delivery-result` | 발송 결과 조회 (대상/성공/실패 건수) |
 | `POST` | `/api/v1/admin/notices/test` | 특정 유저 대상 테스트 푸시 발송 (알림 설정 ON/OFF 무관) |
 
 **`POST /api/v1/admin/notices` 요청 바디**
@@ -388,6 +389,41 @@
 **`DELETE /api/v1/admin/notices/{noticeId}`**
 
 성공 시 `200 OK`, `data: null`. 삭제된 공지는 알림함에서도 사라집니다.
+
+**`GET /api/v1/admin/notices/{noticeId}/delivery-result`**
+
+`CONTENT` 카테고리를 제외한 `NOTICE`/`EVENT` 공지처럼 실제로 푸시가 발송되는 알림에 한해, 발송 대상 디바이스 수와 성공/실패 건수를 조회합니다. 푸시 발송은 Android(FCM)는 동기, iOS(APNs)는 비동기로 처리되므로, 전체 발송이 끝나기 전에는 `pending: true`로 내려갑니다.
+
+성공 응답 `200 OK`:
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "notificationId": 101,
+    "targetCount": 1200,
+    "successCount": 1180,
+    "failureCount": 20,
+    "pending": false
+  },
+  "error": null
+}
+```
+
+`failureCount`는 만료된 디바이스 토큰(`UNREGISTERED`, APNs의 `BadDeviceToken`/`Unregistered` 등) 정리 대상 건수를 포함한 전체 실패 건수이며, 실패 사유별 세부 분류는 제공하지 않습니다.
+
+예외 응답 `404 - 발송 결과 없음` (공지 자체가 없거나, `CONTENT` 카테고리처럼 관리자 발송 트리거를 거치지 않아 결과가 집계되지 않은 경우):
+
+```json
+{
+  "statusCode": 404,
+  "data": null,
+  "error": {
+    "code": "NOTIFICATION_404_DELIVERY_RESULT",
+    "message": "발송 결과가 집계되지 않은 알림입니다."
+  }
+}
+```
 
 **`POST /api/v1/admin/notices/test` 요청 바디**
 
@@ -480,3 +516,4 @@
 | `USER_404` | `404` | 존재하지 않는 사용자입니다. |
 | `NOTIFICATION_404` | `404` | 존재하지 않는 알림입니다. (본인 소유가 아닌 알림 포함) |
 | `NOTIFICATION_404_SCHEDULE` | `404` | 존재하지 않는 예약 알림입니다. |
+| `NOTIFICATION_404_DELIVERY_RESULT` | `404` | 발송 결과가 집계되지 않은 알림입니다. |

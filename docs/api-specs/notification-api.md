@@ -345,6 +345,7 @@
 | Method | Path | 설명 |
 |---|---|---|
 | `POST` | `/api/v1/admin/notices` | 공지사항/이벤트 작성 (즉시 전체 발송) |
+| `GET` | `/api/v1/admin/notices/options` | 공지 작성 시 선택 가능한 `category` 목록 조회 |
 | `GET` | `/api/v1/admin/notices/target-count` | 지금 등록하면 몇 대의 디바이스에 발송되는지 미리 조회 |
 | `GET` | `/api/v1/admin/notices` | 공지 목록 조회 (`category`, `page`, `size` 쿼리) |
 | `GET` | `/api/v1/admin/notices/{noticeId}` | 공지 상세 조회 |
@@ -370,6 +371,22 @@
 | `body` | `string` | Y | 알림 본문 |
 
 응답은 `AdminNoticeDetailResponse` (`notificationId`, `category`, `detailCode`, `title`, `body`, `referenceId`, `createdAt`).
+
+**`GET /api/v1/admin/notices/options`**
+
+공지 작성 폼의 카테고리 선택지를 서버 enum 기준으로 내려줍니다. `ALL`은 목록 조회 필터용이라 작성 옵션에는 포함되지 않습니다.
+
+성공 응답 `200 OK`:
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "categories": ["CONTENT", "NOTICE", "EVENT"]
+  },
+  "error": null
+}
+```
 
 **`GET /api/v1/admin/notices/target-count`**
 

@@ -144,4 +144,12 @@ class AdminNotificationServiceTest {
 
         assertThat(response.targetCount()).isEqualTo(1200);
     }
+
+    @Test
+    @DisplayName("공지 작성 시 선택 가능한 카테고리 목록을 조회한다")
+    void getOptions_returnsCreatableCategories() {
+        var response = adminNotificationService.getOptions();
+
+        assertThat(response.categories()).containsExactly("CONTENT", "NOTICE", "EVENT");
+    }
 }

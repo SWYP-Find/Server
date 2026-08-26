@@ -347,6 +347,8 @@
 | `POST` | `/api/v1/admin/notices` | 공지사항/이벤트 작성 (즉시 전체 발송) |
 | `GET` | `/api/v1/admin/notices` | 공지 목록 조회 (`category`, `page`, `size` 쿼리) |
 | `GET` | `/api/v1/admin/notices/{noticeId}` | 공지 상세 조회 |
+| `PUT` | `/api/v1/admin/notices/{noticeId}` | 공지 수정 (제목/본문) |
+| `DELETE` | `/api/v1/admin/notices/{noticeId}` | 공지 삭제 |
 | `POST` | `/api/v1/admin/notices/test` | 특정 유저 대상 테스트 푸시 발송 (알림 설정 ON/OFF 무관) |
 
 **`POST /api/v1/admin/notices` 요청 바디**
@@ -366,6 +368,26 @@
 | `body` | `string` | Y | 알림 본문 |
 
 응답은 `AdminNoticeDetailResponse` (`notificationId`, `category`, `detailCode`, `title`, `body`, `referenceId`, `createdAt`).
+
+**`PUT /api/v1/admin/notices/{noticeId}` 요청 바디**
+
+```json
+{
+  "title": "서비스 점검 안내 (수정)",
+  "body": "8/30 02:00~05:00로 점검 시간이 변경되었습니다."
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `title` | `string` | Y | 알림 제목 |
+| `body` | `string` | Y | 알림 본문 |
+
+`category`/`detailCode`는 등록 시점에 확정되어 수정 대상이 아닙니다. 이미 발송된 알림함/푸시는 재발송되지 않고, 알림함에 남아있는 텍스트만 갱신됩니다. 응답은 등록 API와 동일한 `AdminNoticeDetailResponse`.
+
+**`DELETE /api/v1/admin/notices/{noticeId}`**
+
+성공 시 `200 OK`, `data: null`. 삭제된 공지는 알림함에서도 사라집니다.
 
 **`POST /api/v1/admin/notices/test` 요청 바디**
 

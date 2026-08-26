@@ -1,0 +1,92 @@
+package com.swyp.picke.domain.admin.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.swyp.picke.domain.admin.dto.notification.request.AdminNoticeUpdateRequest;
+import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeDetailResponse;
+import com.swyp.picke.domain.notification.entity.Notification;
+import com.swyp.picke.domain.notification.enums.NotificationCategory;
+import com.swyp.picke.domain.notification.enums.NotificationDetailCode;
+import com.swyp.picke.domain.notification.repository.NotificationRepository;
+import com.swyp.picke.domain.notification.service.NotificationDispatchService;
+import com.swyp.picke.domain.notification.service.NotificationService;
+import com.swyp.picke.global.common.exception.CustomException;
+import java.util.Optional;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+@ExtendWith(MockitoExtension.class)
+class AdminNotificationServiceTest {
+
+    @Mock
+    private NotificationService notificationService;
+
+    @Mock
+    private NotificationDispatchService notificationDispatchService;
+
+    @Mock
+    private NotificationRepository notificationRepository;
+
+    @InjectMocks
+    private AdminNotificationService adminNotificationService;
+
+    private Notification newNotice(String title, String body) {
+        return Notification.builder()
+                .user(null)
+                .category(NotificationCategory.NOTICE)
+                .detailCode(NotificationDetailCode.POLICY_CHANGE)
+                .title(title)
+                .body(body)
+                .build();
+    }
+
+    @Test
+    @DisplayName("공지사항을 수정한다")
+    void updateNotice_updatesExistingNotice() {
+        Notification notification = newNotice("원본 제목", "원본 본문");
+        when(notificationRepository.findById(1L)).thenReturn(Optional.of(notification));
+
+        AdminNoticeDetailResponse response = adminNotificationService.updateNotice(
+                1L, new AdminNoticeUpdateRequest("수정된 제목", "수정된 본문"));
+
+        assertThat(response.title()).isEqualTo("수정된 제목");
+        assertThat(response.body()).isEqualTo("수정된 본문");
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 공지사항을 수정하면 예외를 던진다")
+    void updateNotice_throws_whenNotFound() {
+        when(notificationRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> adminNotificationService.updateNotice(
+                999L, new AdminNoticeUpdateRequest("제목", "본문")))
+                .isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("공지사항을 삭제한다")
+    void deleteNotice_removesExistingNotice() {
+        Notification notification = newNotice("제목", "본문");
+        when(notificationRepository.findById(1L)).thenReturn(Optional.of(notification));
+
+        adminNotificationService.deleteNotice(1L);
+
+        verify(notificationRepository).delete(notification);
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 공지사항을 삭제하면 예외를 던진다")
+    void deleteNotice_throws_whenNotFound() {
+        when(notificationRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> adminNotificationService.deleteNotice(999L))
+                .isInstanceOf(CustomException.class);
+    }
+}

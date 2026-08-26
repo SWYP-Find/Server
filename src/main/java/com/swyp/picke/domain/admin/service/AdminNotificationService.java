@@ -5,6 +5,7 @@ import com.swyp.picke.domain.admin.dto.notification.request.AdminNoticeUpdateReq
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeDeliveryResultResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeDetailResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeListResponse;
+import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeOptionsResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeSummaryResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeTargetCountResponse;
 import com.swyp.picke.domain.notification.entity.Notification;
@@ -17,6 +18,7 @@ import com.swyp.picke.domain.notification.service.NotificationDispatchService;
 import com.swyp.picke.domain.notification.service.NotificationService;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
@@ -110,6 +112,15 @@ public class AdminNotificationService {
 
     public AdminNoticeTargetCountResponse getTargetCount() {
         return new AdminNoticeTargetCountResponse(notificationDispatchService.countAdminNoticeTargets());
+    }
+
+    public AdminNoticeOptionsResponse getOptions() {
+        List<String> categories = List.of(
+                NotificationCategory.CONTENT.name(),
+                NotificationCategory.NOTICE.name(),
+                NotificationCategory.EVENT.name()
+        );
+        return new AdminNoticeOptionsResponse(categories);
     }
 
     private NotificationCategory normalizeCategory(NotificationCategory category) {

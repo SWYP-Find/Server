@@ -345,6 +345,7 @@
 | Method | Path | 설명 |
 |---|---|---|
 | `POST` | `/api/v1/admin/notices` | 공지사항/이벤트 작성 (즉시 전체 발송) |
+| `GET` | `/api/v1/admin/notices/target-count` | 지금 등록하면 몇 대의 디바이스에 발송되는지 미리 조회 |
 | `GET` | `/api/v1/admin/notices` | 공지 목록 조회 (`category`, `page`, `size` 쿼리) |
 | `GET` | `/api/v1/admin/notices/{noticeId}` | 공지 상세 조회 |
 | `PUT` | `/api/v1/admin/notices/{noticeId}` | 공지 수정 (제목/본문) |
@@ -369,6 +370,22 @@
 | `body` | `string` | Y | 알림 본문 |
 
 응답은 `AdminNoticeDetailResponse` (`notificationId`, `category`, `detailCode`, `title`, `body`, `referenceId`, `createdAt`).
+
+**`GET /api/v1/admin/notices/target-count`**
+
+`NOTICE`/`EVENT` 공지를 지금 등록하면 몇 대의 디바이스에 발송되는지 미리 조회합니다. `notifyAdminNotice`가 사용하는 것과 동일하게 '이벤트 및 소식 알림' 설정이 ON인 유저의 등록된 디바이스 수 기준입니다. `CONTENT` 카테고리 공지는 애초에 이 대상자 산정을 타지 않으므로 참고용으로만 사용하세요.
+
+성공 응답 `200 OK`:
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "targetCount": 1200
+  },
+  "error": null
+}
+```
 
 **`PUT /api/v1/admin/notices/{noticeId}` 요청 바디**
 

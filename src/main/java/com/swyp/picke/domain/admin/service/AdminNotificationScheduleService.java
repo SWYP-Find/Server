@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.admin.service;
 
 import com.swyp.picke.domain.admin.dto.notification.request.AdminNotificationScheduleRequest;
+import com.swyp.picke.domain.admin.dto.notification.request.AdminNotificationScheduleToggleRequest;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNotificationScheduleListResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNotificationScheduleResponse;
 import com.swyp.picke.domain.notification.entity.NotificationSchedule;
@@ -46,6 +47,13 @@ public class AdminNotificationScheduleService {
     public AdminNotificationScheduleResponse update(Long scheduleId, AdminNotificationScheduleRequest request) {
         NotificationSchedule schedule = getExistingSchedule(scheduleId);
         schedule.update(request.title(), request.subtitle(), request.sendTime(), request.enabled());
+        return toResponse(schedule);
+    }
+
+    @Transactional
+    public AdminNotificationScheduleResponse toggle(Long scheduleId, AdminNotificationScheduleToggleRequest request) {
+        NotificationSchedule schedule = getExistingSchedule(scheduleId);
+        schedule.changeEnabled(request.enabled());
         return toResponse(schedule);
     }
 

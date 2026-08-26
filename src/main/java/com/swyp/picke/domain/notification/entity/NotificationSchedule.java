@@ -47,6 +47,10 @@ public class NotificationSchedule extends BaseEntity {
         this.enabled = enabled;
     }
 
+    public void changeEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
     public boolean isDue(LocalTime now, LocalDate today) {
         return enabled
                 && sendTime.getHour() == now.getHour()

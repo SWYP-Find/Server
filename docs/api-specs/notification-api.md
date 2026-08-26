@@ -446,6 +446,7 @@
 | `GET` | `/api/v1/admin/notification-schedules/{scheduleId}` | 예약 알림 상세 조회 |
 | `PUT` | `/api/v1/admin/notification-schedules/{scheduleId}` | 예약 알림 수정 (제목/부제목/발송시간/on-off 전체 교체) |
 | `PATCH` | `/api/v1/admin/notification-schedules/{scheduleId}/toggle` | 예약 알림 On/Off만 전환 |
+| `POST` | `/api/v1/admin/notification-schedules/{scheduleId}/test` | 저장된 제목/부제목으로 특정 유저에게 테스트 발송 |
 | `DELETE` | `/api/v1/admin/notification-schedules/{scheduleId}` | 예약 알림 삭제 |
 
 **`POST` / `PUT` 요청 바디**
@@ -473,6 +474,16 @@
   "enabled": false
 }
 ```
+
+**`POST .../test` 요청 바디**
+
+```json
+{
+  "userId": 123
+}
+```
+
+저장되어 있는 예약 알림의 `title`/`subtitle`을 그대로 사용해, 지정한 유저의 등록된 디바이스로 알림 설정(ON/OFF) 무관하게 즉시 테스트 푸시를 발송합니다. 등록/수정 폼에서 저장 전 미리보기 용도로 쓰려면, 먼저 원하는 문구로 `POST`/`PUT`을 호출해 저장한 뒤 이 API로 확인하는 흐름을 권장합니다.
 
 **응답 (`AdminNotificationScheduleResponse`)**
 

@@ -438,9 +438,47 @@
 
 ---
 
-## 4. 에러 코드
+## 4. 관리자 API
 
-### 4.1 공통 에러 코드
+`ROLE_ADMIN` 권한을 가진 계정만 호출 가능합니다 (`Authorization: Bearer {access_token}`).
+
+### 4.1 `GET /api/v1/admin/users/search`
+
+닉네임 / 유저태그 / 이메일로 유저를 검색합니다. 어드민 페이지에서 특정 유저에게 테스트 알림을 보내는 등, 내부 `userId`를 알아야 하는 다른 관리자 API의 입력값을 찾기 위한 용도입니다.
+
+이메일은 소셜 로그인 유저의 `providerEmail`만 검색 대상이며, **로컬 로그인 유저는 이메일 필드 자체가 없어 닉네임/유저태그로만 검색**됩니다.
+
+쿼리 파라미터:
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `keyword` | `string` | Y | 닉네임/유저태그/이메일 중 하나라도 부분 일치하면 매칭 |
+| `page` | `integer` | N | 페이지 번호 (기본값 `0`) |
+| `size` | `integer` | N | 페이지 크기 (기본값 `20`) |
+
+성공 응답 `200 OK`:
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "items": [
+      { "userId": 123, "userTag": "picke_abcd", "nickname": "민초러버", "email": "user@gmail.com" },
+      { "userId": 124, "userTag": "picke_efgh", "nickname": "로컬유저", "email": null }
+    ],
+    "hasNext": false
+  },
+  "error": null
+}
+```
+
+`email`은 소셜 계정이 없는 유저(로컬 로그인)의 경우 `null`로 내려갑니다.
+
+---
+
+## 5. 에러 코드
+
+### 5.1 공통 에러 코드
 
 | Error Code | HTTP Status | 설명 |
 |------------|:-----------:|------|
@@ -452,7 +490,7 @@
 | `USER_SUSPENDED` | `403` | 일정 기간 이용 정지된 사용자 |
 | `INTERNAL_SERVER_ERROR` | `500` | 서버 오류 |
 
-### 4.2 사용자 에러 코드
+### 5.2 사용자 에러 코드
 
 | Error Code | HTTP Status | 설명 |
 |------------|:-----------:|------|

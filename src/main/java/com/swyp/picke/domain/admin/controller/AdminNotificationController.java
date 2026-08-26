@@ -3,6 +3,7 @@ package com.swyp.picke.domain.admin.controller;
 import com.swyp.picke.domain.admin.dto.notification.request.AdminNoticeCreateRequest;
 import com.swyp.picke.domain.admin.dto.notification.request.AdminNoticeUpdateRequest;
 import com.swyp.picke.domain.admin.dto.notification.request.AdminNotificationTestRequest;
+import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeDeliveryResultResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeDetailResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeListResponse;
 import com.swyp.picke.domain.admin.service.AdminNotificationService;
@@ -72,6 +73,12 @@ public class AdminNotificationController {
     public ApiResponse<Void> deleteNotice(@PathVariable Long noticeId) {
         adminNotificationService.deleteNotice(noticeId);
         return ApiResponse.onSuccess(null);
+    }
+
+    @Operation(summary = "공지사항 발송 결과 조회", description = "대상 디바이스 수, 성공/실패 건수를 조회한다. 푸시 발송은 비동기로 이뤄지므로 완료 전에는 pending=true로 내려간다.")
+    @GetMapping("/{noticeId}/delivery-result")
+    public ApiResponse<AdminNoticeDeliveryResultResponse> getDeliveryResult(@PathVariable Long noticeId) {
+        return ApiResponse.onSuccess(adminNotificationService.getDeliveryResult(noticeId));
     }
 
     @Operation(summary = "푸시 알림 발송 테스트", description = "특정 유저의 등록된 디바이스로 알림 설정(ON/OFF) 무관하게 즉시 테스트 푸시를 발송한다.")

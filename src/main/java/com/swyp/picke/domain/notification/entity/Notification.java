@@ -68,6 +68,11 @@ public class Notification extends BaseEntity {
         this.read = false;
     }
 
+    public void updateContent(String title, String body) {
+        this.title = title;
+        this.body = body;
+    }
+
     public void markAsRead() {
         if (!this.read) {
             this.read = true;

@@ -6,6 +6,7 @@ import com.swyp.picke.domain.admin.dto.notification.request.AdminNotificationTes
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeDeliveryResultResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeDetailResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeListResponse;
+import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeOptionsResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeTargetCountResponse;
 import com.swyp.picke.domain.admin.service.AdminNotificationService;
 import com.swyp.picke.domain.notification.enums.NotificationCategory;
@@ -42,6 +43,12 @@ public class AdminNotificationController {
             @RequestBody @Valid AdminNoticeCreateRequest request
     ) {
         return ApiResponse.onSuccess(adminNotificationService.createNotice(request));
+    }
+
+    @Operation(summary = "공지사항 작성 옵션 조회", description = "공지 작성 시 선택 가능한 category 목록을 내려준다.")
+    @GetMapping("/options")
+    public ApiResponse<AdminNoticeOptionsResponse> getOptions() {
+        return ApiResponse.onSuccess(adminNotificationService.getOptions());
     }
 
     @Operation(summary = "공지사항 목록 조회")

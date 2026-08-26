@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.swyp.picke.domain.admin.dto.notification.request.AdminNotificationScheduleRequest;
+import com.swyp.picke.domain.admin.dto.notification.request.AdminNotificationScheduleToggleRequest;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNotificationScheduleListResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNotificationScheduleResponse;
 import com.swyp.picke.domain.notification.entity.NotificationSchedule;
@@ -103,6 +104,32 @@ class AdminNotificationScheduleServiceTest {
                 new AdminNotificationScheduleRequest("제목", "소제목", LocalTime.of(19, 0), true);
 
         assertThatThrownBy(() -> adminNotificationScheduleService.update(999L, request))
+                .isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("예약 알림의 On/Off 상태를 전환한다")
+    void toggle_updatesEnabledState() {
+        NotificationSchedule schedule = NotificationSchedule.builder()
+                .title("오늘의 질문")
+                .subtitle("지금 확인해보세요")
+                .sendTime(LocalTime.of(19, 0))
+                .enabled(true)
+                .build();
+        when(notificationScheduleRepository.findById(1L)).thenReturn(Optional.of(schedule));
+
+        AdminNotificationScheduleResponse response =
+                adminNotificationScheduleService.toggle(1L, new AdminNotificationScheduleToggleRequest(false));
+
+        assertThat(response.enabled()).isFalse();
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 예약 알림을 전환하면 예외를 던진다")
+    void toggle_throws_whenNotFound() {
+        when(notificationScheduleRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> adminNotificationScheduleService.toggle(999L, new AdminNotificationScheduleToggleRequest(true)))
                 .isInstanceOf(CustomException.class);
     }
 

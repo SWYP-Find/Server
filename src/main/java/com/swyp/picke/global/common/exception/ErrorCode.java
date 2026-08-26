@@ -50,6 +50,7 @@ public enum ErrorCode {
     // Notification
     NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTIFICATION_404", "존재하지 않는 알림입니다."),
     NOTIFICATION_SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTIFICATION_404_SCHEDULE", "존재하지 않는 알림 예약입니다."),
+    NOTIFICATION_DELIVERY_RESULT_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTIFICATION_404_DELIVERY_RESULT", "발송 결과가 집계되지 않은 알림입니다."),
 
     // TTS
     TTS_INVALID_VOICE_ID(HttpStatus.BAD_REQUEST, "TTS_400_VOICE", "TTS 보이스 ID가 유효하지 않습니다."),

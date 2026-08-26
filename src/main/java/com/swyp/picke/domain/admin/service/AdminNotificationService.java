@@ -6,6 +6,7 @@ import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeDelivery
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeDetailResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeListResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeSummaryResponse;
+import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeTargetCountResponse;
 import com.swyp.picke.domain.notification.entity.Notification;
 import com.swyp.picke.domain.notification.entity.NotificationDeliveryResult;
 import com.swyp.picke.domain.notification.enums.NotificationCategory;
@@ -105,6 +106,10 @@ public class AdminNotificationService {
                 result.getFailureCount(),
                 result.isPending()
         );
+    }
+
+    public AdminNoticeTargetCountResponse getTargetCount() {
+        return new AdminNoticeTargetCountResponse(notificationDispatchService.countAdminNoticeTargets());
     }
 
     private NotificationCategory normalizeCategory(NotificationCategory category) {

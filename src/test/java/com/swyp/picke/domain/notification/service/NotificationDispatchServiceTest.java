@@ -82,4 +82,17 @@ class NotificationDispatchServiceTest {
 
         verify(notificationDeliveryResultRepository).updateResult(10L, 1, 1);
     }
+
+    @Test
+    @DisplayName("공지 발송 대상자 수를 마케팅/이벤트 알림 설정 ON인 유저의 디바이스 수 기준으로 조회한다")
+    void countAdminNoticeTargets_returnsDeviceCount() {
+        NotificationDispatchService notificationDispatchService = newService();
+
+        when(userSettingsRepository.findUserIdsByMarketingEventEnabledTrue()).thenReturn(List.of(1L, 2L, 3L));
+        when(userDeviceRepository.countByUserIdIn(List.of(1L, 2L, 3L))).thenReturn(5L);
+
+        int targetCount = notificationDispatchService.countAdminNoticeTargets();
+
+        assertThat(targetCount).isEqualTo(5);
+    }
 }

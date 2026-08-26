@@ -134,4 +134,14 @@ class AdminNotificationServiceTest {
         assertThatThrownBy(() -> adminNotificationService.getDeliveryResult(1L))
                 .isInstanceOf(CustomException.class);
     }
+
+    @Test
+    @DisplayName("공지 발송 대상자 수를 조회한다")
+    void getTargetCount_returnsCount() {
+        when(notificationDispatchService.countAdminNoticeTargets()).thenReturn(1200);
+
+        var response = adminNotificationService.getTargetCount();
+
+        assertThat(response.targetCount()).isEqualTo(1200);
+    }
 }

@@ -6,6 +6,7 @@ import com.swyp.picke.domain.admin.dto.notification.request.AdminNotificationTes
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeDeliveryResultResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeDetailResponse;
 import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeListResponse;
+import com.swyp.picke.domain.admin.dto.notification.response.AdminNoticeTargetCountResponse;
 import com.swyp.picke.domain.admin.service.AdminNotificationService;
 import com.swyp.picke.domain.notification.enums.NotificationCategory;
 import com.swyp.picke.domain.notification.service.NotificationDispatchService;
@@ -51,6 +52,12 @@ public class AdminNotificationController {
             @RequestParam(defaultValue = "20") int size
     ) {
         return ApiResponse.onSuccess(adminNotificationService.getNotices(category, page, size));
+    }
+
+    @Operation(summary = "공지 발송 대상자 수 미리보기", description = "지금 NOTICE/EVENT 공지를 등록하면 몇 대의 디바이스에 발송되는지 미리 조회한다.")
+    @GetMapping("/target-count")
+    public ApiResponse<AdminNoticeTargetCountResponse> getTargetCount() {
+        return ApiResponse.onSuccess(adminNotificationService.getTargetCount());
     }
 
     @Operation(summary = "공지사항 상세 조회")

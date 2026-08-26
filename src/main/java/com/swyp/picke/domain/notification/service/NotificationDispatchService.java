@@ -117,6 +117,15 @@ public class NotificationDispatchService {
     }
 
     /**
+     * 관리자가 공지/이벤트를 등록하기 전, 지금 등록하면 몇 명(디바이스 기준)에게 발송될지 미리 조회한다.
+     * {@link #notifyAdminNotice}와 동일한 대상자 산정 기준('이벤트 및 소식 알림' 설정 ON)을 사용한다.
+     */
+    public int countAdminNoticeTargets() {
+        List<Long> userIds = userSettingsRepository.findUserIdsByMarketingEventEnabledTrue();
+        return (int) userDeviceRepository.countByUserIdIn(userIds);
+    }
+
+    /**
      * 관리자가 특정 유저에게 알림 설정(ON/OFF) 체크 없이 즉시 테스트 푸시를 발송한다.
      */
     public void sendTestPush(Long userId, String title, String body) {

@@ -15,6 +15,8 @@ public interface UserDeviceRepository extends JpaRepository<UserDevice, Long> {
 
     List<UserDevice> findAllByUserIdIn(List<Long> userIds);
 
+    long countByUserIdIn(List<Long> userIds);
+
     List<UserDevice> findAllByUserIdAndPlatform(Long userId, DevicePlatform platform);
 
     void deleteByUserIdAndFcmToken(Long userId, String fcmToken);

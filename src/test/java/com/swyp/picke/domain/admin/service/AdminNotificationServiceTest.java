@@ -2,7 +2,6 @@ package com.swyp.picke.domain.admin.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.swyp.picke.domain.admin.dto.notification.request.AdminNoticeUpdateRequest;
@@ -51,7 +50,7 @@ class AdminNotificationServiceTest {
     @DisplayName("공지사항을 수정한다")
     void updateNotice_updatesExistingNotice() {
         Notification notification = newNotice("원본 제목", "원본 본문");
-        when(notificationRepository.findById(1L)).thenReturn(Optional.of(notification));
+        when(notificationRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(notification));
 
         AdminNoticeDetailResponse response = adminNotificationService.updateNotice(
                 1L, new AdminNoticeUpdateRequest("수정된 제목", "수정된 본문"));
@@ -63,7 +62,7 @@ class AdminNotificationServiceTest {
     @Test
     @DisplayName("존재하지 않는 공지사항을 수정하면 예외를 던진다")
     void updateNotice_throws_whenNotFound() {
-        when(notificationRepository.findById(999L)).thenReturn(Optional.empty());
+        when(notificationRepository.findByIdAndDeletedAtIsNull(999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> adminNotificationService.updateNotice(
                 999L, new AdminNoticeUpdateRequest("제목", "본문")))
@@ -71,20 +70,20 @@ class AdminNotificationServiceTest {
     }
 
     @Test
-    @DisplayName("공지사항을 삭제한다")
-    void deleteNotice_removesExistingNotice() {
+    @DisplayName("공지사항을 삭제하면 deletedAt이 기록된다")
+    void deleteNotice_softDeletesExistingNotice() {
         Notification notification = newNotice("제목", "본문");
-        when(notificationRepository.findById(1L)).thenReturn(Optional.of(notification));
+        when(notificationRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(notification));
 
         adminNotificationService.deleteNotice(1L);
 
-        verify(notificationRepository).delete(notification);
+        assertThat(notification.getDeletedAt()).isNotNull();
     }
 
     @Test
     @DisplayName("존재하지 않는 공지사항을 삭제하면 예외를 던진다")
     void deleteNotice_throws_whenNotFound() {
-        when(notificationRepository.findById(999L)).thenReturn(Optional.empty());
+        when(notificationRepository.findByIdAndDeletedAtIsNull(999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> adminNotificationService.deleteNotice(999L))
                 .isInstanceOf(CustomException.class);

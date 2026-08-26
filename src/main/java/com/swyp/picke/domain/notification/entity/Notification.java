@@ -55,6 +55,9 @@ public class Notification extends BaseEntity {
     @Column(name = "read_at")
     private LocalDateTime readAt;
 
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @Builder
     private Notification(User user, NotificationCategory category, NotificationDetailCode detailCode,
                          String title, String body, Long referenceId, Long perspectiveId) {
@@ -78,5 +81,9 @@ public class Notification extends BaseEntity {
             this.read = true;
             this.readAt = LocalDateTime.now();
         }
+    }
+
+    public void delete() {
+        this.deletedAt = LocalDateTime.now();
     }
 }

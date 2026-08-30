@@ -2,6 +2,7 @@ package com.swyp.picke.global.config;
 
 import com.swyp.picke.domain.oauth.jwt.JwtFilter;
 import com.swyp.picke.domain.oauth.jwt.JwtProvider;
+import com.swyp.picke.domain.user.repository.UserDailyActivityRepository;
 import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class SecurityConfig {
 
     private final JwtProvider jwtProvider;
+    private final UserDailyActivityRepository userDailyActivityRepository;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -70,7 +72,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(new JwtFilter(jwtProvider),
+                .addFilterBefore(new JwtFilter(jwtProvider, userDailyActivityRepository),
                         UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

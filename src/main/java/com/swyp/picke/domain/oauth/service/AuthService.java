@@ -26,6 +26,7 @@ import com.swyp.picke.domain.user.entity.UserSettings;
 import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.entity.UserTendencyScore;
 import com.swyp.picke.domain.user.entity.UserWithdrawal;
+import com.swyp.picke.domain.user.repository.UserDailyActivityRepository;
 import com.swyp.picke.domain.user.repository.UserProfileRepository;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.domain.user.repository.UserSettingsRepository;
@@ -43,6 +44,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
@@ -94,6 +96,7 @@ public class AuthService {
     private final UserSettingsRepository userSettingsRepository;
     private final UserTendencyScoreRepository userTendencyScoreRepository;
     private final UserWithdrawalRepository userWithdrawalRepository;
+    private final UserDailyActivityRepository userDailyActivityRepository;
     private final JwtProvider jwtProvider;
     private final CreditService creditService;
     private final PasswordEncoder passwordEncoder;
@@ -200,6 +203,8 @@ public class AuthService {
         if (user.getStatus() == UserStatus.SUSPENDED) {
             throw new CustomException(ErrorCode.USER_SUSPENDED);
         }
+
+        userDailyActivityRepository.markLoggedIn(user.getId(), LocalDate.now());
 
         // 기존 refresh token 삭제 후 새로 발급
         refreshTokenRepository.deleteByUser(user);

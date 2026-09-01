@@ -2,6 +2,7 @@ package com.swyp.picke.domain.user.repository;
 
 import com.swyp.picke.domain.user.entity.CreditHistory;
 import com.swyp.picke.domain.user.enums.CreditType;
+import java.time.LocalDateTime;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -21,4 +22,6 @@ public interface CreditHistoryRepository extends JpaRepository<CreditHistory, Lo
     boolean existsByUserIdAndCreditTypeAndReferenceId(Long userId, CreditType creditType, Long referenceId);
 
     Page<CreditHistory> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
+
+    long countByCreditTypeAndCreatedAtBetween(CreditType creditType, LocalDateTime start, LocalDateTime end);
 }

@@ -193,7 +193,51 @@
 
 ---
 
-## 6. 에러 코드
+## 6. `GET /api/v1/admin/dashboard/attendance-stats`
+
+기간 내 출석 체크 현황과 개근 보너스 달성 건수를 조회합니다. 출석 체크는 로그인 시 자동으로 되는 게 아니라 유저가 명시적으로 출석 체크 API를 호출해야 기록됩니다.
+
+요청 헤더:
+
+- `Authorization: Bearer {access_token}`
+
+쿼리 파라미터:
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `from` | `string` (`YYYY-MM-DD`) | Y | 조회 시작일 |
+| `to` | `string` (`YYYY-MM-DD`) | Y | 조회 종료일 |
+
+성공 응답 `200 OK`:
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "avgAttendanceRate": 0.12,
+    "totalCount": 850,
+    "streakAchievedCount": 42,
+    "items": [
+      { "date": "2026-08-01", "count": 100 },
+      { "date": "2026-08-02", "count": 120 }
+    ]
+  },
+  "error": null
+}
+```
+
+| 필드 | 설명 |
+|---|---|
+| `avgAttendanceRate` | 일자별 (출석 인원 / 전체 `ACTIVE` 유저 수)의 기간 평균 |
+| `totalCount` | 기간 내 총 출석 횟수 |
+| `streakAchievedCount` | 기간 내 개근 보너스(`CreditType.ATTENDANCE_STREAK`, 월~토 개근 후 일요일 출석 시 지급)를 받은 건수 |
+| `items` | 일자별 출석 인원 수 (출석이 없는 날짜도 `0`으로 채움) |
+
+`from`이 `to`보다 늦으면 `COMMON_400`으로 400을 반환합니다.
+
+---
+
+## 7. 에러 코드
 
 | Error Code | HTTP Status | 설명 |
 |---|:---:|---|

@@ -92,7 +92,63 @@
 
 ---
 
-## 4. 에러 코드
+## 4. `GET /api/v1/admin/dashboard/new-users`
+
+기간별 신규 가입자 추이(꺾은선 그래프용)를 조회합니다. `dau-mau`와 동일한 파라미터 형태를 쓰되, 롤링 윈도우 없이 단순 카운트만 수행합니다. 가입자가 없는 날짜/주도 0으로 채워서 반환합니다.
+
+요청 헤더:
+
+- `Authorization: Bearer {access_token}`
+
+쿼리 파라미터:
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `from` | `string` (`YYYY-MM-DD`) | Y | 조회 시작일 |
+| `to` | `string` (`YYYY-MM-DD`) | Y | 조회 종료일 |
+| `granularity` | `string` | N | `day`(기본값, 일자별) \| `week`(주별, ISO 8601 월요일 시작) |
+
+`granularity=week`일 때 각 항목의 `date`는 그 주의 시작일(월요일)입니다.
+
+`totalCount`는 `from`~`to` 구간 전체의 정확한 합계입니다. `granularity=week`로 조회하면 주 경계가 `from`/`to`를 벗어나는 날짜까지 포함할 수 있어(예: `to`가 주 중간이면 그 주 전체가 한 항목으로 잡힘) `items`의 `count`를 그냥 더한 값과 `totalCount`가 다를 수 있습니다 — **임의 기간의 정확한 합계가 필요하면 `granularity` 값과 무관하게 `totalCount`를 사용하세요.**
+
+성공 응답 `200 OK` (`granularity=day`):
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "totalCount": 20,
+    "items": [
+      { "date": "2026-08-01", "count": 12 },
+      { "date": "2026-08-02", "count": 8 }
+    ]
+  },
+  "error": null
+}
+```
+
+성공 응답 `200 OK` (`granularity=week`):
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "totalCount": 130,
+    "items": [
+      { "date": "2026-07-27", "count": 65 },
+      { "date": "2026-08-03", "count": 71 }
+    ]
+  },
+  "error": null
+}
+```
+
+`from`이 `to`보다 늦으면 `dau-mau`와 동일하게 `COMMON_400`으로 400을 반환합니다.
+
+---
+
+## 5. 에러 코드
 
 | Error Code | HTTP Status | 설명 |
 |---|:---:|---|

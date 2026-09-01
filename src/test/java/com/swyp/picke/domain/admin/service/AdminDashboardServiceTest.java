@@ -93,6 +93,51 @@ class AdminDashboardServiceTest {
                 .isInstanceOf(CustomException.class);
     }
 
+    @Test
+    @DisplayName("granularity=day면 일자별 신규 가입자 수를 조회한다")
+    void getNewUsersTrend_day_returnsDailyCounts() {
+        LocalDate from = LocalDate.of(2026, 8, 1);
+        LocalDate to = LocalDate.of(2026, 8, 2);
+        List<DailyUserCount> rows = List.of(
+                dailyUserCount(LocalDate.of(2026, 8, 1), 3L),
+                dailyUserCount(LocalDate.of(2026, 8, 2), 5L)
+        );
+        when(userRepository.findDailyNewUserCounts(from, to)).thenReturn(rows);
+        when(userRepository.countByCreatedAtBetween(any(), any())).thenReturn(8L);
+
+        var response = adminDashboardService.getNewUsersTrend(from, to, "day");
+
+        assertThat(response.items()).hasSize(2);
+        assertThat(response.items().get(1).count()).isEqualTo(5L);
+        assertThat(response.totalCount()).isEqualTo(8L);
+    }
+
+    @Test
+    @DisplayName("granularity=week면 주별 신규 가입자 수를 조회한다")
+    void getNewUsersTrend_week_returnsWeeklyCounts() {
+        LocalDate from = LocalDate.of(2026, 8, 1);
+        LocalDate to = LocalDate.of(2026, 8, 14);
+        List<DailyUserCount> rows = List.of(dailyUserCount(LocalDate.of(2026, 7, 27), 20L));
+        when(userRepository.findWeeklyNewUserCounts(from, to)).thenReturn(rows);
+        when(userRepository.countByCreatedAtBetween(any(), any())).thenReturn(18L);
+
+        var response = adminDashboardService.getNewUsersTrend(from, to, "week");
+
+        assertThat(response.items()).hasSize(1);
+        assertThat(response.items().get(0).count()).isEqualTo(20L);
+        assertThat(response.totalCount()).isEqualTo(18L);
+    }
+
+    @Test
+    @DisplayName("신규 가입자 추이 조회 시 from이 to보다 늦으면 예외를 던진다")
+    void getNewUsersTrend_throws_whenFromIsAfterTo() {
+        LocalDate from = LocalDate.of(2026, 8, 10);
+        LocalDate to = LocalDate.of(2026, 8, 1);
+
+        assertThatThrownBy(() -> adminDashboardService.getNewUsersTrend(from, to, "day"))
+                .isInstanceOf(CustomException.class);
+    }
+
     private DailyUserCount dailyUserCount(LocalDate date, long count) {
         return new DailyUserCount() {
             @Override

@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.admin.service;
 
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardDauMauResponse;
+import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardNewUsersResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardSummaryResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardTrendItemResponse;
 import com.swyp.picke.domain.user.enums.UserStatus;
@@ -51,5 +52,25 @@ public class AdminDashboardService {
                 .toList();
 
         return new AdminDashboardDauMauResponse(items);
+    }
+
+    public AdminDashboardNewUsersResponse getNewUsersTrend(LocalDate from, LocalDate to, String granularity) {
+        if (from.isAfter(to)) {
+            throw new CustomException(ErrorCode.COMMON_INVALID_PARAMETER);
+        }
+
+        List<DailyUserCount> rows = "week".equalsIgnoreCase(granularity)
+                ? userRepository.findWeeklyNewUserCounts(from, to)
+                : userRepository.findDailyNewUserCounts(from, to);
+
+        List<AdminDashboardTrendItemResponse> items = rows.stream()
+                .map(row -> new AdminDashboardTrendItemResponse(row.getActivityDate(), row.getCount()))
+                .toList();
+
+        // week 단위 items는 주 경계가 from~to 범위를 벗어날 수 있어(예: to가 주 중간이면 그 주 전체를 포함),
+        // 요청한 기간 전체의 정확한 합계는 items 합산이 아니라 별도 카운트로 계산한다.
+        long totalCount = userRepository.countByCreatedAtBetween(from.atStartOfDay(), to.plusDays(1).atStartOfDay());
+
+        return new AdminDashboardNewUsersResponse(totalCount, items);
     }
 }

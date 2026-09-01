@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.admin.controller;
 
+import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardBattleStatsResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardDauMauResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardNewUsersResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardSummaryResponse;
@@ -49,5 +50,14 @@ public class AdminDashboardController {
             @RequestParam(defaultValue = "day") String granularity
     ) {
         return ApiResponse.onSuccess(adminDashboardService.getNewUsersTrend(from, to, granularity));
+    }
+
+    @Operation(summary = "배틀 참여율 조회", description = "기간(targetDate 기준) 내 발행된 배틀들의 배틀당 평균 사전투표/사후투표/관점작성/댓글작성 참여율을 반환한다.")
+    @GetMapping("/battle-stats")
+    public ApiResponse<AdminDashboardBattleStatsResponse> getBattleStats(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
+    ) {
+        return ApiResponse.onSuccess(adminDashboardService.getBattleStats(from, to));
     }
 }

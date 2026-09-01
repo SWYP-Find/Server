@@ -148,7 +148,52 @@
 
 ---
 
-## 5. 에러 코드
+## 5. `GET /api/v1/admin/dashboard/battle-stats`
+
+기간(`targetDate` 기준) 내 `PUBLISHED` 상태로 발행된 배틀들의 **배틀당 평균 참여율**을 조회합니다.
+
+요청 헤더:
+
+- `Authorization: Bearer {access_token}`
+
+쿼리 파라미터:
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `from` | `string` (`YYYY-MM-DD`) | Y | 조회 시작일 (배틀의 `targetDate` 기준) |
+| `to` | `string` (`YYYY-MM-DD`) | Y | 조회 종료일 |
+
+성공 응답 `200 OK`:
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "battleCount": 5,
+    "avgPreVoteRate": 0.42,
+    "avgPostVoteRate": 0.31,
+    "avgPerspectiveWriteRate": 0.18,
+    "avgCommentWriteRate": 0.07
+  },
+  "error": null
+}
+```
+
+| 필드 | 설명 |
+|---|---|
+| `battleCount` | 기간 내 발행된 배틀 수 |
+| `avgPreVoteRate` | 배틀당 평균 사전투표 참여율 (0~1 비율) |
+| `avgPostVoteRate` | 배틀당 평균 사후투표 참여율 |
+| `avgPerspectiveWriteRate` | 배틀당 평균 관점(의견) 작성률 |
+| `avgCommentWriteRate` | 배틀당 평균 댓글(다른 사람 관점에 대한 답글) 작성률 |
+
+각 배틀마다 (참여자 수 / 전체 `ACTIVE` 유저 수)로 참여율을 구한 뒤, 기간 내 배틀들의 평균을 냅니다. 분모는 **현재 시점 기준 전체 `ACTIVE` 유저 수**를 사용하는 근사치이며, 배틀이 발행되던 시점의 실제 유저 수가 아닙니다. 기간 내 발행된 배틀이 하나도 없으면 모든 비율 필드는 `0`입니다.
+
+`from`이 `to`보다 늦으면 `COMMON_400`으로 400을 반환합니다.
+
+---
+
+## 6. 에러 코드
 
 | Error Code | HTTP Status | 설명 |
 |---|:---:|---|

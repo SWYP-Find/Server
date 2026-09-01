@@ -6,8 +6,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardBattleStatsResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardDauMauResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardSummaryResponse;
+import com.swyp.picke.domain.battle.repository.BattleRepository;
+import com.swyp.picke.domain.battle.repository.projection.BattleParticipationStats;
 import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.repository.UserDailyActivityRepository;
 import com.swyp.picke.domain.user.repository.UserRepository;
@@ -30,6 +33,9 @@ class AdminDashboardServiceTest {
 
     @Mock
     private UserDailyActivityRepository userDailyActivityRepository;
+
+    @Mock
+    private BattleRepository battleRepository;
 
     @InjectMocks
     private AdminDashboardService adminDashboardService;
@@ -136,6 +142,80 @@ class AdminDashboardServiceTest {
 
         assertThatThrownBy(() -> adminDashboardService.getNewUsersTrend(from, to, "day"))
                 .isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("배틀당 평균 참여율을 조회한다")
+    void getBattleStats_returnsAverageRates() {
+        LocalDate from = LocalDate.of(2026, 8, 1);
+        LocalDate to = LocalDate.of(2026, 8, 7);
+        when(userRepository.countByStatus(UserStatus.ACTIVE)).thenReturn(1000L);
+        BattleParticipationStats stats = battleParticipationStats(5L, 0.8, 0.6, 0.4, 0.1);
+        when(battleRepository.findParticipationStats(from, to, 1000L)).thenReturn(stats);
+
+        AdminDashboardBattleStatsResponse response = adminDashboardService.getBattleStats(from, to);
+
+        assertThat(response.battleCount()).isEqualTo(5L);
+        assertThat(response.avgPreVoteRate()).isEqualTo(0.8);
+        assertThat(response.avgPostVoteRate()).isEqualTo(0.6);
+        assertThat(response.avgPerspectiveWriteRate()).isEqualTo(0.4);
+        assertThat(response.avgCommentWriteRate()).isEqualTo(0.1);
+    }
+
+    @Test
+    @DisplayName("기간 내 발행된 배틀이 없으면 참여율은 0으로 반환한다")
+    void getBattleStats_returnsZero_whenNoBattlesPublished() {
+        LocalDate from = LocalDate.of(2026, 8, 1);
+        LocalDate to = LocalDate.of(2026, 8, 7);
+        when(userRepository.countByStatus(UserStatus.ACTIVE)).thenReturn(1000L);
+        BattleParticipationStats stats = battleParticipationStats(0L, null, null, null, null);
+        when(battleRepository.findParticipationStats(from, to, 1000L)).thenReturn(stats);
+
+        AdminDashboardBattleStatsResponse response = adminDashboardService.getBattleStats(from, to);
+
+        assertThat(response.battleCount()).isEqualTo(0L);
+        assertThat(response.avgPreVoteRate()).isEqualTo(0.0);
+        assertThat(response.avgCommentWriteRate()).isEqualTo(0.0);
+    }
+
+    @Test
+    @DisplayName("배틀 참여율 조회 시 from이 to보다 늦으면 예외를 던진다")
+    void getBattleStats_throws_whenFromIsAfterTo() {
+        LocalDate from = LocalDate.of(2026, 8, 10);
+        LocalDate to = LocalDate.of(2026, 8, 1);
+
+        assertThatThrownBy(() -> adminDashboardService.getBattleStats(from, to))
+                .isInstanceOf(CustomException.class);
+    }
+
+    private BattleParticipationStats battleParticipationStats(
+            long battleCount, Double preVote, Double postVote, Double perspective, Double comment) {
+        return new BattleParticipationStats() {
+            @Override
+            public long getBattleCount() {
+                return battleCount;
+            }
+
+            @Override
+            public Double getAvgPreVoteRate() {
+                return preVote;
+            }
+
+            @Override
+            public Double getAvgPostVoteRate() {
+                return postVote;
+            }
+
+            @Override
+            public Double getAvgPerspectiveRate() {
+                return perspective;
+            }
+
+            @Override
+            public Double getAvgCommentRate() {
+                return comment;
+            }
+        };
     }
 
     private DailyUserCount dailyUserCount(LocalDate date, long count) {

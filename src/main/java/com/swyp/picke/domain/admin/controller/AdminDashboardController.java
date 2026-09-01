@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.admin.controller;
 
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardDauMauResponse;
+import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardNewUsersResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardSummaryResponse;
 import com.swyp.picke.domain.admin.service.AdminDashboardService;
 import com.swyp.picke.global.common.response.ApiResponse;
@@ -38,5 +39,15 @@ public class AdminDashboardController {
             @RequestParam(defaultValue = "day") String granularity
     ) {
         return ApiResponse.onSuccess(adminDashboardService.getDauMauTrend(from, to, granularity));
+    }
+
+    @Operation(summary = "신규 가입자 추이 조회", description = "granularity=day면 일자별, week면 주별(ISO 8601, 월요일 시작) 신규 가입자 수를 반환한다.")
+    @GetMapping("/new-users")
+    public ApiResponse<AdminDashboardNewUsersResponse> getNewUsersTrend(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(defaultValue = "day") String granularity
+    ) {
+        return ApiResponse.onSuccess(adminDashboardService.getNewUsersTrend(from, to, granularity));
     }
 }

@@ -1,9 +1,12 @@
 package com.swyp.picke.domain.admin.service;
 
+import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardBattleStatsResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardDauMauResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardNewUsersResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardSummaryResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardTrendItemResponse;
+import com.swyp.picke.domain.battle.repository.BattleRepository;
+import com.swyp.picke.domain.battle.repository.projection.BattleParticipationStats;
 import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.repository.UserDailyActivityRepository;
 import com.swyp.picke.domain.user.repository.UserRepository;
@@ -24,6 +27,7 @@ public class AdminDashboardService {
 
     private final UserRepository userRepository;
     private final UserDailyActivityRepository userDailyActivityRepository;
+    private final BattleRepository battleRepository;
 
     public AdminDashboardSummaryResponse getSummary() {
         LocalDate today = LocalDate.now();
@@ -72,5 +76,26 @@ public class AdminDashboardService {
         long totalCount = userRepository.countByCreatedAtBetween(from.atStartOfDay(), to.plusDays(1).atStartOfDay());
 
         return new AdminDashboardNewUsersResponse(totalCount, items);
+    }
+
+    public AdminDashboardBattleStatsResponse getBattleStats(LocalDate from, LocalDate to) {
+        if (from.isAfter(to)) {
+            throw new CustomException(ErrorCode.COMMON_INVALID_PARAMETER);
+        }
+
+        long totalUsers = userRepository.countByStatus(UserStatus.ACTIVE);
+        BattleParticipationStats stats = battleRepository.findParticipationStats(from, to, totalUsers);
+
+        return new AdminDashboardBattleStatsResponse(
+                stats.getBattleCount(),
+                orZero(stats.getAvgPreVoteRate()),
+                orZero(stats.getAvgPostVoteRate()),
+                orZero(stats.getAvgPerspectiveRate()),
+                orZero(stats.getAvgCommentRate())
+        );
+    }
+
+    private double orZero(Double value) {
+        return value != null ? value : 0.0;
     }
 }

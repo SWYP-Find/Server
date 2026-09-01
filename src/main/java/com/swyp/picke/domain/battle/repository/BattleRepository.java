@@ -2,6 +2,7 @@ package com.swyp.picke.domain.battle.repository;
 
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.enums.BattleStatus;
+import com.swyp.picke.domain.battle.repository.projection.BattleParticipationStats;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -109,5 +110,36 @@ public interface BattleRepository extends JpaRepository<Battle, Long> {
             @Param("candidateBattleIds") List<Long> candidateBattleIds,
             @Param("excludeBattleIds") List<Long> excludeBattleIds,
             Pageable pageable
+    );
+
+    /**
+     * 어드민 대시보드용: from~to(targetDate 기준) 구간에 발행된 배틀들의 배틀당 평균 참여율.
+     * totalUsers를 분모로 사전투표/사후투표/관점작성/댓글작성 참여율을 배틀별로 구한 뒤 평균낸다.
+     */
+    @Query(value = """
+            SELECT
+                COUNT(*) AS battle_count,
+                AVG(sub.pre_vote_count::decimal / NULLIF(:totalUsers, 0)) AS avg_pre_vote_rate,
+                AVG(sub.post_vote_count::decimal / NULLIF(:totalUsers, 0)) AS avg_post_vote_rate,
+                AVG(sub.perspective_count::decimal / NULLIF(:totalUsers, 0)) AS avg_perspective_rate,
+                AVG(sub.comment_count::decimal / NULLIF(:totalUsers, 0)) AS avg_comment_rate
+            FROM (
+                SELECT
+                    b.id,
+                    (SELECT COUNT(*) FROM votes v WHERE v.battle_id = b.id AND v.pre_vote_option_id IS NOT NULL) AS pre_vote_count,
+                    (SELECT COUNT(*) FROM votes v WHERE v.battle_id = b.id AND v.post_vote_option_id IS NOT NULL) AS post_vote_count,
+                    (SELECT COUNT(DISTINCT p.user_id) FROM perspectives p WHERE p.battle_id = b.id) AS perspective_count,
+                    (SELECT COUNT(DISTINCT pc.user_id) FROM perspective_comments pc
+                        JOIN perspectives p2 ON p2.id = pc.perspective_id
+                        WHERE p2.battle_id = b.id) AS comment_count
+                FROM battles b
+                WHERE b.status = 'PUBLISHED' AND b.deleted_at IS NULL
+                    AND b.target_date BETWEEN :from AND :to
+            ) sub
+            """, nativeQuery = true)
+    BattleParticipationStats findParticipationStats(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("totalUsers") long totalUsers
     );
 }

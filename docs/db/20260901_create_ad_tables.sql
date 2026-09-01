@@ -1,5 +1,8 @@
 -- 제휴 광고(쿠팡 파트너스 / 애드픽) 소재·클릭·노출 테이블
 -- 관련 설계: docs/superpowers/specs/2026-09-01-ad-picke-store-design.md
+--
+-- 이 파일은 참고용이다. 운영은 spring.jpa.hibernate.ddl-auto=update 라 배포 시 자동 생성된다.
+-- 스키마를 손으로 관리하는 환경이나 사후 검증이 필요할 때 쓴다.
 
 CREATE TABLE IF NOT EXISTS ad_creatives (
     id          BIGSERIAL PRIMARY KEY,

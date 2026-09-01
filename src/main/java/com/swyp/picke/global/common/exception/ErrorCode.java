@@ -119,6 +119,7 @@ public enum ErrorCode {
     // Ad (제휴 광고)
     AD_CREATIVE_NOT_FOUND(HttpStatus.NOT_FOUND, "AD_404", "존재하지 않는 광고 소재입니다."),
     AD_CODE_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AD_500_CODE", "광고 소재 코드 생성에 실패했습니다."),
+    AD_COUPANG_PARTNER_MISMATCH(HttpStatus.BAD_REQUEST, "AD_400_LPTAG", "우리 쿠팡 파트너스 아이디가 아닌 제휴 링크입니다. 링크를 다시 확인해 주세요."),
 
     // Attendance
     ATTENDANCE_ALREADY_CHECKED(HttpStatus.CONFLICT, "ATTENDANCE_409", "오늘 이미 출석체크를 완료했습니다.");

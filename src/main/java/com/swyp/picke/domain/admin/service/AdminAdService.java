@@ -20,9 +20,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import org.springframework.web.util.UriComponentsBuilder;
 
 @Service
 @RequiredArgsConstructor
@@ -37,8 +40,13 @@ public class AdminAdService {
     private final AdImpressionDailyRepository adImpressionDailyRepository;
     private final SecureRandom random = new SecureRandom();
 
+    @Value("${coupang.partners.id:}")
+    private String coupangPartnersId;
+
     @Transactional
     public AdCreativeResponse create(AdCreativeRequest request) {
+        validateCoupangOwnership(request);
+
         AdCreative creative = AdCreative.builder()
                 .code(generateUniqueCode())
                 .network(request.network())
@@ -59,6 +67,8 @@ public class AdminAdService {
 
     @Transactional
     public AdCreativeResponse update(Long creativeId, AdCreativeRequest request) {
+        validateCoupangOwnership(request);
+
         AdCreative creative = findById(creativeId);
 
         creative.update(
@@ -127,6 +137,27 @@ public class AdminAdService {
                 from.atStartOfDay(),
                 to.plusDays(1).atStartOfDay(),
                 PageRequest.of(Math.max(0, page - 1), size)));
+    }
+
+    /**
+     * 남의 파트너스 링크를 잘못 붙여넣으면 우리가 광고를 싣고 수수료는 남이 받는다.
+     *
+     * <p>다만 link.coupang.com 단축 링크에는 lptag가 드러나지 않으므로, 파라미터가 있을 때만 대조한다.
+     * 없다고 막으면 정상적인 단축 링크를 쓸 수 없다.
+     */
+    private void validateCoupangOwnership(AdCreativeRequest request) {
+        if (request.network() != AdNetwork.COUPANG || !StringUtils.hasText(coupangPartnersId)) {
+            return;
+        }
+
+        String lptag = UriComponentsBuilder.fromUriString(request.landingUrl())
+                .build()
+                .getQueryParams()
+                .getFirst("lptag");
+
+        if (lptag != null && !coupangPartnersId.equals(lptag)) {
+            throw new CustomException(ErrorCode.AD_COUPANG_PARTNER_MISMATCH);
+        }
     }
 
     private AdCreative findById(Long creativeId) {

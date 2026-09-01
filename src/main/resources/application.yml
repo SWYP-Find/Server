@@ -130,6 +130,9 @@ admin:
 
 picke:
   baseUrl: ${PICKE_BASE_URL:https://picke.store}
+  ad:
+    host: ${AD_HOST:ad.picke.store}
+    base-url: ${AD_BASE_URL:https://ad.picke.store}
   s3:
     presigned-url:
       expiration-hours: 6

@@ -85,7 +85,7 @@ public class SwaggerConfig {
         return GroupedOpenApi.builder()
                 .group("1. 사용자 API")
                 .pathsToMatch("/api/v1/**")
-                .pathsToExclude("/api/v1/admin/**", "/api/v1/files/**", "/api/v1/resources/**", "/api/test/**", "/api/v1/admob/**")
+                .pathsToExclude("/api/v1/admin/**", "/api/v1/files/**", "/api/v1/resources/**", "/api/test/**", "/api/v1/admob/**", "/api/v1/ads/**")
                 .addOpenApiCustomizer(feUsedApiOnlyCustomizer())
                 .build();
     }
@@ -95,6 +95,21 @@ public class SwaggerConfig {
         return GroupedOpenApi.builder()
                 .group("2. 관리자 API")
                 .pathsToMatch("/api/v1/admin/**", "/api/v1/files/**", "/api/v1/resources/**", "/api/test/**", "/api/v1/admob/**")
+                .pathsToExclude("/api/v1/admin/ads/**")
+                .build();
+    }
+
+    /**
+     * 제휴 광고는 별도 그룹으로 띄운다.
+     *
+     * <p>사용자 그룹은 FE_USED_OPERATIONS 화이트리스트로 걸러지므로 거기에 넣으면 어차피 보이지 않는다.
+     * 앱용과 관리자용을 한 그룹에 모아 광고 연동만 따로 볼 수 있게 한다.
+     */
+    @Bean
+    public GroupedOpenApi adApi() {
+        return GroupedOpenApi.builder()
+                .group("3. 광고 API")
+                .pathsToMatch("/api/v1/ads", "/api/v1/ads/**", "/api/v1/admin/ads", "/api/v1/admin/ads/**")
                 .build();
     }
 

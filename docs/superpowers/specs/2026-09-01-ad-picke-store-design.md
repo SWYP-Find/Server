@@ -94,7 +94,7 @@ domain/admin/  AdminAdController + AdminAdService  (기존 어드민 관례를 �
 앱 설치·이벤트 참여라 문구 성격이 다르기 때문이다.
 
 **`ad_click_logs`** — 클릭 원장. creative_id, slot, ip_hash, user_agent, clicked_at.
-제휴사 리포트와 대사(對査)하는 용도다.
+제휴사 리포트와 대조하는 용도다.
 
 **`ad_impression_daily`** — 노출 집계. (creative_id, slot, stat_date) 유니크 + impressions 카운터.
 
@@ -108,7 +108,7 @@ domain/admin/  AdminAdController + AdminAdService  (기존 어드민 관례를 �
 사용자를 붙이려면 클릭 URL에 사용자 식별자를 실어야 하는데, 공개 URL에 그걸 넣으면 열거 공격과
 프라이버시 문제가 생긴다. 서명된 단기 토큰을 발급하는 방법도 있지만 v1에 그만한 값어치가 없다.
 
-지면별 CTR과 정산 대사에는 userId가 필요 없으므로 **v1은 익명(ip_hash + user_agent)으로 간다.**
+지면별 CTR과 정산 대조에는 userId가 필요 없으므로 **v1은 익명(ip_hash + user_agent)으로 간다.**
 본인 클릭 어뷰징 탐지가 필요해지면 그때 추가한다.
 
 ### 3.5 API

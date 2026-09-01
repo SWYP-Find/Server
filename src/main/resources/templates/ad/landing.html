@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PICKE 추천 - 오늘의 제휴 상품</title>
+    <meta name="description" content="PICKE가 고른 오늘의 추천 상품과 제휴 혜택을 모았습니다.">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+            background: #fafafa;
+            color: #111;
+            line-height: 1.6;
+        }
+        .wrap { max-width: 960px; margin: 0 auto; padding: 40px 20px 64px; }
+        header { border-bottom: 1px solid #e5e5e5; padding-bottom: 24px; margin-bottom: 32px; }
+        h1 { font-size: 28px; margin: 0 0 8px; letter-spacing: -0.5px; }
+        .lead { color: #666; margin: 0; font-size: 15px; }
+        h2 { font-size: 19px; margin: 0 0 16px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+        .card {
+            display: block; background: #fff; border: 1px solid #e5e5e5; border-radius: 14px;
+            overflow: hidden; text-decoration: none; color: inherit;
+        }
+        .card:hover { border-color: #111; }
+        .card img { width: 100%; height: 160px; object-fit: cover; display: block; background: #f0f0f0; }
+        .card-body { padding: 14px; }
+        .badge {
+            display: inline-block; font-size: 11px; font-weight: 700; color: #666;
+            background: #f0f0f0; border-radius: 4px; padding: 2px 6px; margin-bottom: 6px;
+        }
+        .card-title { font-weight: 700; font-size: 15px; margin: 0 0 4px; }
+        .card-sub { font-size: 13px; color: #777; margin: 0 0 10px; }
+        .cta { font-size: 13px; font-weight: 700; color: #111; }
+        .empty { padding: 48px 0; text-align: center; color: #999; }
+        footer {
+            margin-top: 48px; padding-top: 24px; border-top: 1px solid #e5e5e5;
+            font-size: 13px; color: #777;
+        }
+        .notice { background: #fff8e6; border: 1px solid #f0dda0; border-radius: 10px; padding: 14px; margin-bottom: 16px; }
+        footer a { color: #555; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <header>
+        <h1>PICKE 추천</h1>
+        <p class="lead">PICKE가 고른 오늘의 추천 상품과 제휴 혜택입니다.</p>
+    </header>
+
+    <main>
+        <h2>추천 상품</h2>
+
+        <div class="grid" th:if="${!#lists.isEmpty(ads)}">
+            <a class="card" th:each="ad : ${ads}" th:href="${ad.clickUrl()}" rel="nofollow sponsored noopener"
+               target="_blank">
+                <img th:src="${ad.imageUrl()}" th:alt="${ad.title()}">
+                <div class="card-body">
+                    <span class="badge" th:text="${ad.label()}">광고</span>
+                    <p class="card-title" th:text="${ad.title()}">상품명</p>
+                    <p class="card-sub" th:text="${ad.subtitle()}" th:if="${ad.subtitle()}">설명</p>
+                    <span class="cta" th:text="${ad.ctaText()}">구매하러 가기</span>
+                </div>
+            </a>
+        </div>
+
+        <p class="empty" th:if="${#lists.isEmpty(ads)}">준비 중인 추천 상품이 곧 올라옵니다.</p>
+    </main>
+
+    <footer>
+        <p class="notice">
+            이 사이트는 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.
+        </p>
+        <p>
+            <a href="/privacy-policy">개인정보처리방침</a> ·
+            <a href="/terms">이용약관</a>
+        </p>
+        <p>© PICKE</p>
+    </footer>
+</div>
+</body>
+</html>

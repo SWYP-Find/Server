@@ -116,6 +116,10 @@ public enum ErrorCode {
     PHILOSOPHER_CALC_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "USER_500_PHIL", "철학자 유형을 계산할 수 없습니다."),
     RECAP_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_404_RECAP", "존재하지 않는 리캡입니다."),
 
+    // Ad (제휴 광고)
+    AD_CREATIVE_NOT_FOUND(HttpStatus.NOT_FOUND, "AD_404", "존재하지 않는 광고 소재입니다."),
+    AD_CODE_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AD_500_CODE", "광고 소재 코드 생성에 실패했습니다."),
+
     // Attendance
     ATTENDANCE_ALREADY_CHECKED(HttpStatus.CONFLICT, "ATTENDANCE_409", "오늘 이미 출석체크를 완료했습니다.");
 

@@ -6,12 +6,16 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardAttendanceStatsResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardBattleStatsResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardDauMauResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardSummaryResponse;
+import com.swyp.picke.domain.attendance.repository.AttendanceRecordRepository;
 import com.swyp.picke.domain.battle.repository.BattleRepository;
 import com.swyp.picke.domain.battle.repository.projection.BattleParticipationStats;
+import com.swyp.picke.domain.user.enums.CreditType;
 import com.swyp.picke.domain.user.enums.UserStatus;
+import com.swyp.picke.domain.user.repository.CreditHistoryRepository;
 import com.swyp.picke.domain.user.repository.UserDailyActivityRepository;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.domain.user.repository.projection.DailyUserCount;
@@ -36,6 +40,12 @@ class AdminDashboardServiceTest {
 
     @Mock
     private BattleRepository battleRepository;
+
+    @Mock
+    private AttendanceRecordRepository attendanceRecordRepository;
+
+    @Mock
+    private CreditHistoryRepository creditHistoryRepository;
 
     @InjectMocks
     private AdminDashboardService adminDashboardService;
@@ -216,6 +226,38 @@ class AdminDashboardServiceTest {
                 return comment;
             }
         };
+    }
+
+    @Test
+    @DisplayName("출석 체크율과 개근 보너스 달성 건수를 조회한다")
+    void getAttendanceStats_returnsRateAndStreakCount() {
+        LocalDate from = LocalDate.of(2026, 8, 1);
+        LocalDate to = LocalDate.of(2026, 8, 2);
+        List<DailyUserCount> rows = List.of(
+                dailyUserCount(LocalDate.of(2026, 8, 1), 100L),
+                dailyUserCount(LocalDate.of(2026, 8, 2), 200L)
+        );
+        when(attendanceRecordRepository.findDailyAttendanceCounts(from, to)).thenReturn(rows);
+        when(userRepository.countByStatus(UserStatus.ACTIVE)).thenReturn(1000L);
+        when(creditHistoryRepository.countByCreditTypeAndCreatedAtBetween(
+                eq(CreditType.ATTENDANCE_STREAK), any(), any())).thenReturn(42L);
+
+        AdminDashboardAttendanceStatsResponse response = adminDashboardService.getAttendanceStats(from, to);
+
+        assertThat(response.items()).hasSize(2);
+        assertThat(response.totalCount()).isEqualTo(300L);
+        assertThat(response.avgAttendanceRate()).isCloseTo(0.15, org.assertj.core.data.Offset.offset(0.0001)); // (0.1 + 0.2) / 2
+        assertThat(response.streakAchievedCount()).isEqualTo(42L);
+    }
+
+    @Test
+    @DisplayName("출석 체크율 조회 시 from이 to보다 늦으면 예외를 던진다")
+    void getAttendanceStats_throws_whenFromIsAfterTo() {
+        LocalDate from = LocalDate.of(2026, 8, 10);
+        LocalDate to = LocalDate.of(2026, 8, 1);
+
+        assertThatThrownBy(() -> adminDashboardService.getAttendanceStats(from, to))
+                .isInstanceOf(CustomException.class);
     }
 
     private DailyUserCount dailyUserCount(LocalDate date, long count) {

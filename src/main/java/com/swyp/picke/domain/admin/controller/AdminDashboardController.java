@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.admin.controller;
 
+import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardAttendanceStatsResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardBattleStatsResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardDauMauResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardNewUsersResponse;
@@ -59,5 +60,14 @@ public class AdminDashboardController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) {
         return ApiResponse.onSuccess(adminDashboardService.getBattleStats(from, to));
+    }
+
+    @Operation(summary = "출석 체크율 조회", description = "기간 내 일자별 출석 인원, 총 출석 횟수, 평균 출석률, 개근 보너스(7일 연속 출석) 달성 건수를 반환한다.")
+    @GetMapping("/attendance-stats")
+    public ApiResponse<AdminDashboardAttendanceStatsResponse> getAttendanceStats(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
+    ) {
+        return ApiResponse.onSuccess(adminDashboardService.getAttendanceStats(from, to));
     }
 }

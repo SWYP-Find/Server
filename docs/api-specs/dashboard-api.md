@@ -110,12 +110,15 @@
 
 `granularity=week`일 때 각 항목의 `date`는 그 주의 시작일(월요일)입니다.
 
+`totalCount`는 `from`~`to` 구간 전체의 정확한 합계입니다. `granularity=week`로 조회하면 주 경계가 `from`/`to`를 벗어나는 날짜까지 포함할 수 있어(예: `to`가 주 중간이면 그 주 전체가 한 항목으로 잡힘) `items`의 `count`를 그냥 더한 값과 `totalCount`가 다를 수 있습니다 — **임의 기간의 정확한 합계가 필요하면 `granularity` 값과 무관하게 `totalCount`를 사용하세요.**
+
 성공 응답 `200 OK` (`granularity=day`):
 
 ```json
 {
   "statusCode": 200,
   "data": {
+    "totalCount": 20,
     "items": [
       { "date": "2026-08-01", "count": 12 },
       { "date": "2026-08-02", "count": 8 }
@@ -131,6 +134,7 @@
 {
   "statusCode": 200,
   "data": {
+    "totalCount": 130,
     "items": [
       { "date": "2026-07-27", "count": 65 },
       { "date": "2026-08-03", "count": 71 }

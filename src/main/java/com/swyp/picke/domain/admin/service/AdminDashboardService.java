@@ -67,6 +67,10 @@ public class AdminDashboardService {
                 .map(row -> new AdminDashboardTrendItemResponse(row.getActivityDate(), row.getCount()))
                 .toList();
 
-        return new AdminDashboardNewUsersResponse(items);
+        // week 단위 items는 주 경계가 from~to 범위를 벗어날 수 있어(예: to가 주 중간이면 그 주 전체를 포함),
+        // 요청한 기간 전체의 정확한 합계는 items 합산이 아니라 별도 카운트로 계산한다.
+        long totalCount = userRepository.countByCreatedAtBetween(from.atStartOfDay(), to.plusDays(1).atStartOfDay());
+
+        return new AdminDashboardNewUsersResponse(totalCount, items);
     }
 }

@@ -103,11 +103,13 @@ class AdminDashboardServiceTest {
                 dailyUserCount(LocalDate.of(2026, 8, 2), 5L)
         );
         when(userRepository.findDailyNewUserCounts(from, to)).thenReturn(rows);
+        when(userRepository.countByCreatedAtBetween(any(), any())).thenReturn(8L);
 
         var response = adminDashboardService.getNewUsersTrend(from, to, "day");
 
         assertThat(response.items()).hasSize(2);
         assertThat(response.items().get(1).count()).isEqualTo(5L);
+        assertThat(response.totalCount()).isEqualTo(8L);
     }
 
     @Test
@@ -117,11 +119,13 @@ class AdminDashboardServiceTest {
         LocalDate to = LocalDate.of(2026, 8, 14);
         List<DailyUserCount> rows = List.of(dailyUserCount(LocalDate.of(2026, 7, 27), 20L));
         when(userRepository.findWeeklyNewUserCounts(from, to)).thenReturn(rows);
+        when(userRepository.countByCreatedAtBetween(any(), any())).thenReturn(18L);
 
         var response = adminDashboardService.getNewUsersTrend(from, to, "week");
 
         assertThat(response.items()).hasSize(1);
         assertThat(response.items().get(0).count()).isEqualTo(20L);
+        assertThat(response.totalCount()).isEqualTo(18L);
     }
 
     @Test

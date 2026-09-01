@@ -29,4 +29,8 @@ public interface UserDailyActivityRepository extends JpaRepository<UserDailyActi
             DO UPDATE SET logged_in = true, updated_at = now()
             """, nativeQuery = true)
     void markLoggedIn(@Param("userId") Long userId, @Param("date") LocalDate date);
+
+    long countByActivityDateAndLoggedInTrue(LocalDate activityDate);
+
+    long countByActivityDateAndActiveTrue(LocalDate activityDate);
 }

@@ -3,6 +3,7 @@ package com.swyp.picke.domain.user.repository;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.enums.UserRole;
 import com.swyp.picke.domain.user.enums.UserStatus;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
@@ -39,4 +40,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
             order by u.id desc
             """)
     Slice<User> searchByNicknameOrUserTag(@Param("keyword") String keyword, Pageable pageable);
+
+    long countByStatus(UserStatus status);
+
+    long countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
 }

@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.admin.service;
 
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardDauMauResponse;
+import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardNewUsersResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardSummaryResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardTrendItemResponse;
 import com.swyp.picke.domain.user.enums.UserStatus;
@@ -51,5 +52,21 @@ public class AdminDashboardService {
                 .toList();
 
         return new AdminDashboardDauMauResponse(items);
+    }
+
+    public AdminDashboardNewUsersResponse getNewUsersTrend(LocalDate from, LocalDate to, String granularity) {
+        if (from.isAfter(to)) {
+            throw new CustomException(ErrorCode.COMMON_INVALID_PARAMETER);
+        }
+
+        List<DailyUserCount> rows = "week".equalsIgnoreCase(granularity)
+                ? userRepository.findWeeklyNewUserCounts(from, to)
+                : userRepository.findDailyNewUserCounts(from, to);
+
+        List<AdminDashboardTrendItemResponse> items = rows.stream()
+                .map(row -> new AdminDashboardTrendItemResponse(row.getActivityDate(), row.getCount()))
+                .toList();
+
+        return new AdminDashboardNewUsersResponse(items);
     }
 }

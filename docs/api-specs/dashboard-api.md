@@ -44,8 +44,57 @@
 
 ---
 
-## 3. 에러 코드
+## 3. `GET /api/v1/admin/dashboard/dau-mau`
+
+기간별 DAU/MAU 추이(꺾은선 그래프용)를 조회합니다. 활동이 없는 날짜도 0으로 채워서 반환합니다.
+
+요청 헤더:
+
+- `Authorization: Bearer {access_token}`
+
+쿼리 파라미터:
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `from` | `string` (`YYYY-MM-DD`) | Y | 조회 시작일 |
+| `to` | `string` (`YYYY-MM-DD`) | Y | 조회 종료일 |
+| `granularity` | `string` | N | `day`(기본값, DAU) \| `month`(MAU) |
+
+`granularity=day`는 그날그날의 활동 유저 수(단순 카운트)를, `granularity=month`는 그날 기준 최근 30일 롤링 윈도우의 distinct 활동 유저 수(MAU)를 반환합니다. 예를 들어 `to=2026-08-15`일 때 8/15 항목의 `count`는 `2026-07-17~2026-08-15` 사이에 한 번이라도 활동한 유저 수입니다.
+
+성공 응답 `200 OK` (`granularity=day`):
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "items": [
+      { "date": "2026-08-01", "count": 320 },
+      { "date": "2026-08-02", "count": 410 }
+    ]
+  },
+  "error": null
+}
+```
+
+예외 응답 `400 - from이 to보다 늦음`:
+
+```json
+{
+  "statusCode": 400,
+  "data": null,
+  "error": {
+    "code": "COMMON_400",
+    "message": "요청 파라미터가 잘못되었습니다."
+  }
+}
+```
+
+---
+
+## 4. 에러 코드
 
 | Error Code | HTTP Status | 설명 |
 |---|:---:|---|
 | `AUTH_403` | `403` | 해당 API 접근 권한(관리자 권한)이 없습니다. |
+| `COMMON_400` | `400` | 요청 파라미터가 잘못되었습니다. (예: `from`이 `to`보다 늦은 경우) |

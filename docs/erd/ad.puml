@@ -1,0 +1,82 @@
+@startuml ad
+hide circle
+hide methods
+skinparam linetype ortho
+
+entity "ad_creatives" as ad_creatives {
+  * id : BIGINT <<PK>>
+  --
+  code : VARCHAR(16) <<UK>>
+  network : VARCHAR(20)
+  slot : VARCHAR(40)
+  title : VARCHAR(100)
+  subtitle : VARCHAR(200) <<nullable>>
+  image_url : VARCHAR(500)
+  cta_text : VARCHAR(30)
+  landing_url : VARCHAR(1000)
+  status : VARCHAR(20)
+  source : VARCHAR(20)
+  external_id : VARCHAR(64) <<nullable>>
+  target_os : VARCHAR(20)
+  weight : INTEGER
+  starts_at : TIMESTAMP <<nullable>>
+  ends_at : TIMESTAMP <<nullable>>
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "ad_click_logs" as ad_click_logs {
+  * id : BIGINT <<PK>>
+  --
+  creative_id : BIGINT
+  slot : VARCHAR(40)
+  ip_hash : VARCHAR(64) <<nullable>>
+  user_agent : VARCHAR(500) <<nullable>>
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "ad_impression_daily" as ad_impression_daily {
+  * id : BIGINT <<PK>>
+  --
+  creative_id : BIGINT
+  slot : VARCHAR(40)
+  stat_date : DATE
+  impressions : BIGINT
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+ad_creatives ||--o{ ad_click_logs : clicked
+ad_creatives ||--o{ ad_impression_daily : impressed
+
+note bottom of ad_creatives
+  제휴 광고 소재. 각 매체 콘솔에서 발급한
+  완성형 제휴 링크를 어드민이 등록한다.
+  network : COUPANG | ADPICK
+  status : DRAFT | ACTIVE | PAUSED
+  source : MANUAL | ADPICK_API
+  target_os : ALL | ANDROID | IOS
+
+  ADPICK_API 소재는 캠페인 API 가 주기적으로
+  덮어쓴다. external_id 는 애드픽 apOffer 다.
+end note
+
+note bottom of ad_click_logs
+  클릭 원장. 제휴사 리포트와 대조하는 용도다.
+  /c/{code}는 외부 브라우저에서 열려
+  Authorization 헤더가 없으므로 사용자를 특정하지 않는다.
+end note
+
+note bottom of ad_impression_daily
+  일별 노출 집계. (creative_id, slot, stat_date) 유니크.
+  노출을 raw 로그로 쌓으면 배너가 스크롤에 걸릴 때마다
+  행이 생겨 금방 수천만 건이 된다.
+end note
+
+note top of ad_creatives
+  creative_id는 논리적 참조다.
+  소재를 지워도 집계 이력은 남기려고 FK를 걸지 않았다.
+end note
+
+@enduml

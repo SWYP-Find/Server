@@ -19,6 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -53,7 +54,20 @@ public class JwtFilter extends OncePerRequestFilter {
             "/app-ads.txt",
             "/terms",
             "/privacy-policy",
-            "/robots.txt"
+            "/robots.txt",
+            "/c/",
+            "/api/v1/ads"
+    );
+
+    /**
+     * WHITELIST는 startsWith로 매칭하므로 "/"를 넣으면 전체 인증이 무력화된다.
+     * 루트와 에러 포워딩처럼 정확히 일치할 때만 열어야 하는 경로는 여기 둔다.
+     * /error가 빠져 있으면 존재하지 않는 경로가 404 대신 401로 나온다.
+     * 스프링이 404를 /error로 포워딩하는데 그 경로가 다시 인증에 막히기 때문이다.
+     */
+    private static final Set<String> EXACT_WHITELIST = Set.of(
+            "/",
+            "/error"
     );
 
     @Override
@@ -143,6 +157,9 @@ public class JwtFilter extends OncePerRequestFilter {
     }
 
     private boolean isWhitelisted(String uri) {
+        if (EXACT_WHITELIST.contains(uri)) {
+            return true;
+        }
         return WHITELIST.stream().anyMatch(white -> uri.equals(white) || uri.startsWith(white));
     }
 }

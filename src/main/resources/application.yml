@@ -130,6 +130,21 @@ admin:
 
 picke:
   baseUrl: ${PICKE_BASE_URL:https://picke.store}
+  ad:
+    host: ${AD_HOST:ad.picke.store}
+    base-url: ${AD_BASE_URL:https://ad.picke.store}
+    adpick:
+      # 애드픽 파트너센터 링크생성 화면에서 규격 확인 후 채운다. 비어 있으면 원본 링크를 그대로 넘긴다.
+      sub-id-param: ${ADPICK_SUB_ID_PARAM:}
+      # 애드픽 회원 아이디. 비어 있으면 캠페인 동기화를 건너뛴다.
+      aff-id: ${ADPICK_AFF_ID:}
+      base-url: ${ADPICK_BASE_URL:https://adpick.co.kr/apis/offers.php}
+      # 앱 설치형이 많아 세션이 끝나는 지면에 둔다.
+      slot: ${ADPICK_SLOT:BATTLE_RESULT_BOTTOM}
+      cta-text: ${ADPICK_CTA_TEXT:설치하고 받기}
+      # 애드픽 가이드가 최대 1분 1회 이하 호출을 요구한다.
+      sync-initial-delay-ms: ${ADPICK_SYNC_INITIAL_DELAY_MS:60000}
+      sync-interval-ms: ${ADPICK_SYNC_INTERVAL_MS:600000}
   s3:
     presigned-url:
       expiration-hours: 6
@@ -141,3 +156,8 @@ media:
     path: ${FFMPEG_PATH:ffmpeg}
   ffprobe:
     path: ${FFPROBE_PATH:ffprobe}
+
+coupang:
+  partners:
+    # 제휴 링크에 lptag로 노출되는 공개 식별자다. 소재 등록 시 남의 링크가 아닌지 대조하는 데 쓴다.
+    id: ${COUPANG_PARTNERS_ID}

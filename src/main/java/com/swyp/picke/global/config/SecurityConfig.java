@@ -57,7 +57,11 @@ public class SecurityConfig {
                                 "/app-ads.txt",
                                 "/robots.txt",
                                 "/terms",
-                                "/privacy-policy"
+                                "/privacy-policy",
+                                "/error",
+                                "/c/**",
+                                "/api/v1/ads",
+                                "/api/v1/ads/**"
                         ).permitAll()
 
                         // 2. 관리자 HTML 화면 렌더링 요청

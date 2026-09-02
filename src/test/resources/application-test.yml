@@ -94,3 +94,7 @@ media:
     path: ffmpeg
   ffprobe:
     path: ffprobe
+
+coupang:
+  partners:
+    id: AF0000000

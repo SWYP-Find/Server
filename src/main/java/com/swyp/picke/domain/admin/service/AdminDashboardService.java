@@ -2,6 +2,8 @@ package com.swyp.picke.domain.admin.service;
 
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardAttendanceStatsResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardBattleStatsResponse;
+import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardCreditStatsResponse;
+import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardCreditTypeStatResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardDauMauResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardNewUsersResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardSummaryResponse;
@@ -14,6 +16,7 @@ import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.repository.CreditHistoryRepository;
 import com.swyp.picke.domain.user.repository.UserDailyActivityRepository;
 import com.swyp.picke.domain.user.repository.UserRepository;
+import com.swyp.picke.domain.user.repository.projection.CreditTypeStats;
 import com.swyp.picke.domain.user.repository.projection.DailyUserCount;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
@@ -122,6 +125,31 @@ public class AdminDashboardService {
                 CreditType.ATTENDANCE_STREAK, from.atStartOfDay(), to.plusDays(1).atStartOfDay());
 
         return new AdminDashboardAttendanceStatsResponse(avgAttendanceRate, totalCount, streakAchievedCount, items);
+    }
+
+    public AdminDashboardCreditStatsResponse getCreditStats(LocalDate from, LocalDate to) {
+        if (from.isAfter(to)) {
+            throw new CustomException(ErrorCode.COMMON_INVALID_PARAMETER);
+        }
+
+        List<CreditTypeStats> rows = creditHistoryRepository.findStatsByCreatedAtBetween(
+                from.atStartOfDay(), to.plusDays(1).atStartOfDay());
+
+        List<AdminDashboardCreditTypeStatResponse> byType = rows.stream()
+                .map(row -> new AdminDashboardCreditTypeStatResponse(
+                        row.getCreditType(), row.getCount(), row.getTotalAmount()))
+                .toList();
+
+        long totalGranted = byType.stream()
+                .filter(stat -> stat.totalAmount() > 0)
+                .mapToLong(AdminDashboardCreditTypeStatResponse::totalAmount)
+                .sum();
+        long totalDeducted = byType.stream()
+                .filter(stat -> stat.totalAmount() < 0)
+                .mapToLong(stat -> -stat.totalAmount())
+                .sum();
+
+        return new AdminDashboardCreditStatsResponse(totalGranted, totalDeducted, byType);
     }
 
     private double orZero(Double value) {

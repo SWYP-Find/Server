@@ -7,35 +7,70 @@ entity "USERS\n사용자" as users {
   * id : Long <<PK>>
 }
 
-entity "NOTICES\n전체 공지" as notices {
+entity "NOTIFICATIONS\n인앱 알림 / 공지 (user_id NULL이면 전체 broadcast)" as notifications {
   * id : Long <<PK>>
   --
-  title : string
-  body : text
-  notice_type : string
-  is_pinned : boolean
-  starts_at : datetime
-  ends_at : datetime
+  user_id : Long <<FK, nullable>>
+  category : ENUM('CONTENT', 'NOTICE', 'EVENT')
+  detail_code : ENUM('NEW_BATTLE', 'COMMENT_LIKE', 'NEW_COMMENT', 'CREDIT_EARNED', 'POLICY_CHANGE', 'PROMOTION', 'VOTE_RESULT', 'DAILY_MESSAGE')
+  title : VARCHAR(150)
+  body : TEXT
+  reference_id : Long (nullable)
+  perspective_id : Long (nullable)
+  is_read : boolean
+  read_at : datetime (nullable)
+  deleted_at : datetime (nullable)
   created_at : datetime
+  updated_at : datetime
 }
 
-entity "NOTIFICATIONS\n알림 발송 이력" as notifications {
+entity "NOTIFICATION_READS\nbroadcast 알림 유저별 읽음 처리" as notification_reads {
   * id : Long <<PK>>
   --
-  user_id : Long <<FK>>
-  notification_type : string
-  title : string
-  body : text
-  payload_json : text
-  status : string
-  scheduled_at : datetime
-  sent_at : datetime
-  failed_at : datetime
-  provider_message_id : string
-  failure_reason : string
+  notification_id : Long <<FK>>
+  user_id : Long
   created_at : datetime
+  updated_at : datetime
+  UNIQUE(notification_id, user_id)
+}
+
+entity "NOTIFICATION_SCHEDULES\n관리자 예약 발송(매일 정해진 시각)" as notification_schedules {
+  * id : Long <<PK>>
+  --
+  title : VARCHAR(150)
+  subtitle : VARCHAR(150)
+  send_time : TIME
+  enabled : boolean
+  last_sent_date : DATE (nullable)
+  created_at : datetime
+  updated_at : datetime
+}
+
+entity "NOTIFICATION_DELIVERY_RESULTS\n공지/예약 발송 결과(대상/성공/실패 건수)" as notification_delivery_results {
+  * id : Long <<PK>>
+  --
+  notification_id : Long <<UNIQUE>>
+  target_count : int
+  success_count : int
+  failure_count : int
+  created_at : datetime
+  updated_at : datetime
 }
 
 users ||--o{ notifications
+notifications ||--o{ notification_reads
+notifications ||--o| notification_delivery_results
+
+note right of notifications
+  user_id가 NULL이면 전체 broadcast 알림(공지/이벤트/예약메시지).
+  broadcast 알림의 유저별 읽음 상태는 notification_reads에 별도 기록하고,
+  개인 알림(user_id 존재)의 읽음 상태는 is_read/read_at을 직접 사용한다.
+  deleted_at은 관리자 공지 soft delete용.
+end note
+
+note right of notification_delivery_results
+  notifyAdminNotice()로 발송되는 공지(NOTICE/EVENT)와 예약 알림만 생성된다.
+  CONTENT 카테고리 공지는 이 발송 트리거를 타지 않아 결과가 없다.
+end note
 
 @enduml

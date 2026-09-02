@@ -24,6 +24,7 @@ import com.swyp.picke.domain.user.entity.UserWithdrawal;
 import com.swyp.picke.domain.user.enums.UserRole;
 import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.enums.WithdrawalReason;
+import com.swyp.picke.domain.user.repository.UserDailyActivityRepository;
 import com.swyp.picke.domain.user.repository.UserProfileRepository;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.domain.user.repository.UserSettingsRepository;
@@ -60,6 +61,7 @@ class OAuthServiceTest {
     @Mock private UserSettingsRepository userSettingsRepository;
     @Mock private UserTendencyScoreRepository userTendencyScoreRepository;
     @Mock private UserWithdrawalRepository userWithdrawalRepository;
+    @Mock private UserDailyActivityRepository userDailyActivityRepository;
     @Mock private JwtProvider jwtProvider;
     @Mock private CreditService creditService;
     @Mock private PasswordEncoder passwordEncoder;
@@ -73,7 +75,7 @@ class OAuthServiceTest {
                 kakaoOAuthClient, googleOAuthClient, appleOAuthClient, userRepository,
                 socialAccountRepository, localAccountRepository, refreshTokenRepository,
                 userProfileRepository, userSettingsRepository, userTendencyScoreRepository,
-                userWithdrawalRepository,
+                userWithdrawalRepository, userDailyActivityRepository,
                 jwtProvider, creditService, passwordEncoder
         );
     }
@@ -112,6 +114,7 @@ class OAuthServiceTest {
         assertThat(response.getAccessToken()).isEqualTo("jwt-access");
         assertThat(response.isNewUser()).isFalse();
         verify(refreshTokenRepository).save(any());
+        verify(userDailyActivityRepository).markLoggedIn(eq(user.getId()), any(java.time.LocalDate.class));
     }
 
     @Test

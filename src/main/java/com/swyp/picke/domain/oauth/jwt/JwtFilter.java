@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.oauth.jwt;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.swyp.picke.domain.user.repository.UserDailyActivityRepository;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import com.swyp.picke.global.common.response.ApiResponse;
 import jakarta.servlet.FilterChain;
@@ -16,6 +17,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.List;
 
 @Slf4j
@@ -23,6 +25,7 @@ import java.util.List;
 public class JwtFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
+    private final UserDailyActivityRepository userDailyActivityRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // 1. 화이트리스트 상수 관리
@@ -89,6 +92,7 @@ public class JwtFilter extends OncePerRequestFilter {
                         );
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+                recordActivity(userId);
 
             } else {
                 // shouldNotFilter가 잡지 못한 주소 중 토큰이 없다면 무조건 401 차단
@@ -102,6 +106,17 @@ public class JwtFilter extends OncePerRequestFilter {
         } catch (Exception e) {
             log.error("[JwtFilter] Filter Error: {}", e.getMessage());
             setErrorResponse(response, ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * DAU/MAU 집계를 위한 활동 기록. 대시보드 집계용 부가 기능이라 실패해도 인증 흐름을 막지 않는다.
+     */
+    private void recordActivity(Long userId) {
+        try {
+            userDailyActivityRepository.markActive(userId, LocalDate.now());
+        } catch (Exception e) {
+            log.warn("[JwtFilter] Failed to record daily activity for userId={}: {}", userId, e.getMessage());
         }
     }
 

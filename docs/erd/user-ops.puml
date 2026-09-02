@@ -33,14 +33,27 @@ entity "USER_AGREEMENTS\n사용자 동의 이력" as user_agreements {
   agreed_at : timestamp
 }
 
-entity "USER_DEVICES\n사용자 디바이스" as user_devices {
+entity "USER_DEVICES\n사용자 디바이스(FCM/APNs 토큰)" as user_devices {
   * id : BIGINT <<PK>>
   --
   user_id : BIGINT <<FK>>
-  device_token : string
-  platform : string
-  last_seen_at : timestamp
+  fcm_token : VARCHAR(255) <<UNIQUE>>
+  platform : ENUM('ANDROID', 'IOS')
+  last_used_at : timestamp
   created_at : timestamp
+  updated_at : timestamp
+}
+
+entity "USER_DAILY_ACTIVITIES\n어드민 대시보드 DAU/MAU 집계용 유저-날짜별 활동" as user_daily_activities {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK>>
+  activity_date : DATE
+  logged_in : boolean
+  active : boolean
+  created_at : timestamp
+  updated_at : timestamp
+  UNIQUE(user_id, activity_date)
 }
 
 entity "USER_BLOCKS\n사용자 차단" as user_blocks {
@@ -54,18 +67,20 @@ entity "USER_BLOCKS\n사용자 차단" as user_blocks {
 users -[hidden]down- user_settings
 user_settings -[hidden]down- user_agreements
 user_agreements -[hidden]down- user_devices
-user_devices -[hidden]down- user_blocks
+user_devices -[hidden]down- user_daily_activities
+user_daily_activities -[hidden]down- user_blocks
 
 users ||--|| user_settings
 users ||--o{ user_agreements
 users ||--o{ user_devices
+users ||--o{ user_daily_activities
 users ||--o{ user_blocks : blocker
 users ||--o{ user_blocks : blocked
 
 note bottom of user_blocks
   공통 컬럼 정책
   - BaseEntity: created_at, updated_at
-  - agreed_at, last_seen_at 은 도메인별 개별 컬럼
+  - agreed_at, last_used_at 은 도메인별 개별 컬럼
 end note
 
 @enduml

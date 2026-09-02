@@ -237,7 +237,55 @@
 
 ---
 
-## 7. 에러 코드
+## 7. `GET /api/v1/admin/dashboard/credit-stats`
+
+기간 내 크레딧 지급/차감 현황을 `CreditType`별로 집계합니다. 매주 월요일 배치(`MAJORITY_WIN`/`BEST_COMMENT`)가 정상 실행됐는지, 크레딧이 이상 지급되고 있진 않은지 확인하는 용도입니다.
+
+요청 헤더:
+
+- `Authorization: Bearer {access_token}`
+
+쿼리 파라미터:
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `from` | `string` (`YYYY-MM-DD`) | Y | 조회 시작일 |
+| `to` | `string` (`YYYY-MM-DD`) | Y | 조회 종료일 |
+
+성공 응답 `200 OK`:
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "totalGranted": 45000,
+    "totalDeducted": 3200,
+    "byType": [
+      { "creditType": "TODAY_CREDIT", "count": 1200, "totalAmount": 6000 },
+      { "creditType": "MAJORITY_WIN", "count": 340, "totalAmount": 1700 },
+      { "creditType": "BATTLE_ENTRY", "count": 640, "totalAmount": -3200 },
+      { "creditType": "FREE_CHARGE", "count": 890, "totalAmount": 17800 }
+    ]
+  },
+  "error": null
+}
+```
+
+| 필드 | 설명 |
+|---|---|
+| `totalGranted` | 기간 내 지급된 크레딧 총합 (`totalAmount`가 양수인 타입들의 합) |
+| `totalDeducted` | 기간 내 차감된 크레딧 총합의 절대값 (`totalAmount`가 음수인 타입들의 합에 `-1`을 곱한 값) |
+| `byType[].creditType` | `CreditType` enum 값 (`TODAY_CREDIT`, `ATTENDANCE_STREAK`, `DEFAULT_CREDIT`, `BATTLE_ENTRY`, `MAJORITY_WIN`, `BEST_COMMENT`, `FREE_CHARGE`, `TOPIC_SUGGEST`, `TOPIC_ADOPTED`) |
+| `byType[].count` | 해당 타입의 지급/차감 건수 |
+| `byType[].totalAmount` | 해당 타입의 금액 합계 (차감 타입은 음수로 내려감) |
+
+기간 내 발생 이력이 없는 타입은 `byType`에 포함되지 않습니다.
+
+`from`이 `to`보다 늦으면 `COMMON_400`으로 400을 반환합니다.
+
+---
+
+## 8. 에러 코드
 
 | Error Code | HTTP Status | 설명 |
 |---|:---:|---|

@@ -2,6 +2,7 @@ package com.swyp.picke.domain.admin.controller;
 
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardAttendanceStatsResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardBattleStatsResponse;
+import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardCreditStatsResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardDauMauResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardNewUsersResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardSummaryResponse;
@@ -69,5 +70,14 @@ public class AdminDashboardController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) {
         return ApiResponse.onSuccess(adminDashboardService.getAttendanceStats(from, to));
+    }
+
+    @Operation(summary = "크레딧 지급 현황 조회", description = "기간 내 크레딧 타입별 지급/차감 건수와 총액, 전체 지급/차감 합계를 반환한다.")
+    @GetMapping("/credit-stats")
+    public ApiResponse<AdminDashboardCreditStatsResponse> getCreditStats(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
+    ) {
+        return ApiResponse.onSuccess(adminDashboardService.getCreditStats(from, to));
     }
 }

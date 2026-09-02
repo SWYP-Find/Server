@@ -9,6 +9,7 @@ import com.swyp.picke.domain.ad.repository.AdCreativeRepository;
 import com.swyp.picke.domain.ad.repository.AdImpressionDailyRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -25,6 +26,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AdQueryService {
 
+    /** 노출 집계 버킷과 게재 기간은 KST 기준이다. 진입점의 기본 시간대 설정에 기대지 않는다. */
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
     private final AdCreativeRepository adCreativeRepository;
     private final AdImpressionDailyRepository adImpressionDailyRepository;
 
@@ -37,7 +41,7 @@ public class AdQueryService {
      */
     @Transactional(readOnly = true)
     public List<AdResponse> findServableAds(AdSlotCode slot, int size) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(KST);
 
         List<AdCreative> candidates = adCreativeRepository.findAllBySlotAndStatus(slot, AdStatus.ACTIVE).stream()
                 .filter(creative -> creative.isServable(now))
@@ -54,7 +58,7 @@ public class AdQueryService {
      */
     @Transactional(readOnly = true)
     public List<AdResponse> findLandingAds() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(KST);
 
         return adCreativeRepository.findAllByStatusOrderByIdDesc(AdStatus.ACTIVE).stream()
                 .filter(creative -> creative.isServable(now))
@@ -68,7 +72,7 @@ public class AdQueryService {
      */
     @Transactional
     public void recordImpressions(List<String> codes) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(KST);
 
         List<ImpressionTarget> targets = adCreativeRepository.findAllByCodeIn(codes).stream()
                 .map(creative -> new ImpressionTarget(creative.getId(), creative.getSlot()))

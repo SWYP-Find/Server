@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HexFormat;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,9 @@ public class AdClickService {
 
     private static final int USER_AGENT_MAX_LENGTH = 500;
 
+    /** 게재 기간 판단은 KST 기준이다. 진입점의 기본 시간대 설정에 기대지 않는다. */
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
     private final AdCreativeRepository adCreativeRepository;
     private final AdClickLogRepository adClickLogRepository;
     private final AffiliateLinkResolver affiliateLinkResolver;
@@ -34,7 +38,7 @@ public class AdClickService {
     @Transactional(readOnly = true)
     public Optional<AdClickTarget> resolveTarget(String code) {
         return adCreativeRepository.findByCode(code)
-                .filter(creative -> creative.isServable(LocalDateTime.now()))
+                .filter(creative -> creative.isServable(LocalDateTime.now(KST)))
                 .map(creative -> new AdClickTarget(
                         creative.getId(),
                         creative.getSlot(),

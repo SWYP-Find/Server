@@ -15,6 +15,9 @@ entity "ad_creatives" as ad_creatives {
   cta_text : VARCHAR(30)
   landing_url : VARCHAR(1000)
   status : VARCHAR(20)
+  source : VARCHAR(20)
+  external_id : VARCHAR(64) <<nullable>>
+  target_os : VARCHAR(20)
   weight : INTEGER
   starts_at : TIMESTAMP <<nullable>>
   ends_at : TIMESTAMP <<nullable>>
@@ -52,6 +55,11 @@ note bottom of ad_creatives
   완성형 제휴 링크를 어드민이 등록한다.
   network : COUPANG | ADPICK
   status : DRAFT | ACTIVE | PAUSED
+  source : MANUAL | ADPICK_API
+  target_os : ALL | ANDROID | IOS
+
+  ADPICK_API 소재는 캠페인 API 가 주기적으로
+  덮어쓴다. external_id 는 애드픽 apOffer 다.
 end note
 
 note bottom of ad_click_logs

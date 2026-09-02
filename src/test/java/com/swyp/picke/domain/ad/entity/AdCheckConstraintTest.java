@@ -2,7 +2,9 @@ package com.swyp.picke.domain.ad.entity;
 
 import com.swyp.picke.domain.ad.enums.AdNetwork;
 import com.swyp.picke.domain.ad.enums.AdSlotCode;
+import com.swyp.picke.domain.ad.enums.AdSource;
 import com.swyp.picke.domain.ad.enums.AdStatus;
+import com.swyp.picke.domain.ad.enums.AdTargetOs;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -54,6 +56,20 @@ class AdCheckConstraintTest {
     void adCreativesStatusCheckMatchesEnum() {
         assertThat(valuesOf(AdCreative.class, "ck_ad_creatives_status"))
                 .isEqualTo(namesOf(AdStatus.class));
+    }
+
+    @Test
+    @DisplayName("ad_creatives의 source CHECK 제약이 AdSource 전체와 일치한다")
+    void adCreativesSourceCheckMatchesEnum() {
+        assertThat(valuesOf(AdCreative.class, "ck_ad_creatives_source"))
+                .isEqualTo(namesOf(AdSource.class));
+    }
+
+    @Test
+    @DisplayName("ad_creatives의 target_os CHECK 제약이 AdTargetOs 전체와 일치한다")
+    void adCreativesTargetOsCheckMatchesEnum() {
+        assertThat(valuesOf(AdCreative.class, "ck_ad_creatives_target_os"))
+                .isEqualTo(namesOf(AdTargetOs.class));
     }
 
     @Test

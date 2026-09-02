@@ -5,6 +5,7 @@ import com.swyp.picke.domain.ad.entity.AdCreative;
 import com.swyp.picke.domain.ad.enums.AdNetwork;
 import com.swyp.picke.domain.ad.enums.AdSlotCode;
 import com.swyp.picke.domain.ad.enums.AdStatus;
+import com.swyp.picke.domain.ad.enums.AdTargetOs;
 import com.swyp.picke.domain.ad.repository.AdCreativeRepository;
 import com.swyp.picke.domain.ad.repository.AdImpressionDailyRepository;
 import java.time.LocalDate;
@@ -59,6 +60,7 @@ class AdQueryServiceTest {
                 .weight(weight)
                 .startsAt(startsAt)
                 .endsAt(endsAt)
+                .targetOs(AdTargetOs.ALL)
                 .build();
     }
 
@@ -70,7 +72,7 @@ class AdQueryServiceTest {
         when(adCreativeRepository.findAllBySlotAndStatus(AdSlotCode.HOME_FEED, AdStatus.ACTIVE))
                 .thenReturn(List.of(live, expired));
 
-        List<AdResponse> result = adQueryService.findServableAds(AdSlotCode.HOME_FEED, 5);
+        List<AdResponse> result = adQueryService.findServableAds(AdSlotCode.HOME_FEED, AdTargetOs.ALL, 5);
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).code()).isEqualTo("live0001");
@@ -82,7 +84,7 @@ class AdQueryServiceTest {
         when(adCreativeRepository.findAllBySlotAndStatus(AdSlotCode.HOME_FEED, AdStatus.ACTIVE))
                 .thenReturn(List.of());
 
-        assertThat(adQueryService.findServableAds(AdSlotCode.HOME_FEED, 1)).isEmpty();
+        assertThat(adQueryService.findServableAds(AdSlotCode.HOME_FEED, AdTargetOs.ALL, 1)).isEmpty();
     }
 
     @Test
@@ -91,7 +93,7 @@ class AdQueryServiceTest {
         when(adCreativeRepository.findAllBySlotAndStatus(AdSlotCode.HOME_FEED, AdStatus.ACTIVE))
                 .thenReturn(List.of(creative("abc12345", AdStatus.ACTIVE, 1, null, null)));
 
-        AdResponse response = adQueryService.findServableAds(AdSlotCode.HOME_FEED, 1).get(0);
+        AdResponse response = adQueryService.findServableAds(AdSlotCode.HOME_FEED, AdTargetOs.ALL, 1).get(0);
 
         assertThat(response.clickUrl()).isEqualTo("https://ad.picke.store/c/abc12345");
         assertThat(response.label()).isEqualTo("광고");
@@ -106,7 +108,7 @@ class AdQueryServiceTest {
                         creative("bbbb2222", AdStatus.ACTIVE, 1, null, null),
                         creative("cccc3333", AdStatus.ACTIVE, 1, null, null)));
 
-        List<AdResponse> result = adQueryService.findServableAds(AdSlotCode.HOME_FEED, 2);
+        List<AdResponse> result = adQueryService.findServableAds(AdSlotCode.HOME_FEED, AdTargetOs.ALL, 2);
 
         assertThat(result).hasSize(2);
         assertThat(result.stream().map(AdResponse::code).distinct()).hasSize(2);
@@ -121,11 +123,28 @@ class AdQueryServiceTest {
                         creative("light001", AdStatus.ACTIVE, 1, null, null)));
 
         long heavyPicks = java.util.stream.IntStream.range(0, 500)
-                .mapToObj(i -> adQueryService.findServableAds(AdSlotCode.HOME_FEED, 1).get(0).code())
+                .mapToObj(i -> adQueryService.findServableAds(AdSlotCode.HOME_FEED, AdTargetOs.ALL, 1).get(0).code())
                 .filter("heavy001"::equals)
                 .count();
 
         assertThat(heavyPicks).isGreaterThan(400);
+    }
+
+    @Test
+    @DisplayName("요청 OS와 맞지 않는 소재는 제외한다")
+    void findServableAds_filtersByTargetOs() {
+        AdCreative android = creative("aos00001", AdStatus.ACTIVE, 1, null, null);
+        ReflectionTestUtils.setField(android, "targetOs", AdTargetOs.ANDROID);
+        AdCreative ios = creative("ios00001", AdStatus.ACTIVE, 1, null, null);
+        ReflectionTestUtils.setField(ios, "targetOs", AdTargetOs.IOS);
+        AdCreative every = creative("all00001", AdStatus.ACTIVE, 1, null, null);
+
+        when(adCreativeRepository.findAllBySlotAndStatus(AdSlotCode.HOME_FEED, AdStatus.ACTIVE))
+                .thenReturn(List.of(android, ios, every));
+
+        List<AdResponse> result = adQueryService.findServableAds(AdSlotCode.HOME_FEED, AdTargetOs.IOS, 10);
+
+        assertThat(result).extracting(AdResponse::code).containsExactlyInAnyOrder("ios00001", "all00001");
     }
 
     @Test

@@ -3,6 +3,7 @@ package com.swyp.picke.domain.ad.repository;
 import com.swyp.picke.domain.ad.entity.AdCreative;
 import com.swyp.picke.domain.ad.enums.AdNetwork;
 import com.swyp.picke.domain.ad.enums.AdSlotCode;
+import com.swyp.picke.domain.ad.enums.AdSource;
 import com.swyp.picke.domain.ad.enums.AdStatus;
 import java.util.List;
 import java.util.Optional;
@@ -32,4 +33,6 @@ public interface AdCreativeRepository extends JpaRepository<AdCreative, Long> {
                             @Param("status") AdStatus status);
 
     List<AdCreative> findAllByCodeIn(List<String> codes);
+
+    List<AdCreative> findAllBySource(AdSource source);
 }

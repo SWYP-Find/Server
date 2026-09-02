@@ -1,9 +1,12 @@
 package com.swyp.picke.domain.admin.service;
 
 import com.swyp.picke.domain.ad.entity.AdCreative;
+import com.swyp.picke.domain.ad.enums.AdSource;
 import com.swyp.picke.domain.ad.enums.AdNetwork;
 import com.swyp.picke.domain.ad.enums.AdSlotCode;
 import com.swyp.picke.domain.ad.enums.AdStatus;
+import com.swyp.picke.domain.ad.enums.AdTargetOs;
+import com.swyp.picke.domain.ad.service.AdCreativeCodeGenerator;
 import com.swyp.picke.domain.ad.repository.AdClickLogRepository;
 import com.swyp.picke.domain.ad.repository.AdCreativeRepository;
 import com.swyp.picke.domain.ad.repository.AdImpressionDailyRepository;
@@ -19,13 +22,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import java.util.Optional;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -42,6 +45,8 @@ class AdminAdServiceTest {
     private AdClickLogRepository adClickLogRepository;
     @Mock
     private AdImpressionDailyRepository adImpressionDailyRepository;
+    @Mock
+    private AdCreativeCodeGenerator adCreativeCodeGenerator;
 
     @InjectMocks
     private AdminAdService adminAdService;
@@ -49,7 +54,7 @@ class AdminAdServiceTest {
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(adminAdService, "coupangPartnersId", OUR_PARTNERS_ID);
-        when(adCreativeRepository.existsByCode(anyString())).thenReturn(false);
+        when(adCreativeCodeGenerator.generate()).thenReturn("abc23456");
         when(adCreativeRepository.save(any(AdCreative.class))).thenAnswer(call -> call.getArgument(0));
     }
 
@@ -63,6 +68,7 @@ class AdminAdServiceTest {
                 "구매하러 가기",
                 landingUrl,
                 AdStatus.ACTIVE,
+                AdTargetOs.ALL,
                 1,
                 null,
                 null
@@ -109,13 +115,53 @@ class AdminAdServiceTest {
     }
 
     @Test
-    @DisplayName("소재 코드는 헷갈리는 글자 없이 만들어진다")
-    void create_generatesReadableCode() {
-        AdCreativeRequest request = request(AdNetwork.COUPANG, "https://link.coupang.com/a/abcdef");
+    @DisplayName("동기화 소재는 수정·삭제를 막는다")
+    void update_rejectsManagedCreative() {
+        AdCreative managed = AdCreative.builder()
+                .code("syn00001")
+                .network(AdNetwork.ADPICK)
+                .slot(AdSlotCode.BATTLE_RESULT_BOTTOM)
+                .title("리워디 월렛")
+                .imageUrl("https://img.example.com/1.jpg")
+                .ctaText("설치하고 받기")
+                .landingUrl("https://deg.kr/39e859f")
+                .status(AdStatus.ACTIVE)
+                .weight(1)
+                .source(AdSource.ADPICK_API)
+                .externalId("16b04")
+                .targetOs(AdTargetOs.ANDROID)
+                .build();
+        when(adCreativeRepository.findById(1L)).thenReturn(Optional.of(managed));
 
-        String code = adminAdService.create(request).code();
+        AdCreativeRequest request = request(AdNetwork.ADPICK, "https://deg.kr/39e859f");
 
-        assertThat(code).hasSize(8);
-        assertThat(code).doesNotContain("l", "o", "0", "1");
+        assertThatThrownBy(() -> adminAdService.update(1L, request))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.AD_CREATIVE_MANAGED);
+        assertThatThrownBy(() -> adminAdService.delete(1L))
+                .isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("동기화 소재도 게재 상태는 바꿀 수 있다")
+    void changeStatus_allowedForManagedCreative() {
+        AdCreative managed = AdCreative.builder()
+                .code("syn00001")
+                .network(AdNetwork.ADPICK)
+                .slot(AdSlotCode.BATTLE_RESULT_BOTTOM)
+                .title("리워디 월렛")
+                .imageUrl("https://img.example.com/1.jpg")
+                .ctaText("설치하고 받기")
+                .landingUrl("https://deg.kr/39e859f")
+                .status(AdStatus.ACTIVE)
+                .weight(1)
+                .source(AdSource.ADPICK_API)
+                .externalId("16b04")
+                .targetOs(AdTargetOs.ANDROID)
+                .build();
+        when(adCreativeRepository.findById(1L)).thenReturn(Optional.of(managed));
+
+        assertThat(adminAdService.changeStatus(1L, AdStatus.PAUSED).status()).isEqualTo(AdStatus.PAUSED);
     }
 }

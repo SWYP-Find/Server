@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS ad_creatives (
     cta_text    VARCHAR(30)  NOT NULL,
     landing_url VARCHAR(1000) NOT NULL,
     status      VARCHAR(20)  NOT NULL,
+    source      VARCHAR(20)  NOT NULL DEFAULT 'MANUAL',
+    external_id VARCHAR(64),
+    target_os   VARCHAR(20)  NOT NULL DEFAULT 'ALL',
     weight      INTEGER      NOT NULL DEFAULT 1,
     starts_at   TIMESTAMP,
     ends_at     TIMESTAMP,
@@ -29,7 +32,11 @@ CREATE TABLE IF NOT EXISTS ad_creatives (
     updated_at  TIMESTAMP,
     CONSTRAINT ck_ad_creatives_network CHECK (network IN ('COUPANG', 'ADPICK')),
     CONSTRAINT ck_ad_creatives_slot CHECK (slot IN ('HOME_FEED', 'BATTLE_RESULT_BOTTOM', 'CHAT_ROOM_INLINE', 'ATTENDANCE_COMPLETE', 'PROFILE_BOTTOM')),
-    CONSTRAINT ck_ad_creatives_status CHECK (status IN ('DRAFT', 'ACTIVE', 'PAUSED'))
+    CONSTRAINT ck_ad_creatives_status CHECK (status IN ('DRAFT', 'ACTIVE', 'PAUSED')),
+    CONSTRAINT ck_ad_creatives_source CHECK (source IN ('MANUAL', 'ADPICK_API')),
+    CONSTRAINT ck_ad_creatives_target_os CHECK (target_os IN ('ALL', 'ANDROID', 'IOS')),
+    -- 애드픽 캠페인을 다시 찾는 키. 수동 등록 소재는 external_id 가 NULL 이라 중복되지 않는다.
+    CONSTRAINT uk_ad_creatives_external UNIQUE (source, external_id)
 );
 
 -- 지면 조회는 (slot, status)로만 들어온다.

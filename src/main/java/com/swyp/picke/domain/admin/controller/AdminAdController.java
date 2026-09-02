@@ -4,6 +4,7 @@ import com.swyp.picke.domain.ad.enums.AdNetwork;
 import com.swyp.picke.domain.ad.enums.AdSlotCode;
 import com.swyp.picke.domain.ad.enums.AdStatus;
 import com.swyp.picke.domain.admin.dto.ad.request.AdCreativeRequest;
+import com.swyp.picke.domain.admin.dto.ad.request.AdStatusRequest;
 import com.swyp.picke.domain.admin.dto.ad.response.AdClickLogResponse;
 import com.swyp.picke.domain.admin.dto.ad.response.AdCreativeResponse;
 import com.swyp.picke.domain.admin.dto.ad.response.AdStatsResponse;
@@ -22,6 +23,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -54,7 +56,7 @@ public class AdminAdController {
         return ApiResponse.onSuccess(adminAdService.create(request));
     }
 
-    @Operation(summary = "광고 소재 수정")
+    @Operation(summary = "광고 소재 수정", description = "매체 API가 동기화하는 소재는 수정할 수 없다.")
     @PutMapping("/{creativeId}")
     public ApiResponse<AdCreativeResponse> update(
             @Parameter(description = "소재 ID", example = "1")
@@ -64,7 +66,18 @@ public class AdminAdController {
         return ApiResponse.onSuccess(adminAdService.update(creativeId, request));
     }
 
-    @Operation(summary = "광고 소재 삭제")
+    @Operation(summary = "광고 소재 게재 상태 변경",
+            description = "동기화 소재도 끌 수 있다. PAUSED 는 동기화가 되돌리지 않는다.")
+    @PatchMapping("/{creativeId}/status")
+    public ApiResponse<AdCreativeResponse> changeStatus(
+            @Parameter(description = "소재 ID", example = "1")
+            @PathVariable Long creativeId,
+            @Valid @RequestBody AdStatusRequest request
+    ) {
+        return ApiResponse.onSuccess(adminAdService.changeStatus(creativeId, request.status()));
+    }
+
+    @Operation(summary = "광고 소재 삭제", description = "매체 API가 동기화하는 소재는 삭제할 수 없다.")
     @DeleteMapping("/{creativeId}")
     public ApiResponse<Void> delete(
             @Parameter(description = "소재 ID", example = "1")

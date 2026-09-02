@@ -3,6 +3,7 @@ package com.swyp.picke.domain.admin.dto.ad.request;
 import com.swyp.picke.domain.ad.enums.AdNetwork;
 import com.swyp.picke.domain.ad.enums.AdSlotCode;
 import com.swyp.picke.domain.ad.enums.AdStatus;
+import com.swyp.picke.domain.ad.enums.AdTargetOs;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
@@ -49,6 +50,10 @@ public record AdCreativeRequest(
         @Schema(description = "게재 상태", example = "ACTIVE")
         @NotNull(message = "게재 상태는 필수입니다.")
         AdStatus status,
+
+        @Schema(description = "노출할 OS. 앱 설치형은 OS가 갈리므로 맞춰야 한다.", example = "ALL")
+        @NotNull(message = "노출 OS는 필수입니다.")
+        AdTargetOs targetOs,
 
         @Schema(description = "가중 로테이션 가중치. 클수록 자주 노출된다.", example = "1")
         @Positive(message = "가중치는 1 이상이어야 합니다.")

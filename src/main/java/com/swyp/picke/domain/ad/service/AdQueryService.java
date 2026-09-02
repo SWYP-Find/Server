@@ -5,6 +5,7 @@ import com.swyp.picke.domain.ad.entity.AdCreative;
 import com.swyp.picke.domain.ad.entity.AdImpressionDaily;
 import com.swyp.picke.domain.ad.enums.AdSlotCode;
 import com.swyp.picke.domain.ad.enums.AdStatus;
+import com.swyp.picke.domain.ad.enums.AdTargetOs;
 import com.swyp.picke.domain.ad.repository.AdCreativeRepository;
 import com.swyp.picke.domain.ad.repository.AdImpressionDailyRepository;
 import java.time.LocalDate;
@@ -38,13 +39,16 @@ public class AdQueryService {
     /**
      * 지면에 노출할 소재를 가중 로테이션으로 고른다. 게재 가능한 소재가 없으면 빈 목록을 준다.
      * 앱은 빈 목록을 받으면 지면 자체를 숨긴다. 광고가 없는 건 오류가 아니다.
+     * 애드픽 앱 설치형 캠페인은 OS가 갈리므로, 요청 OS와 맞지 않는 소재는 제외한다.
      */
     @Transactional(readOnly = true)
-    public List<AdResponse> findServableAds(AdSlotCode slot, int size) {
+    public List<AdResponse> findServableAds(AdSlotCode slot, AdTargetOs os, int size) {
         LocalDateTime now = LocalDateTime.now(KST);
+        AdTargetOs requested = os != null ? os : AdTargetOs.ALL;
 
         List<AdCreative> candidates = adCreativeRepository.findAllBySlotAndStatus(slot, AdStatus.ACTIVE).stream()
                 .filter(creative -> creative.isServable(now))
+                .filter(creative -> creative.getTargetOs().matches(requested))
                 .toList();
 
         return weightedSample(candidates, size).stream()

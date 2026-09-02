@@ -6,7 +6,9 @@ import com.swyp.picke.domain.ad.enums.AdSlotCode;
 import com.swyp.picke.domain.ad.enums.AdStatus;
 import com.swyp.picke.domain.ad.repository.AdClickLogRepository;
 import com.swyp.picke.domain.ad.repository.AdCreativeRepository;
+import com.swyp.picke.domain.ad.enums.AdSource;
 import com.swyp.picke.domain.ad.repository.AdImpressionDailyRepository;
+import com.swyp.picke.domain.ad.service.AdCreativeCodeGenerator;
 import com.swyp.picke.domain.admin.dto.ad.request.AdCreativeRequest;
 import com.swyp.picke.domain.admin.dto.ad.response.AdClickLogResponse;
 import com.swyp.picke.domain.admin.dto.ad.response.AdCreativeResponse;
@@ -14,7 +16,6 @@ import com.swyp.picke.domain.admin.dto.ad.response.AdStatsResponse;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import com.swyp.picke.global.common.response.PageResponse;
-import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -31,14 +32,10 @@ import org.springframework.web.util.UriComponentsBuilder;
 @RequiredArgsConstructor
 public class AdminAdService {
 
-    private static final String CODE_ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789";
-    private static final int CODE_LENGTH = 8;
-    private static final int CODE_MAX_ATTEMPTS = 10;
-
     private final AdCreativeRepository adCreativeRepository;
     private final AdClickLogRepository adClickLogRepository;
     private final AdImpressionDailyRepository adImpressionDailyRepository;
-    private final SecureRandom random = new SecureRandom();
+    private final AdCreativeCodeGenerator adCreativeCodeGenerator;
 
     @Value("${coupang.partners.id:}")
     private String coupangPartnersId;
@@ -48,7 +45,7 @@ public class AdminAdService {
         validateCoupangOwnership(request);
 
         AdCreative creative = AdCreative.builder()
-                .code(generateUniqueCode())
+                .code(adCreativeCodeGenerator.generate())
                 .network(request.network())
                 .slot(request.slot())
                 .title(request.title())
@@ -60,6 +57,8 @@ public class AdminAdService {
                 .weight(request.weight())
                 .startsAt(request.startsAt())
                 .endsAt(request.endsAt())
+                .source(AdSource.MANUAL)
+                .targetOs(request.targetOs())
                 .build();
 
         return AdCreativeResponse.from(adCreativeRepository.save(creative));
@@ -70,6 +69,7 @@ public class AdminAdService {
         validateCoupangOwnership(request);
 
         AdCreative creative = findById(creativeId);
+        rejectIfManaged(creative);
 
         creative.update(
                 request.network(),
@@ -82,7 +82,8 @@ public class AdminAdService {
                 request.status(),
                 request.weight(),
                 request.startsAt(),
-                request.endsAt()
+                request.endsAt(),
+                request.targetOs()
         );
 
         return AdCreativeResponse.from(creative);
@@ -90,7 +91,20 @@ public class AdminAdService {
 
     @Transactional
     public void delete(Long creativeId) {
-        adCreativeRepository.delete(findById(creativeId));
+        AdCreative creative = findById(creativeId);
+        rejectIfManaged(creative);
+        adCreativeRepository.delete(creative);
+    }
+
+    /**
+     * 동기화 소재도 끌 수는 있어야 한다.
+     * PAUSED 는 동기화가 되돌리지 않으므로 어드민의 끄기 스위치가 된다.
+     */
+    @Transactional
+    public AdCreativeResponse changeStatus(Long creativeId, AdStatus status) {
+        AdCreative creative = findById(creativeId);
+        creative.changeStatus(status);
+        return AdCreativeResponse.from(creative);
     }
 
     @Transactional(readOnly = true)
@@ -164,20 +178,10 @@ public class AdminAdService {
                 .orElseThrow(() -> new CustomException(ErrorCode.AD_CREATIVE_NOT_FOUND));
     }
 
-    /** 헷갈리기 쉬운 글자(l, o, 0, 1)를 뺀 알파벳으로 코드를 만든다. 어드민이 눈으로 옮겨 적는 일이 있다. */
-    private String generateUniqueCode() {
-        for (int attempt = 0; attempt < CODE_MAX_ATTEMPTS; attempt++) {
-            String code = randomCode();
-            if (!adCreativeRepository.existsByCode(code)) {
-                return code;
-            }
+    /** 애드픽 동기화가 내용을 덮어쓰므로 어드민이 고치거나 지워도 다음 회차에 되돌아간다. */
+    private void rejectIfManaged(AdCreative creative) {
+        if (creative.isManaged()) {
+            throw new CustomException(ErrorCode.AD_CREATIVE_MANAGED);
         }
-        throw new CustomException(ErrorCode.AD_CODE_GENERATION_FAILED);
-    }
-
-    private String randomCode() {
-        return random.ints(CODE_LENGTH, 0, CODE_ALPHABET.length())
-                .mapToObj(index -> String.valueOf(CODE_ALPHABET.charAt(index)))
-                .collect(Collectors.joining());
     }
 }

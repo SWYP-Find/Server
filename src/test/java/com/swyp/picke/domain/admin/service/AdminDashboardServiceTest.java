@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardAttendanceStatsResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardBattleStatsResponse;
+import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardCreditStatsResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardDauMauResponse;
 import com.swyp.picke.domain.admin.dto.dashboard.response.AdminDashboardSummaryResponse;
 import com.swyp.picke.domain.attendance.repository.AttendanceRecordRepository;
@@ -18,6 +19,7 @@ import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.repository.CreditHistoryRepository;
 import com.swyp.picke.domain.user.repository.UserDailyActivityRepository;
 import com.swyp.picke.domain.user.repository.UserRepository;
+import com.swyp.picke.domain.user.repository.projection.CreditTypeStats;
 import com.swyp.picke.domain.user.repository.projection.DailyUserCount;
 import com.swyp.picke.global.common.exception.CustomException;
 import java.time.LocalDate;
@@ -258,6 +260,54 @@ class AdminDashboardServiceTest {
 
         assertThatThrownBy(() -> adminDashboardService.getAttendanceStats(from, to))
                 .isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("크레딧 타입별 지급/차감 현황을 조회한다")
+    void getCreditStats_returnsTypeBreakdownAndTotals() {
+        LocalDate from = LocalDate.of(2026, 8, 1);
+        LocalDate to = LocalDate.of(2026, 8, 7);
+        List<CreditTypeStats> rows = List.of(
+                creditTypeStats(CreditType.TODAY_CREDIT, 100L, 500L),
+                creditTypeStats(CreditType.MAJORITY_WIN, 20L, 100L),
+                creditTypeStats(CreditType.BATTLE_ENTRY, 30L, -150L)
+        );
+        when(creditHistoryRepository.findStatsByCreatedAtBetween(any(), any())).thenReturn(rows);
+
+        AdminDashboardCreditStatsResponse response = adminDashboardService.getCreditStats(from, to);
+
+        assertThat(response.byType()).hasSize(3);
+        assertThat(response.totalGranted()).isEqualTo(600L); // 500 + 100
+        assertThat(response.totalDeducted()).isEqualTo(150L); // |-150|
+    }
+
+    @Test
+    @DisplayName("크레딧 지급 현황 조회 시 from이 to보다 늦으면 예외를 던진다")
+    void getCreditStats_throws_whenFromIsAfterTo() {
+        LocalDate from = LocalDate.of(2026, 8, 10);
+        LocalDate to = LocalDate.of(2026, 8, 1);
+
+        assertThatThrownBy(() -> adminDashboardService.getCreditStats(from, to))
+                .isInstanceOf(CustomException.class);
+    }
+
+    private CreditTypeStats creditTypeStats(CreditType creditType, long count, long totalAmount) {
+        return new CreditTypeStats() {
+            @Override
+            public CreditType getCreditType() {
+                return creditType;
+            }
+
+            @Override
+            public long getCount() {
+                return count;
+            }
+
+            @Override
+            public long getTotalAmount() {
+                return totalAmount;
+            }
+        };
     }
 
     private DailyUserCount dailyUserCount(LocalDate date, long count) {

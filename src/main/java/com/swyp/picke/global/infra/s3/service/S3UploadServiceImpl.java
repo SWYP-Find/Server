@@ -15,6 +15,7 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 import java.io.File;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -78,7 +79,7 @@ public class S3UploadServiceImpl implements S3UploadService {
 
         try {
             // URL에서 순수 Key만 추출
-            String pureKey = fileUrl.contains(".com/") ? fileUrl.split(".com/")[1] : fileUrl;
+            String pureKey = extractKey(fileUrl);
 
             // 다운로드 받을 로컬 임시 파일 경로 생성
             File tempFile = File.createTempFile("s3_download_", ".mp3");
@@ -112,7 +113,7 @@ public class S3UploadServiceImpl implements S3UploadService {
         if (key == null || key.isEmpty()) return null;
 
         // URL에서 도메인을 제외한 순수 'Key'만 추출 (만약 전체 URL이 들어올 경우를 대비)
-        String pureKey = key.contains(".com/") ? key.split(".com/")[1] : key;
+        String pureKey = extractKey(key);
 
         GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
                 .signatureDuration(durationUrl)
@@ -120,6 +121,18 @@ public class S3UploadServiceImpl implements S3UploadService {
                 .build();
 
         return s3Presigner.presignGetObject(presignRequest).url().toString();
+    }
+
+    /**
+     * DB/외부 입력에는 순수 key가 오는 게 기본이지만, 레거시 데이터나 실수로 전체 URL이
+     * 들어오는 경우를 대비해 호스트가 아닌 경로 기준으로 key를 추출한다(스토리지 제공자 무관).
+     */
+    private String extractKey(String input) {
+        if (!input.startsWith("http://") && !input.startsWith("https://")) {
+            return input;
+        }
+        String path = URI.create(input).getPath();
+        return path.startsWith("/") ? path.substring(1) : path;
     }
 
     private String determineContentType(String key) {
@@ -149,7 +162,7 @@ public class S3UploadServiceImpl implements S3UploadService {
 
         try {
             // 1. 전체 URL에서 순수 Key 추출 (기존 getPresignedUrl에 있던 방식과 동일하게 처리)
-            String pureKey = fileUrl.contains(".com/") ? fileUrl.split(".com/")[1] : fileUrl;
+            String pureKey = extractKey(fileUrl);
 
             // 2. AWS SDK v2 전용 삭제 요청 객체 생성
             DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()

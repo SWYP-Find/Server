@@ -26,6 +26,7 @@ import com.swyp.picke.domain.vote.dto.response.VoteResultResponse;
 import com.swyp.picke.domain.vote.entity.BattleVote;
 import com.swyp.picke.domain.vote.repository.BattleVoteRepository;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -75,10 +76,20 @@ class BattleVoteServiceImplTest {
     @InjectMocks
     private BattleVoteServiceImpl battleVoteService;
 
+    /**
+     * BattleVoteServiceImpl은 "오늘"을 KST로 판단한다(LocalDate.now(KST)).
+     * 테스트가 시스템 기본 시간대를 쓰면 UTC 러너에서 15시 이후로 하루가 어긋나 실패한다.
+     */
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
+    private static LocalDate today() {
+        return LocalDate.now(KST);
+    }
+
     @Test
     @DisplayName("오늘 배틀이 아니면 최초 사전 투표 시 BATTLE_ENTRY 크레딧을 차감한다")
     void preVote_chargesBattleEntryCreditForPastBattle() {
-        Battle battle = battle(100L, LocalDate.now().minusDays(1));
+        Battle battle = battle(100L, today().minusDays(1));
         User user = user(10L);
         BattleOption option = option(201L, battle, BattleOptionLabel.A);
 
@@ -99,7 +110,7 @@ class BattleVoteServiceImplTest {
     @Test
     @DisplayName("오늘 배틀이면 최초 사전 투표 시 크레딧을 차감하지 않는다")
     void preVote_doesNotChargeBattleEntryCreditForTodayBattle() {
-        Battle battle = battle(100L, LocalDate.now());
+        Battle battle = battle(100L, today());
         User user = user(10L);
         BattleOption option = option(201L, battle, BattleOptionLabel.A);
 
@@ -119,7 +130,7 @@ class BattleVoteServiceImplTest {
     @Test
     @DisplayName("오늘의 배틀이라도 오늘 이미 무료 진입을 사용했다면 크레딧을 차감한다")
     void preVote_chargesBattleEntryCreditWhenFreeEntryAlreadyUsedToday() {
-        Battle battle = battle(100L, LocalDate.now());
+        Battle battle = battle(100L, today());
         User user = user(10L);
         BattleOption option = option(201L, battle, BattleOptionLabel.A);
 
@@ -127,7 +138,7 @@ class BattleVoteServiceImplTest {
         when(userRepository.findById(10L)).thenReturn(Optional.of(user));
         when(battleOptionRepository.findById(201L)).thenReturn(Optional.of(option));
         when(battleVoteRepository.findByBattleAndUser(battle, user)).thenReturn(Optional.empty());
-        when(battleVoteRepository.existsByUserIdAndBattle_TargetDate(10L, LocalDate.now())).thenReturn(true);
+        when(battleVoteRepository.existsByUserIdAndBattle_TargetDate(10L, today())).thenReturn(true);
         when(userBattleService.getUserBattleStatus(user, battle))
                 .thenReturn(new UserBattleStatusResponse(100L, UserBattleStep.NONE));
 
@@ -140,7 +151,7 @@ class BattleVoteServiceImplTest {
     @Test
     @DisplayName("이미 사전 투표한 배틀이면 옵션 변경 시 추가 차감하지 않는다")
     void preVote_doesNotChargeAgainWhenVoteAlreadyExists() {
-        Battle battle = battle(100L, LocalDate.now().minusDays(1));
+        Battle battle = battle(100L, today().minusDays(1));
         User user = user(10L);
         BattleOption oldOption = option(200L, battle, BattleOptionLabel.B);
         BattleOption newOption = option(201L, battle, BattleOptionLabel.A);

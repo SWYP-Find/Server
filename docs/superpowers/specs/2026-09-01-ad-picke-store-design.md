@@ -258,3 +258,12 @@ Host가 광고 도메인이 아니면 최소 응답만 돌려준다. API 도메�
 - 가중 로테이션 분포
 - 없는 code / 만료 code 클릭 시 랜딩으로 302
 - 노출 집계 upsert가 같은 날 중복 호출에 누적될 것
+
+## 7. 배포 체크리스트
+
+- **광고 enum 을 바꿨으면 CHECK 제약을 직접 ALTER 한다.** `ddl-auto=update` 는 이미 있는 제약을
+  갱신하지 않아, `AdSlotCode`·`AdNetwork`·`AdStatus`·`AdSource`·`AdTargetOs` 에 값을 추가하고 배포하면
+  새 값의 INSERT 가 운영에서 조용히 막힌다. 구문은 `docs/db/20260901_create_ad_tables.sql` 주석에 있다.
+  `AdCheckConstraintTest` 가 CI 에서 먼저 깨주지만, 실제 ALTER 실행은 사람이 해야 한다.
+- `COUPANG_PARTNERS_ID` 를 설정한다. 기본값이 없어 비어 있으면 기동 자체가 실패한다.
+- `ADPICK_AFF_ID` 를 설정한다. 비어 있으면 애드픽 동기화만 건너뛰고 나머지는 정상 동작한다.

@@ -7,6 +7,7 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
+import java.net.URI;
 import java.time.Duration;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -54,11 +55,16 @@ public class S3PresignedUrlService {
                 ));
     }
 
+    /**
+     * DB에는 보통 순수 key만 저장되지만, AWS S3를 쓰던 시절 저장된 레거시 데이터는
+     * 전체 URL(https://{bucket}.s3.{region}.amazonaws.com/{key})일 수 있어 하위 호환을 위해 파싱한다.
+     * 스토리지 제공자(AWS/Railway 등)에 무관하게 동작하도록 호스트가 아닌 경로 기준으로 key를 뽑는다.
+     */
     private String extractKey(String input) {
-        if (input.startsWith("https://") && input.contains(".s3.") && input.contains(".amazonaws.com/")) {
-            int idx = input.indexOf(".amazonaws.com/") + ".amazonaws.com/".length();
-            return input.substring(idx);
+        if (!input.startsWith("http://") && !input.startsWith("https://")) {
+            return input;
         }
-        return input;
+        String path = URI.create(input).getPath();
+        return path.startsWith("/") ? path.substring(1) : path;
     }
 }

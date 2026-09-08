@@ -32,6 +32,8 @@ spring:
     aws:
       s3:
         bucket: ${AWS_S3_BUCKET}
+        endpoint: ${AWS_ENDPOINT_URL:}
+        path-style-access-enabled: ${S3_PATH_STYLE_ACCESS_ENABLED:false}
       region:
         static: ${AWS_REGION}
       credentials:

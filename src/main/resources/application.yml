@@ -162,4 +162,4 @@ media:
 coupang:
   partners:
     # 제휴 링크에 lptag로 노출되는 공개 식별자다. 소재 등록 시 남의 링크가 아닌지 대조하는 데 쓴다.
-    id: ${COUPANG_PARTNERS_ID}
+    id: ${COUPANG_PARTNERS_ID:}

@@ -46,6 +46,14 @@ class SwaggerAdGroupTest {
     }
 
     @Test
+    @DisplayName("광고 탭에서 운영 광고 도메인을 고를 수 있다. 운영 광고는 별도 서비스라 API 서버로는 조회되지 않는다")
+    void adGroup_offersAdDomain() throws Exception {
+        mockMvc.perform(get("/v3/api-docs/" + AD_GROUP))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.servers[1].url").value("https://ad.picke.store"));
+    }
+
+    @Test
     @DisplayName("다른 탭의 서버 순서는 그대로 둔다")
     void otherGroups_keepProdFirst() throws Exception {
         mockMvc.perform(get("/v3/api-docs/0. 모든 API"))

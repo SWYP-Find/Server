@@ -118,7 +118,7 @@ public class SwaggerConfig {
                 .group("3. 광고 API")
                 .pathsToMatch("/api/v1/ads", "/api/v1/ads/**", "/api/v1/admin/ads", "/api/v1/admin/ads/**")
                 .addOpenApiCustomizer(openApi -> openApi.setServers(
-                        List.of(currentServer(), prodServer(), localServer(), devServer())))
+                        List.of(currentServer(), adServer(), devServer(), localServer(), prodServer())))
                 .build();
     }
 
@@ -135,6 +135,16 @@ public class SwaggerConfig {
         return new Server()
                 .url("/")
                 .description("현재 접속한 서버");
+    }
+
+    /**
+     * 광고 전용 도메인. 운영에서 광고 조회·클릭·랜딩을 받는 곳이다.
+     * 운영 API 서버(picke.store)와 별도 서비스라 광고 그룹에서 따로 고를 수 있어야 한다.
+     */
+    private Server adServer() {
+        return new Server()
+                .url("https://ad.picke.store")
+                .description("Ad Server (운영 광고 도메인)");
     }
 
     // 1. 운영 서버 (8080)

@@ -1,6 +1,8 @@
 package com.swyp.picke.domain.ad.service;
 
 import com.swyp.picke.domain.ad.client.AdpickCampaignClient;
+import com.swyp.picke.domain.ad.client.AdpickShoppingClient;
+import com.swyp.picke.domain.ad.client.AdpickShoppingResponse;
 import com.swyp.picke.domain.ad.client.AdpickCampaignResponse;
 import com.swyp.picke.domain.ad.entity.AdCreative;
 import com.swyp.picke.domain.ad.enums.AdNetwork;
@@ -26,6 +28,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -38,6 +41,8 @@ class AdpickCampaignSyncServiceTest {
     @Mock
     private AdpickCampaignClient adpickCampaignClient;
     @Mock
+    private AdpickShoppingClient adpickShoppingClient;
+    @Mock
     private AdCreativeRepository adCreativeRepository;
     @Mock
     private AdCreativeCodeGenerator adCreativeCodeGenerator;
@@ -49,6 +54,8 @@ class AdpickCampaignSyncServiceTest {
     void setUp() {
         ReflectionTestUtils.setField(syncService, "slot", AdSlotCode.BATTLE_RESULT_BOTTOM);
         ReflectionTestUtils.setField(syncService, "ctaText", CTA);
+        ReflectionTestUtils.setField(syncService, "shoppingSlots", List.of(AdSlotCode.HOME_FEED));
+        ReflectionTestUtils.setField(syncService, "shoppingCtaText", "구매하러 가기");
         when(adpickCampaignClient.isConfigured()).thenReturn(true);
         when(adCreativeCodeGenerator.generate()).thenReturn("syn23456");
         when(adCreativeRepository.findAllBySource(AdSource.ADPICK_API)).thenReturn(List.of());
@@ -175,5 +182,58 @@ class AdpickCampaignSyncServiceTest {
 
         assertThat(gone.getStatus()).isEqualTo(AdStatus.DRAFT);
         verify(adCreativeRepository, never()).delete(any());
+    }
+
+    private AdpickShoppingResponse product(String name, String buyUrl) {
+        return new AdpickShoppingResponse(name, "https://img.example.com/p.jpg", "트립닷컴", "최대 4.2%", buyUrl);
+    }
+
+    @Test
+    @DisplayName("쇼핑·핫딜 상품도 소재로 담는다. 앱 캠페인이 7건뿐이라 지면을 채우려면 이쪽이 필요하다")
+    void sync_bringsShoppingProducts() {
+        when(adpickCampaignClient.isConfigured()).thenReturn(true);
+        when(adpickCampaignClient.fetchCampaigns()).thenReturn(List.of());
+        when(adpickShoppingClient.isConfigured()).thenReturn(true);
+        when(adpickShoppingClient.fetchProducts()).thenReturn(List.of(
+                product("호텔 A", "https://adpick.co.kr/apis/goshopping.php?affid=ab2c41&offer=1&url=a"),
+                product("호텔 B", "https://adpick.co.kr/apis/goshopping.php?affid=ab2c41&offer=1&url=b")));
+
+        assertThat(syncService.sync()).isEqualTo(2);
+
+        ArgumentCaptor<AdCreative> captor = ArgumentCaptor.forClass(AdCreative.class);
+        verify(adCreativeRepository, times(2)).save(captor.capture());
+        assertThat(captor.getAllValues()).extracting(AdCreative::getCtaText)
+                .containsOnly("구매하러 가기");
+        assertThat(captor.getAllValues()).extracting(AdCreative::getExternalId)
+                .allMatch(id -> id.startsWith("sh"));
+        assertThat(captor.getAllValues()).extracting(AdCreative::getTargetOs)
+                .containsOnly(AdTargetOs.ALL);
+    }
+
+    @Test
+    @DisplayName("같은 상품이 쇼핑과 핫딜에 겹쳐 실려도 한 번만 담는다")
+    void sync_deduplicatesProductsAcrossFeeds() {
+        String buyUrl = "https://adpick.co.kr/apis/goshopping.php?affid=ab2c41&offer=1&url=same";
+        when(adpickCampaignClient.isConfigured()).thenReturn(true);
+        when(adpickCampaignClient.fetchCampaigns()).thenReturn(List.of());
+        when(adpickShoppingClient.isConfigured()).thenReturn(true);
+        when(adpickShoppingClient.fetchProducts()).thenReturn(List.of(
+                product("같은 상품", buyUrl), product("같은 상품", buyUrl)));
+
+        syncService.sync();
+
+        verify(adCreativeRepository, times(1)).save(any(AdCreative.class));
+    }
+
+    @Test
+    @DisplayName("애드픽 설정이 없으면 쇼핑도 건너뛴다")
+    void sync_skipsShoppingWhenNotConfigured() {
+        when(adpickCampaignClient.isConfigured()).thenReturn(true);
+        when(adpickCampaignClient.fetchCampaigns()).thenReturn(List.of());
+        when(adpickShoppingClient.isConfigured()).thenReturn(false);
+
+        assertThat(syncService.sync()).isZero();
+
+        verify(adpickShoppingClient, never()).fetchProducts();
     }
 }

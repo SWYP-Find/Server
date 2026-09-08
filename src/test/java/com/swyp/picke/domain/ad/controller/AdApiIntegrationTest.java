@@ -120,6 +120,15 @@ class AdApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("필수 파라미터가 빠지면 500이 아니라 400을 준다")
+    void findAds_missingRequiredParamIsBadRequest() throws Exception {
+        // 전역 핸들러가 MissingServletRequestParameterException 을 잡지 못해 500 으로 새던 자리다.
+        // 광고 전용 문제가 아니라 필수 쿼리 파라미터를 쓰는 모든 API 가 같이 영향을 받는다.
+        mockMvc.perform(get("/api/v1/ads"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     @DisplayName("노출 집계는 한 번에 밀어 넣을 수 있는 소재 수를 제한한다")
     void recordImpressions_rejectsOversizedBatch() throws Exception {
         String codes = java.util.stream.IntStream.range(0, 21)

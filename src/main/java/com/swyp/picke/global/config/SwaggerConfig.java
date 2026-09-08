@@ -104,9 +104,13 @@ public class SwaggerConfig {
      * 사용자 그룹은 FE_USED_OPERATIONS 화이트리스트로 걸러지므로 거기에 넣으면 어차피 보이지 않는다.
      * 앱용과 관리자용을 한 그룹에 모아 광고 연동만 따로 볼 수 있게 한다.
      *
-     * <p>이 그룹만 개발 서버를 기본으로 둔다. Swagger UI는 서버 목록의 첫 번째를 골라 두므로,
+     * <p>이 그룹은 문서를 연 주소를 기본 서버로 둔다. Swagger UI는 서버 목록의 첫 번째를 골라 두는데,
      * 공통 순서를 따르면 dev 주소로 문서를 열어도 Try it out이 운영으로 나간다.
      * 광고는 소재 등록·삭제가 섞여 있어 잘못 쏘면 운영 데이터가 바뀐다.
+     *
+     * <p>프로파일로 가르지 않는다. dev 서버도 prod 프로파일로 돌기 때문에 구분이 되지 않는다.
+     * 상대 경로를 쓰면 운영에서 연 문서는 운영으로, dev에서 연 문서는 dev로 나간다.
+     * 다른 환경을 일부러 고르는 것은 아래 목록에서 여전히 가능하다.
      */
     @Bean
     public GroupedOpenApi adApi() {
@@ -114,7 +118,7 @@ public class SwaggerConfig {
                 .group("3. 광고 API")
                 .pathsToMatch("/api/v1/ads", "/api/v1/ads/**", "/api/v1/admin/ads", "/api/v1/admin/ads/**")
                 .addOpenApiCustomizer(openApi -> openApi.setServers(
-                        List.of(devServer(), localServer(), prodServer())))
+                        List.of(currentServer(), prodServer(), localServer(), devServer())))
                 .build();
     }
 
@@ -124,6 +128,13 @@ public class SwaggerConfig {
                 .group("0. 모든 API")
                 .pathsToMatch("/api/**")
                 .build();
+    }
+
+    // 문서를 연 주소. Swagger UI가 상대 경로를 현재 origin으로 풀어 준다.
+    private Server currentServer() {
+        return new Server()
+                .url("/")
+                .description("현재 접속한 서버");
     }
 
     // 1. 운영 서버 (8080)

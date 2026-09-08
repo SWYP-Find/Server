@@ -36,11 +36,12 @@ class SwaggerAdGroupTest {
     }
 
     @Test
-    @DisplayName("광고 탭의 기본 서버는 개발 서버다. Try it out이 운영으로 나가면 안 된다")
-    void adGroup_defaultsToDevServer() throws Exception {
+    @DisplayName("광고 탭은 문서를 연 주소로 요청한다. 운영에서 열면 운영으로, dev에서 열면 dev로 나간다")
+    void adGroup_defaultsToCurrentOrigin() throws Exception {
         mockMvc.perform(get("/v3/api-docs/" + AD_GROUP))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.servers[0].url").value("https://dev.picke.store"))
+                .andExpect(jsonPath("$.servers[0].url").value("/"))
+                .andExpect(jsonPath("$.servers[*].url").value(hasItem("https://dev.picke.store")))
                 .andExpect(jsonPath("$.servers[*].url").value(hasItem("https://picke.store")));
     }
 

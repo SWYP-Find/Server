@@ -7,7 +7,6 @@ import com.swyp.picke.domain.ad.enums.AdSlotCode;
 import com.swyp.picke.domain.ad.enums.AdStatus;
 import com.swyp.picke.domain.ad.enums.AdTargetOs;
 import com.swyp.picke.domain.ad.repository.AdCreativeRepository;
-import com.swyp.picke.domain.ad.repository.AdImpressionDailyRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -25,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -36,7 +36,7 @@ class AdQueryServiceTest {
     @Mock
     private AdCreativeRepository adCreativeRepository;
     @Mock
-    private AdImpressionDailyRepository adImpressionDailyRepository;
+    private AdImpressionRecorder adImpressionRecorder;
 
     @InjectMocks
     private AdQueryService adQueryService;
@@ -153,12 +153,12 @@ class AdQueryServiceTest {
         AdCreative creative = creative("abc12345", AdStatus.ACTIVE, 1, null, null);
         ReflectionTestUtils.setField(creative, "id", 7L);
         when(adCreativeRepository.findAllByCodeIn(List.of("abc12345"))).thenReturn(List.of(creative));
-        when(adImpressionDailyRepository.increment(eq(7L), eq(AdSlotCode.HOME_FEED), any(LocalDate.class), anyLong()))
-                .thenReturn(1);
+        when(adImpressionRecorder.increment(eq(7L), eq(AdSlotCode.HOME_FEED), any(LocalDate.class)))
+                .thenReturn(true);
 
         adQueryService.recordImpressions(List.of("abc12345"));
 
-        verify(adImpressionDailyRepository, never()).save(any());
+        verify(adImpressionRecorder, never()).insert(anyLong(), any(), any());
     }
 
     @Test
@@ -167,27 +167,29 @@ class AdQueryServiceTest {
         AdCreative creative = creative("abc12345", AdStatus.ACTIVE, 1, null, null);
         ReflectionTestUtils.setField(creative, "id", 7L);
         when(adCreativeRepository.findAllByCodeIn(List.of("abc12345"))).thenReturn(List.of(creative));
-        when(adImpressionDailyRepository.increment(eq(7L), eq(AdSlotCode.HOME_FEED), any(LocalDate.class), anyLong()))
-                .thenReturn(0);
+        when(adImpressionRecorder.increment(eq(7L), eq(AdSlotCode.HOME_FEED), any(LocalDate.class)))
+                .thenReturn(false);
 
         adQueryService.recordImpressions(List.of("abc12345"));
 
-        verify(adImpressionDailyRepository, times(1)).save(any());
+        verify(adImpressionRecorder, times(1))
+                .insert(eq(7L), eq(AdSlotCode.HOME_FEED), any(LocalDate.class));
     }
 
     @Test
-    @DisplayName("동시에 같은 집계 행을 만들면 갱신으로 되돌린다")
+    @DisplayName("동시에 같은 집계 행을 만들면 갱신으로 되돌린다. 되돌리기는 실패한 삽입 트랜잭션 밖에서 돈다")
     void recordImpressions_retriesOnConcurrentInsert() {
         AdCreative creative = creative("abc12345", AdStatus.ACTIVE, 1, null, null);
         ReflectionTestUtils.setField(creative, "id", 7L);
         when(adCreativeRepository.findAllByCodeIn(List.of("abc12345"))).thenReturn(List.of(creative));
-        when(adImpressionDailyRepository.increment(eq(7L), eq(AdSlotCode.HOME_FEED), any(LocalDate.class), anyLong()))
-                .thenReturn(0, 1);
-        when(adImpressionDailyRepository.save(any())).thenThrow(new DataIntegrityViolationException("duplicate"));
+        when(adImpressionRecorder.increment(eq(7L), eq(AdSlotCode.HOME_FEED), any(LocalDate.class)))
+                .thenReturn(false, true);
+        doThrow(new DataIntegrityViolationException("duplicate"))
+                .when(adImpressionRecorder).insert(eq(7L), eq(AdSlotCode.HOME_FEED), any(LocalDate.class));
 
         adQueryService.recordImpressions(List.of("abc12345"));
 
-        verify(adImpressionDailyRepository, times(2))
-                .increment(eq(7L), eq(AdSlotCode.HOME_FEED), any(LocalDate.class), anyLong());
+        verify(adImpressionRecorder, times(2))
+                .increment(eq(7L), eq(AdSlotCode.HOME_FEED), any(LocalDate.class));
     }
 }

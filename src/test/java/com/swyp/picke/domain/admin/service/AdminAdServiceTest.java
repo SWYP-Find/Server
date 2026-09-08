@@ -76,6 +76,37 @@ class AdminAdServiceTest {
     }
 
     @Test
+    @DisplayName("형식이 깨진 제휴 링크는 등록 시점에 막는다. 클릭 시점 500을 앞당겨 잡는다")
+    void create_rejectsMalformedLandingUrl() {
+        // 인코딩되지 않은 공백이 들어간 URL. 클릭 시점 AffiliateLinks.merge 가 build(true) 로 파싱하다 터진다.
+        AdCreativeRequest request = request(AdNetwork.ADPICK, "https://deg.kr/a b c");
+
+        assertThatThrownBy(() -> adminAdService.create(request))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.AD_INVALID_LANDING_URL);
+
+        verify(adCreativeRepository, never()).save(any(AdCreative.class));
+    }
+
+    @Test
+    @DisplayName("스킴이나 호스트가 없는 링크도 막는다")
+    void create_rejectsLandingUrlWithoutSchemeOrHost() {
+        AdCreativeRequest request = request(AdNetwork.ADPICK, "/c/relative-only");
+
+        assertThatThrownBy(() -> adminAdService.create(request))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.AD_INVALID_LANDING_URL);
+    }
+
+    @Test
+    @DisplayName("애드픽 단축 링크처럼 파라미터 없는 정상 URL은 통과한다")
+    void create_acceptsShortAffiliateLink() {
+        AdCreativeRequest request = request(AdNetwork.ADPICK, "https://deg.kr/884a6d6");
+
+        assertThatCode(() -> adminAdService.create(request)).doesNotThrowAnyException();
+    }
+
+    @Test
     @DisplayName("남의 파트너스 아이디가 박힌 쿠팡 링크는 등록을 막는다")
     void create_rejectsForeignPartnerLink() {
         AdCreativeRequest request = request(AdNetwork.COUPANG,

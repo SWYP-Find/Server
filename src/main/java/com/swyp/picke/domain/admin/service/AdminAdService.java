@@ -16,6 +16,7 @@ import com.swyp.picke.domain.admin.dto.ad.response.AdStatsResponse;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import com.swyp.picke.global.common.response.PageResponse;
+import java.net.URI;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +43,7 @@ public class AdminAdService {
 
     @Transactional
     public AdCreativeResponse create(AdCreativeRequest request) {
+        validateLandingUrl(request.landingUrl());
         validateCoupangOwnership(request);
 
         AdCreative creative = AdCreative.builder()
@@ -66,6 +68,7 @@ public class AdminAdService {
 
     @Transactional
     public AdCreativeResponse update(Long creativeId, AdCreativeRequest request) {
+        validateLandingUrl(request.landingUrl());
         validateCoupangOwnership(request);
 
         AdCreative creative = findById(creativeId);
@@ -151,6 +154,22 @@ public class AdminAdService {
                 from.atStartOfDay(),
                 to.plusDays(1).atStartOfDay(),
                 PageRequest.of(Math.max(0, page - 1), size)));
+    }
+
+    /**
+     * 클릭 시점에 {@code AffiliateLinks.merge}가 인코딩이 끝난 URL을 가정하고 파싱한다.
+     * 등록 때 걸러 두지 않으면 잘못된 URL이 그대로 저장되고, 사용자가 배너를 누르는 순간에야 500이 난다.
+     * 매체·파트너스 아이디와 무관하게 모든 소재에 적용한다. 애드픽 수동 소재와 단축 링크도 여기를 탄다.
+     */
+    private void validateLandingUrl(String landingUrl) {
+        try {
+            URI uri = UriComponentsBuilder.fromUriString(landingUrl).build(true).toUri();
+            if (uri.getScheme() == null || uri.getHost() == null) {
+                throw new CustomException(ErrorCode.AD_INVALID_LANDING_URL);
+            }
+        } catch (IllegalArgumentException e) {
+            throw new CustomException(ErrorCode.AD_INVALID_LANDING_URL);
+        }
     }
 
     /**

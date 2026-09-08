@@ -2,12 +2,10 @@ package com.swyp.picke.domain.ad.service;
 
 import com.swyp.picke.domain.ad.dto.response.AdResponse;
 import com.swyp.picke.domain.ad.entity.AdCreative;
-import com.swyp.picke.domain.ad.entity.AdImpressionDaily;
 import com.swyp.picke.domain.ad.enums.AdSlotCode;
 import com.swyp.picke.domain.ad.enums.AdStatus;
 import com.swyp.picke.domain.ad.enums.AdTargetOs;
 import com.swyp.picke.domain.ad.repository.AdCreativeRepository;
-import com.swyp.picke.domain.ad.repository.AdImpressionDailyRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -31,7 +29,7 @@ public class AdQueryService {
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final AdCreativeRepository adCreativeRepository;
-    private final AdImpressionDailyRepository adImpressionDailyRepository;
+    private final AdImpressionRecorder adImpressionRecorder;
 
     @Value("${picke.ad.base-url:https://ad.picke.store}")
     private String adBaseUrl;
@@ -73,33 +71,33 @@ public class AdQueryService {
     /**
      * 조회 시점이 아니라 앱이 실제로 화면에 그린 시점에 호출된다.
      * 조회를 노출로 세면 CTR이 실제보다 낮게 왜곡되기 때문이다.
+     *
+     * <p>여기에 트랜잭션을 걸지 않는다. 삽입이 제약 위반으로 실패했을 때의 되돌리기가
+     * 실패한 트랜잭션 밖에서 일어나야 하고, 한 소재의 집계 실패가 나머지 소재까지 되돌리면 안 된다.
      */
-    @Transactional
     public void recordImpressions(List<String> codes) {
         LocalDate today = LocalDate.now(KST);
 
-        List<ImpressionTarget> targets = adCreativeRepository.findAllByCodeIn(codes).stream()
+        findImpressionTargets(codes).forEach(target -> increaseImpression(target, today));
+    }
+
+    private List<ImpressionTarget> findImpressionTargets(List<String> codes) {
+        return adCreativeRepository.findAllByCodeIn(codes).stream()
                 .map(creative -> new ImpressionTarget(creative.getId(), creative.getSlot()))
                 .toList();
-
-        targets.forEach(target -> increaseImpression(target, today));
     }
 
     private void increaseImpression(ImpressionTarget target, LocalDate today) {
-        if (adImpressionDailyRepository.increment(target.creativeId(), target.slot(), today, 1L) > 0) {
+        if (adImpressionRecorder.increment(target.creativeId(), target.slot(), today)) {
             return;
         }
 
         try {
-            adImpressionDailyRepository.save(AdImpressionDaily.builder()
-                    .creativeId(target.creativeId())
-                    .slot(target.slot())
-                    .statDate(today)
-                    .impressions(1L)
-                    .build());
+            adImpressionRecorder.insert(target.creativeId(), target.slot(), today);
         } catch (DataIntegrityViolationException e) {
             // 같은 (소재, 지면, 날짜) 행을 다른 요청이 먼저 만든 경우다. 갱신으로 되돌린다.
-            adImpressionDailyRepository.increment(target.creativeId(), target.slot(), today, 1L);
+            // 삽입이 독립 트랜잭션이라 여기서 도는 갱신은 정상 트랜잭션에서 실행된다.
+            adImpressionRecorder.increment(target.creativeId(), target.slot(), today);
         }
     }
 

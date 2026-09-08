@@ -8,6 +8,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -32,6 +33,24 @@ class SwaggerAdGroupTest {
         mockMvc.perform(get("/v3/api-docs/swagger-config"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.urls[?(@.name == '" + AD_GROUP + "')]").exists());
+    }
+
+    @Test
+    @DisplayName("광고 탭은 문서를 연 주소로 요청한다. 운영에서 열면 운영으로, dev에서 열면 dev로 나간다")
+    void adGroup_defaultsToCurrentOrigin() throws Exception {
+        mockMvc.perform(get("/v3/api-docs/" + AD_GROUP))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.servers[0].url").value("/"))
+                .andExpect(jsonPath("$.servers[*].url").value(hasItem("https://dev.picke.store")))
+                .andExpect(jsonPath("$.servers[*].url").value(hasItem("https://picke.store")));
+    }
+
+    @Test
+    @DisplayName("다른 탭의 서버 순서는 그대로 둔다")
+    void otherGroups_keepProdFirst() throws Exception {
+        mockMvc.perform(get("/v3/api-docs/0. 모든 API"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.servers[0].url").value("https://picke.store"));
     }
 
     @Test

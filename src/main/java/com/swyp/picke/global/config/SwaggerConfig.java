@@ -103,12 +103,18 @@ public class SwaggerConfig {
      * 제휴 광고는 별도 그룹으로 띄운다.
      * 사용자 그룹은 FE_USED_OPERATIONS 화이트리스트로 걸러지므로 거기에 넣으면 어차피 보이지 않는다.
      * 앱용과 관리자용을 한 그룹에 모아 광고 연동만 따로 볼 수 있게 한다.
+     *
+     * <p>이 그룹만 개발 서버를 기본으로 둔다. Swagger UI는 서버 목록의 첫 번째를 골라 두므로,
+     * 공통 순서를 따르면 dev 주소로 문서를 열어도 Try it out이 운영으로 나간다.
+     * 광고는 소재 등록·삭제가 섞여 있어 잘못 쏘면 운영 데이터가 바뀐다.
      */
     @Bean
     public GroupedOpenApi adApi() {
         return GroupedOpenApi.builder()
                 .group("3. 광고 API")
                 .pathsToMatch("/api/v1/ads", "/api/v1/ads/**", "/api/v1/admin/ads", "/api/v1/admin/ads/**")
+                .addOpenApiCustomizer(openApi -> openApi.setServers(
+                        List.of(devServer(), localServer(), prodServer())))
                 .build();
     }
 
@@ -120,23 +126,29 @@ public class SwaggerConfig {
                 .build();
     }
 
-    @Bean
-    public OpenAPI openAPI() {
-        // 1. 운영 서버 (8080)
-        Server prodServer = new Server()
+    // 1. 운영 서버 (8080)
+    private Server prodServer() {
+        return new Server()
                 .url("https://picke.store")
                 .description("Production Server");
+    }
 
-        // 2. 로컬 개발 서버 (8080)
-        Server local8080 = new Server()
+    // 2. 로컬 개발 서버 (8080)
+    private Server localServer() {
+        return new Server()
                 .url("http://localhost:8080")
                 .description("Local Development Server (8080)");
+    }
 
-        // 3. 개발 서버 (8081)
-        Server devServer = new Server()
+    // 3. 개발 서버 (8081)
+    private Server devServer() {
+        return new Server()
                 .url("https://dev.picke.store")
                 .description("Remote Dev Server (8081)");
+    }
 
+    @Bean
+    public OpenAPI openAPI() {
         SecurityScheme securityScheme = new SecurityScheme()
                 .type(SecurityScheme.Type.HTTP)
                 .scheme("bearer")
@@ -148,8 +160,8 @@ public class SwaggerConfig {
                 new SecurityRequirement().addList("bearerAuth");
 
         return new OpenAPI()
-                // 3. 서버 리스트 등록
-                .servers(List.of(prodServer, local8080, devServer))
+                // 서버 리스트 등록
+                .servers(List.of(prodServer(), localServer(), devServer()))
                 .info(new Info()
                               .title("PIQUE API 명세서")
                               .description("PIQUE 서비스 API 명세서입니다.")

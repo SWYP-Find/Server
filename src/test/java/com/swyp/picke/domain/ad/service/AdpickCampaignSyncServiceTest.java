@@ -26,6 +26,7 @@ import org.mockito.quality.Strictness;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -56,6 +57,8 @@ class AdpickCampaignSyncServiceTest {
         ReflectionTestUtils.setField(syncService, "ctaText", CTA);
         ReflectionTestUtils.setField(syncService, "shoppingSlots", List.of(AdSlotCode.HOME_FEED));
         ReflectionTestUtils.setField(syncService, "shoppingCtaText", "구매하러 가기");
+        ReflectionTestUtils.setField(syncService, "campaignWeight", 1);
+        ReflectionTestUtils.setField(syncService, "shoppingWeight", 3);
         when(adpickCampaignClient.isConfigured()).thenReturn(true);
         when(adCreativeCodeGenerator.generate()).thenReturn("syn23456");
         when(adCreativeRepository.findAllBySource(AdSource.ADPICK_API)).thenReturn(List.of());
@@ -235,5 +238,26 @@ class AdpickCampaignSyncServiceTest {
         assertThat(syncService.sync()).isZero();
 
         verify(adpickShoppingClient, never()).fetchProducts();
+    }
+
+    @Test
+    @DisplayName("쇼핑 상품은 앱 캠페인보다 높은 가중치로 담긴다. 앱 캠페인 7건이 반복 노출되지 않게 한다")
+    void sync_weightsShoppingHigher() {
+        when(adpickCampaignClient.isConfigured()).thenReturn(true);
+        when(adpickCampaignClient.fetchCampaigns()).thenReturn(List.of(campaign("aaaa1", "Both", 5)));
+        when(adpickShoppingClient.isConfigured()).thenReturn(true);
+        when(adpickShoppingClient.fetchProducts()).thenReturn(List.of(
+                product("상품", "https://adpick.co.kr/apis/goshopping.php?affid=ab2c41&offer=1&url=w")));
+
+        syncService.sync();
+
+        ArgumentCaptor<AdCreative> captor = ArgumentCaptor.forClass(AdCreative.class);
+        verify(adCreativeRepository, times(2)).save(captor.capture());
+        assertThat(captor.getAllValues()).extracting(AdCreative::getExternalId, AdCreative::getWeight)
+                .containsExactlyInAnyOrder(tuple("aaaa1", 1),
+                                           tuple(captor.getAllValues().stream()
+                                                         .map(AdCreative::getExternalId)
+                                                         .filter(id -> id.startsWith("sh"))
+                                                         .findFirst().orElseThrow(), 3));
     }
 }

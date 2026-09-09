@@ -53,6 +53,16 @@ public class AdpickCampaignSyncService {
     private String ctaText;
 
     /**
+     * 로테이션 가중치. 쇼핑 상품을 앱 설치형보다 자주 띄우려고 나눠 둔다.
+     * 앱 캠페인은 7건뿐이라 같은 가중치면 지면마다 같은 소재가 반복해서 뽑힌다.
+     */
+    @Value("${picke.ad.adpick.weight:1}")
+    private int campaignWeight;
+
+    @Value("${picke.ad.adpick.shopping-weight:3}")
+    private int shoppingWeight;
+
+    /**
      * 쇼핑·핫딜 상품을 흩어 놓을 지면.
      * 앱 캠페인은 7건뿐이라 한 지면밖에 못 채운다. 상품 60건을 나눠 담아 나머지 지면을 채운다.
      */
@@ -127,6 +137,7 @@ public class AdpickCampaignSyncService {
                     product.buyUrl(),
                     AdTargetOs.ALL,
                     target,
+                    shoppingWeight,
                     true);
             return;
         }
@@ -141,7 +152,7 @@ public class AdpickCampaignSyncService {
                 .ctaText(shoppingCtaText)
                 .landingUrl(product.buyUrl())
                 .status(AdStatus.ACTIVE)
-                .weight(1)
+                .weight(shoppingWeight)
                 .source(AdSource.ADPICK_API)
                 .externalId(externalId)
                 .targetOs(AdTargetOs.ALL)
@@ -185,6 +196,7 @@ public class AdpickCampaignSyncService {
                     campaign.trackingLink(),
                     AdTargetOs.fromAdpick(campaign.os()),
                     slot,
+                    campaignWeight,
                     campaign.hasRemaining());
             return;
         }
@@ -199,7 +211,7 @@ public class AdpickCampaignSyncService {
                 .ctaText(ctaText)
                 .landingUrl(campaign.trackingLink())
                 .status(campaign.hasRemaining() ? AdStatus.ACTIVE : AdStatus.DRAFT)
-                .weight(1)
+                .weight(campaignWeight)
                 .source(AdSource.ADPICK_API)
                 .externalId(campaign.offerId())
                 .targetOs(AdTargetOs.fromAdpick(campaign.os()))

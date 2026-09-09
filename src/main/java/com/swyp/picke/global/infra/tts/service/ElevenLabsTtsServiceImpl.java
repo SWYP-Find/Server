@@ -1,6 +1,7 @@
 package com.swyp.picke.global.infra.tts.service;
 
 import com.swyp.picke.domain.scenario.enums.SpeakerType;
+import com.swyp.picke.domain.scenario.enums.Tone;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
@@ -44,8 +45,8 @@ public class ElevenLabsTtsServiceImpl implements TtsService {
     private static final String ELEVENLABS_TTS_URL = "https://api.elevenlabs.io/v1/text-to-speech/";
 
     @Override
-    public File generateTtsWithSsml(String rawText, SpeakerType speakerType, String customVoice) throws Exception {
-        String actingText = rawText.replaceAll("<[^>]*>", "").trim();
+    public File generateTtsWithSsml(String rawText, SpeakerType speakerType, String customVoice, Tone tone) throws Exception {
+        String actingText = TtsTextNormalizer.normalize(rawText, tone).replaceAll("<[^>]*>", "").trim();
         String voiceId = (customVoice != null && !customVoice.isBlank())
                 ? customVoice.trim()
                 : getElevenLabsVoiceId(speakerType);

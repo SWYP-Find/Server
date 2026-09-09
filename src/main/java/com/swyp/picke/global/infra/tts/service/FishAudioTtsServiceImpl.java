@@ -1,6 +1,7 @@
 package com.swyp.picke.global.infra.tts.service;
 
 import com.swyp.picke.domain.scenario.enums.SpeakerType;
+import com.swyp.picke.domain.scenario.enums.Tone;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
@@ -31,15 +32,19 @@ public class FishAudioTtsServiceImpl implements TtsService {
     @Value("${fishaudio.tts.url:https://api.fish.audio/v1/tts}")
     private String ttsUrl;
 
+    @Value("${fishaudio.tts.model:s2.1-pro}")
+    private String ttsModel;
+
     @Override
-    public File generateTtsWithSsml(String rawText, SpeakerType speakerType, String customVoice) throws Exception {
-        String actingText = cleanTextForNaturalFlow(rawText);
+    public File generateTtsWithSsml(String rawText, SpeakerType speakerType, String customVoice, Tone tone) throws Exception {
+        String actingText = cleanTextForNaturalFlow(TtsTextNormalizer.normalize(rawText, tone));
         String referenceId = resolveVoiceId(speakerType, customVoice);
 
         RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(fishAudioApiKey);
+        headers.set("model", ttsModel);
 
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("text", actingText);

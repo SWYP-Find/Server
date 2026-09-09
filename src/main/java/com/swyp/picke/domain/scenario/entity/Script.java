@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.scenario.entity;
 
 import com.swyp.picke.domain.scenario.enums.SpeakerType;
+import com.swyp.picke.domain.scenario.enums.Tone;
 import com.swyp.picke.global.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -29,27 +30,33 @@ public class Script extends BaseEntity {
     private String speakerName;
 
     @Column(columnDefinition = "TEXT")
-    private String text; // SSML 태그가 포함된 텍스트
+    private String text; // 오디오 효과 태그([sighing] 등)가 인라인으로 포함된 텍스트
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private Tone tone = Tone.NEUTRAL;
 
     @Column(name = "audio_url")
     private String audioUrl;
 
     @Builder
-    public Script(Integer startTimeMs, SpeakerType speakerType, String speakerName, String text) {
+    public Script(Integer startTimeMs, SpeakerType speakerType, String speakerName, String text, Tone tone) {
         this.startTimeMs = startTimeMs;
         this.speakerType = speakerType;
         this.speakerName = speakerName;
         this.text = text;
+        this.tone = tone == null ? Tone.NEUTRAL : tone;
     }
 
     public void updateAudioUrl(String audioUrl) {
         this.audioUrl = audioUrl;
     }
 
-    public void updateContent(SpeakerType speakerType, String speakerName, String newText) {
+    public void updateContent(SpeakerType speakerType, String speakerName, String newText, Tone newTone) {
         this.speakerType = speakerType;
         this.speakerName = speakerName;
         this.text = newText;
+        this.tone = newTone == null ? Tone.NEUTRAL : newTone;
         this.audioUrl = null;
     }
 

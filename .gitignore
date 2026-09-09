@@ -41,3 +41,7 @@ out/
 postgres_data/
 src/main/resources/application-local.yml
 .claude
+
+### macOS ###
+.DS_Store
+**/.DS_Store

@@ -70,6 +70,8 @@ public enum ErrorCode {
     SCENARIO_NOT_FOUND(HttpStatus.NOT_FOUND, "SCENARIO_404", "존재하지 않는 시나리오입니다."),
     SCENARIO_ALREADY_EXISTS(HttpStatus.CONFLICT, "SCENARIO_409_DUP", "해당 배틀에 이미 시나리오가 존재합니다."),
     SCENARIO_ALREADY_PUBLISHED(HttpStatus.CONFLICT, "SCENARIO_409_PUB", "이미 발행된 시나리오는 수정할 수 없습니다."),
+    PHILOSOPHER_VOICE_NOT_FOUND(HttpStatus.NOT_FOUND, "PHIL_VOICE_404", "존재하지 않는 철학자 보이스 매핑입니다."),
+    PHILOSOPHER_VOICE_DUPLICATED(HttpStatus.CONFLICT, "PHIL_VOICE_409_DUP", "이미 등록된 철학자 이름입니다."),
 
     // Tag
     TAG_NOT_FOUND(HttpStatus.NOT_FOUND, "TAG_404", "존재하지 않는 태그입니다."),

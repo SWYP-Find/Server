@@ -133,7 +133,8 @@ public class AdCreative extends BaseEntity {
      * 어드민이 꺼둔 소재는 다시 켜지 않는다. 별도 플래그 없이 PAUSED 를 끄기 스위치로 쓴다.
      */
     public void syncFromAdpick(String title, String subtitle, String imageUrl, String ctaText,
-                               String landingUrl, AdTargetOs targetOs, AdSlotCode slot, boolean servable) {
+                               String landingUrl, AdTargetOs targetOs, AdSlotCode slot, int weight,
+                               boolean servable) {
         this.title = title;
         this.subtitle = subtitle;
         this.imageUrl = imageUrl;
@@ -141,6 +142,7 @@ public class AdCreative extends BaseEntity {
         this.landingUrl = landingUrl;
         this.targetOs = targetOs;
         this.slot = slot;
+        this.weight = weight;
         if (this.status != AdStatus.PAUSED) {
             this.status = servable ? AdStatus.ACTIVE : AdStatus.DRAFT;
         }

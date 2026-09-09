@@ -41,6 +41,7 @@ entity "scenario_scripts" as scenario_scripts {
   speaker_type : VARCHAR(20)
   speaker_name : VARCHAR(100)
   text : TEXT
+  tone : VARCHAR(20)
   audio_url : VARCHAR(500)
   script_order : INT
   created_at : TIMESTAMP
@@ -82,6 +83,15 @@ scenarios ||--o{ scenario_voice_settings : has
 note right of scenarios
   발행(PUBLISHED) 시점에 TTS 파이프라인 수행
   voice_settings는 화자별 보이스 코드 저장
+end note
+
+note bottom of scenario_scripts
+  tone : 대사 한 줄의 감성적인 톤 (Tone enum)
+    NEUTRAL | ANGRY | SAD | EMBARRASSED | EMPHASIS
+    | WHISPERING | SOFT_TONE | BREATHY | EXCITED
+  NEUTRAL 이면 TTS 전송 시 톤 태그를 붙이지 않음.
+  오디오 효과 태그([sighing] 등)는 text 인라인에 그대로 둔다.
+  tone 이 바뀌면 audio_url 을 비워 재합성한다.
 end note
 
 @enduml

@@ -14,12 +14,12 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/admin/adfit")
 @PreAuthorize("hasRole('ADMIN')")
-@Tag(name = "관리자 AdFit", description = "iOS 광고 단위 및 콘솔 수동 입력 수익·비용·ROI")
+@Tag(name = "관리자 AdFit", description = "AdFit 계정 자동 수익 및 수동 입력 비용·ROI")
 public class AdminAdfitController {
     private final AdfitReportService service;
 
     @GetMapping
-    @Operation(summary = "AdFit 광고 단위와 기간별 수익·ROI", description = "미입력 금액 및 계산 불가 ROI는 null")
+    @Operation(summary = "AdFit 기간별 수익·ROI", description = "account는 AdFit 계정 자동 수익, units/days는 수동 입력 비용·ROI. 미입력·계산 불가는 null")
     public ApiResponse<AdfitReport> report(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {

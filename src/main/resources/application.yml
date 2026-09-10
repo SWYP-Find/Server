@@ -94,6 +94,7 @@ fishaudio:
   api-key: ${FISHAUDIO_API_KEY}
   tts:
     url: https://api.fish.audio/v1/tts
+    model: ${FISHAUDIO_TTS_MODEL:s2.1-pro}
   voice-id:
     a: ${FISHAUDIO_VOICE_A}
     b: ${FISHAUDIO_VOICE_B}

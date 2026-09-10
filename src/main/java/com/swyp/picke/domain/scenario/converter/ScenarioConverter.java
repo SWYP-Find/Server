@@ -95,6 +95,7 @@ public class ScenarioConverter {
                 .speakerType(script.getSpeakerType())
                 .speakerName(script.getSpeakerName())
                 .text(cleanText)
+                .tone(script.getTone())
                 .build();
     }
 
@@ -120,6 +121,7 @@ public class ScenarioConverter {
                 .speakerType(script.getSpeakerType())
                 .speakerName(script.getSpeakerName())
                 .text(script.getText())
+                .tone(script.getTone())
                 .build();
     }
 

@@ -90,8 +90,8 @@ class ScenarioServiceImplTest {
                                 true,
                                 "",
                                 List.of(
-                                        new ScriptRequest("NARRATOR", SpeakerType.NARRATOR, "line-1"),
-                                        new ScriptRequest("NARRATOR", SpeakerType.NARRATOR, "line-2-new")
+                                        new ScriptRequest("NARRATOR", SpeakerType.NARRATOR, "line-1", null),
+                                        new ScriptRequest("NARRATOR", SpeakerType.NARRATOR, "line-2-new", null)
                                 ),
                                 List.of()
                         )
@@ -138,8 +138,8 @@ class ScenarioServiceImplTest {
                                 true,
                                 "",
                                 List.of(
-                                        new ScriptRequest("NARRATOR", SpeakerType.NARRATOR, "same-narrator"),
-                                        new ScriptRequest("A", SpeakerType.A, "same-a")
+                                        new ScriptRequest("NARRATOR", SpeakerType.NARRATOR, "same-narrator", null),
+                                        new ScriptRequest("A", SpeakerType.A, "same-a", null)
                                 ),
                                 List.of()
                         )
@@ -184,7 +184,7 @@ class ScenarioServiceImplTest {
                                 "START",
                                 true,
                                 "",
-                                List.of(new ScriptRequest("NARRATOR", SpeakerType.NARRATOR, "new-line")),
+                                List.of(new ScriptRequest("NARRATOR", SpeakerType.NARRATOR, "new-line", null)),
                                 List.of()
                         )
                 ),

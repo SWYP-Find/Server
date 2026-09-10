@@ -83,7 +83,8 @@ public class AdminScenarioService {
                 .map(scriptRequest -> new ScriptRequest(
                         scriptRequest.speakerName(),
                         scriptRequest.speakerType(),
-                        scriptRequest.text()
+                        scriptRequest.text(),
+                        scriptRequest.tone()
                 ))
                 .toList();
     }

@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AdfitReportService {
     private final AdfitDailyRepository repository;
+    private final AdfitAccountReportClient accountReportClient;
 
     @Transactional
     public void save(AdfitDailyRequest request) {
@@ -27,7 +28,6 @@ public class AdfitReportService {
         repository.save(daily);
     }
 
-    @Transactional(readOnly = true)
     public AdfitReport report(LocalDate from, LocalDate to) {
         long expected = ChronoUnit.DAYS.between(from, to) + 1;
         if (expected < 1 || expected > 366) {
@@ -49,8 +49,9 @@ public class AdfitReportService {
             return new AdfitReport.UnitReport(unit, unit.getDisplayName(), unit.getPlacements(),
                     unit.getFormat(), entries.size(), expected, revenue, cost, roi);
         }).toList();
+        AdfitReport.AccountReport account = accountReportClient.fetch(from, to, expected);
         return new AdfitReport(from, to, "MANUAL_CONSOLE", units, days.stream().map(day ->
                 new AdfitReport.Day(day.getDate(), day.getUnit(), day.getRevenue(), day.getCost(),
-                        day.getCostBasis())).toList());
+                        day.getCostBasis())).toList(), account);
     }
 }

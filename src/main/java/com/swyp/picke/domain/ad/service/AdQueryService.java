@@ -3,6 +3,8 @@ package com.swyp.picke.domain.ad.service;
 import com.swyp.picke.domain.ad.dto.response.AdResponse;
 import com.swyp.picke.domain.ad.entity.AdCreative;
 import com.swyp.picke.domain.ad.enums.AdSlotCode;
+import com.swyp.picke.domain.ad.enums.AdNetwork;
+import com.swyp.picke.domain.ad.enums.AdSource;
 import com.swyp.picke.domain.ad.enums.AdStatus;
 import com.swyp.picke.domain.ad.enums.AdTargetOs;
 import com.swyp.picke.domain.ad.repository.AdCreativeRepository;
@@ -46,6 +48,7 @@ public class AdQueryService {
 
         List<AdCreative> candidates = adCreativeRepository.findAllBySlotAndStatus(slot, AdStatus.ACTIVE).stream()
                 .filter(creative -> creative.isServable(now))
+                .filter(this::isShoppingOrManualAd)
                 .filter(creative -> creative.getTargetOs().matches(requested))
                 .toList();
 
@@ -64,6 +67,7 @@ public class AdQueryService {
 
         return adCreativeRepository.findAllByStatusOrderByIdDesc(AdStatus.ACTIVE).stream()
                 .filter(creative -> creative.isServable(now))
+                .filter(this::isShoppingOrManualAd)
                 .map(creative -> AdResponse.of(creative, buildClickUrl(creative)))
                 .toList();
     }
@@ -99,6 +103,14 @@ public class AdQueryService {
             // 삽입이 독립 트랜잭션이라 여기서 도는 갱신은 정상 트랜잭션에서 실행된다.
             adImpressionRecorder.increment(target.creativeId(), target.slot(), today);
         }
+    }
+
+    /** 동기화된 애드픽 설치·가입 캠페인은 제외한다. 쇼핑 식별자는 수집 시 생성한 sh + 해시다. */
+    private boolean isShoppingOrManualAd(AdCreative creative) {
+        if (creative.getNetwork() != AdNetwork.ADPICK || creative.getSource() != AdSource.ADPICK_API) {
+            return true;
+        }
+        return creative.getExternalId() != null && creative.getExternalId().matches("sh[0-9a-f]{10}");
     }
 
     private String buildClickUrl(AdCreative creative) {

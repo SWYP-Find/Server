@@ -5,6 +5,7 @@ import com.swyp.picke.domain.ad.entity.AdCreative;
 import com.swyp.picke.domain.ad.enums.AdNetwork;
 import com.swyp.picke.domain.ad.enums.AdSlotCode;
 import com.swyp.picke.domain.ad.enums.AdStatus;
+import com.swyp.picke.domain.ad.enums.AdSource;
 import com.swyp.picke.domain.ad.enums.AdTargetOs;
 import com.swyp.picke.domain.ad.repository.AdCreativeRepository;
 import java.time.LocalDate;
@@ -145,6 +146,44 @@ class AdQueryServiceTest {
         List<AdResponse> result = adQueryService.findServableAds(AdSlotCode.HOME_FEED, AdTargetOs.IOS, 10);
 
         assertThat(result).extracting(AdResponse::code).containsExactlyInAnyOrder("ios00001", "all00001");
+    }
+
+    private AdCreative syncedAdpick(String code, String externalId) {
+        AdCreative ad = creative(code, AdStatus.ACTIVE, 100, null, null);
+        ReflectionTestUtils.setField(ad, "network", AdNetwork.ADPICK);
+        ReflectionTestUtils.setField(ad, "source", AdSource.ADPICK_API);
+        ReflectionTestUtils.setField(ad, "externalId", externalId);
+        return ad;
+    }
+
+    @Test
+    void excludesInstallCampaignsEvenWhenShoppingCannotFillRequestedSize() {
+        var shopping = syncedAdpick("shop0001", "sh012345abcd");
+        var install = syncedAdpick("app00001", "ukjd9nru");
+        var signup = syncedAdpick("join0001", "hmvdx3t3");
+        var coupang = creative("coup0001", AdStatus.ACTIVE, 1, null, null);
+        when(adCreativeRepository.findAllBySlotAndStatus(AdSlotCode.HOME_FEED, AdStatus.ACTIVE))
+                .thenReturn(List.of(shopping, install, signup, coupang));
+
+        assertThat(adQueryService.findServableAds(AdSlotCode.HOME_FEED, AdTargetOs.ALL, 10))
+                .extracting(AdResponse::code).containsExactlyInAnyOrder("shop0001", "coup0001");
+    }
+
+    @Test
+    void doesNotFallbackToInstallAdsWhenThereAreNoShoppingProducts() {
+        when(adCreativeRepository.findAllBySlotAndStatus(AdSlotCode.HOME_FEED, AdStatus.ACTIVE))
+                .thenReturn(List.of(syncedAdpick("app00001", "ukjd9nru"),
+                        syncedAdpick("bad00001", null)));
+        assertThat(adQueryService.findServableAds(AdSlotCode.HOME_FEED, AdTargetOs.ANDROID, 10)).isEmpty();
+    }
+
+    @Test
+    void landingAlsoExcludesInstallCampaigns() {
+        when(adCreativeRepository.findAllByStatusOrderByIdDesc(AdStatus.ACTIVE))
+                .thenReturn(List.of(syncedAdpick("shop0001", "sh012345abcd"),
+                        syncedAdpick("app00001", "ukjd9nru")));
+        assertThat(adQueryService.findLandingAds()).extracting(AdResponse::code)
+                .containsExactly("shop0001");
     }
 
     @Test

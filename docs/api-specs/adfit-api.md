@@ -2,15 +2,23 @@
 
 - `GET /api/v1/admin/adfit?from=YYYY-MM-DD&to=YYYY-MM-DD`: ADMIN 전용. 최대 366일.
 - `PUT /api/v1/admin/adfit/daily`: ADMIN 전용. `{date, unit, revenue, cost, costBasis}`.
+- `GET` 응답에는 기존 수동 입력 단위 리포트(`source`, `units`, `days`)와 별도로 `account`가 포함된다.
+- `account.status`: `NOT_CONFIGURED`, `CONNECTED`, `RECONNECT_REQUIRED`, `UNAVAILABLE`.
+- `account.days[]`: `{date, revenue, ctr, ecpm, fillRate, winFillRate}`. AdFit 콘솔에 값이 없거나 누락된 날짜는 `null`이며 0으로 대체하지 않는다.
+- `account.fetchedAt`: `CONNECTED`일 때 이번 관리자 조회에서 AdFit 응답을 성공적으로 파싱한 시각이다. 원천 데이터의 최종 집계 시각이나 배치 동기화 시각이 아니다.
+- `account.revenue`: 조회 기간 중 실제 내려온 일별 수익 합계. 수익 데이터가 전부 `null`이면 `null`.
+- `account.cost`, `account.roi`: AdFit 계정 자동 보고서가 광고 비용을 제공하지 않으므로 항상 `null`.
+- 자동 보고서는 `ADFIT_SESSION_COOKIE` 또는 `picke.adfit.session-cookie`가 있을 때 AdFit 콘솔 계정 종합 일별 API를 조회한다.
+- 세션 쿠키가 없으면 `NOT_CONFIGURED`, 로그인 만료·리다이렉트·HTML 로그인 응답이면 `RECONNECT_REQUIRED`, API 장애·스키마 불일치면 `UNAVAILABLE`.
 - `unit`: NATIVE_WIDE(홈·큐레이션·마이페이지 공유), BANNER(탐색), APP_TRANSITION(앱 시작).
 - `costBasis`: AD_OPERATIONS(광고 운영비), ACQUISITION(유입 광고비), SERVICE_OPERATIONS(서비스 운영비).
 - KRW 금액, 소수 둘째 자리까지, 음수 불가. 같은 날짜·단위는 수정. 미래 날짜 입력 불가.
-- source=MANUAL_CONSOLE: AdFit 콘솔에서 확인한 예상 수익을 관리자가 입력한다. 자동 연동·확정 정산액이 아니다.
+- source=MANUAL_CONSOLE: `units`와 `days`는 수동 입력 데이터다. 자동 계정 수익은 `account`만 사용한다.
 - 광고 단위는 로컬 Picke-iOS의 SDK 연결 기준이다. 개별 사용자에게 SDK가 선택한 이미지·광고주 소재를 재현하거나 실시간 노출을 보증하지 않는다.
 - 같은 단위를 여러 화면에서 사용하더라도 수익은 한 번만 합산한다. 비용도 단위별 배분액으로 입력하며 전체 운영비를 각 단위에 중복 입력하지 않는다.
 - 수익과 비용은 입력된 날짜들의 합계다. reportedDays/expectedDays로 부분 입력을 표시한다. 미입력은 null이며 0원이 아니다.
 - ROI = (수익 - 비용) / 비용 × 100. 모든 날짜가 입력되고 같은 비용 기준이며 비용이 양수일 때만 계산한다. 그 외 null.
 - 수익 0, 비용 양수인 정상 입력은 ROI -100%다. 미입력과 구분한다.
-- 공식 공개 보고서 REST API는 확인하지 못했으므로 비공개 API를 추측하거나 관리자 브라우저에 인증 정보를 저장하지 않는다.
+- AdFit 계정 자동 보고서는 콘솔 내부 API(`accountTotal/periodicIndicators`)를 사용한다. 공개 파트너 REST API가 아니므로 세션 만료 시 재연결이 필요하다.
 - 공식 참고: https://adfit.kakao.com/ , https://adfit.github.io/
 - DB: `docs/db/20260910_create_adfit_daily_reports.sql`. 현재 프로젝트는 Hibernate ddl-auto=update를 사용한다.

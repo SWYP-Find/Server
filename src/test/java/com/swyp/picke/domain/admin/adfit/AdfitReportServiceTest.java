@@ -15,6 +15,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class AdfitReportServiceTest {
     @Mock AdfitDailyRepository repository;
+    @Mock AdfitAccountReportClient accountReportClient;
     @InjectMocks AdfitReportService service;
     private final LocalDate date = LocalDate.of(2026, 9, 1);
 
@@ -28,8 +29,11 @@ class AdfitReportServiceTest {
         when(repository.findAllByDateBetweenOrderByDateDesc(date, date.plusDays(1))).thenReturn(List.of(
                 day(date, "200", "100", AdfitCostBasis.AD_OPERATIONS),
                 day(date.plusDays(1), "100", "50", AdfitCostBasis.AD_OPERATIONS)));
+        when(accountReportClient.fetch(date, date.plusDays(1), 2))
+                .thenReturn(account(AdfitAccountReportStatus.NOT_CONFIGURED, 2));
         var result = service.report(date, date.plusDays(1));
         assertThat(result.units()).hasSize(3);
+        assertThat(result.account().status()).isEqualTo(AdfitAccountReportStatus.NOT_CONFIGURED);
         var unit = result.units().getFirst();
         assertThat(unit.placements()).hasSize(3);
         assertThat(unit.revenue()).isEqualByComparingTo("300");
@@ -39,6 +43,7 @@ class AdfitReportServiceTest {
 
     @Test void missingRevenueIsNotZero() {
         when(repository.findAllByDateBetweenOrderByDateDesc(date, date)).thenReturn(List.of());
+        when(accountReportClient.fetch(date, date, 1)).thenReturn(account(AdfitAccountReportStatus.NOT_CONFIGURED, 1));
         var unit = service.report(date, date).units().getFirst();
         assertThat(unit.revenue()).isNull();
         assertThat(unit.cost()).isNull();
@@ -49,6 +54,8 @@ class AdfitReportServiceTest {
     @Test void partialPeriodDoesNotReportRoi() {
         when(repository.findAllByDateBetweenOrderByDateDesc(date, date.plusDays(1)))
                 .thenReturn(List.of(day(date, "200", "100", AdfitCostBasis.AD_OPERATIONS)));
+        when(accountReportClient.fetch(date, date.plusDays(1), 2))
+                .thenReturn(account(AdfitAccountReportStatus.NOT_CONFIGURED, 2));
         var unit = service.report(date, date.plusDays(1)).units().getFirst();
         assertThat(unit.revenue()).isEqualByComparingTo("200");
         assertThat(unit.roi()).isNull();
@@ -59,6 +66,9 @@ class AdfitReportServiceTest {
         when(repository.findAllByDateBetweenOrderByDateDesc(date, date))
                 .thenReturn(List.of(day(date, "100", "0", AdfitCostBasis.AD_OPERATIONS)))
                 .thenReturn(List.of(day(date, "50", "100", AdfitCostBasis.AD_OPERATIONS)));
+        when(accountReportClient.fetch(date, date, 1))
+                .thenReturn(account(AdfitAccountReportStatus.NOT_CONFIGURED, 1))
+                .thenReturn(account(AdfitAccountReportStatus.NOT_CONFIGURED, 1));
         assertThat(service.report(date, date).units().getFirst().roi()).isNull();
         assertThat(service.report(date, date).units().getFirst().roi()).isEqualByComparingTo("-50");
     }
@@ -67,6 +77,8 @@ class AdfitReportServiceTest {
         when(repository.findAllByDateBetweenOrderByDateDesc(date, date.plusDays(1))).thenReturn(List.of(
                 day(date, "200", "100", AdfitCostBasis.AD_OPERATIONS),
                 day(date.plusDays(1), "100", "50", AdfitCostBasis.ACQUISITION)));
+        when(accountReportClient.fetch(date, date.plusDays(1), 2))
+                .thenReturn(account(AdfitAccountReportStatus.NOT_CONFIGURED, 2));
         assertThat(service.report(date, date.plusDays(1)).units().getFirst().roi()).isNull();
     }
 
@@ -80,6 +92,16 @@ class AdfitReportServiceTest {
         assertThat(existing.getCostBasis()).isEqualTo(AdfitCostBasis.ACQUISITION);
     }
 
+    @Test void fetchesAutomaticAccountReportSeparatelyFromManualUnitReport() {
+        when(repository.findAllByDateBetweenOrderByDateDesc(date, date)).thenReturn(List.of());
+        var account = account(AdfitAccountReportStatus.CONNECTED, 1);
+        when(accountReportClient.fetch(date, date, 1)).thenReturn(account);
+        var result = service.report(date, date);
+        assertThat(result.source()).isEqualTo("MANUAL_CONSOLE");
+        assertThat(result.account()).isSameAs(account);
+        verify(accountReportClient).fetch(date, date, 1);
+    }
+
     @Test void rejectsInvalidPeriodsAndFutureEntries() {
         assertThatThrownBy(() -> service.report(date.plusDays(1), date)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> service.report(date, date.plusDays(366))).isInstanceOf(IllegalArgumentException.class);
@@ -87,5 +109,10 @@ class AdfitReportServiceTest {
                 AdfitUnit.BANNER, BigDecimal.ONE, BigDecimal.ONE, AdfitCostBasis.AD_OPERATIONS)))
                 .isInstanceOf(IllegalArgumentException.class);
         verifyNoInteractions(repository);
+        verifyNoInteractions(accountReportClient);
+    }
+
+    private AdfitReport.AccountReport account(AdfitAccountReportStatus status, long expectedDays) {
+        return new AdfitReport.AccountReport(status, null, 0, expectedDays, null, null, null, List.of());
     }
 }

@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -40,6 +41,13 @@ public class OpenAiEmotionClassifier implements EmotionClassifier {
     private static final String BIND_SYSTEM = """
             철학 토론에서 각 발화자가 A안과 B안 중 어느 쪽을 지지하는지 논지로 판단한다.
             반드시 JSON 만 출력: {"bindings":{"발화자이름":"A" 또는 "B"}}
+            """;
+
+    private static final String SUMMARY_SYSTEM = """
+            너는 철학 토론 배틀 카드에 들어갈 한 줄 요약을 쓰는 도구다.
+            오프닝 전문을 읽고, 배틀 카드에 노출할 흥미로운 한 줄 요약을 40자 이내 한국어로 작성해라.
+            원문을 그대로 자르지 말고, 핵심 갈등/질문을 압축해라.
+            반드시 JSON 만 출력: {"summary":"..."}
             """;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -112,6 +120,22 @@ public class OpenAiEmotionClassifier implements EmotionClassifier {
         } catch (Exception e) {
             log.warn("[EmotionClassifier] 발화자 바인딩 실패", e);
             return Map.of();
+        }
+    }
+
+    @Override
+    public Optional<String> summarizeOpening(String battleTitle, String openingText) {
+        if (openingText == null || openingText.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            String userPrompt = "배틀 제목: " + battleTitle + "\n오프닝 전문:\n" + openingText;
+            JsonNode root = call(SUMMARY_SYSTEM, userPrompt);
+            String summary = root.path("summary").asText(null);
+            return (summary == null || summary.isBlank()) ? Optional.empty() : Optional.of(summary.trim());
+        } catch (Exception e) {
+            log.warn("[EmotionClassifier] 오프닝 요약 생성 실패", e);
+            return Optional.empty();
         }
     }
 

@@ -37,6 +37,9 @@
 - 설명: 대본을 파싱해 배틀·시나리오 등록 폼을 자동으로 채워준다. **DB 저장은 하지 않는다.** 문서 포맷 규격/파싱 규칙은 `배틀_발행_시나리오_현행_vs_개선.md` 2.6, 실제 파싱 예시는 `배틀_대본_파싱_예시.md` 참고.
 - 응답(`AdminBattleParseResponse`):
   - `battlePayload` — 아래 2.2 배틀 생성 요청과 동일한 형태(`AdminBattleCreateRequest`). `status` 는 항상 `PENDING`. 문서에 없는 `thumbnailUrl`/`targetDate`/`publishAt`/`audioDuration` 은 `null`
+    - `summary` = 오프닝 전문을 LLM 이 40자 이내로 한 줄 요약한 것. 요약 생성 실패 시 오프닝 원문 그대로 들어가고 `SUMMARY_GENERATION_FAILED` warning 이 붙는다
+    - `description` = 오프닝 전문 원문 그대로
+    - `options[].title` = **사전 투표 영역의 짧은 선택지명이 있으면 그걸 우선 사용**(예: `"유죄다" vs "무죄다"` → `유죄다`/`무죄다`), 사전 투표가 없으면 메타데이터 표의 "선택지 명칭"으로 대체
   - `scenarioPayload` — [시나리오 API](./scenario-api.md) 2.2 생성 요청과 동일한 형태(`AdminScenarioCreateRequest`). **`battleId` 는 항상 `null`** — 배틀이 아직 생성 전이라서다. 어드민이 `battlePayload` 로 배틀을 먼저 만들고, 응답으로 받은 `battleId` 를 채워 시나리오를 등록한다
   - `speakerNames` — `{"A": "플라톤", "B": "마르크스"}` 형태로 화자 A/B 에 바인딩된 철학자 이름
   - `warnings[]` — 아래 표. `blocking: true` 인 항목이 하나라도 있으면 미리보기에서 해결하기 전까지 발행하지 않는다
@@ -55,6 +58,7 @@
 | `MULTIPLE_TONE_TAGS` | 대사 한 줄에 톤 태그가 여러 개 → 첫 번째만 사용 | no |
 | `SPEAKER_BINDING_FALLBACK` | 발화자↔A/B 매칭을 등장 순서로 임시 배정 | no |
 | `LLM_CLASSIFY_FAILED` | 감정 자동분류 실패 → 톤이 전부 `NEUTRAL` | no |
+| `SUMMARY_GENERATION_FAILED` | 오프닝 한 줄 요약 생성 실패 → `summary` 에 오프닝 원문이 그대로 들어감 | no |
 | `MISSING_VOICE` | 발화자 보이스가 [철학자 보이스 매핑](./philosopher-voice-api.md) 에 없음 | **yes** |
 | `INCOMPLETE_SPEAKER_BINDING` | A/B 발화자를 확정하지 못함 | **yes** |
 

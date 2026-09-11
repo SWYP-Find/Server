@@ -85,12 +85,13 @@ public class BattleScriptParseService {
 
         SpeakerBinding binding = bindSpeakers(doc, warnings);
 
-        String openingText = firstNarration(doc, "오프닝");
+        String description = allNarration(doc, "오프닝");
+        String summary = summarizeOpening(doc.title, description, warnings);
 
         AdminBattleCreateRequest battlePayload = new AdminBattleCreateRequest(
                 doc.title,
-                openingText,
-                null,
+                summary,
+                description,
                 null,
                 null,
                 null,
@@ -350,14 +351,30 @@ public class BattleScriptParseService {
 
     // ---- 유틸 ----
 
-    private String firstNarration(BattleScriptDocument doc, String nodeName) {
-        return doc.nodes.stream()
+    /** 오프닝 전문을 LLM으로 한 줄 요약한다(배틀 카드 summary 용). 실패하면 오프닝 원문으로 대신한다. */
+    private String summarizeOpening(String title, String openingText, List<ParseWarning> warnings) {
+        if (openingText == null || openingText.isBlank()) {
+            return null;
+        }
+        Optional<String> summarized = emotionClassifier.summarizeOpening(title, openingText);
+        if (summarized.isPresent() && !summarized.get().isBlank()) {
+            return summarized.get();
+        }
+        warnings.add(ParseWarning.of("SUMMARY_GENERATION_FAILED",
+                "오프닝 한 줄 요약 생성에 실패해 오프닝 원문을 그대로 넣었습니다. 미리보기에서 다듬어주세요.", null));
+        return openingText;
+    }
+
+    /** 오프닝 노드의 나레이션 문단을 전부 이어붙인다(배틀 description 용). */
+    private String allNarration(BattleScriptDocument doc, String nodeName) {
+        String joined = doc.nodes.stream()
                 .filter(n -> n.name.equals(nodeName))
                 .flatMap(n -> n.scripts.stream())
                 .filter(s -> s.speaker == null)
                 .map(s -> s.text)
-                .findFirst()
+                .reduce((a, b) -> a + " " + b)
                 .orElse(null);
+        return joined;
     }
 
     /**

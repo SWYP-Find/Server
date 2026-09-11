@@ -71,6 +71,14 @@ public class BattleScriptDocumentParser {
         boolean bodyIsInteractive = doc.nodes.stream()
                 .anyMatch(n -> n.name.equals("선택") || n.name.startsWith("분기_"));
         doc.interactive = doc.interactive || bodyIsInteractive;
+
+        // 선택지 명칭: 사전 투표의 짧은 이름이 우선, 없을 때만 메타데이터 표의 "선택지 명칭"으로 채운다
+        if (doc.optionA.choiceName == null) {
+            doc.optionA.choiceName = doc.optionA.metadataChoiceName;
+        }
+        if (doc.optionB.choiceName == null) {
+            doc.optionB.choiceName = doc.optionB.metadataChoiceName;
+        }
         return doc;
     }
 
@@ -298,7 +306,7 @@ public class BattleScriptDocumentParser {
             } else if (line.startsWith("카테고리")) {
                 doc.category = valueAfter(line, "카테고리", next);
             } else if (line.startsWith("선택지 명칭") && target != null) {
-                target.choiceName = valueAfter(line, "선택지 명칭", next);
+                target.metadataChoiceName = valueAfter(line, "선택지 명칭", next);
             } else if (line.startsWith("철학자 키워드") && target != null) {
                 for (String kw : valueAfter(line, "철학자 키워드", next).split("[,、\\s]+")) {
                     String cleaned = kw.replace("#", "").strip();

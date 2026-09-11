@@ -62,14 +62,16 @@ class BattleScriptParseServiceTest {
         ReflectionTestUtils.setField(service, "userVoice", "voice-user");
 
         lenient().when(tagRepository.findAllByTypeAndDeletedAtIsNull(TagType.CATEGORY))
-                .thenReturn(List.of(tag("철학", TagType.CATEGORY), tag("관계·사랑", TagType.CATEGORY)));
+                .thenReturn(List.of(tag("철학", TagType.CATEGORY), tag("관계·사랑", TagType.CATEGORY),
+                        tag("관계", TagType.CATEGORY)));
         lenient().when(tagRepository.findAllByTypeAndDeletedAtIsNull(TagType.PHILOSOPHER))
                 .thenReturn(List.of(
                         tag("노자", TagType.PHILOSOPHER), tag("플라톤", TagType.PHILOSOPHER),
                         tag("석가모니", TagType.PHILOSOPHER), tag("칸트", TagType.PHILOSOPHER),
                         tag("아리스토텔레스", TagType.PHILOSOPHER), tag("마르크스", TagType.PHILOSOPHER),
                         tag("소크라테스", TagType.PHILOSOPHER), tag("공자", TagType.PHILOSOPHER),
-                        tag("사르트르", TagType.PHILOSOPHER)));
+                        tag("사르트르", TagType.PHILOSOPHER), tag("니체", TagType.PHILOSOPHER),
+                        tag("노자", TagType.PHILOSOPHER)));
         lenient().when(tagRepository.findAllByTypeAndDeletedAtIsNull(TagType.VALUE))
                 .thenReturn(List.of(
                         tag("내면", TagType.VALUE), tag("이상", TagType.VALUE),
@@ -187,6 +189,22 @@ class BattleScriptParseServiceTest {
         assertThat(res.warnings()).noneMatch(w -> w.blocking());
         // 옵션 태그: 철학자 3 + 성향 3 = 6
         assertThat(res.battlePayload().options().get(0).tagIds()).hasSize(6);
+    }
+
+    @Test
+    void 사전투표_대표발화자로_A_B를_바인딩하고_미지원_성향지표는_경고한다() throws IOException {
+        AdminBattleParseResponse res = service.parse(load("sample-real-3.txt"));
+
+        // 사전 투표: 공자→A, 노자→B (LLM 호출 없이)
+        assertThat(res.speakerNames()).containsEntry("A", "공자").containsEntry("B", "노자");
+        assertThat(res.scenarioPayload().isInteractive()).isFalse();
+        assertThat(res.scenarioPayload().nodes()).extracting(AdminScenarioNodeRequest::nodeName)
+                .containsExactly("오프닝", "1라운드", "2라운드", "클로징");
+        // 12축 밖 "자연" 은 태그로 안 들어가고 경고
+        assertThat(res.warnings()).anyMatch(w -> w.code().equals("UNKNOWN_VALUE_TAG")
+                && "자연".equals(w.context()));
+        // B안 태그: 철학자 3 + 성향 2(개인,내면; 자연 제외) = 5
+        assertThat(res.battlePayload().options().get(1).tagIds()).hasSize(5);
     }
 
     @Test

@@ -74,6 +74,7 @@ public class BattleScriptDocumentParser {
         return doc;
     }
 
+    /** 각 줄을 trim 하고, 빈 줄(문단 구분)은 하나의 "" 로 남긴다. */
     private List<String> normalizeLines(String rawText) {
         List<String> out = new ArrayList<>();
         if (rawText == null) {
@@ -81,7 +82,11 @@ public class BattleScriptDocumentParser {
         }
         for (String line : rawText.replace("\r\n", "\n").replace("\r", "\n").split("\n")) {
             String trimmed = line.strip();
-            if (!trimmed.isEmpty()) {
+            if (trimmed.isEmpty()) {
+                if (!out.isEmpty() && !out.get(out.size() - 1).isEmpty()) {
+                    out.add("");
+                }
+            } else {
                 out.add(trimmed);
             }
         }
@@ -134,8 +139,13 @@ public class BattleScriptDocumentParser {
 
     private void parseBody(List<String> body, BattleScriptDocument doc) {
         ParsedNode current = new ParsedNode("오프닝");
+        boolean paragraphBreak = false;
 
         for (String line : body) {
+            if (line.isEmpty()) {
+                paragraphBreak = true;
+                continue;
+            }
             if (PREVOTE_MARKER.matcher(line).matches() || PREVOTE.matcher(line).find()
                     || BRANCH_CONTAINER.matcher(line).matches()) {
                 continue; // 사전 투표 / 분기 컨테이너 헤더는 본문에서 무시
@@ -149,7 +159,7 @@ public class BattleScriptDocumentParser {
 
             if (opening.matches()) {
                 current = pushAndStart(doc, current, "오프닝");
-                addDialogueLine(current, opening.group(1).strip()); // "[오프닝] 텍스트" 형태 대응
+                addDialogueLine(current, opening.group(1).strip(), true); // "[오프닝] 텍스트" 형태 대응
                 continue;
             }
             if (SECTION_CHOICE.matcher(line).matches() && !OPTION_LINE.matcher(line).matches()) {
@@ -167,20 +177,22 @@ public class BattleScriptDocumentParser {
             }
             if (inlineBranch.matches()) {
                 current = pushAndStart(doc, current, "분기_" + inlineBranch.group(1).toUpperCase());
-                addDialogueLine(current, inlineBranch.group(2).strip());
+                addDialogueLine(current, inlineBranch.group(2).strip(), true);
                 continue;
             }
             if (closing.matches()) {
                 current = pushAndStart(doc, current, "클로징");
-                addDialogueLine(current, closing.group(1).strip()); // "[클로징] 텍스트" 형태 대응
+                addDialogueLine(current, closing.group(1).strip(), true); // "[클로징] 텍스트" 형태 대응
                 continue;
             }
 
             if ("선택".equals(current.name)) {
                 parseChoiceLine(line, current);
+                paragraphBreak = false;
                 continue;
             }
-            addDialogueLine(current, line);
+            addDialogueLine(current, line, paragraphBreak);
+            paragraphBreak = false;
         }
         pushIfNotEmpty(doc, current);
         splitFlatBody(doc);
@@ -189,7 +201,7 @@ public class BattleScriptDocumentParser {
         }
     }
 
-    private void addDialogueLine(ParsedNode node, String line) {
+    private void addDialogueLine(ParsedNode node, String line, boolean paragraphBreak) {
         if (line.isEmpty()) {
             return;
         }
@@ -197,6 +209,13 @@ public class BattleScriptDocumentParser {
         if (speaker.matches() && !isSentenceColon(speaker.group(1))) {
             String name = SPEAKER_ANNOTATION.matcher(speaker.group(1).strip()).replaceAll("").strip();
             node.scripts.add(new ParsedScript(name, stripQuotes(speaker.group(2).strip())));
+            return;
+        }
+        // 화자 표기 없는 줄: 문단 구분(빈 줄)이 없었고 직전이 특정 화자의 대사면 그 발언의 이어짐으로 합친다.
+        if (!paragraphBreak && !node.scripts.isEmpty()
+                && node.scripts.get(node.scripts.size() - 1).speaker != null) {
+            ParsedScript last = node.scripts.get(node.scripts.size() - 1);
+            last.text = (last.text + "\n" + stripQuotes(line)).strip();
         } else {
             node.scripts.add(new ParsedScript(null, stripQuotes(line)));
         }

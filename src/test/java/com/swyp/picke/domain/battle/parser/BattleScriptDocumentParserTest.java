@@ -128,6 +128,29 @@ class BattleScriptDocumentParserTest {
     }
 
     @Test
+    void 여러_줄에_걸친_한_발언을_한_스크립트로_합친다() throws IOException {
+        BattleScriptDocument doc = parser.parse(load("sample-real-3.txt"));
+
+        assertThat(doc.warnings).isEmpty();
+        assertThat(doc.nodes).extracting(n -> n.name)
+                .containsExactly("오프닝", "1라운드", "2라운드", "클로징");
+        assertThat(doc.optionA.primarySpeaker).isEqualTo("공자");
+        assertThat(doc.optionB.primarySpeaker).isEqualTo("노자");
+
+        // "공자:" 뒤 콜론 공백 없음 + 이어지는 4줄이 한 발언
+        ParsedNode round1 = node(doc, "1라운드");
+        assertThat(round1.scripts).hasSize(2);
+        assertThat(round1.scripts.get(0).speaker).isEqualTo("공자");
+        assertThat(round1.scripts.get(0).text)
+                .startsWith("생일 축하는 단순한 메시지가 아닙니다.")
+                .contains("무심함에 가깝습니다."); // 4번째 줄까지 합쳐짐
+        assertThat(round1.scripts.get(1).speaker).isEqualTo("노자");
+
+        // 성향 지표에 12축 밖 문자열(자연)이 그대로 담긴다 — 검증은 조립 단계에서
+        assertThat(doc.optionB.valueTags).containsExactly("개인", "자연", "내면");
+    }
+
+    @Test
     void 인터랙티브_메타데이터도_양쪽_옵션을_파싱한다() throws IOException {
         BattleScriptDocument doc = parser.parse(load("sample-interactive.txt"));
 

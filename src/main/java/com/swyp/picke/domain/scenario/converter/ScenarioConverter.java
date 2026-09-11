@@ -128,6 +128,7 @@ public class ScenarioConverter {
     private OptionResponse toUserOptionResponse(InteractiveOption option) {
         return OptionResponse.builder()
                 .label(option.getLabel())
+                .title(option.getTitle())
                 .nextNodeId(option.getNextNodeId())
                 .build();
     }
@@ -135,6 +136,7 @@ public class ScenarioConverter {
     private AdminScenarioOptionResponse toAdminOptionResponse(InteractiveOption option) {
         return AdminScenarioOptionResponse.builder()
                 .label(option.getLabel())
+                .title(option.getTitle())
                 .nextNodeId(option.getNextNodeId())
                 .build();
     }

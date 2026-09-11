@@ -257,6 +257,7 @@ public class ScenarioServiceImpl implements ScenarioService {
                     Optional.ofNullable(updatedNodeMap.get(optReq.nextNodeName()))
                             .ifPresent(target -> parentNode.addOption(InteractiveOption.builder()
                                     .label(optReq.label())
+                                    .title(optReq.title())
                                     .nextNodeId(target.getId())
                                     .build()));
                 }

@@ -290,7 +290,8 @@ public class BattleScriptDocumentParser {
         if (t.find()) {
             speaker = t.group(1).strip();
         }
-        choiceNode.options.add(new ParsedOption(label, "분기_" + label, speaker));
+        String title = stripQuotes(SPEAKER_ANNOTATION.matcher(rest).replaceAll("").strip());
+        choiceNode.options.add(new ParsedOption(label, title, "분기_" + label, speaker));
     }
 
     private void parseMetadata(List<String> meta, BattleScriptDocument doc) {

@@ -24,9 +24,9 @@ public class BattleScriptDocumentParser {
     private static final Pattern PREVOTE = Pattern.compile(
             "[\"'“]?\\s*([^\"'”()]+?)\\s*\\(([^)]+)\\)\\s*[\"'”]?\\s*(?:vs|VS|대)\\s*"
                     + "[\"'“]?\\s*([^\"'”()]+?)\\s*\\(([^)]+)\\)");
-    private static final Pattern SECTION_OPENING = Pattern.compile("^\\[?\\s*오프닝\\s*\\]?\\s*[:：]?.*$");
-    private static final Pattern SECTION_ROUND = Pattern.compile("^\\[?\\s*(\\d+)\\s*라운드\\s*\\]?\\s*[:：]?.*$");
-    private static final Pattern SECTION_CLOSING = Pattern.compile("^\\[?\\s*클로징\\s*\\]?\\s*[:：]?.*$");
+    private static final Pattern SECTION_OPENING = Pattern.compile("^\\[?\\s*오프닝\\s*\\]?\\s*[:：]?\\s*(.*)$");
+    private static final Pattern SECTION_ROUND = Pattern.compile("^\\[?\\s*(\\d+)\\s*라운드\\s*\\]?\\s*[:：]?\\s*(.*)$");
+    private static final Pattern SECTION_CLOSING = Pattern.compile("^\\[?\\s*클로징\\s*\\]?\\s*[:：]?\\s*(.*)$");
     private static final Pattern SECTION_CHOICE = Pattern.compile(".*선택의\\s*시간.*");
     private static final Pattern OPTION_LINE = Pattern.compile("^\\s*([ABab])\\s*[:：]\\s*(.+)$");
     private static final Pattern SECTION_BRANCH = Pattern.compile("^\\[\\s*분기\\s*([AB])\\b[^\\]]*\\]\\s*$");
@@ -141,12 +141,15 @@ public class BattleScriptDocumentParser {
                 continue; // 사전 투표 / 분기 컨테이너 헤더는 본문에서 무시
             }
 
+            Matcher opening = SECTION_OPENING.matcher(line);
             Matcher round = SECTION_ROUND.matcher(line);
+            Matcher closing = SECTION_CLOSING.matcher(line);
             Matcher branch = SECTION_BRANCH.matcher(line);
             Matcher inlineBranch = INLINE_BRANCH.matcher(line);
 
-            if (SECTION_OPENING.matcher(line).matches()) {
+            if (opening.matches()) {
                 current = pushAndStart(doc, current, "오프닝");
+                addDialogueLine(current, opening.group(1).strip()); // "[오프닝] 텍스트" 형태 대응
                 continue;
             }
             if (SECTION_CHOICE.matcher(line).matches() && !OPTION_LINE.matcher(line).matches()) {
@@ -155,6 +158,7 @@ public class BattleScriptDocumentParser {
             }
             if (round.matches()) {
                 current = pushAndStart(doc, current, round.group(1) + "라운드");
+                // 라운드 뒤 텍스트는 부제이므로 버린다
                 continue;
             }
             if (branch.matches()) {
@@ -166,8 +170,9 @@ public class BattleScriptDocumentParser {
                 addDialogueLine(current, inlineBranch.group(2).strip());
                 continue;
             }
-            if (SECTION_CLOSING.matcher(line).matches()) {
+            if (closing.matches()) {
                 current = pushAndStart(doc, current, "클로징");
+                addDialogueLine(current, closing.group(1).strip()); // "[클로징] 텍스트" 형태 대응
                 continue;
             }
 

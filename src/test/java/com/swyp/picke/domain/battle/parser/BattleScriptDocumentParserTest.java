@@ -110,6 +110,24 @@ class BattleScriptDocumentParserTest {
     }
 
     @Test
+    void 실제_선형대본_클로징_텍스트가_같은_줄에_있어도_노드로_잡는다() throws IOException {
+        BattleScriptDocument doc = parser.parse(load("sample-real-2.txt"));
+
+        assertThat(doc.warnings).isEmpty();
+        assertThat(doc.interactive).isFalse();
+        assertThat(doc.title).isEqualTo("부모가 아이 이름에 종교적 의미를 담는 것은 정당한가?");
+        assertThat(doc.nodes).extracting(n -> n.name)
+                .containsExactly("오프닝", "1라운드", "2라운드", "클로징");
+        // "[클로징] 당신의 이름은..." 인라인 텍스트가 클로징 노드 나레이션으로 들어간다
+        assertThat(node(doc, "클로징").scripts).hasSize(1);
+        assertThat(node(doc, "클로징").scripts.get(0).speaker).isNull();
+        assertThat(node(doc, "클로징").scripts.get(0).text).startsWith("당신의 이름은 누가 결정했습니까?");
+        // 음(−)의 극 성향 지표도 파싱
+        assertThat(doc.optionA.valueTags).containsExactly("관계", "전통");
+        assertThat(doc.optionB.philosopherKeywords).containsExactly("사르트르", "칸트", "니체");
+    }
+
+    @Test
     void 인터랙티브_메타데이터도_양쪽_옵션을_파싱한다() throws IOException {
         BattleScriptDocument doc = parser.parse(load("sample-interactive.txt"));
 

@@ -18,7 +18,10 @@ public class BattleScriptDocument {
     public final List<ParseWarning> warnings = new ArrayList<>();
 
     public static class OptionMeta {
+        /** 사전 투표 줄의 짧은 선택지명(예: "유죄다"). 있으면 이게 최종 title 이 된다. */
         public String choiceName;
+        /** 메타데이터 표 "선택지 명칭" 값. 사전 투표가 없을 때만 title 로 쓰는 폴백. */
+        public String metadataChoiceName;
         /** 사전 투표 줄에 적힌 대표 발화자(예: "플라톤"). A/B 바인딩 힌트로 쓴다. */
         public String primarySpeaker;
         public final List<String> philosopherKeywords = new ArrayList<>();

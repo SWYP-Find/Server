@@ -33,6 +33,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -44,6 +45,9 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class BattleScriptParseService {
+
+    /** 문장 종결부호(. ! ?) 뒤 공백 기준으로 자른다. 말줄임표(...) 뒤에도 공백이 없으면 안 끊긴다. */
+    private static final Pattern SENTENCE_BOUNDARY = Pattern.compile("(?<=[.!?])\\s+(?=\\S)");
 
     private final BattleScriptDocumentParser documentParser;
     private final ScriptToneExtractor toneExtractor;
@@ -276,7 +280,9 @@ public class BattleScriptParseService {
                         : ex.cleanedText();
                 SpeakerType speakerType = resolveSpeakerType(s.speaker, binding);
                 String speakerName = s.speaker == null ? "나레이터" : s.speaker;
-                scripts.add(new AdminScenarioScriptRequest(speakerName, speakerType, text, tone));
+                for (String sentence : splitIntoSentences(text)) {
+                    scripts.add(new AdminScenarioScriptRequest(speakerName, speakerType, sentence, tone));
+                }
             }
 
             List<AdminScenarioOptionRequest> options = node.options.stream()
@@ -352,6 +358,24 @@ public class BattleScriptParseService {
                 .map(s -> s.text)
                 .findFirst()
                 .orElse(null);
+    }
+
+    /**
+     * 한 발언(text)을 문장 종결부호(. ! ?) 단위로 잘라 각각 별도 Script 로 만들기 위한 목록을 만든다.
+     * 오디오 파이프라인이 스크립트마다 무음(600ms)을 넣으므로, 문장 단위로 쪼개면 자연스러운 끊어읽기가 된다.
+     */
+    private List<String> splitIntoSentences(String text) {
+        if (text == null || text.isBlank()) {
+            return List.of(text == null ? "" : text);
+        }
+        List<String> sentences = new ArrayList<>();
+        for (String piece : SENTENCE_BOUNDARY.split(text.strip())) {
+            String trimmed = piece.strip();
+            if (!trimmed.isEmpty()) {
+                sentences.add(trimmed);
+            }
+        }
+        return sentences.isEmpty() ? List.of(text.strip()) : sentences;
     }
 
     private String nz(String value) {

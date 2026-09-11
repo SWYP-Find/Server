@@ -167,7 +167,8 @@ class BattleScriptParseServiceTest {
 
         assertThat(res.speakerNames()).containsEntry("A", "칸트").containsEntry("B", "아리스토텔레스");
         assertThat(node(res, "1라운드").scripts().get(0).speakerType()).isEqualTo(SpeakerType.A);   // 칸트
-        assertThat(node(res, "1라운드").scripts().get(1).speakerType()).isEqualTo(SpeakerType.B);   // 아리스토텔레스
+        assertThat(node(res, "1라운드").scripts()).last().extracting(s -> s.speakerType())
+                .isEqualTo(SpeakerType.B);   // 아리스토텔레스 (문장 단위로 쪼개져 있을 수 있음)
     }
 
     @Test
@@ -205,6 +206,30 @@ class BattleScriptParseServiceTest {
                 && "자연".equals(w.context()));
         // B안 태그: 철학자 3 + 성향 2(개인,내면; 자연 제외) = 5
         assertThat(res.battlePayload().options().get(1).tagIds()).hasSize(5);
+    }
+
+    @Test
+    void 한_발언은_문장_종결부호_기준으로_여러_스크립트로_쪼개진다() throws IOException {
+        when(emotionClassifier.bindSpeakers(anyString(), anyString(), anyString(), any()))
+                .thenReturn(Map.of("루소", "A", "홉스", "B"));
+
+        AdminBattleParseResponse res = service.parse(load("sample-linear.txt"));
+
+        // 루소의 첫 발언: "인간은 자연 상태에서 평화로웠습니다. 경쟁도, 소유욕도, 증오도 — 이건 문명이 만든 겁니다.
+        // 아이를 보십시오. 태어난 아이는 나누고 웃고, 타인의 고통에 울음으로 반응합니다. 악은 가르쳐지는 것입니다."
+        // → 문장 5개로 쪼개져야 한다.
+        var scripts = node(res, "라운드").scripts();
+        long firstSpeakerSentences = scripts.stream()
+                .takeWhile(s -> "루소".equals(s.speakerName()))
+                .count();
+
+        assertThat(firstSpeakerSentences).isEqualTo(5);
+        assertThat(scripts.get(0).text()).isEqualTo("인간은 자연 상태에서 평화로웠습니다.");
+        assertThat(scripts.get(1).text()).startsWith("경쟁도, 소유욕도, 증오도");
+        assertThat(scripts.get(2).text()).isEqualTo("아이를 보십시오.");
+        assertThat(scripts.get(4).text()).isEqualTo("악은 가르쳐지는 것입니다.");
+        // 같은 발언에서 쪼개진 문장들은 같은 화자·같은 톤을 유지한다
+        assertThat(scripts.subList(0, 5)).allMatch(s -> "루소".equals(s.speakerName()));
     }
 
     @Test

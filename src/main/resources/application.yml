@@ -83,6 +83,8 @@ admob:
       android: ${ADMOB_REWARD_UNIT_ID_ANDROID}
 
 openai:
+  emotion:
+    model: ${OPENAI_EMOTION_MODEL:gpt-4o-mini}
   api-key: ${OPENAI_API_KEY}
   url: https://api.openai.com/v1/chat/completions
   model: gpt-4o-mini

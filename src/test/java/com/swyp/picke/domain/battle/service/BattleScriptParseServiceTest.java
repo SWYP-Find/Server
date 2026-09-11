@@ -193,6 +193,53 @@ class BattleScriptParseServiceTest {
     }
 
     @Test
+    void 선택지_title은_사전투표의_짧은_이름을_우선한다() throws IOException {
+        // sample-real-1.txt: 사전 투표 = "유죄다"/"무죄다", 메타데이터 선택지 명칭 = 훨씬 긴 문장
+        AdminBattleParseResponse res = service.parse(load("sample-real-1.txt"));
+
+        assertThat(res.battlePayload().options().get(0).title()).isEqualTo("유죄다");
+        assertThat(res.battlePayload().options().get(1).title()).isEqualTo("무죄다");
+    }
+
+    @Test
+    void 사전투표가_없으면_메타데이터_선택지_명칭을_title로_쓴다() throws IOException {
+        when(emotionClassifier.bindSpeakers(anyString(), anyString(), anyString(), any()))
+                .thenReturn(Map.of("루소", "A", "홉스", "B"));
+
+        // sample-linear.txt 는 사전 투표 없음 → 메타데이터 "선택지 명칭"(선하다/악하다) 그대로
+        AdminBattleParseResponse res = service.parse(load("sample-linear.txt"));
+
+        assertThat(res.battlePayload().options()).extracting(AdminBattleOptionRequest::title)
+                .containsExactly("선하다", "악하다");
+    }
+
+    @Test
+    void summary는_LLM_한줄요약_description은_오프닝_전문을_담는다() throws IOException {
+        when(emotionClassifier.bindSpeakers(anyString(), anyString(), anyString(), any()))
+                .thenReturn(Map.of("루소", "A", "홉스", "B"));
+        when(emotionClassifier.summarizeOpening(anyString(), anyString()))
+                .thenReturn(Optional.of("인간은 선한가 악한가, 재난 앞에서 드러나는 본성"));
+
+        AdminBattleParseResponse res = service.parse(load("sample-linear.txt"));
+
+        assertThat(res.battlePayload().summary()).isEqualTo("인간은 선한가 악한가, 재난 앞에서 드러나는 본성");
+        assertThat(res.battlePayload().description()).startsWith("재난이 일어났을 때");
+        assertThat(res.warnings()).noneMatch(w -> w.code().equals("SUMMARY_GENERATION_FAILED"));
+    }
+
+    @Test
+    void 요약_생성_실패시_오프닝_원문으로_대체하고_경고를_남긴다() throws IOException {
+        when(emotionClassifier.bindSpeakers(anyString(), anyString(), anyString(), any()))
+                .thenReturn(Map.of("루소", "A", "홉스", "B"));
+        when(emotionClassifier.summarizeOpening(anyString(), anyString())).thenReturn(Optional.empty());
+
+        AdminBattleParseResponse res = service.parse(load("sample-linear.txt"));
+
+        assertThat(res.battlePayload().summary()).isEqualTo(res.battlePayload().description());
+        assertThat(res.warnings()).anyMatch(w -> w.code().equals("SUMMARY_GENERATION_FAILED"));
+    }
+
+    @Test
     void 사전투표_대표발화자로_A_B를_바인딩하고_미지원_성향지표는_경고한다() throws IOException {
         AdminBattleParseResponse res = service.parse(load("sample-real-3.txt"));
 

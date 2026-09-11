@@ -40,6 +40,7 @@
   - `scenarioPayload` — [시나리오 API](./scenario-api.md) 2.2 생성 요청과 동일한 형태(`AdminScenarioCreateRequest`). **`battleId` 는 항상 `null`** — 배틀이 아직 생성 전이라서다. 어드민이 `battlePayload` 로 배틀을 먼저 만들고, 응답으로 받은 `battleId` 를 채워 시나리오를 등록한다
   - `speakerNames` — `{"A": "플라톤", "B": "마르크스"}` 형태로 화자 A/B 에 바인딩된 철학자 이름
   - `warnings[]` — 아래 표. `blocking: true` 인 항목이 하나라도 있으면 미리보기에서 해결하기 전까지 발행하지 않는다
+- **문장 단위 분리**: `scenarioPayload.nodes[].scripts[]` 는 원문의 한 발언(문단)을 그대로 담지 않고, 마침표/느낌표/물음표(`.` `!` `?`) 뒤 공백 기준으로 **문장마다 별도 script** 로 쪼갠다. 같은 발언에서 쪼개진 문장들은 `speakerName`/`speakerType`/`tone` 이 전부 동일하다. 오디오 파이프라인이 script 마다 무음(600ms)을 넣으므로 문장 단위 분리가 곧 자연스러운 끊어읽기가 된다. 종결부호 뒤에 닫는 따옴표(`"`/`'`)가 먼저 오면 그 지점은 안 끊긴다(알려진 제한사항).
 
 **warning 코드**
 

@@ -5,5 +5,6 @@ import lombok.Builder;
 @Builder
 public record OptionResponse(
         String label,
+        String title,
         Long nextNodeId
 ) {}

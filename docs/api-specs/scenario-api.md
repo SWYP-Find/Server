@@ -34,6 +34,7 @@
       - `tone` (`Tone` enum, 생략 시 `NEUTRAL`: `NEUTRAL`/`ANGRY`/`SAD`/`EMBARRASSED`/`EMPHASIS`/`WHISPERING`/`SOFT_TONE`/`BREATHY`/`EXCITED`. 대사 한 줄의 감성적인 톤 — TTS 합성 시 `[tone]` 형태로 text 앞에 주입된다)
     - `interactiveOptions[]`
       - `label`
+      - `title` (선택 시 보여줄 선택지 설명, 생략 가능)
       - `nextNodeName`
   - `voiceSettings` (`Map<SpeakerType, String>`, 값은 Fish Audio `reference_id`. 철학자 발화자(A/B)는 [철학자 보이스 매핑](./philosopher-voice-api.md)에서 조회해 채운다)
 

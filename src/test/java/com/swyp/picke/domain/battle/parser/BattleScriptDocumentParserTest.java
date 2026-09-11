@@ -66,6 +66,9 @@ class BattleScriptDocumentParserTest {
         assertThat(choice.options).extracting(o -> o.label).containsExactly("A", "B");
         assertThat(choice.options).extracting(o -> o.nextNodeName).containsExactly("분기_A", "분기_B");
         assertThat(choice.options).extracting(o -> o.speaker).containsExactly("칸트", "아리스토텔레스");
+        assertThat(choice.options).extracting(o -> o.title).containsExactly(
+                "AI 판사를 도입해야 한다. 일관된 원칙이 진정한 공정함이다.",
+                "AI 판사는 도입해선 안 된다. 맥락을 이해하는 인간의 판단이 필요하다.");
     }
 
     @Test

@@ -287,7 +287,7 @@ public class BattleScriptParseService {
             }
 
             List<AdminScenarioOptionRequest> options = node.options.stream()
-                    .map(o -> new AdminScenarioOptionRequest(o.label, o.nextNodeName))
+                    .map(o -> new AdminScenarioOptionRequest(o.label, o.title, o.nextNodeName))
                     .toList();
 
             String autoNext = resolveAutoNext(order, ni, node, hasClosing);

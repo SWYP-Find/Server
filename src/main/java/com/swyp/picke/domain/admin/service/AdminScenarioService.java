@@ -96,6 +96,7 @@ public class AdminScenarioService {
         return optionRequests.stream()
                 .map(optionRequest -> new OptionRequest(
                         optionRequest.label(),
+                        optionRequest.title(),
                         optionRequest.nextNodeName()
                 ))
                 .toList();

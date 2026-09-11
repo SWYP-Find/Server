@@ -5,5 +5,6 @@ import lombok.Builder;
 @Builder
 public record AdminScenarioOptionResponse(
         String label,
+        String title,
         Long nextNodeId
 ) {}

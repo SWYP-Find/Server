@@ -52,11 +52,13 @@ public class BattleScriptDocument {
 
     public static class ParsedOption {
         public String label;        // "A" / "B"
+        public String title;        // 선택의 시간 줄의 설명 텍스트 (예: "첫 만남에는 그에 걸맞은 격조와 분위기가 필수다, 유죄!")
         public String nextNodeName; // "분기_A" 등
         public String speaker;      // 선택의 시간 줄에 표기된 발화자 (예: "칸트")
 
-        public ParsedOption(String label, String nextNodeName, String speaker) {
+        public ParsedOption(String label, String title, String nextNodeName, String speaker) {
             this.label = label;
+            this.title = title;
             this.nextNodeName = nextNodeName;
             this.speaker = speaker;
         }

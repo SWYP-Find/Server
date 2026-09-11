@@ -53,6 +53,7 @@ entity "scenario_options" as scenario_options {
   --
   node_id : BIGINT <<FK>>
   label : VARCHAR(200)
+  title : VARCHAR(255) <<nullable>>
   next_node_id : BIGINT
   option_order : INT
   created_at : TIMESTAMP
@@ -83,6 +84,12 @@ scenarios ||--o{ scenario_voice_settings : has
 note right of scenarios
   발행(PUBLISHED) 시점에 TTS 파이프라인 수행
   voice_settings는 화자별 보이스 코드 저장
+end note
+
+note bottom of scenario_options
+  title : 선택의 시간 화면에 보여줄 선택지 설명
+  (예: "첫 만남에는 그에 걸맞은 격조와
+  분위기가 필수다, 유죄!"). nullable.
 end note
 
 note bottom of scenario_scripts

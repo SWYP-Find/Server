@@ -183,6 +183,11 @@ class BattleScriptParseServiceTest {
                 .containsExactly("오프닝", "1라운드", "2라운드", "선택", "분기_A", "분기_B", "클로징");
         assertThat(node(res, "선택").interactiveOptions()).extracting(o -> o.nextNodeName())
                 .containsExactly("분기_A", "분기_B");
+        // 선택의 시간 줄의 설명 텍스트("A: {title} (철학자)")가 title 로 담긴다
+        assertThat(node(res, "선택").interactiveOptions()).extracting(o -> o.title())
+                .containsExactly(
+                        "첫 만남에는 그에 걸맞은 격조와 분위기가 필수다, 유죄!",
+                        "가성비 좋고 든든하며, 솔직한 게 최고다, 무죄!");
         assertThat(node(res, "분기_A").autoNextNode()).isEqualTo("클로징");
         assertThat(res.scenarioPayload().voiceSettings())
                 .containsEntry(SpeakerType.A, "voice-플라톤")

@@ -30,7 +30,34 @@
 
 기준 컨트롤러: `AdminBattleController`
 
-### 2.1 배틀 생성
+### 2.1 배틀 대본 붙여넣기 파싱 (미리보기용, 저장 안 함)
+- `POST /api/v1/admin/battles/parse`
+- 요청 본문(`AdminBattleParseRequest`):
+  - `rawText` (기획자가 구글독스에서 복사한 대본 원문 전체)
+- 설명: 대본을 파싱해 배틀·시나리오 등록 폼을 자동으로 채워준다. **DB 저장은 하지 않는다.** 문서 포맷 규격/파싱 규칙은 `배틀_발행_시나리오_현행_vs_개선.md` 2.6, 실제 파싱 예시는 `배틀_대본_파싱_예시.md` 참고.
+- 응답(`AdminBattleParseResponse`):
+  - `battlePayload` — 아래 2.2 배틀 생성 요청과 동일한 형태(`AdminBattleCreateRequest`). `status` 는 항상 `PENDING`. 문서에 없는 `thumbnailUrl`/`targetDate`/`publishAt`/`audioDuration` 은 `null`
+  - `scenarioPayload` — [시나리오 API](./scenario-api.md) 2.2 생성 요청과 동일한 형태(`AdminScenarioCreateRequest`). **`battleId` 는 항상 `null`** — 배틀이 아직 생성 전이라서다. 어드민이 `battlePayload` 로 배틀을 먼저 만들고, 응답으로 받은 `battleId` 를 채워 시나리오를 등록한다
+  - `speakerNames` — `{"A": "플라톤", "B": "마르크스"}` 형태로 화자 A/B 에 바인딩된 철학자 이름
+  - `warnings[]` — 아래 표. `blocking: true` 인 항목이 하나라도 있으면 미리보기에서 해결하기 전까지 발행하지 않는다
+
+**warning 코드**
+
+| code | 의미 | blocking |
+|---|---|---|
+| `MISSING_HEADER` | 첫 줄에서 `— 제목` 형식을 못 찾음 | no |
+| `MISSING_METADATA` / `MISSING_CATEGORY` | 메타데이터 섹션/카테고리를 못 찾음 | no |
+| `UNKNOWN_CATEGORY_TAG` | 그 카테고리 문자열의 CATEGORY 태그가 DB 에 없음 | no |
+| `UNKNOWN_PHILOSOPHER_TAG` | 철학자 키워드가 철학자 유형 10인이 아님 | no |
+| `MISSING_PHILOSOPHER_TAG` / `MISSING_VALUE_TAG` | 태그 문자열은 맞지만 DB row 가 없음 | no |
+| `UNKNOWN_VALUE_TAG` | 성향 지표가 가치관 12축 문자열(원칙/결과/이성/감성/개인/관계/변화/전통/내면/구조/이상/현실)이 아님 | no |
+| `MULTIPLE_TONE_TAGS` | 대사 한 줄에 톤 태그가 여러 개 → 첫 번째만 사용 | no |
+| `SPEAKER_BINDING_FALLBACK` | 발화자↔A/B 매칭을 등장 순서로 임시 배정 | no |
+| `LLM_CLASSIFY_FAILED` | 감정 자동분류 실패 → 톤이 전부 `NEUTRAL` | no |
+| `MISSING_VOICE` | 발화자 보이스가 [철학자 보이스 매핑](./philosopher-voice-api.md) 에 없음 | **yes** |
+| `INCOMPLETE_SPEAKER_BINDING` | A/B 발화자를 확정하지 못함 | **yes** |
+
+### 2.2 배틀 생성
 - `POST /api/v1/admin/battles`
 - 요청 본문(`AdminBattleCreateRequest`) 주요 필드:
   - `title`
@@ -47,21 +74,21 @@
     - `imageUrl`
     - `tagIds` (철학자/가치관 태그 ID 목록)
 
-### 2.2 배틀 목록
+### 2.3 배틀 목록
 - `GET /api/v1/admin/battles`
 - 쿼리 파라미터:
   - `page` (기본값: `1`)
   - `size` (기본값: `10`)
   - `status` (선택)
 
-### 2.3 배틀 상세
+### 2.4 배틀 상세
 - `GET /api/v1/admin/battles/{battleId}`
 
-### 2.4 배틀 수정
+### 2.5 배틀 수정
 - `PATCH /api/v1/admin/battles/{battleId}`
 - 요청 본문(`AdminBattleUpdateRequest`) 필드 구조는 생성과 동일
 
-### 2.5 배틀 삭제
+### 2.6 배틀 삭제
 - `DELETE /api/v1/admin/battles/{battleId}`
 
 ---

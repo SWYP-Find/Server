@@ -19,6 +19,8 @@ public class BattleScriptDocument {
 
     public static class OptionMeta {
         public String choiceName;
+        /** 사전 투표 줄에 적힌 대표 발화자(예: "플라톤"). A/B 바인딩 힌트로 쓴다. */
+        public String primarySpeaker;
         public final List<String> philosopherKeywords = new ArrayList<>();
         public final List<String> valueTags = new ArrayList<>();
     }

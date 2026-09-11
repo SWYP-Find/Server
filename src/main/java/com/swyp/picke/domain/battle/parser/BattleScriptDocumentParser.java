@@ -19,17 +19,26 @@ import org.springframework.stereotype.Component;
 public class BattleScriptDocumentParser {
 
     private static final Pattern HEADER =
-            Pattern.compile("분기\\s*([OX])\\s*버전\\s*\\S+\\s*[—\\-–]\\s*(.+)");
-    private static final Pattern SECTION_OPENING = Pattern.compile("^\\[?\\s*오프닝\\s*\\]?$");
-    private static final Pattern SECTION_ROUND = Pattern.compile("^\\[?\\s*(\\d+)\\s*라운드\\s*\\]?$");
-    private static final Pattern SECTION_CLOSING = Pattern.compile("^\\[?\\s*클로징\\s*\\]?$");
-    private static final Pattern SECTION_CHOICE = Pattern.compile("^.*\\[?\\s*선택의\\s*시간\\s*\\]?.*$");
-    private static final Pattern SECTION_BRANCH = Pattern.compile("^\\[\\s*분기\\s*([AB])\\b[^\\]]*\\]$");
-    private static final Pattern SPEAKER_LINE = Pattern.compile("^([^:：]{1,20})[:：]\\s*(.+)$");
+            Pattern.compile("^\\s*(?:분기\\s*[OX]\\s*버전\\s*)?\\S+\\s*[—–-]\\s*(.+)$");
+    private static final Pattern INTERACTIVE_HINT = Pattern.compile("분기\\s*([OX])");
+    private static final Pattern PREVOTE = Pattern.compile(
+            "[\"'“]?\\s*([^\"'”()]+?)\\s*\\(([^)]+)\\)\\s*[\"'”]?\\s*(?:vs|VS|대)\\s*"
+                    + "[\"'“]?\\s*([^\"'”()]+?)\\s*\\(([^)]+)\\)");
+    private static final Pattern SECTION_OPENING = Pattern.compile("^\\[?\\s*오프닝\\s*\\]?\\s*[:：]?.*$");
+    private static final Pattern SECTION_ROUND = Pattern.compile("^\\[?\\s*(\\d+)\\s*라운드\\s*\\]?\\s*[:：]?.*$");
+    private static final Pattern SECTION_CLOSING = Pattern.compile("^\\[?\\s*클로징\\s*\\]?\\s*[:：]?.*$");
+    private static final Pattern SECTION_CHOICE = Pattern.compile(".*선택의\\s*시간.*");
+    private static final Pattern OPTION_LINE = Pattern.compile("^\\s*([ABab])\\s*[:：]\\s*(.+)$");
+    private static final Pattern SECTION_BRANCH = Pattern.compile("^\\[\\s*분기\\s*([AB])\\b[^\\]]*\\]\\s*$");
+    private static final Pattern INLINE_BRANCH = Pattern.compile("^\\[\\s*([AB])\\s*선택\\s*시\\s*\\]\\s*(.*)$");
+    private static final Pattern BRANCH_CONTAINER = Pattern.compile("^\\[\\s*분기\\s*시나리오[^\\]]*\\]\\s*$");
+    private static final Pattern SPEAKER_LINE = Pattern.compile("^([^:：]{1,25})[:：]\\s*(.+)$");
+    private static final Pattern SPEAKER_ANNOTATION = Pattern.compile("\\s*\\([^)]*\\)\\s*$");
     private static final Pattern TRAILING_SPEAKER = Pattern.compile("\\(([^)]+)\\)\\s*$");
     private static final Pattern VALUE_TAG = Pattern.compile("\\[([^\\]]+)\\]");
     private static final Pattern BRANCH_MARKER = Pattern.compile("^\\(?\\s*분기\\s*버전\\s*\\)?$");
     private static final Pattern METADATA_MARKER = Pattern.compile("^\\s*메타데이터\\s*$");
+    private static final Pattern PREVOTE_MARKER = Pattern.compile("^\\s*사전\\s*투표\\s*$");
 
     public BattleScriptDocument parse(String rawText) {
         BattleScriptDocument doc = new BattleScriptDocument();
@@ -38,6 +47,8 @@ public class BattleScriptDocumentParser {
         int headerIdx = indexOfHeader(lines, doc);
         int metadataIdx = firstMatch(lines, METADATA_MARKER, headerIdx + 1);
         int branchIdx = firstMatch(lines, BRANCH_MARKER, headerIdx + 1);
+
+        parsePreVote(lines, headerIdx, metadataIdx, doc);
 
         List<String> bodyLines;
         if (branchIdx >= 0) {
@@ -55,6 +66,11 @@ public class BattleScriptDocumentParser {
             doc.warnings.add(ParseWarning.of("MISSING_METADATA",
                     "메타데이터 섹션을 찾지 못했습니다. 카테고리/선택지/태그를 미리보기에서 직접 입력하세요.", null));
         }
+
+        // 본문에 선택/분기가 있으면 인터랙티브로 승격
+        boolean bodyIsInteractive = doc.nodes.stream()
+                .anyMatch(n -> n.name.equals("선택") || n.name.startsWith("분기_"));
+        doc.interactive = doc.interactive || bodyIsInteractive;
         return doc;
     }
 
@@ -75,17 +91,36 @@ public class BattleScriptDocumentParser {
     private int indexOfHeader(List<String> lines, BattleScriptDocument doc) {
         for (int i = 0; i < lines.size(); i++) {
             Matcher m = HEADER.matcher(lines.get(i));
-            if (m.find()) {
-                doc.interactive = "O".equalsIgnoreCase(m.group(1));
-                doc.title = m.group(2).strip();
+            if (m.matches()) {
+                Matcher hint = INTERACTIVE_HINT.matcher(lines.get(i));
+                doc.interactive = hint.find() && "O".equalsIgnoreCase(hint.group(1));
+                doc.title = m.group(1).strip();
                 return i;
             }
         }
         doc.interactive = false;
         doc.title = "(제목 미상)";
         doc.warnings.add(ParseWarning.of("MISSING_HEADER",
-                "'분기 O/X 버전 N — 제목' 형식 헤더를 찾지 못했습니다. 제목/분기 여부를 확인하세요.", null));
+                "'제목' 형식 헤더(맨 윗줄, '— 제목')를 찾지 못했습니다. 제목을 확인하세요.", null));
         return -1;
+    }
+
+    private void parsePreVote(List<String> lines, int headerIdx, int metadataIdx, BattleScriptDocument doc) {
+        int end = metadataIdx >= 0 ? metadataIdx : lines.size();
+        for (int i = Math.max(headerIdx, 0); i < end; i++) {
+            if (PREVOTE_MARKER.matcher(lines.get(i)).matches() || lines.get(i).contains("사전 투표")) {
+                for (int j = i; j < Math.min(i + 3, end); j++) {
+                    Matcher m = PREVOTE.matcher(lines.get(j));
+                    if (m.find()) {
+                        doc.optionA.choiceName = m.group(1).strip();
+                        doc.optionA.primarySpeaker = m.group(2).strip();
+                        doc.optionB.choiceName = m.group(3).strip();
+                        doc.optionB.primarySpeaker = m.group(4).strip();
+                        return;
+                    }
+                }
+            }
+        }
     }
 
     private int firstMatch(List<String> lines, Pattern pattern, int from) {
@@ -99,27 +134,36 @@ public class BattleScriptDocumentParser {
 
     private void parseBody(List<String> body, BattleScriptDocument doc) {
         ParsedNode current = new ParsedNode("오프닝");
-        int roundSeq = 0;
 
         for (String line : body) {
+            if (PREVOTE_MARKER.matcher(line).matches() || PREVOTE.matcher(line).find()
+                    || BRANCH_CONTAINER.matcher(line).matches()) {
+                continue; // 사전 투표 / 분기 컨테이너 헤더는 본문에서 무시
+            }
+
             Matcher round = SECTION_ROUND.matcher(line);
             Matcher branch = SECTION_BRANCH.matcher(line);
+            Matcher inlineBranch = INLINE_BRANCH.matcher(line);
 
             if (SECTION_OPENING.matcher(line).matches()) {
                 current = pushAndStart(doc, current, "오프닝");
                 continue;
             }
-            if (round.matches()) {
-                roundSeq = Integer.parseInt(round.group(1));
-                current = pushAndStart(doc, current, roundSeq + "라운드");
+            if (SECTION_CHOICE.matcher(line).matches() && !OPTION_LINE.matcher(line).matches()) {
+                current = pushAndStart(doc, current, "선택");
                 continue;
             }
-            if (SECTION_CHOICE.matcher(line).matches() && !SPEAKER_LINE.matcher(line).matches()) {
-                current = pushAndStart(doc, current, "선택");
+            if (round.matches()) {
+                current = pushAndStart(doc, current, round.group(1) + "라운드");
                 continue;
             }
             if (branch.matches()) {
                 current = pushAndStart(doc, current, "분기_" + branch.group(1).toUpperCase());
+                continue;
+            }
+            if (inlineBranch.matches()) {
+                current = pushAndStart(doc, current, "분기_" + inlineBranch.group(1).toUpperCase());
+                addDialogueLine(current, inlineBranch.group(2).strip());
                 continue;
             }
             if (SECTION_CLOSING.matcher(line).matches()) {
@@ -131,19 +175,37 @@ public class BattleScriptDocumentParser {
                 parseChoiceLine(line, current);
                 continue;
             }
-
-            Matcher speaker = SPEAKER_LINE.matcher(line);
-            if (speaker.matches() && !isSentenceColon(speaker.group(1))) {
-                current.scripts.add(new ParsedScript(speaker.group(1).strip(), speaker.group(2).strip()));
-            } else {
-                current.scripts.add(new ParsedScript(null, line));
-            }
+            addDialogueLine(current, line);
         }
         pushIfNotEmpty(doc, current);
         splitFlatBody(doc);
         if (doc.nodes.isEmpty()) {
             doc.warnings.add(ParseWarning.of("EMPTY_BODY", "본문에서 대사를 찾지 못했습니다.", null));
         }
+    }
+
+    private void addDialogueLine(ParsedNode node, String line) {
+        if (line.isEmpty()) {
+            return;
+        }
+        Matcher speaker = SPEAKER_LINE.matcher(line);
+        if (speaker.matches() && !isSentenceColon(speaker.group(1))) {
+            String name = SPEAKER_ANNOTATION.matcher(speaker.group(1).strip()).replaceAll("").strip();
+            node.scripts.add(new ParsedScript(name, stripQuotes(speaker.group(2).strip())));
+        } else {
+            node.scripts.add(new ParsedScript(null, stripQuotes(line)));
+        }
+    }
+
+    private String stripQuotes(String text) {
+        if (text.length() >= 2) {
+            char first = text.charAt(0);
+            char last = text.charAt(text.length() - 1);
+            if ((first == '"' && last == '"') || (first == '“' && last == '”') || (first == '\'' && last == '\'')) {
+                return text.substring(1, text.length() - 1).strip();
+            }
+        }
+        return text;
     }
 
     /** 라운드/분기 헤더 없이 오프닝 하나에 대사가 다 들어간 플랫 본문: 첫 나레이션=오프닝, 마지막 나레이션=클로징, 나머지=라운드. */
@@ -184,16 +246,12 @@ public class BattleScriptDocumentParser {
     }
 
     private void parseChoiceLine(String line, ParsedNode choiceNode) {
-        Matcher m = SPEAKER_LINE.matcher(line);
+        Matcher m = OPTION_LINE.matcher(line);
         if (!m.matches()) {
             choiceNode.scripts.add(new ParsedScript(null, line));
             return;
         }
         String label = m.group(1).strip().toUpperCase();
-        if (!label.equals("A") && !label.equals("B")) {
-            choiceNode.scripts.add(new ParsedScript(null, line));
-            return;
-        }
         String rest = m.group(2).strip();
         String speaker = null;
         Matcher t = TRAILING_SPEAKER.matcher(rest);
@@ -218,7 +276,7 @@ public class BattleScriptDocumentParser {
             } else if (line.startsWith("선택지 명칭") && target != null) {
                 target.choiceName = valueAfter(line, "선택지 명칭", next);
             } else if (line.startsWith("철학자 키워드") && target != null) {
-                for (String kw : valueAfter(line, "철학자 키워드", next).split("[,、]")) {
+                for (String kw : valueAfter(line, "철학자 키워드", next).split("[,、\\s]+")) {
                     String cleaned = kw.replace("#", "").strip();
                     if (!cleaned.isEmpty()) {
                         target.philosopherKeywords.add(cleaned);
@@ -249,9 +307,15 @@ public class BattleScriptDocumentParser {
     }
 
     private boolean isSentenceColon(String prefix) {
-        // "A"/"B" 라벨과 철학자 이름만 화자로 인정. 문장 안 콜론(시각 표기 등)은 제외.
-        return prefix.isBlank() || prefix.length() > 15 || prefix.matches(".*\\d.*")
-                || prefix.contains(" ") && prefix.split(" ").length > 3;
+        String p = prefix.strip();
+        if (p.isBlank() || p.length() > 20) {
+            return true;
+        }
+        if (p.startsWith("[") || p.startsWith("👉") || p.contains("라운드")) {
+            return true;
+        }
+        String withoutAnnotation = SPEAKER_ANNOTATION.matcher(p).replaceAll("").strip();
+        return withoutAnnotation.split("\\s+").length > 3;
     }
 
     private ParsedNode pushAndStart(BattleScriptDocument doc, ParsedNode current, String newName) {

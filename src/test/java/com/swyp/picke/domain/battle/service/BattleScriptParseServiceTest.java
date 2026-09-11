@@ -62,7 +62,7 @@ class BattleScriptParseServiceTest {
         ReflectionTestUtils.setField(service, "userVoice", "voice-user");
 
         lenient().when(tagRepository.findAllByTypeAndDeletedAtIsNull(TagType.CATEGORY))
-                .thenReturn(List.of(tag("철학", TagType.CATEGORY)));
+                .thenReturn(List.of(tag("철학", TagType.CATEGORY), tag("관계·사랑", TagType.CATEGORY)));
         lenient().when(tagRepository.findAllByTypeAndDeletedAtIsNull(TagType.PHILOSOPHER))
                 .thenReturn(List.of(
                         tag("노자", TagType.PHILOSOPHER), tag("플라톤", TagType.PHILOSOPHER),
@@ -166,6 +166,27 @@ class BattleScriptParseServiceTest {
         assertThat(res.speakerNames()).containsEntry("A", "칸트").containsEntry("B", "아리스토텔레스");
         assertThat(node(res, "1라운드").scripts().get(0).speakerType()).isEqualTo(SpeakerType.A);   // 칸트
         assertThat(node(res, "1라운드").scripts().get(1).speakerType()).isEqualTo(SpeakerType.B);   // 아리스토텔레스
+    }
+
+    @Test
+    void 실제_대본을_인터랙티브_페이로드로_조립한다() throws IOException {
+        AdminBattleParseResponse res = service.parse(load("sample-real-1.txt"));
+
+        assertThat(res.battlePayload().title()).isEqualTo("첫 데이트 국밥, 무죄인가 유죄인가?");
+        assertThat(res.battlePayload().tagIds()).hasSize(1); // 관계·사랑
+        assertThat(res.speakerNames()).containsEntry("A", "플라톤").containsEntry("B", "마르크스");
+        assertThat(res.scenarioPayload().isInteractive()).isTrue();
+        assertThat(res.scenarioPayload().nodes()).extracting(AdminScenarioNodeRequest::nodeName)
+                .containsExactly("오프닝", "1라운드", "2라운드", "선택", "분기_A", "분기_B", "클로징");
+        assertThat(node(res, "선택").interactiveOptions()).extracting(o -> o.nextNodeName())
+                .containsExactly("분기_A", "분기_B");
+        assertThat(node(res, "분기_A").autoNextNode()).isEqualTo("클로징");
+        assertThat(res.scenarioPayload().voiceSettings())
+                .containsEntry(SpeakerType.A, "voice-플라톤")
+                .containsEntry(SpeakerType.B, "voice-마르크스");
+        assertThat(res.warnings()).noneMatch(w -> w.blocking());
+        // 옵션 태그: 철학자 3 + 성향 3 = 6
+        assertThat(res.battlePayload().options().get(0).tagIds()).hasSize(6);
     }
 
     @Test

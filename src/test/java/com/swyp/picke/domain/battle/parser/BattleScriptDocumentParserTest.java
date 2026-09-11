@@ -80,6 +80,36 @@ class BattleScriptDocumentParserTest {
     }
 
     @Test
+    void 실제_대본_버전헤더없음_라운드부제_따옴표_인라인분기를_처리한다() throws IOException {
+        BattleScriptDocument doc = parser.parse(load("sample-real-1.txt"));
+
+        assertThat(doc.warnings).isEmpty();
+        assertThat(doc.interactive).isTrue();
+        assertThat(doc.title).isEqualTo("첫 데이트 국밥, 무죄인가 유죄인가?");
+        assertThat(doc.category).isEqualTo("관계·사랑");
+        assertThat(doc.nodes).extracting(n -> n.name)
+                .containsExactly("오프닝", "1라운드", "2라운드", "선택", "분기_A", "분기_B", "클로징");
+
+        // 발화자 주석 "(유죄)" 제거, 따옴표 제거
+        assertThat(node(doc, "1라운드").scripts.get(0).speaker).isEqualTo("플라톤");
+        assertThat(node(doc, "1라운드").scripts.get(0).text).startsWith("첫 데이트에서 국밥은");
+
+        // 사전 투표 줄에서 대표 발화자
+        assertThat(doc.optionA.primarySpeaker).isEqualTo("플라톤");
+        assertThat(doc.optionB.primarySpeaker).isEqualTo("마르크스");
+
+        // 공백 구분 철학자 키워드
+        assertThat(doc.optionA.philosopherKeywords).containsExactly("플라톤", "칸트", "아리스토텔레스");
+        assertThat(doc.optionB.philosopherKeywords).containsExactly("마르크스", "니체", "사르트르");
+        assertThat(doc.optionA.valueTags).containsExactly("원칙", "이상", "내면");
+
+        // [A 선택 시] 인라인 분기
+        assertThat(node(doc, "분기_A").scripts.get(0).speaker).isEqualTo("플라톤");
+        assertThat(node(doc, "분기_B").scripts.get(0).speaker).isEqualTo("마르크스");
+        assertThat(node(doc, "선택").options).extracting(o -> o.speaker).containsExactly("플라톤", "마르크스");
+    }
+
+    @Test
     void 인터랙티브_메타데이터도_양쪽_옵션을_파싱한다() throws IOException {
         BattleScriptDocument doc = parser.parse(load("sample-interactive.txt"));
 

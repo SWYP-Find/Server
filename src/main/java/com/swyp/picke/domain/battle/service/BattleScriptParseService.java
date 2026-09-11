@@ -188,6 +188,15 @@ public class BattleScriptParseService {
         }
 
         Map<String, String> labelMap = explicit;
+
+        // 2) 사전 투표 줄에 대표 발화자가 있으면 사용
+        if (labelMap.size() < 2 && doc.optionA.primarySpeaker != null && doc.optionB.primarySpeaker != null) {
+            labelMap = new LinkedHashMap<>();
+            labelMap.put(doc.optionA.primarySpeaker.strip(), "A");
+            labelMap.put(doc.optionB.primarySpeaker.strip(), "B");
+        }
+
+        // 3) 그래도 부족하면 LLM, 그다음 등장 순서
         if (labelMap.size() < 2 && speakers.size() >= 2) {
             Map<String, String> llm = emotionClassifier.bindSpeakers(
                     doc.title, nz(doc.optionA.choiceName), nz(doc.optionB.choiceName), speakers);

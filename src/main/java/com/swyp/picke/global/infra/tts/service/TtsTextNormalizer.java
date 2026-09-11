@@ -25,15 +25,20 @@ public final class TtsTextNormalizer {
     }
 
     public static String normalize(String rawText, Tone tone) {
-        String text = rawText == null ? "" : rawText;
-
-        for (Map.Entry<String, String> alias : EFFECT_ALIASES.entrySet()) {
-            text = text.replaceAll("(?i)" + java.util.regex.Pattern.quote(alias.getKey()), alias.getValue());
-        }
+        String text = normalizeEffectTags(rawText);
 
         if (tone != null && tone.hasTag()) {
             text = tone.getTag() + " " + text.stripLeading();
         }
         return text.trim();
+    }
+
+    /** 효과 태그 표기만 Fish 정식 표기로 바꾼다(톤 태그는 안 붙임). 파서가 저장 텍스트를 정리할 때 쓴다. */
+    public static String normalizeEffectTags(String rawText) {
+        String text = rawText == null ? "" : rawText;
+        for (Map.Entry<String, String> alias : EFFECT_ALIASES.entrySet()) {
+            text = text.replaceAll("(?i)" + java.util.regex.Pattern.quote(alias.getKey()), alias.getValue());
+        }
+        return text;
     }
 }

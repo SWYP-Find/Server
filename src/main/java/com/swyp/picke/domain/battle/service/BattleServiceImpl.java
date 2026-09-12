@@ -662,6 +662,7 @@ public class BattleServiceImpl implements BattleService {
         List<BattleOptionTag> existingTags = battleOptionTagRepository.findByBattleOption(option);
         if (!existingTags.isEmpty()) {
             battleOptionTagRepository.deleteAll(existingTags);
+            battleOptionTagRepository.flush();
         }
 
         saveBattleOptionTags(option, tagIds.stream().distinct().toList());

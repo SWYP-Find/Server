@@ -3,6 +3,7 @@ package com.swyp.picke.domain.scenario.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -13,7 +14,10 @@ import com.swyp.picke.domain.scenario.entity.PhilosopherVoice;
 import com.swyp.picke.domain.scenario.repository.PhilosopherVoiceRepository;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
+import com.swyp.picke.global.infra.s3.enums.FileCategory;
+import com.swyp.picke.global.infra.s3.util.ResourceUrlProvider;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -26,8 +30,18 @@ class PhilosopherVoiceServiceTest {
     @Mock
     private PhilosopherVoiceRepository philosopherVoiceRepository;
 
+    @Mock
+    private ResourceUrlProvider resourceUrlProvider;
+
     @InjectMocks
     private PhilosopherVoiceService philosopherVoiceService;
+
+    @BeforeEach
+    void setUp() {
+        // raw key를 그대로 돌려주는 기본 스텁(변환 여부 자체를 검증하는 테스트만 다르게 재정의)
+        lenient().when(resourceUrlProvider.getImageUrl(any(), any()))
+                .thenAnswer(invocation -> invocation.getArgument(1));
+    }
 
     private PhilosopherVoice entity(String name, String referenceId) {
         return PhilosopherVoice.builder()
@@ -101,6 +115,22 @@ class PhilosopherVoiceServiceTest {
 
         assertThat(response.referenceId()).isEqualTo("voice-new");
         assertThat(found.getReferenceId()).isEqualTo("voice-new");
+    }
+
+    @Test
+    void 응답의_imageKey는_raw_저장키가_아니라_ResourceUrlProvider가_변환한_값이다() {
+        when(philosopherVoiceRepository.existsByName("루소")).thenReturn(false);
+        when(philosopherVoiceRepository.save(any(PhilosopherVoice.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(resourceUrlProvider.getImageUrl(FileCategory.PHILOSOPHER, "images/philosophers/rousseau.png"))
+                .thenReturn("https://dev.picke.store/api/v1/resources/images/PHILOSOPHER/rousseau.png");
+
+        PhilosopherVoiceResponse response = philosopherVoiceService.create(
+                new PhilosopherVoiceRequest("루소", "voice-x", null, "images/philosophers/rousseau.png", null));
+
+        assertThat(response.imageKey())
+                .isEqualTo("https://dev.picke.store/api/v1/resources/images/PHILOSOPHER/rousseau.png")
+                .isNotEqualTo("images/philosophers/rousseau.png");
     }
 
     @Test

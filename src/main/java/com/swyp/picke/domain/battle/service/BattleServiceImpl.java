@@ -680,9 +680,28 @@ public class BattleServiceImpl implements BattleService {
             return null;
         }
         if (targetStatus == BattleStatus.PUBLISHED && localDraftFileStorageService.isLocalDraftReference(normalized)) {
-            return localDraftFileStorageService.promoteLocalDraftToS3(normalized, fallbackCategory, s3UploadService);
+            // 실제 S3 업로드/로컬 draft 삭제는 커밋 이후로 미룬다.
+            // 여기서 바로 승격시키면, 이후 같은 트랜잭션에서 DB 저장이 실패해 롤백돼도
+            // 이미 올라간 S3 파일과 지워진 draft는 되돌릴 수 없어 orphan이 된다.
+            String s3Key = localDraftFileStorageService.resolveS3Key(normalized, fallbackCategory);
+            promoteDraftAfterCommit(normalized, s3Key);
+            return s3Key;
         }
         return normalized;
+    }
+
+    private void promoteDraftAfterCommit(String localReference, String s3Key) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    localDraftFileStorageService.promoteToS3(localReference, s3Key, s3UploadService);
+                }
+            });
+            return;
+        }
+
+        localDraftFileStorageService.promoteToS3(localReference, s3Key, s3UploadService);
     }
 
     private String normalizeStoredImageReference(String rawReference, FileCategory fallbackCategory) {

@@ -4,6 +4,8 @@ import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleCreateRequest;
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleUpdateRequest;
 import com.swyp.picke.domain.admin.dto.battle.response.AdminBattleDeleteResponse;
 import com.swyp.picke.domain.admin.dto.battle.response.AdminBattleDetailResponse;
+import com.swyp.picke.domain.battle.dto.parse.AdminBattleParseResponse;
+import com.swyp.picke.domain.battle.service.BattleScriptParseService;
 import com.swyp.picke.domain.battle.service.BattleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -13,6 +15,11 @@ import org.springframework.stereotype.Service;
 public class AdminBattleService {
 
     private final BattleService battleService;
+    private final BattleScriptParseService battleScriptParseService;
+
+    public AdminBattleParseResponse parseBattleScript(String rawText) {
+        return battleScriptParseService.parse(rawText);
+    }
 
     public AdminBattleDetailResponse createBattle(AdminBattleCreateRequest request, Long adminUserId) {
         return battleService.createBattle(request, adminUserId);

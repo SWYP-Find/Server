@@ -95,6 +95,7 @@ public class ScenarioConverter {
                 .speakerType(script.getSpeakerType())
                 .speakerName(script.getSpeakerName())
                 .text(cleanText)
+                .tone(script.getTone())
                 .build();
     }
 
@@ -120,12 +121,14 @@ public class ScenarioConverter {
                 .speakerType(script.getSpeakerType())
                 .speakerName(script.getSpeakerName())
                 .text(script.getText())
+                .tone(script.getTone())
                 .build();
     }
 
     private OptionResponse toUserOptionResponse(InteractiveOption option) {
         return OptionResponse.builder()
                 .label(option.getLabel())
+                .title(option.getTitle())
                 .nextNodeId(option.getNextNodeId())
                 .build();
     }
@@ -133,6 +136,7 @@ public class ScenarioConverter {
     private AdminScenarioOptionResponse toAdminOptionResponse(InteractiveOption option) {
         return AdminScenarioOptionResponse.builder()
                 .label(option.getLabel())
+                .title(option.getTitle())
                 .nextNodeId(option.getNextNodeId())
                 .build();
     }

@@ -63,7 +63,8 @@ public class ScenarioAudioPipelineService {
                         audioFile = ttsService.generateTtsWithSsml(
                                 script.getText(),
                                 script.getSpeakerType(),
-                                scenario.getVoiceCode(script.getSpeakerType())
+                                scenario.getVoiceCode(script.getSpeakerType()),
+                                script.getTone()
                         );
 
                         // 새로 만든 조각 파일을 다음 수정을 위해 S3에 업로드 (chunks 폴더)

@@ -83,7 +83,8 @@ public class AdminScenarioService {
                 .map(scriptRequest -> new ScriptRequest(
                         scriptRequest.speakerName(),
                         scriptRequest.speakerType(),
-                        scriptRequest.text()
+                        scriptRequest.text(),
+                        scriptRequest.tone()
                 ))
                 .toList();
     }
@@ -95,6 +96,7 @@ public class AdminScenarioService {
         return optionRequests.stream()
                 .map(optionRequest -> new OptionRequest(
                         optionRequest.label(),
+                        optionRequest.title(),
                         optionRequest.nextNodeName()
                 ))
                 .toList();

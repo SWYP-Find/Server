@@ -19,12 +19,17 @@ public class InteractiveOption extends BaseEntity {
 
     private String label;
 
+    /** 선택의 시간 화면에 보여줄 선택지 설명(예: "첫 만남에는 그에 걸맞은 격조와 분위기가 필수다, 유죄!"). */
+    @Column(length = 255)
+    private String title;
+
     @Column(name = "next_node_id")
     private Long nextNodeId;
 
     @Builder
-    public InteractiveOption(String label, Long nextNodeId) {
+    public InteractiveOption(String label, String title, Long nextNodeId) {
         this.label = label;
+        this.title = title;
         this.nextNodeId = nextNodeId;
     }
 

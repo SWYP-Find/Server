@@ -21,6 +21,7 @@ import com.swyp.picke.domain.scenario.enums.AudioPathType;
 import com.swyp.picke.domain.scenario.enums.CreatorType;
 import com.swyp.picke.domain.scenario.enums.ScenarioStatus;
 import com.swyp.picke.domain.scenario.enums.SpeakerType;
+import com.swyp.picke.domain.scenario.enums.Tone;
 import com.swyp.picke.domain.scenario.repository.ScenarioRepository;
 import com.swyp.picke.domain.vote.entity.BattleVote;
 import com.swyp.picke.domain.vote.repository.BattleVoteRepository;
@@ -221,6 +222,7 @@ public class ScenarioServiceImpl implements ScenarioService {
                                 .speakerType(scriptReq.speakerType())
                                 .speakerName(autoSpeakerName)
                                 .text(scriptReq.text())
+                                .tone(scriptReq.tone())
                                 .build());
                     }
                 }
@@ -255,6 +257,7 @@ public class ScenarioServiceImpl implements ScenarioService {
                     Optional.ofNullable(updatedNodeMap.get(optReq.nextNodeName()))
                             .ifPresent(target -> parentNode.addOption(InteractiveOption.builder()
                                     .label(optReq.label())
+                                    .title(optReq.title())
                                     .nextNodeId(target.getId())
                                     .build()));
                 }
@@ -291,9 +294,11 @@ public class ScenarioServiceImpl implements ScenarioService {
             if (i < existingScripts.size()) {
                 Script existingScript = existingScripts.get(i);
 
+                Tone requestedTone = reqScript.tone() == null ? Tone.NEUTRAL : reqScript.tone();
                 if (!Objects.equals(existingScript.getText(), reqScript.text())
                         || !Objects.equals(existingScript.getSpeakerName(), autoSpeakerName)
-                        || existingScript.getSpeakerType() != reqScript.speakerType()) {
+                        || existingScript.getSpeakerType() != reqScript.speakerType()
+                        || existingScript.getTone() != requestedTone) {
                     isModified = true;
                     if (existingScript.getAudioUrl() != null) {
                         s3Service.deleteFile(existingScript.getAudioUrl());
@@ -301,7 +306,8 @@ public class ScenarioServiceImpl implements ScenarioService {
                     existingScript.updateContent(
                             reqScript.speakerType(),
                             autoSpeakerName,
-                            reqScript.text()
+                            reqScript.text(),
+                            requestedTone
                     );
                 }
             } else {
@@ -311,6 +317,7 @@ public class ScenarioServiceImpl implements ScenarioService {
                         .speakerType(reqScript.speakerType())
                         .speakerName(autoSpeakerName)
                         .text(reqScript.text())
+                        .tone(reqScript.tone())
                         .build());
             }
         }

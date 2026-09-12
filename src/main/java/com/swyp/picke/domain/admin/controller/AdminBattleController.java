@@ -1,6 +1,8 @@
 package com.swyp.picke.domain.admin.controller;
 
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleCreateRequest;
+import com.swyp.picke.domain.battle.dto.parse.AdminBattleParseRequest;
+import com.swyp.picke.domain.battle.dto.parse.AdminBattleParseResponse;
 import com.swyp.picke.domain.admin.dto.battle.response.AdminBattleDeleteResponse;
 import com.swyp.picke.domain.admin.dto.battle.response.AdminBattleDetailResponse;
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleUpdateRequest;
@@ -30,6 +32,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminBattleController {
 
     private final AdminBattleService adminBattleService;
+
+    @Operation(summary = "배틀 대본 붙여넣기 파싱 (미리보기용, 저장 안 함)")
+    @PostMapping("/parse")
+    public ApiResponse<AdminBattleParseResponse> parseBattleScript(
+            @RequestBody @Valid AdminBattleParseRequest request
+    ) {
+        return ApiResponse.onSuccess(adminBattleService.parseBattleScript(request.rawText()));
+    }
 
     @Operation(summary = "배틀 생성")
     @PostMapping

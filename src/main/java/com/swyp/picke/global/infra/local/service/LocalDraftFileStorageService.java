@@ -90,7 +90,13 @@ public class LocalDraftFileStorageService {
         return safeBaseUrl + LOCAL_RESOURCE_PREFIX + extractFileName(normalizeLocalDraftKey(localKey));
     }
 
-    public String promoteLocalDraftToS3(String rawReference, FileCategory category, S3UploadService s3UploadService) {
+    /**
+     * draft가 승격될 목적지 S3 key를 계산만 한다(업로드/삭제 같은 부수효과 없음).
+     * DB 트랜잭션 중간에 엔티티에 최종 key를 미리 채워 넣어야 할 때 쓰고,
+     * 실제 업로드는 트랜잭션 커밋 후 {@link #promoteToS3}로 수행해서
+     * "S3엔 올라갔는데 DB 저장은 롤백됨" 같은 불일치를 막는다.
+     */
+    public String resolveS3Key(String rawReference, FileCategory category) {
         String normalized = normalizeLocalDraftKey(rawReference);
         if (!isLocalDraftReference(normalized)) {
             return normalized;
@@ -102,10 +108,28 @@ public class LocalDraftFileStorageService {
         }
 
         String fileName = extractFileName(normalized);
-        String s3Key = category.getPath() + "/" + fileName;
+        return category.getPath() + "/" + fileName;
+    }
+
+    /**
+     * {@link #resolveS3Key}로 미리 계산해둔 key로 실제 업로드하고 로컬 draft를 지운다.
+     * DB 트랜잭션 커밋 이후에만 호출해야 한다 — 롤백 시에는 호출되지 않아야
+     * draft 파일이 남아있어서 다시 시도할 수 있다.
+     */
+    public void promoteToS3(String rawReference, String s3Key, S3UploadService s3UploadService) {
+        String normalized = normalizeLocalDraftKey(rawReference);
+        if (!isLocalDraftReference(normalized)) {
+            return;
+        }
+
+        Path localPath = resolvePath(normalized);
+        if (!Files.exists(localPath)) {
+            // 이미 승격되었거나 삭제됨 - 할 일 없음
+            return;
+        }
+
         s3UploadService.uploadFile(s3Key, localPath.toFile());
         deleteIfLocalReference(normalized);
-        return s3Key;
     }
 
     public void deleteIfLocalReference(String rawReference) {

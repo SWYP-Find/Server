@@ -1,0 +1,50 @@
+@startuml philosopher-voice
+hide circle
+hide methods
+skinparam linetype ortho
+
+entity "philosopher_voice" as philosopher_voice {
+  * id : BIGINT <<PK>>
+  --
+  name : VARCHAR(50) <<UK>>
+  reference_id : VARCHAR(64)
+  voice_label : VARCHAR(100) <<nullable>>
+  image_key : VARCHAR(500) <<nullable>>
+  note : VARCHAR(255) <<nullable>>
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "scenarios" as scenarios {
+  * id : BIGINT <<PK>>
+}
+
+entity "scenario_voice_settings" as scenario_voice_settings {
+  * scenario_id : BIGINT <<FK>>
+  * speaker_type : VARCHAR(20)
+  --
+  voice_code : VARCHAR(200)
+}
+
+scenarios ||--o{ scenario_voice_settings : has
+philosopher_voice ..> scenario_voice_settings : 파서가 voice_code 채움
+
+note bottom of philosopher_voice
+  철학자 이름 → Fish Audio 보이스(reference_id) 매핑.
+  붙여넣기 파서가 시나리오 발화자(옵션 A/B 철학자)에 맞는
+  reference_id 를 조회해 scenario_voice_settings.voice_code 에 채운다.
+  NARRATOR / USER 고정 보이스는 이 테이블이 아니라 config.
+
+  FK 없음: scenario_voice_settings 가 name 이 아닌 완성된
+  voice_code(reference_id) 를 저장하므로 논리적 참조만 존재.
+  매핑 변경/추가는 어드민(/api/v1/admin/philosopher-voices)에서 한다.
+  초기 데이터는 docs/db/20260910_seed_philosopher_voice.sql.
+
+  image_key : 철학자 이미지 저장 키(S3/Railway Bucket).
+  PhilosopherType enum(철학자 유형 10인) 밖 철학자는 원래
+  이름 해시로 10개 이미지 중 하나를 무작위 배정했는데,
+  그 대신 프론트가 이 값으로 정확한 이미지를 쓰게 하려고 추가.
+  없으면 프론트가 기본 이미지로 대체해야 한다.
+end note
+
+@enduml

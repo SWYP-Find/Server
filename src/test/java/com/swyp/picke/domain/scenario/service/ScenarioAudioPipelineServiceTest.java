@@ -11,6 +11,7 @@ import com.swyp.picke.domain.scenario.enums.AudioPathType;
 import com.swyp.picke.domain.scenario.enums.CreatorType;
 import com.swyp.picke.domain.scenario.enums.ScenarioStatus;
 import com.swyp.picke.domain.scenario.enums.SpeakerType;
+import com.swyp.picke.domain.scenario.enums.Tone;
 import com.swyp.picke.domain.scenario.repository.ScenarioRepository;
 import com.swyp.picke.global.infra.media.service.FFmpegService;
 import com.swyp.picke.global.infra.s3.service.S3UploadService;
@@ -124,9 +125,9 @@ class ScenarioAudioPipelineServiceTest {
         scenario.replaceVoiceSettings(Map.of(SpeakerType.NARRATOR, "voice-narrator"));
 
         when(scenarioRepository.findById(1L)).thenReturn(Optional.of(scenario));
-        when(ttsService.generateTtsWithSsml(eq("First line"), eq(SpeakerType.NARRATOR), eq("voice-narrator")))
+        when(ttsService.generateTtsWithSsml(eq("First line"), eq(SpeakerType.NARRATOR), eq("voice-narrator"), eq(Tone.NEUTRAL)))
                 .thenReturn(ffmpegService.createSilenceFile(1000));
-        when(ttsService.generateTtsWithSsml(eq("Second line"), eq(SpeakerType.NARRATOR), eq("voice-narrator")))
+        when(ttsService.generateTtsWithSsml(eq("Second line"), eq(SpeakerType.NARRATOR), eq("voice-narrator"), eq(Tone.NEUTRAL)))
                 .thenReturn(ffmpegService.createSilenceFile(1000));
 
         AtomicInteger chunkIndex = new AtomicInteger();
@@ -149,7 +150,7 @@ class ScenarioAudioPipelineServiceTest {
         assertThat(scenario.getAudios()).containsEntry(AudioPathType.COMMON, "s3://scenario/merged/common.mp3");
         assertThat(battle.getAudioDuration()).isNotNull().isGreaterThan(0);
 
-        verify(ttsService, times(2)).generateTtsWithSsml(anyString(), eq(SpeakerType.NARRATOR), eq("voice-narrator"));
+        verify(ttsService, times(2)).generateTtsWithSsml(anyString(), eq(SpeakerType.NARRATOR), eq("voice-narrator"), any(Tone.class));
         verify(s3UploadService, times(3)).uploadFile(anyString(), any(File.class));
         verify(battleRepository).save(battle);
         verify(scenarioRepository).saveAndFlush(scenario);

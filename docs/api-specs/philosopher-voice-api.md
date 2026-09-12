@@ -13,6 +13,7 @@
 ### 1.1 목록 조회
 - `GET /api/v1/admin/philosopher-voices`
 - 응답(`PhilosopherVoiceResponse[]`): `id`, `name`, `referenceId`, `voiceLabel`, `imageKey`, `note`
+  - **`imageKey`는 DB의 raw 저장 키가 아니라 `ResourceUrlProvider`로 변환된 호출 가능한 경로다** (다른 이미지 필드인 배틀 썸네일·옵션 이미지와 동일 규칙). 값이 있으면 그대로 `<img src>`에 써도 된다. `null`이면 이미지가 등록 안 된 것 — 프론트 기본 이미지로 대체
 
 ### 1.2 생성
 - `POST /api/v1/admin/philosopher-voices`

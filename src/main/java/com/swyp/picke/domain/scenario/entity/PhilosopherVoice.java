@@ -28,23 +28,31 @@ public class PhilosopherVoice extends BaseEntity {
     @Column(name = "voice_label", length = 100)
     private String voiceLabel;
 
+    /** 철학자 이미지 저장 키(S3/Railway Bucket). 없으면 프론트가 기본 이미지로 대체해야 한다. */
+    @Column(name = "image_key", length = 500)
+    private String imageKey;
+
     @Column(length = 255)
     private String note;
 
     @Builder
-    public PhilosopherVoice(String name, String referenceId, String voiceLabel, String note) {
+    public PhilosopherVoice(String name, String referenceId, String voiceLabel, String imageKey, String note) {
         this.name = name;
         this.referenceId = referenceId;
         this.voiceLabel = voiceLabel;
+        this.imageKey = imageKey;
         this.note = note;
     }
 
-    public void update(String referenceId, String voiceLabel, String note) {
+    public void update(String referenceId, String voiceLabel, String imageKey, String note) {
         if (referenceId != null && !referenceId.isBlank()) {
             this.referenceId = referenceId;
         }
         if (voiceLabel != null) {
             this.voiceLabel = voiceLabel;
+        }
+        if (imageKey != null) {
+            this.imageKey = imageKey;
         }
         if (note != null) {
             this.note = note;

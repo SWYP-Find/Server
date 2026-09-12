@@ -29,9 +29,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
-import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
@@ -40,9 +38,6 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -349,12 +344,16 @@ class AdminContentCreationIntegrationTest {
                         .content(objectMapper.writeValueAsString(publishPayload)))
                 .andExpect(status().isOk());
 
+        // 실제 S3 업로드/로컬 draft 삭제는 DB 트랜잭션 커밋 이후로 미뤄진다
+        // (트랜잭션 중간에 실패해도 이미 올라간 파일이 orphan되는 걸 막기 위함 — [[s3_railway_bucket_migration]] 참고).
+        // 이 테스트는 클래스 레벨 @Transactional로 실제 커밋 없이 끝에 롤백되므로,
+        // "커밋 이후에만 실제로 승격됨"을 여기서 직접 증명하지는 않는다.
+        // 그 배선(afterCommit 등록 여부)은 LocalDraftFileStorageServiceTest/단위테스트에서 검증한다.
+        // 여기서는 요청 처리 중 동기적으로 결정되는 최종 저장 키(목적지 경로)만 확인한다.
         Battle publishedBattle = battleRepository.findById(battleId).orElseThrow();
         assertThat(publishedBattle.getThumbnailUrl()).startsWith("images/battles/");
         List<BattleOption> publishedOptions = battleOptionRepository.findByBattle(publishedBattle);
         assertThat(publishedOptions).allMatch(option -> option.getImageUrl().startsWith("images/philosophers/"));
-
-        verify(s3Client, atLeastOnce()).putObject(any(PutObjectRequest.class), any(RequestBody.class));
     }
 
     private String uploadLocalDraftKey(String adminToken, String fileName, String content) throws Exception {

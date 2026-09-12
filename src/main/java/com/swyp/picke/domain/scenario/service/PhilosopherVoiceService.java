@@ -44,6 +44,7 @@ public class PhilosopherVoiceService {
                 .name(request.name().trim())
                 .referenceId(request.referenceId().trim())
                 .voiceLabel(request.voiceLabel())
+                .imageKey(request.imageKey())
                 .note(request.note())
                 .build());
         return PhilosopherVoiceResponse.from(saved);
@@ -53,7 +54,7 @@ public class PhilosopherVoiceService {
     public PhilosopherVoiceResponse update(Long id, PhilosopherVoiceRequest request) {
         PhilosopherVoice entity = philosopherVoiceRepository.findById(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.PHILOSOPHER_VOICE_NOT_FOUND));
-        entity.update(request.referenceId(), request.voiceLabel(), request.note());
+        entity.update(request.referenceId(), request.voiceLabel(), request.imageKey(), request.note());
         return PhilosopherVoiceResponse.from(entity);
     }
 

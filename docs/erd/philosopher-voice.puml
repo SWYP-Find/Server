@@ -9,6 +9,7 @@ entity "philosopher_voice" as philosopher_voice {
   name : VARCHAR(50) <<UK>>
   reference_id : VARCHAR(64)
   voice_label : VARCHAR(100) <<nullable>>
+  image_key : VARCHAR(500) <<nullable>>
   note : VARCHAR(255) <<nullable>>
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
@@ -38,6 +39,12 @@ note bottom of philosopher_voice
   voice_code(reference_id) 를 저장하므로 논리적 참조만 존재.
   매핑 변경/추가는 어드민(/api/v1/admin/philosopher-voices)에서 한다.
   초기 데이터는 docs/db/20260910_seed_philosopher_voice.sql.
+
+  image_key : 철학자 이미지 저장 키(S3/Railway Bucket).
+  PhilosopherType enum(철학자 유형 10인) 밖 철학자는 원래
+  이름 해시로 10개 이미지 중 하나를 무작위 배정했는데,
+  그 대신 프론트가 이 값으로 정확한 이미지를 쓰게 하려고 추가.
+  없으면 프론트가 기본 이미지로 대체해야 한다.
 end note
 
 @enduml

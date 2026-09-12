@@ -6,5 +6,6 @@ public record PhilosopherVoiceRequest(
         @NotBlank String name,
         @NotBlank String referenceId,
         String voiceLabel,
+        String imageKey,
         String note
 ) {}

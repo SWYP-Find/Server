@@ -60,7 +60,7 @@ class PhilosopherVoiceServiceTest {
         when(philosopherVoiceRepository.existsByName("칸트")).thenReturn(true);
 
         assertThatThrownBy(() -> philosopherVoiceService.create(
-                new PhilosopherVoiceRequest("칸트", "voice-x", null, null)))
+                new PhilosopherVoiceRequest("칸트", "voice-x", null, null, null)))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.PHILOSOPHER_VOICE_DUPLICATED);
 
@@ -74,7 +74,7 @@ class PhilosopherVoiceServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         PhilosopherVoiceResponse response = philosopherVoiceService.create(
-                new PhilosopherVoiceRequest(" 칸트 ", " voice-x ", "Meursault", null));
+                new PhilosopherVoiceRequest(" 칸트 ", " voice-x ", "Meursault", null, null));
 
         assertThat(response.name()).isEqualTo("칸트");
         assertThat(response.referenceId()).isEqualTo("voice-x");
@@ -86,7 +86,7 @@ class PhilosopherVoiceServiceTest {
         when(philosopherVoiceRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> philosopherVoiceService.update(99L,
-                new PhilosopherVoiceRequest("칸트", "voice-x", null, null)))
+                new PhilosopherVoiceRequest("칸트", "voice-x", null, null, null)))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.PHILOSOPHER_VOICE_NOT_FOUND);
     }
@@ -97,10 +97,30 @@ class PhilosopherVoiceServiceTest {
         when(philosopherVoiceRepository.findById(1L)).thenReturn(Optional.of(found));
 
         PhilosopherVoiceResponse response = philosopherVoiceService.update(1L,
-                new PhilosopherVoiceRequest("칸트", "voice-new", "새 라벨", "메모"));
+                new PhilosopherVoiceRequest("칸트", "voice-new", "새 라벨", null, "메모"));
 
         assertThat(response.referenceId()).isEqualTo("voice-new");
         assertThat(found.getReferenceId()).isEqualTo("voice-new");
+    }
+
+    @Test
+    void create_및_update가_imageKey를_저장한다() {
+        when(philosopherVoiceRepository.existsByName("루소")).thenReturn(false);
+        when(philosopherVoiceRepository.save(any(PhilosopherVoice.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        PhilosopherVoiceResponse created = philosopherVoiceService.create(
+                new PhilosopherVoiceRequest("루소", "voice-x", "미호크 장정진",
+                        "images/philosophers/rousseau.png", null));
+        assertThat(created.imageKey()).isEqualTo("images/philosophers/rousseau.png");
+
+        PhilosopherVoice found = entity("루소", "voice-x");
+        when(philosopherVoiceRepository.findById(2L)).thenReturn(Optional.of(found));
+
+        PhilosopherVoiceResponse updated = philosopherVoiceService.update(2L,
+                new PhilosopherVoiceRequest("루소", "voice-x", null,
+                        "images/philosophers/rousseau-v2.png", null));
+        assertThat(updated.imageKey()).isEqualTo("images/philosophers/rousseau-v2.png");
     }
 
     @Test

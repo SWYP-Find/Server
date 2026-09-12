@@ -12,7 +12,7 @@
 
 ### 1.1 목록 조회
 - `GET /api/v1/admin/philosopher-voices`
-- 응답(`PhilosopherVoiceResponse[]`): `id`, `name`, `referenceId`, `voiceLabel`, `note`
+- 응답(`PhilosopherVoiceResponse[]`): `id`, `name`, `referenceId`, `voiceLabel`, `imageKey`, `note`
 
 ### 1.2 생성
 - `POST /api/v1/admin/philosopher-voices`
@@ -20,6 +20,7 @@
   - `name` (필수, 유니크)
   - `referenceId` (필수, Fish Audio 보이스 모델 ID)
   - `voiceLabel` (선택, 표시용 라벨. 예: `"미호크 장정진"`)
+  - `imageKey` (선택, 철학자 이미지 저장 키. 예: `"images/philosophers/rousseau.png"`)
   - `note` (선택)
 - 이름 중복 시 `PHILOSOPHER_VOICE_409_DUP`
 
@@ -39,3 +40,4 @@
 - **NARRATOR / USER 고정 보이스는 이 테이블이 아니라 config** (`fishaudio.voice-id.narrator`, `fishaudio.voice-id.user`). 이 API 는 A/B(철학자) 보이스 전용
 - 붙여넣기 파서가 발화자 이름으로 조회했는데 매핑이 없으면 `MISSING_VOICE` warning(blocking) 을 내고, 관리자가 미리보기에서 보이스를 고르거나 이 API 로 매핑을 추가한 뒤 다시 파싱해야 한다
 - 배틀별로 다른 보이스를 쓰고 싶으면 이 테이블을 바꾸지 않고 시나리오의 `voiceSettings` 를 직접 오버라이드하면 된다(이 테이블은 파서가 채우는 기본값 소스일 뿐)
+- **`imageKey`**: `PhilosopherType` enum(철학자 유형 10인)만 실제 이미지가 있고, 그 밖의 철학자(예: 루소, 홉스, 쇼펜하우어)는 원래 이름을 해시해서 10개 이미지 중 하나를 무작위로 배정하는 폴백이 있었다(`PhilosopherType.resolveImageKey`) — 엉뚱한 철학자 이미지가 뜨는 문제가 있었음. 프론트는 배틀 생성 화면에서 이 API의 `imageKey` 로 정확한 이미지를 조회해 쓰고, 값이 없으면(아직 등록 안 된 철학자) 기본 이미지로 대체해야 한다. `imageKey` 는 `null` 이어도 되며, 랜덤 배정 로직으로 대신하지 않는다

@@ -10,13 +10,17 @@ public record PhilosopherVoiceResponse(
         String imageKey,
         String note
 ) {
-    public static PhilosopherVoiceResponse from(PhilosopherVoice entity) {
+    /**
+     * @param imageUrl {@code entity.getImageKey()} 를 {@code ResourceUrlProvider.getImageUrl(FileCategory.PHILOSOPHER, ...)}
+     *                 로 변환한 호출 가능한 경로. raw key 를 그대로 내려주지 않는다(다른 이미지 필드와 동일한 규칙).
+     */
+    public static PhilosopherVoiceResponse from(PhilosopherVoice entity, String imageUrl) {
         return new PhilosopherVoiceResponse(
                 entity.getId(),
                 entity.getName(),
                 entity.getReferenceId(),
                 entity.getVoiceLabel(),
-                entity.getImageKey(),
+                imageUrl,
                 entity.getNote()
         );
     }

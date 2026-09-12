@@ -2,8 +2,11 @@ package com.swyp.picke.domain.battle.service;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleOptionRequest;
@@ -27,10 +30,12 @@ import com.swyp.picke.domain.tag.repository.TagRepository;
 import com.swyp.picke.domain.user.service.UserBattleService;
 import com.swyp.picke.domain.vote.repository.BattleVoteRepository;
 import com.swyp.picke.global.infra.local.service.LocalDraftFileStorageService;
+import com.swyp.picke.global.infra.s3.enums.FileCategory;
 import com.swyp.picke.global.infra.s3.service.S3UploadService;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,6 +43,7 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @ExtendWith(MockitoExtension.class)
 class BattleServiceImplTest {
@@ -121,5 +127,50 @@ class BattleServiceImplTest {
     // updateBattle은 옵션 2~4개를 요구한다(validateBattleOptionCount) — 최소 개수 충족용 더미 옵션
     private AdminBattleOptionRequest optionRequest2() {
         return new AdminBattleOptionRequest("두번째 옵션", null, null, null, 2, List.of());
+    }
+
+    @AfterEach
+    void tearDownSynchronization() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void 발행_상태로_바뀌며_local_draft_썸네일이면_실제_S3_승격은_커밋_이후로_미룬다() {
+        Battle battle = battle(1L);
+        String localDraftKey = "local/drafts/uuid_thumb.png";
+        String s3Key = "images/battles/uuid_thumb.png";
+
+        when(battleRepository.findById(1L)).thenReturn(Optional.of(battle));
+        when(battleOptionRepository.findByBattle(battle)).thenReturn(List.of());
+        lenient().when(localDraftFileStorageService.normalizeLocalDraftKey(localDraftKey)).thenReturn(localDraftKey);
+        when(localDraftFileStorageService.isLocalDraftReference(localDraftKey)).thenReturn(true);
+        when(localDraftFileStorageService.resolveS3Key(localDraftKey, FileCategory.BATTLE)).thenReturn(s3Key);
+        lenient().when(battleOptionRepository.save(any(BattleOption.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(battleOptionTagRepository.findByBattleWithTags(battle)).thenReturn(List.of());
+
+        AdminBattleUpdateRequest request = new AdminBattleUpdateRequest(
+                "제목", null, null, localDraftKey, null, null, null, BattleStatus.PUBLISHED,
+                null, List.of(
+                        new AdminBattleOptionRequest("옵션1", null, null, null, 1, null),
+                        new AdminBattleOptionRequest("옵션2", null, null, null, 2, null)));
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.updateBattle(1L, request);
+
+            // 요청 처리 도중(커밋 전)에는 실제 업로드/삭제가 절대 일어나면 안 된다.
+            verify(localDraftFileStorageService, never()).promoteToS3(anyString(), anyString(), any());
+            org.assertj.core.api.Assertions.assertThat(battle.getThumbnailUrl()).isEqualTo(s3Key);
+
+            // 커밋 이후에야 실제 승격이 일어난다.
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(org.springframework.transaction.support.TransactionSynchronization::afterCommit);
+            verify(localDraftFileStorageService).promoteToS3(localDraftKey, s3Key, s3UploadService);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 }

@@ -7,6 +7,7 @@ public record PhilosopherVoiceResponse(
         String name,
         String referenceId,
         String voiceLabel,
+        String imageKey,
         String note
 ) {
     public static PhilosopherVoiceResponse from(PhilosopherVoice entity) {
@@ -15,6 +16,7 @@ public record PhilosopherVoiceResponse(
                 entity.getName(),
                 entity.getReferenceId(),
                 entity.getVoiceLabel(),
+                entity.getImageKey(),
                 entity.getNote()
         );
     }

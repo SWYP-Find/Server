@@ -145,7 +145,7 @@ class SentryClientTest {
         var result = client("token", transport).fetchUnresolvedIssues(from, to);
 
         assertThat(transport.headers).containsEntry("Authorization", "Bearer token");
-        assertThat(transport.uris).hasSize(22);
+        assertThat(transport.uris).hasSize(24);
         assertThat(transport.uris.getFirst().toString())
                 .contains("/api/0/projects/picke/picke-ios/issues/")
                 .contains("query=is:unresolved")
@@ -173,7 +173,13 @@ class SentryClientTest {
                 .contains("/api/0/organizations/picke/events-timeseries/")
                 && uri.toString().contains("project=picke-ios")
                 && uri.toString().contains("dataset=tracemetrics")
-                && uri.toString().contains("yAxis=count(metric)"));
+                && uri.toString().contains("yAxis=sum(value)"));
+        assertThat(transport.uris).anyMatch(uri -> uri.toString()
+                .contains("/api/0/organizations/picke/events-timeseries/")
+                && uri.toString().contains("project=picke-ios")
+                && uri.toString().contains("dataset=tracemetrics")
+                && uri.toString().contains("yAxis=sum(value)")
+                && uri.toString().contains("event:sign_up"));
         assertThat(result.status()).isEqualTo(AnalyticsStatus.CONNECTED);
         assertThat(result.fetchedAt()).isNotNull();
         assertThat(result.projects()).extracting(SentryIssueReport.ProjectIssues::project,
@@ -211,7 +217,8 @@ class SentryClientTest {
                         tuple("logs", AnalyticsStatus.CONNECTED, 6L),
                         tuple("spans", AnalyticsStatus.CONNECTED, 6L),
                         tuple("profile_functions", AnalyticsStatus.CONNECTED, 6L),
-                        tuple("tracemetrics", AnalyticsStatus.CONNECTED, 6L));
+                        tuple("tracemetrics", AnalyticsStatus.CONNECTED, 6L),
+                        tuple("sign_up", AnalyticsStatus.CONNECTED, 6L));
         assertThat(result.projects().getFirst().metricCatalog().entries().getFirst())
                 .containsEntry("name", "app.launch.count")
                 .containsEntry("count", 8);

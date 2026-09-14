@@ -17,6 +17,8 @@ class AdfitAccountReportClientTest {
         try (var context = new org.springframework.context.annotation.AnnotationConfigApplicationContext()) {
             context.registerBean(AdfitHttpTransport.class,
                     () -> new CapturingTransport(response(200, "application/json", "[]")));
+            context.registerBean(AdfitSessionCookieStore.class,
+                    () -> org.mockito.Mockito.mock(AdfitSessionCookieStore.class));
             context.register(AdfitAccountReportClient.class);
             context.refresh();
             assertThat(context.getBean(AdfitAccountReportClient.class)).isNotNull();
@@ -39,7 +41,7 @@ class AdfitAccountReportClientTest {
                   {"reportDate":"2026-09-08","profit":0}
                 ]
                 """));
-        var client = new AdfitAccountReportClient("KAKAO=secret", transport, new ObjectMapper());
+        var client = new AdfitAccountReportClient(() -> "KAKAO=secret", transport, new ObjectMapper());
         var result = client.fetch(from, to, 3);
         assertThat(transport.uri.toString()).contains("dayType=DAY", "startDate=2026-09-08", "endDate=2026-09-10");
         assertThat(result.status()).isEqualTo(AdfitAccountReportStatus.CONNECTED);
@@ -91,7 +93,7 @@ class AdfitAccountReportClientTest {
     }
 
     private AdfitAccountReportClient client(String cookie, AdfitHttpResponse response) {
-        return new AdfitAccountReportClient(cookie, new CapturingTransport(response), new ObjectMapper());
+        return new AdfitAccountReportClient(() -> cookie, new CapturingTransport(response), new ObjectMapper());
     }
 
     private AdfitHttpResponse response(int status, String contentType, String body) {

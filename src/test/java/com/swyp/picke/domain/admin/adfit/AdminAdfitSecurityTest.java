@@ -30,6 +30,10 @@ class AdminAdfitSecurityTest {
         assertThatThrownBy(() -> controller.save(new AdfitDailyRequest(date, AdfitUnit.BANNER,
                 BigDecimal.ONE, BigDecimal.ONE, AdfitCostBasis.AD_OPERATIONS)))
                 .isInstanceOf(AccessDeniedException.class);
+        // 세션 쿠키는 AdFit 콘솔 로그인 자격이다. 일반 사용자가 넣거나 상태를 엿볼 수 없어야 한다.
+        assertThatThrownBy(() -> controller.sessionCookieStatus()).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> controller.updateSessionCookie(new AdfitSessionCookieRequest("KAKAO=x")))
+                .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test @WithMockUser(roles = "ADMIN")
@@ -38,6 +42,9 @@ class AdminAdfitSecurityTest {
         assertThatCode(() -> controller.report(date, date)).doesNotThrowAnyException();
         assertThatCode(() -> controller.save(new AdfitDailyRequest(date, AdfitUnit.BANNER,
                 BigDecimal.ONE, BigDecimal.ONE, AdfitCostBasis.AD_OPERATIONS))).doesNotThrowAnyException();
+        assertThatCode(() -> controller.sessionCookieStatus()).doesNotThrowAnyException();
+        assertThatCode(() -> controller.updateSessionCookie(new AdfitSessionCookieRequest("KAKAO=x")))
+                .doesNotThrowAnyException();
     }
 
     @Test void rejectsNegativeMoneyAndMissingBasis() {

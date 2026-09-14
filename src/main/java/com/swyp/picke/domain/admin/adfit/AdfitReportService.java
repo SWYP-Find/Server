@@ -16,6 +16,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdfitReportService {
     private final AdfitDailyRepository repository;
     private final AdfitAccountReportClient accountReportClient;
+    private final AdfitSessionCookieStore sessionCookieStore;
+
+    public AdfitSessionCookieStatus sessionCookieStatus() {
+        return sessionCookieStore.status();
+    }
+
+    public void updateSessionCookie(AdfitSessionCookieRequest request) {
+        sessionCookieStore.update(request.cookie());
+    }
 
     @Transactional
     public void save(AdfitDailyRequest request) {

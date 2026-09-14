@@ -16,6 +16,7 @@ import static org.mockito.Mockito.*;
 class AdfitReportServiceTest {
     @Mock AdfitDailyRepository repository;
     @Mock AdfitAccountReportClient accountReportClient;
+    @Mock AdfitSessionCookieStore sessionCookieStore;
     @InjectMocks AdfitReportService service;
     private final LocalDate date = LocalDate.of(2026, 9, 1);
 

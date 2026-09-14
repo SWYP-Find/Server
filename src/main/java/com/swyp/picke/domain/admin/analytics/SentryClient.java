@@ -101,9 +101,10 @@ public class SentryClient {
             List<SentryIssueReport.Issue> issues = parseIssues(issueResponse.body());
             List<SentryIssueReport.Day> days = parseDays(statsResponse.body(), from, to);
             List<SentryIssueReport.Event> recentEvents = parseEvents(eventResponse.body());
-            List<SentryIssueReport.DatasetSeries> datasets = DATASETS.stream()
+            List<SentryIssueReport.DatasetSeries> datasets = new ArrayList<>(DATASETS.stream()
                     .map(dataset -> fetchDataset(project, dataset, from, to))
-                    .toList();
+                    .toList());
+            datasets.add(fetchSignUps(project, from, to));
             SentryIssueReport.MetricCatalog metricCatalog = fetchMetricCatalog(project, from, to);
             SentryIssueReport.SessionHealth sessionHealth = fetchSessionHealth(project, from, to);
             SentryIssueReport.ResourceCatalog releases = fetchReleases(project);
@@ -169,35 +170,64 @@ public class SentryClient {
 
     private SentryIssueReport.DatasetSeries fetchDataset(
             String project, String dataset, LocalDate from, LocalDate to) {
-        AnalyticsHttpResponse response = transport.get(datasetUri(project, dataset, from, to),
+        String yAxis = dataset.equals("tracemetrics") ? "sum(value)" : "count()";
+        return fetchDataset(project, dataset, dataset, yAxis, null, from, to);
+    }
+
+    private SentryIssueReport.DatasetSeries fetchSignUps(
+            String project, LocalDate from, LocalDate to) {
+        return fetchDataset(project, "sign_up", "tracemetrics", "sum(value)",
+                "metric.name:\"user.action.count\" event:sign_up", from, to);
+    }
+
+    private SentryIssueReport.DatasetSeries fetchDataset(
+            String project,
+            String responseName,
+            String sentryDataset,
+            String yAxis,
+            String query,
+            LocalDate from,
+            LocalDate to) {
+        AnalyticsHttpResponse response = transport.get(
+                datasetUri(project, sentryDataset, yAxis, query, from, to),
                 Map.of("Authorization", "Bearer " + authToken));
         if (!response.isSuccess() || !response.isJson()) {
             log.warn("[Sentry] 데이터셋 조회 실패: project={}, dataset={}, status={}",
-                    project, dataset, response.statusCode());
-            return new SentryIssueReport.DatasetSeries(dataset, AnalyticsStatus.UNAVAILABLE, null, List.of());
+                    project, responseName, response.statusCode());
+            return new SentryIssueReport.DatasetSeries(
+                    responseName, AnalyticsStatus.UNAVAILABLE, null, List.of());
         }
         try {
             List<SentryIssueReport.Day> days = parseDatasetDays(response.body(), from, to);
             long total = days.stream().mapToLong(SentryIssueReport.Day::events).sum();
-            return new SentryIssueReport.DatasetSeries(dataset, AnalyticsStatus.CONNECTED, total, days);
+            return new SentryIssueReport.DatasetSeries(responseName, AnalyticsStatus.CONNECTED, total, days);
         } catch (Exception e) {
             log.warn("[Sentry] 데이터셋 파싱 실패: project={}, dataset={}, {}",
-                    project, dataset, e.getClass().getSimpleName());
-            return new SentryIssueReport.DatasetSeries(dataset, AnalyticsStatus.UNAVAILABLE, null, List.of());
+                    project, responseName, e.getClass().getSimpleName());
+            return new SentryIssueReport.DatasetSeries(
+                    responseName, AnalyticsStatus.UNAVAILABLE, null, List.of());
         }
     }
 
-    private URI datasetUri(String project, String dataset, LocalDate from, LocalDate to) {
-        return UriComponentsBuilder.fromUriString(baseUrl)
+    private URI datasetUri(
+            String project,
+            String dataset,
+            String yAxis,
+            String query,
+            LocalDate from,
+            LocalDate to) {
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl)
                 .path("/api/0/organizations/{organization}/events-timeseries/")
                 .queryParam("project", project)
                 .queryParam("dataset", dataset)
                 .queryParam("start", from.atStartOfDay())
                 .queryParam("end", to.atTime(LocalTime.MAX).withNano(0))
                 .queryParam("interval", 86400)
-                .queryParam("yAxis", dataset.equals("tracemetrics") ? "count(metric)" : "count()")
-                .buildAndExpand(organization)
-                .toUri();
+                .queryParam("yAxis", yAxis);
+        if (StringUtils.hasText(query)) {
+            builder.queryParam("query", query);
+        }
+        return builder.buildAndExpand(organization).toUri();
     }
 
     private SentryIssueReport.MetricCatalog fetchMetricCatalog(String project, LocalDate from, LocalDate to) {

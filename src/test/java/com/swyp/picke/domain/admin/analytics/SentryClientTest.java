@@ -295,6 +295,7 @@ class SentryClientTest {
         assertThat(transport.uris).anyMatch(uri -> uri.getPath().endsWith("/events-stats/")
                 && uri.getQuery().contains("field=analytics_event")
                 && uri.getQuery().contains("topEvents=2")
+                && uri.getQuery().contains("query=analytics_event:[ui_action,sign_up]")
                 && uri.getQuery().contains("sort=analytics_event")
                 && uri.getQuery().contains("partial=1")
                 && uri.getQuery().contains("yAxis=count_unique(user)"));

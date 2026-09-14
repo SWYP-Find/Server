@@ -92,10 +92,10 @@ class SentryClientTest {
             if (uri.getPath().endsWith("/events/")) {
                 return eventResponse;
             }
+            if (uri.getPath().endsWith("/events-stats/")) {
+                return analyticsEventTimeseriesResponse;
+            }
             if (uri.getPath().endsWith("/events-timeseries/")) {
-                if (uri.getQuery() != null && uri.getQuery().contains("topEvents=")) {
-                    return analyticsEventTimeseriesResponse;
-                }
                 return datasetResponse;
             }
             if (uri.getPath().endsWith("/trace-items/metrics/")) {
@@ -239,7 +239,11 @@ class SentryClientTest {
                         tuple("sign_up", AnalyticsStatus.CONNECTED, 6L));
         assertThat(result.projects().getFirst().analyticsEvents().status())
                 .isEqualTo(AnalyticsStatus.CONNECTED);
-        assertThat(result.projects().getFirst().analyticsEvents().events()).isEmpty();
+        assertThat(result.projects().getFirst().analyticsEvents().events())
+                .extracting(SentryIssueReport.AnalyticsEventSeries::event,
+                            SentryIssueReport.AnalyticsEventSeries::total,
+                            SentryIssueReport.AnalyticsEventSeries::uniqueUsers)
+                .containsExactly(tuple("sign_up", 6L, null));
         assertThat(result.projects().getFirst().metricCatalog().entries().getFirst())
                 .containsEntry("name", "app.launch.count")
                 .containsEntry("count", 8);
@@ -258,36 +262,38 @@ class SentryClientTest {
                 .withAnalyticsEvents(
                         response(200, "application/json", """
                                 {"data":[
-                                  {"tag[analytics_event,string]":"ui_action","count()":7,
+                                  {"analytics_event":"ui_action","count()":7,
                                    "count_unique(user)":3,"min(timestamp)":"2026-09-08T01:00:00Z",
                                    "max(timestamp)":"2026-09-10T02:00:00Z"},
-                                  {"tag[analytics_event,string]":"sign_up","count()":"2",
+                                  {"analytics_event":"sign_up","count()":"2",
                                    "count_unique(user)":2,"min(timestamp)":"2026-09-09T03:00:00Z",
                                    "max(timestamp)":"2026-09-10T04:00:00Z"}
                                 ]}
                                 """),
                         response(200, "application/json", """
-                                {"timeSeries":[
-                                  {"yAxis":"count()","groupBy":[{"key":"tag[analytics_event,string]","value":"ui_action"}],
-                                   "values":[{"timestamp":1788825600000,"value":1},{"timestamp":1788912000000,"value":2},{"timestamp":1788998400000,"value":4}]},
-                                  {"yAxis":"count_unique(user)","groupBy":[{"key":"tag[analytics_event,string]","value":"ui_action"}],
-                                   "values":[{"timestamp":1788825600000,"value":1},{"timestamp":1788912000000,"value":1},{"timestamp":1788998400000,"value":2}]},
-                                  {"yAxis":"count()","groupBy":[{"key":"analytics_event","value":"sign_up"}],
-                                   "values":[{"timestamp":1788912000000,"value":1},{"timestamp":1788998400000,"value":1}]},
-                                  {"yAxis":"count_unique(user)","groupBy":[{"key":"analytics_event","value":"sign_up"}],
-                                   "values":[{"timestamp":1788912000000,"value":1},{"timestamp":1788998400000,"value":1}]}
-                                ]}
+                                {
+                                  "ui_action":{
+                                    "count()":{"data":[[1788825600,[{"count":1}]],[1788912000,[{"count":2}]],[1788998400,[{"count":4}]]]},
+                                    "count_unique(user)":{"data":[[1788825600,[{"count":1}]],[1788912000,[{"count":1}]],[1788998400,[{"count":2}]]]}
+                                  },
+                                  "sign_up":{
+                                    "count()":{"data":[[1788912000,[{"count":1}]],[1788998400,[{"count":1}]]]},
+                                    "count_unique(user)":{"data":[[1788912000,[{"count":1}]],[1788998400,[{"count":1}]]]}
+                                  }
+                                }
                                 """));
 
         var result = client("token", transport).fetchUnresolvedIssues(from, to);
 
         assertThat(transport.uris).anyMatch(uri -> uri.getPath().endsWith("/events/")
                 && uri.getPath().contains("/organizations/")
-                && uri.getQuery().contains("field=tag[analytics_event,string]")
+                && uri.getQuery().contains("field=analytics_event")
                 && uri.getQuery().contains("query=has:analytics_event"));
-        assertThat(transport.uris).anyMatch(uri -> uri.getPath().endsWith("/events-timeseries/")
-                && uri.getQuery().contains("groupBy=tag[analytics_event,string]")
+        assertThat(transport.uris).anyMatch(uri -> uri.getPath().endsWith("/events-stats/")
+                && uri.getQuery().contains("field=analytics_event")
                 && uri.getQuery().contains("topEvents=2")
+                && uri.getQuery().contains("sort=analytics_event")
+                && uri.getQuery().contains("partial=1")
                 && uri.getQuery().contains("yAxis=count_unique(user)"));
         var analytics = result.projects().getFirst().analyticsEvents();
         assertThat(analytics.status()).isEqualTo(AnalyticsStatus.CONNECTED);

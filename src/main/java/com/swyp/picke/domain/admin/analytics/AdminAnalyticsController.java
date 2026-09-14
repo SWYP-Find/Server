@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/admin/analytics")
 @PreAuthorize("hasRole('ADMIN')")
-@Tag(name = "관리자 지표", description = "Mixpanel 이벤트와 Sentry 오류를 관리자 화면에서 함께 본다")
+@Tag(name = "관리자 지표", description = "Mixpanel 이벤트와 Sentry 사용자 이벤트·오류를 관리자 화면에서 함께 본다")
 public class AdminAnalyticsController {
 
     private static final long MAX_DAYS = 366;
@@ -38,8 +38,8 @@ public class AdminAnalyticsController {
     }
 
     @GetMapping("/sentry")
-    @Operation(summary = "Sentry 프로젝트 전체 관측 데이터",
-               description = "프로젝트별 오류·로그·성능·프로파일·메트릭·세션·릴리즈와 full 오류 이벤트를 반환한다. 토큰·프로젝트 설정이 없으면 NOT_CONFIGURED")
+    @Operation(summary = "Sentry 사용자 이벤트와 프로젝트 관측 데이터",
+               description = "analytics_event 태그의 모든 사용자 이벤트와 오류·로그·성능·세션·릴리즈를 프로젝트별로 제공한다. 토큰·프로젝트 설정이 없으면 NOT_CONFIGURED")
     public ApiResponse<SentryIssueReport> sentry(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {

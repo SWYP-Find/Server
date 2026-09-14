@@ -49,7 +49,8 @@ class MixpanelClientTest {
     /** properties.time 은 프로젝트 타임존 기준 epoch 초다. 아래 값은 UTC 자정 직후를 가리킨다. */
     private String line(String event, String date, int hour) {
         long epoch = LocalDate.parse(date).atStartOfDay(ZoneId.of("UTC")).plusHours(hour).toEpochSecond();
-        return "{\"event\":\"" + event + "\",\"properties\":{\"time\":" + epoch + "}}";
+        return "{\"event\":\"" + event + "\",\"properties\":{\"time\":" + epoch
+                + ",\"distinct_id\":\"user-" + hour + "\"}}";
     }
 
     @Test
@@ -85,12 +86,24 @@ class MixpanelClientTest {
                 .doesNotContain("project_id");
         assertThat(result.status()).isEqualTo(AnalyticsStatus.CONNECTED);
         assertThat(result.events()).hasSize(1);
+        assertThat(result.availableEvents()).containsExactly("screen_view", "sign_up");
+        assertThat(result.totalEvents()).isEqualTo(3);
+        assertThat(result.uniqueUsers()).isEqualTo(3);
+        assertThat(result.summaryDate()).isEqualTo(to);
+        assertThat(result.activeUsers()).isEqualTo(2);
+        assertThat(result.signUps()).isEqualTo(1);
         assertThat(result.events().getFirst().total()).isEqualTo(3);
+        assertThat(result.events().getFirst().uniqueUsers()).isEqualTo(3);
+        assertThat(result.events().getFirst().firstSeen()).isNotNull();
+        assertThat(result.events().getFirst().lastSeen()).isNotNull();
         assertThat(result.events().getFirst().days())
                 .extracting(MixpanelEventReport.Day::date, MixpanelEventReport.Day::count)
                 .containsExactly(tuple(LocalDate.of(2026, 9, 10), 1L),
                                  tuple(LocalDate.of(2026, 9, 9), 0L),
                                  tuple(LocalDate.of(2026, 9, 8), 2L));
+        assertThat(result.events().getFirst().days())
+                .extracting(MixpanelEventReport.Day::uniqueUsers)
+                .containsExactly(1L, 0L, 2L);
     }
 
     @Test

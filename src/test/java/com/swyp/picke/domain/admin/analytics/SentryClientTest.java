@@ -23,6 +23,28 @@ class SentryClientTest {
                 200,
                 Map.of("content-type", List.of("application/json")),
                 "[[1788825600,25],[1788912000,40],[1788998400,60]]");
+        private AnalyticsHttpResponse eventResponse = new AnalyticsHttpResponse(
+                200, Map.of("content-type", List.of("application/json")), "[]");
+        private AnalyticsHttpResponse datasetResponse = new AnalyticsHttpResponse(
+                200, Map.of("content-type", List.of("application/json")), """
+                {"timeSeries":[{"values":[
+                  {"timestamp":1788825600000,"value":1},
+                  {"timestamp":1788912000000,"value":2},
+                  {"timestamp":1788998400000,"value":3}
+                ]}]}
+                """);
+        private AnalyticsHttpResponse metricResponse = new AnalyticsHttpResponse(
+                200, Map.of("content-type", List.of("application/json")),
+                "[{\"name\":\"app.launch.count\",\"type\":\"counter\",\"unit\":null,\"count\":8}]");
+        private AnalyticsHttpResponse sessionResponse = new AnalyticsHttpResponse(
+                200, Map.of("content-type", List.of("application/json")), """
+                {"intervals":["2026-09-08T00:00:00Z","2026-09-09T00:00:00Z","2026-09-10T00:00:00Z"],
+                 "groups":[{"by":{"session.status":"healthy"},"totals":{"sum(session)":9},
+                 "series":{"sum(session)":[2,3,4]}}]}
+                """);
+        private AnalyticsHttpResponse releaseResponse = new AnalyticsHttpResponse(
+                200, Map.of("content-type", List.of("application/json")),
+                "[{\"version\":\"picke-ios@1.2.3+45\",\"status\":\"open\"}]");
         final List<URI> uris = new java.util.ArrayList<>();
         Map<String, String> headers;
 
@@ -40,12 +62,32 @@ class SentryClientTest {
             return this;
         }
 
+        CapturingTransport withEvents(AnalyticsHttpResponse response) {
+            eventResponse = response;
+            return this;
+        }
+
         @Override
         public AnalyticsHttpResponse get(URI uri, Map<String, String> headers) {
             this.uris.add(uri);
             this.headers = headers;
             if (uri.getPath().endsWith("/stats/")) {
                 return statsResponse;
+            }
+            if (uri.getPath().endsWith("/events/")) {
+                return eventResponse;
+            }
+            if (uri.getPath().endsWith("/events-timeseries/")) {
+                return datasetResponse;
+            }
+            if (uri.getPath().endsWith("/trace-items/metrics/")) {
+                return metricResponse;
+            }
+            if (uri.getPath().endsWith("/sessions/")) {
+                return sessionResponse;
+            }
+            if (uri.getPath().endsWith("/releases/")) {
+                return releaseResponse;
             }
             return byProject.entrySet().stream()
                     .filter(entry -> uri.getPath().contains(entry.getKey()))
@@ -88,12 +130,22 @@ class SentryClientTest {
                    "userCount":null,"firstSeen":"2026-09-09T01:00:00Z","lastSeen":"2026-09-09T02:00:00Z",
                    "permalink":null}
                 ]
+                """)).withEvents(response(200, "application/json", """
+                [
+                  {"eventID":"event-a","id":"event-a","groupID":"1","projectID":"11",
+                   "title":"Crash A","message":"Fatal signal","platform":"cocoa","event.type":"error",
+                   "location":"VoteView.swift","culprit":"VoteView","crashFile":"app.dSYM",
+                   "dateCreated":"2026-09-10T04:00:00Z",
+                   "tags":[{"key":"environment","value":"production"},{"key":"release","value":"1.2.3"}],
+                   "metadata":{"filename":"VoteView.swift","function":"submitVote"},
+                   "user":{"email":"should-not-be-copied@example.com"}}
+                ]
                 """));
 
         var result = client("token", transport).fetchUnresolvedIssues(from, to);
 
         assertThat(transport.headers).containsEntry("Authorization", "Bearer token");
-        assertThat(transport.uris).hasSize(4);
+        assertThat(transport.uris).hasSize(22);
         assertThat(transport.uris.getFirst().toString())
                 .contains("/api/0/projects/picke/picke-ios/issues/")
                 .contains("query=is:unresolved")
@@ -107,6 +159,16 @@ class SentryClientTest {
                 .contains("/api/0/projects/picke/picke-ios/stats/")
                 && uri.toString().contains("resolution=1d")
                 && uri.toString().contains("stat=received"));
+        assertThat(transport.uris).anyMatch(uri -> uri.toString()
+                .contains("/api/0/projects/picke/picke-ios/events/")
+                && uri.toString().contains("start=2026-09-08T00:00")
+                && uri.toString().contains("end=2026-09-10T23:59:59")
+                && uri.toString().contains("full=true"));
+        assertThat(transport.uris).anyMatch(uri -> uri.toString()
+                .contains("/api/0/organizations/picke/events-timeseries/")
+                && uri.toString().contains("project=picke-ios")
+                && uri.toString().contains("dataset=logs")
+                && uri.toString().contains("yAxis=count()"));
         assertThat(result.status()).isEqualTo(AnalyticsStatus.CONNECTED);
         assertThat(result.fetchedAt()).isNotNull();
         assertThat(result.projects()).extracting(SentryIssueReport.ProjectIssues::project,
@@ -125,6 +187,34 @@ class SentryClientTest {
                 .containsExactly(tuple("Crash A", 120L), tuple("Crash B", 5L));
         assertThat(issues.getFirst().users()).isEqualTo(31);
         assertThat(issues.getLast().users()).isNull();
+        var event = result.projects().getFirst().recentEvents().getFirst();
+        assertThat(event.eventId()).isEqualTo("event-a");
+        assertThat(event.groupId()).isEqualTo("1");
+        assertThat(event.platform()).isEqualTo("cocoa");
+        assertThat(event.type()).isEqualTo("error");
+        assertThat(event.tags()).extracting(SentryIssueReport.Tag::key, SentryIssueReport.Tag::value)
+                .containsExactly(tuple("environment", "production"), tuple("release", "1.2.3"));
+        assertThat(event.metadata()).containsEntry("filename", "VoteView.swift")
+                .containsEntry("function", "submitVote");
+        assertThat(event.details()).containsKey("user").containsKey("tags").containsKey("metadata");
+        assertThat(result.projects().getFirst().datasets())
+                .extracting(SentryIssueReport.DatasetSeries::dataset,
+                            SentryIssueReport.DatasetSeries::status,
+                            SentryIssueReport.DatasetSeries::total)
+                .containsExactly(
+                        tuple("errors", AnalyticsStatus.CONNECTED, 6L),
+                        tuple("logs", AnalyticsStatus.CONNECTED, 6L),
+                        tuple("spans", AnalyticsStatus.CONNECTED, 6L),
+                        tuple("profile_functions", AnalyticsStatus.CONNECTED, 6L),
+                        tuple("tracemetrics", AnalyticsStatus.CONNECTED, 6L));
+        assertThat(result.projects().getFirst().metricCatalog().entries().getFirst())
+                .containsEntry("name", "app.launch.count")
+                .containsEntry("count", 8);
+        assertThat(result.projects().getFirst().sessionHealth().series().getFirst().status())
+                .isEqualTo("healthy");
+        assertThat(result.projects().getFirst().sessionHealth().series().getFirst().total()).isEqualTo(9);
+        assertThat(result.projects().getFirst().releases().entries().getFirst())
+                .containsEntry("version", "picke-ios@1.2.3+45");
     }
 
     @Test

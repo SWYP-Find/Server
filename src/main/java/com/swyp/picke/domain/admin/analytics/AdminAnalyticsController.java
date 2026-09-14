@@ -38,8 +38,8 @@ public class AdminAnalyticsController {
     }
 
     @GetMapping("/sentry")
-    @Operation(summary = "Sentry 미해결 이슈 상위 목록",
-               description = "프로젝트별 일간 수신 오류와 미해결 이슈 최대 20건을 반환한다. 토큰·프로젝트 설정이 없으면 NOT_CONFIGURED")
+    @Operation(summary = "Sentry 프로젝트 전체 관측 데이터",
+               description = "프로젝트별 오류·로그·성능·프로파일·메트릭·세션·릴리즈와 full 오류 이벤트를 반환한다. 토큰·프로젝트 설정이 없으면 NOT_CONFIGURED")
     public ApiResponse<SentryIssueReport> sentry(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {

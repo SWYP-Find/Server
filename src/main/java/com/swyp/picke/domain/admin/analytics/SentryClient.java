@@ -9,6 +9,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +33,8 @@ public class SentryClient {
     private static final int ISSUE_LIMIT = 20;
     /** full=true 는 Sentry가 페이지 크기를 최대 10건으로 제한한다. */
     private static final int RECENT_EVENT_LIMIT = 10;
+    private static final int ANALYTICS_EVENT_BATCH_SIZE = 10;
+    private static final String ANALYTICS_EVENT_FIELD = "tag[analytics_event,string]";
     private static final List<String> DATASETS = List.of(
             "errors", "logs", "spans", "profile_functions", "tracemetrics");
 
@@ -105,6 +108,7 @@ public class SentryClient {
                     .map(dataset -> fetchDataset(project, dataset, from, to))
                     .toList());
             datasets.add(fetchSignUps(project, from, to));
+            SentryIssueReport.AnalyticsEventCatalog analyticsEvents = fetchAnalyticsEvents(project, from, to);
             SentryIssueReport.MetricCatalog metricCatalog = fetchMetricCatalog(project, from, to);
             SentryIssueReport.SessionHealth sessionHealth = fetchSessionHealth(project, from, to);
             SentryIssueReport.ResourceCatalog releases = fetchReleases(project);
@@ -116,7 +120,7 @@ public class SentryClient {
             long total = days.stream().mapToLong(SentryIssueReport.Day::events).sum();
             return new SentryIssueReport.ProjectIssues(
                     project, AnalyticsStatus.CONNECTED, total, unresolvedTotal, days, issues, recentEvents,
-                    datasets, metricCatalog, sessionHealth, releases);
+                    datasets, analyticsEvents, metricCatalog, sessionHealth, releases);
         } catch (Exception e) {
             log.warn("[Sentry] 핵심 응답 파싱 실패: project={}, {}", project, e.getClass().getSimpleName());
             return SentryIssueReport.emptyProject(project, AnalyticsStatus.UNAVAILABLE);
@@ -263,6 +267,204 @@ public class SentryClient {
                 .queryParam("expand", "context")
                 .buildAndExpand(organization)
                 .toUri();
+    }
+
+    private SentryIssueReport.AnalyticsEventCatalog fetchAnalyticsEvents(
+            String project, LocalDate from, LocalDate to) {
+        AnalyticsHttpResponse catalogResponse = transport.get(analyticsEventCatalogUri(project, from, to),
+                Map.of("Authorization", "Bearer " + authToken));
+        if (!catalogResponse.isSuccess() || !catalogResponse.isJson()) {
+            log.warn("[Sentry] 분석 이벤트 목록 조회 실패: project={}, status={}",
+                    project, catalogResponse.statusCode());
+            return unavailableAnalyticsEvents();
+        }
+
+        try {
+            List<SentryIssueReport.AnalyticsEventSeries> catalog = parseAnalyticsEventCatalog(
+                    catalogResponse.body());
+            if (catalog.isEmpty()) {
+                return new SentryIssueReport.AnalyticsEventCatalog(
+                        AnalyticsStatus.CONNECTED, 0L, List.of());
+            }
+
+            Map<String, List<SentryIssueReport.AnalyticsEventDay>> daysByEvent = new LinkedHashMap<>();
+            List<String> names = catalog.stream().map(SentryIssueReport.AnalyticsEventSeries::event).toList();
+            for (int start = 0; start < names.size(); start += ANALYTICS_EVENT_BATCH_SIZE) {
+                List<String> batch = names.subList(start, Math.min(start + ANALYTICS_EVENT_BATCH_SIZE, names.size()));
+                AnalyticsHttpResponse seriesResponse = transport.get(
+                        analyticsEventTimeseriesUri(project, batch, from, to),
+                        Map.of("Authorization", "Bearer " + authToken));
+                if (!seriesResponse.isSuccess() || !seriesResponse.isJson()) {
+                    log.warn("[Sentry] 분석 이벤트 추이 조회 실패: project={}, status={}",
+                            project, seriesResponse.statusCode());
+                    return unavailableAnalyticsEvents();
+                }
+                daysByEvent.putAll(parseAnalyticsEventDays(seriesResponse.body(), batch, from, to));
+            }
+
+            List<SentryIssueReport.AnalyticsEventSeries> events = catalog.stream()
+                    .map(series -> new SentryIssueReport.AnalyticsEventSeries(
+                            series.event(), series.total(), series.uniqueUsers(), series.firstSeen(), series.lastSeen(),
+                            daysByEvent.getOrDefault(series.event(), emptyAnalyticsDays(from, to))))
+                    .toList();
+            long total = events.stream().map(SentryIssueReport.AnalyticsEventSeries::total)
+                    .filter(value -> value != null).mapToLong(Long::longValue).sum();
+            return new SentryIssueReport.AnalyticsEventCatalog(
+                    AnalyticsStatus.CONNECTED, total, events);
+        } catch (Exception e) {
+            log.warn("[Sentry] 분석 이벤트 응답 파싱 실패: project={}, {}",
+                    project, e.getClass().getSimpleName());
+            return unavailableAnalyticsEvents();
+        }
+    }
+
+    private URI analyticsEventCatalogUri(String project, LocalDate from, LocalDate to) {
+        return UriComponentsBuilder.fromUriString(baseUrl)
+                .path("/api/0/organizations/{organization}/events/")
+                .queryParam("project", project)
+                .queryParam("dataset", "errors")
+                .queryParam("start", from.atStartOfDay())
+                .queryParam("end", to.atTime(LocalTime.MAX).withNano(0))
+                .queryParam("field", ANALYTICS_EVENT_FIELD)
+                .queryParam("field", "count()")
+                .queryParam("field", "count_unique(user)")
+                .queryParam("field", "min(timestamp)")
+                .queryParam("field", "max(timestamp)")
+                .queryParam("query", "has:analytics_event")
+                .queryParam("sort", "-count()")
+                .queryParam("per_page", 100)
+                .buildAndExpand(organization)
+                .toUri();
+    }
+
+    private URI analyticsEventTimeseriesUri(
+            String project, List<String> events, LocalDate from, LocalDate to) {
+        String query = events.stream()
+                .map(event -> "analytics_event:\"" + event.replace("\"", "\\\"") + "\"")
+                .reduce((left, right) -> left + " OR " + right)
+                .map(value -> events.size() > 1 ? "(" + value + ")" : value)
+                .orElse("has:analytics_event");
+        return UriComponentsBuilder.fromUriString(baseUrl)
+                .path("/api/0/organizations/{organization}/events-timeseries/")
+                .queryParam("project", project)
+                .queryParam("dataset", "errors")
+                .queryParam("start", from.atStartOfDay())
+                .queryParam("end", to.atTime(LocalTime.MAX).withNano(0))
+                .queryParam("interval", 86400)
+                .queryParam("query", query)
+                .queryParam("groupBy", ANALYTICS_EVENT_FIELD)
+                .queryParam("topEvents", events.size())
+                .queryParam("sort", "-count()")
+                .queryParam("excludeOther", 1)
+                .queryParam("yAxis", "count()")
+                .queryParam("yAxis", "count_unique(user)")
+                .buildAndExpand(organization)
+                .toUri();
+    }
+
+    private List<SentryIssueReport.AnalyticsEventSeries> parseAnalyticsEventCatalog(String body) throws Exception {
+        JsonNode data = objectMapper.readTree(body).path("data");
+        if (!data.isArray()) {
+            throw new IllegalArgumentException("Sentry analytics event response must contain data.");
+        }
+        List<SentryIssueReport.AnalyticsEventSeries> events = new ArrayList<>();
+        for (JsonNode row : data) {
+            String event = analyticsEventName(row);
+            if (!StringUtils.hasText(event)) {
+                continue;
+            }
+            events.add(new SentryIssueReport.AnalyticsEventSeries(
+                    event,
+                    number(row, "count()"),
+                    number(row, "count_unique(user)"),
+                    instant(row, "min(timestamp)"),
+                    instant(row, "max(timestamp)"),
+                    List.of()));
+        }
+        return events.stream()
+                .sorted(Comparator.comparing(SentryIssueReport.AnalyticsEventSeries::total,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .toList();
+    }
+
+    private Map<String, List<SentryIssueReport.AnalyticsEventDay>> parseAnalyticsEventDays(
+            String body, List<String> events, LocalDate from, LocalDate to) throws Exception {
+        JsonNode timeSeries = objectMapper.readTree(body).path("timeSeries");
+        if (!timeSeries.isArray()) {
+            throw new IllegalArgumentException("Sentry analytics timeseries response must contain timeSeries.");
+        }
+        Map<String, Map<LocalDate, Long>> counts = new LinkedHashMap<>();
+        Map<String, Map<LocalDate, Long>> users = new LinkedHashMap<>();
+        for (JsonNode series : timeSeries) {
+            String event = analyticsEventNameFromGroup(series.path("groupBy"));
+            if (!StringUtils.hasText(event) || !events.contains(event)) {
+                continue;
+            }
+            Map<String, Map<LocalDate, Long>> target = "count_unique(user)".equals(text(series, "yAxis"))
+                    ? users : counts;
+            Map<LocalDate, Long> valuesByDate = target.computeIfAbsent(event, ignored -> new LinkedHashMap<>());
+            JsonNode values = series.path("values");
+            if (!values.isArray()) {
+                continue;
+            }
+            for (JsonNode point : values) {
+                LocalDate date = Instant.ofEpochMilli(point.path("timestamp").asLong())
+                        .atZone(ZoneOffset.UTC).toLocalDate();
+                if (!date.isBefore(from) && !date.isAfter(to) && point.path("value").isNumber()) {
+                    valuesByDate.merge(date, point.path("value").asLong(), Long::sum);
+                }
+            }
+        }
+
+        Map<String, List<SentryIssueReport.AnalyticsEventDay>> result = new LinkedHashMap<>();
+        for (String event : events) {
+            List<SentryIssueReport.AnalyticsEventDay> days = new ArrayList<>();
+            for (LocalDate date = from; !date.isAfter(to); date = date.plusDays(1)) {
+                days.add(new SentryIssueReport.AnalyticsEventDay(
+                        date,
+                        counts.getOrDefault(event, Map.of()).getOrDefault(date, 0L),
+                        users.getOrDefault(event, Map.of()).getOrDefault(date, 0L)));
+            }
+            result.put(event, List.copyOf(days));
+        }
+        return result;
+    }
+
+    private String analyticsEventName(JsonNode row) {
+        for (String field : List.of(ANALYTICS_EVENT_FIELD, "tag[analytics_event]", "analytics_event")) {
+            String value = text(row, field);
+            if (StringUtils.hasText(value)) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private String analyticsEventNameFromGroup(JsonNode groupBy) {
+        if (!groupBy.isArray()) {
+            return null;
+        }
+        for (JsonNode group : groupBy) {
+            String key = text(group, "key");
+            if (ANALYTICS_EVENT_FIELD.equals(key) || "tag[analytics_event]".equals(key)
+                    || "analytics_event".equals(key)) {
+                return text(group, "value");
+            }
+        }
+        return null;
+    }
+
+    private List<SentryIssueReport.AnalyticsEventDay> emptyAnalyticsDays(LocalDate from, LocalDate to) {
+        List<SentryIssueReport.AnalyticsEventDay> days = new ArrayList<>();
+        for (LocalDate date = from; !date.isAfter(to); date = date.plusDays(1)) {
+            days.add(new SentryIssueReport.AnalyticsEventDay(date, 0L, 0L));
+        }
+        return List.copyOf(days);
+    }
+
+    private SentryIssueReport.AnalyticsEventCatalog unavailableAnalyticsEvents() {
+        return new SentryIssueReport.AnalyticsEventCatalog(
+                AnalyticsStatus.UNAVAILABLE, null, List.of());
     }
 
     private SentryIssueReport.SessionHealth fetchSessionHealth(

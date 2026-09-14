@@ -2,13 +2,17 @@
 
 - `GET /api/v1/admin/adfit?from=YYYY-MM-DD&to=YYYY-MM-DD`: ADMIN 전용. 최대 366일.
 - `PUT /api/v1/admin/adfit/daily`: ADMIN 전용. `{date, unit, revenue, cost, costBasis}`.
+- `GET /api/v1/admin/adfit/session-cookie`: ADMIN 전용. `{configured, source, updatedAt}`. 쿠키 값은 응답에 담지 않는다.
+- `PUT /api/v1/admin/adfit/session-cookie`: ADMIN 전용. `{cookie}`. AdFit 콘솔에 로그인한 브라우저의 Cookie 헤더 전체를 넣는다.
 - `GET` 응답에는 기존 수동 입력 단위 리포트(`source`, `units`, `days`)와 별도로 `account`가 포함된다.
 - `account.status`: `NOT_CONFIGURED`, `CONNECTED`, `RECONNECT_REQUIRED`, `UNAVAILABLE`.
 - `account.days[]`: `{date, revenue, ctr, ecpm, fillRate, winFillRate}`. AdFit 콘솔에 값이 없거나 누락된 날짜는 `null`이며 0으로 대체하지 않는다.
 - `account.fetchedAt`: `CONNECTED`일 때 이번 관리자 조회에서 AdFit 응답을 성공적으로 파싱한 시각이다. 원천 데이터의 최종 집계 시각이나 배치 동기화 시각이 아니다.
 - `account.revenue`: 조회 기간 중 실제 내려온 일별 수익 합계. 수익 데이터가 전부 `null`이면 `null`.
 - `account.cost`, `account.roi`: AdFit 계정 자동 보고서가 광고 비용을 제공하지 않으므로 항상 `null`.
-- 자동 보고서는 `ADFIT_SESSION_COOKIE` 또는 `picke.adfit.session-cookie`가 있을 때 AdFit 콘솔 계정 종합 일별 API를 조회한다.
+- 자동 보고서는 세션 쿠키가 있을 때 AdFit 콘솔 계정 종합 일별 API를 조회한다. 쿠키는 매 조회 시점에 다시 읽는다.
+- 쿠키 우선순위: 관리자 화면 입력값(`adfit_session_cookies` 테이블, `source=ADMIN_CONSOLE`) > 환경변수 `ADFIT_SESSION_COOKIE`·`picke.adfit.session-cookie`(`source=ENVIRONMENT`). 둘 다 없으면 `source=NONE`.
+- 세션이 만료되면 `RECONNECT_REQUIRED`가 된다. 재배포 없이 `PUT /session-cookie`로 새 쿠키를 넣어 복구한다.
 - 세션 쿠키가 없으면 `NOT_CONFIGURED`, 로그인 만료·리다이렉트·HTML 로그인 응답이면 `RECONNECT_REQUIRED`, API 장애·스키마 불일치면 `UNAVAILABLE`.
 - `unit`: NATIVE_WIDE(홈·큐레이션·마이페이지 공유), BANNER(탐색), APP_TRANSITION(앱 시작).
 - `costBasis`: AD_OPERATIONS(광고 운영비), ACQUISITION(유입 광고비), SERVICE_OPERATIONS(서비스 운영비).
@@ -21,4 +25,5 @@
 - 수익 0, 비용 양수인 정상 입력은 ROI -100%다. 미입력과 구분한다.
 - AdFit 계정 자동 보고서는 콘솔 내부 API(`accountTotal/periodicIndicators`)를 사용한다. 공개 파트너 REST API가 아니므로 세션 만료 시 재연결이 필요하다.
 - 공식 참고: https://adfit.kakao.com/ , https://adfit.github.io/
-- DB: `docs/db/20260910_create_adfit_daily_reports.sql`. 현재 프로젝트는 Hibernate ddl-auto=update를 사용한다.
+- 카카오 REST API 키(`Authorization: KakaoAK ...`)로는 조회할 수 없다. 애드핏 매체주 수익용 공개 REST API가 없다. 카카오 디벨로퍼스 REST API 레퍼런스에 해당 엔드포인트가 없고, AdX Report API는 RTB 연동 DSP 전용, 카카오모먼트 리포트 API는 광고주 집행 측이다.
+- DB: `docs/db/20260910_create_adfit_daily_reports.sql`, `docs/db/20260913_create_adfit_session_cookies.sql`. 현재 프로젝트는 Hibernate ddl-auto=update를 사용한다.

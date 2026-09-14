@@ -195,7 +195,7 @@ public class SentryClient {
                 .queryParam("start", from.atStartOfDay())
                 .queryParam("end", to.atTime(LocalTime.MAX).withNano(0))
                 .queryParam("interval", 86400)
-                .queryParam("yAxis", "count()")
+                .queryParam("yAxis", dataset.equals("tracemetrics") ? "count(metric)" : "count()")
                 .buildAndExpand(organization)
                 .toUri();
     }

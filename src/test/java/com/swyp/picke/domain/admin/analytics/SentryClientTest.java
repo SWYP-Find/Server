@@ -244,6 +244,9 @@ class SentryClientTest {
                             SentryIssueReport.AnalyticsEventSeries::total,
                             SentryIssueReport.AnalyticsEventSeries::uniqueUsers)
                 .containsExactly(tuple("sign_up", 6L, null));
+        assertThat(result.projects().getFirst().analyticsEvents().events().getFirst().days())
+                .extracting(SentryIssueReport.AnalyticsEventDay::uniqueUsers)
+                .containsOnlyNulls();
         assertThat(result.projects().getFirst().metricCatalog().entries().getFirst())
                 .containsEntry("name", "app.launch.count")
                 .containsEntry("count", 8);

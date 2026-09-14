@@ -11,8 +11,8 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -89,7 +89,8 @@ public class MixpanelClient {
             Aggregation aggregation = aggregate(response.body(), targetEvents(requestedEvents), from, to);
             return new MixpanelEventReport(AnalyticsStatus.CONNECTED, Instant.now(), from, to,
                     aggregation.totalEvents(), aggregation.uniqueUsers(), to,
-                    aggregation.activeUsers(), aggregation.signUps(), aggregation.availableEvents(), aggregation.events());
+                    aggregation.activeUsers(), aggregation.signUps(), aggregation.signUpDays(),
+                    aggregation.availableEvents(), aggregation.events());
         } catch (Exception e) {
             log.warn("[Mixpanel] 원본 이벤트 파싱 실패: {}", e.getClass().getSimpleName());
             return MixpanelEventReport.empty(AnalyticsStatus.UNAVAILABLE, from, to);
@@ -116,6 +117,7 @@ public class MixpanelClient {
         Set<String> availableEvents = new HashSet<>();
         Set<String> reportUsers = new HashSet<>();
         Set<String> activeUsers = new HashSet<>();
+        Map<LocalDate, Long> signUpsByDate = new HashMap<>();
         long signUps = 0;
 
         for (String line : body.split("\n")) {
@@ -144,6 +146,9 @@ public class MixpanelClient {
                     signUps++;
                 }
             }
+            if ("sign_up".equals(event)) {
+                signUpsByDate.merge(date, 1L, Long::sum);
+            }
             if (wanted != null && !wanted.contains(event)) {
                 continue;
             }
@@ -161,7 +166,17 @@ public class MixpanelClient {
                 .toList();
         long total = series.stream().mapToLong(MixpanelEventReport.EventSeries::total).sum();
         return new Aggregation(total, (long) reportUsers.size(), (long) activeUsers.size(), signUps,
+                signUpDays(signUpsByDate, from, to),
                 availableEvents.stream().sorted().toList(), series);
+    }
+
+    private List<MixpanelEventReport.SignUpDay> signUpDays(
+            Map<LocalDate, Long> counts, LocalDate from, LocalDate to) {
+        List<MixpanelEventReport.SignUpDay> days = new ArrayList<>();
+        for (LocalDate cursor = from; !cursor.isAfter(to); cursor = cursor.plusDays(1)) {
+            days.add(new MixpanelEventReport.SignUpDay(cursor, counts.getOrDefault(cursor, 0L)));
+        }
+        return days;
     }
 
     /** 원본을 전부 받았으므로 이벤트가 없던 날짜는 미집계가 아니라 0 이다. */
@@ -187,6 +202,7 @@ public class MixpanelClient {
             Long uniqueUsers,
             Long activeUsers,
             Long signUps,
+            List<MixpanelEventReport.SignUpDay> signUpDays,
             List<String> availableEvents,
             List<MixpanelEventReport.EventSeries> events) {
     }

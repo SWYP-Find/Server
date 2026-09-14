@@ -12,6 +12,7 @@
 - `GET https://data.mixpanel.com/api/2.0/export?from_date&to_date`. 응답은 한 줄에 이벤트 하나인 NDJSON.
 - 인증은 프로젝트 API 비밀을 Basic 사용자명 자리에 넣고 비밀번호를 비우는 레거시 방식이다. 이 방식에 `project_id`를 넣으면 400이 된다. 비밀이 이미 프로젝트를 특정한다.
 - `events[].days[]`: `{date, count}`. 최신 날짜부터. 원본을 전부 받아 세므로 이벤트가 없던 날짜는 미집계가 아니라 **0**이다.
+- `signUpDays[]`: 선택 기간 전체의 `sign_up` 일별 가입 수. 이벤트 선택값과 무관하게 집계하며 날짜 오름차순이다.
 - `events`를 비우면 기간에 나타난 이벤트 전부를 발생 수 내림차순으로 준다. 이벤트 이름을 미리 설정해 둘 필요가 없다.
 - 원본을 전부 받으므로 기간은 **31일까지**다(`MixpanelClient.MAX_DAYS`). 4일치가 약 2MB다.
 - `properties.time`은 프로젝트 타임존 기준 epoch 초이고 `from_date`·`to_date` 경계도 같은 타임존을 따른다. 둘을 같은 타임존으로 묶어야 Mixpanel 화면 숫자와 맞는다. `picke.analytics.mixpanel.project-zone`(기본 `UTC`)로 맞춘다. 이 프로젝트는 UTC로 실측 확인했다.
@@ -34,12 +35,19 @@
 
 - `GET /api/0/projects/{org}/{project}/issues/?query=is:unresolved&sort=freq`. 조직 인증 토큰 `Authorization: Bearer`.
 - 절대 기간을 쓰려면 `statsPeriod`를 빈 값으로 함께 보낸다. 생략하면 Sentry 기본 기간이 적용된다.
-- iOS·Android를 각각 호출해 `projects[]`로 나눠 준다. `projects[]`: `{project, status, totalEvents, issues[]}`.
+- iOS·Android를 각각 호출해 `projects[]`로 나눠 준다.
 - 한 프로젝트가 막혀도 다른 프로젝트는 살린다. 대신 최상위 `status`는 `UNAVAILABLE`, 최상위 `totalEvents`는 `null`이다. 일부만 더한 값을 전체 합계처럼 보여주지 않는다.
-- 프로젝트별 최대 20건. `projects[].totalEvents`는 그 20건의 합계이며 프로젝트 전체 이벤트 수가 아니다.
+- `projects[].totalEvents`는 stats API의 선택 기간 전체 수신 이벤트 합계다. `issues[]`는 미해결 상위 20건이다.
 - `sort=freq`는 절대 기간에서 이벤트 수 내림차순을 보장하지 않는다(실측 확인). 응답 순서를 믿지 않고 서버가 다시 정렬한다.
 - `issues[].events`는 Sentry가 문자열로 주기도 한다. 숫자·문자열 모두 읽는다.
+- `recentEvents[]`는 `/events/?full=true`의 최근 오류 이벤트 최대 10건이다. 자주 쓰는 필드를 정규화하고 `details`에 사용자·브레드크럼·컨텍스트·예외·스택트레이스 등 전체 JSON을 보존한다.
+- `datasets[]`는 Picke-iOS에서 활성화한 `errors`, `logs`, `spans`, `profile_functions`, `tracemetrics` 데이터셋의 일별 발생량이다. 각 데이터셋 실패는 프로젝트 핵심 오류/이슈 조회를 실패시키지 않는다.
+- `metricCatalog`는 커스텀 메트릭의 이름·타입·단위·건수·마지막 수집 시각과 컨텍스트를 원본 형태로 준다.
+- `sessionHealth`는 자동 세션 추적의 `healthy`, `errored`, `crashed` 등 상태별 합계와 일별 시리즈를 준다.
+- `releases`는 프로젝트 최근 릴리즈 최대 20개의 버전·빌드·커밋·배포·상태 원본을 준다.
+- iOS 설정에서 Session Replay는 샘플 비율이 0으로 꺼져 있으므로 Replay 녹화 데이터는 조회하지 않는다.
 - 환경변수: `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`(기본 `picke`), `SENTRY_PROJECTS`(기본 `picke-ios,picke-android`). 설정 키는 `picke.analytics.sentry.*`.
+- Explore·메트릭·세션 API는 `org:read`, 오류 이벤트는 `event:read`, 프로젝트·릴리즈 조회는 `project:read` 또는 해당 상위 권한이 필요하다.
 - 앱은 이미 같은 org·project로 Sentry에 리포트한다. 토큰만 서버에 넣으면 같은 데이터를 읽는다.
 - 실측(2026-09-14, 최근 30일): `picke-ios` 미해결 2건·1,765 이벤트, `picke-android` 9건·181 이벤트.
 

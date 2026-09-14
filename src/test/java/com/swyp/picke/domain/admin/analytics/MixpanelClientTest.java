@@ -92,6 +92,11 @@ class MixpanelClientTest {
         assertThat(result.summaryDate()).isEqualTo(to);
         assertThat(result.activeUsers()).isEqualTo(2);
         assertThat(result.signUps()).isEqualTo(1);
+        assertThat(result.signUpDays())
+                .extracting(MixpanelEventReport.SignUpDay::date, MixpanelEventReport.SignUpDay::count)
+                .containsExactly(tuple(LocalDate.of(2026, 9, 8), 0L),
+                                 tuple(LocalDate.of(2026, 9, 9), 0L),
+                                 tuple(LocalDate.of(2026, 9, 10), 1L));
         assertThat(result.events().getFirst().total()).isEqualTo(3);
         assertThat(result.events().getFirst().uniqueUsers()).isEqualTo(3);
         assertThat(result.events().getFirst().firstSeen()).isNotNull();

@@ -26,6 +26,20 @@ public class AdminAdfitController {
         return ApiResponse.onSuccess(service.report(from, to));
     }
 
+    @GetMapping("/session-cookie")
+    @Operation(summary = "AdFit 세션 쿠키 상태", description = "쿠키 보유 여부와 마지막 갱신 시각만 준다. 쿠키 값은 응답에 담지 않는다")
+    public ApiResponse<AdfitSessionCookieStatus> sessionCookieStatus() {
+        return ApiResponse.onSuccess(service.sessionCookieStatus());
+    }
+
+    @PutMapping("/session-cookie")
+    @Operation(summary = "AdFit 세션 쿠키 갱신",
+               description = "AdFit 콘솔에 로그인한 브라우저의 Cookie 헤더 전체를 넣는다. 재배포 없이 자동 수익 조회가 다시 붙는다")
+    public ApiResponse<Void> updateSessionCookie(@Valid @RequestBody AdfitSessionCookieRequest request) {
+        service.updateSessionCookie(request);
+        return ApiResponse.onSuccess(null);
+    }
+
     @PutMapping("/daily")
     @Operation(summary = "광고 단위별 일일 수익·배분 비용 저장", description = "같은 날짜·광고 단위는 수정한다. 비용을 여러 단위에 중복 입력하지 않는다.")
     public ApiResponse<Void> save(@Valid @RequestBody AdfitDailyRequest request) {

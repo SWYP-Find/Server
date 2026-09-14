@@ -105,6 +105,10 @@ public class AdpickCampaignSyncService {
      * <p>앱 캠페인과 같은 {@code ADPICK_API} 소스를 쓰되 식별자에 접두사를 둬서 섞이지 않게 한다.
      * 소스를 새로 만들면 {@code ck_ad_creatives_source} 제약을 배포 때 사람이 직접 ALTER 해야 한다.
      * 상품 하나 늘리자고 그 절차를 얹지 않는다.
+     *
+     * <p>상품 하나를 지면 하나에만 두면 지면당 재고가 전체의 1/지면수로 쪼개진다.
+     * 쇼핑 상품은 지면을 가릴 이유가 없으므로 모든 쇼핑 지면에 각각 등록해 지면마다 전량을 쓴다.
+     * 노출·클릭 집계는 소재 단위라, 지면별로 따로 세려면 소재도 지면별로 나뉘어 있어야 한다.
      */
     private int syncShopping(Map<String, AdCreative> existing, Set<String> seen) {
         if (!adpickShoppingClient.isConfigured() || shoppingSlots.isEmpty()) {
@@ -115,19 +119,25 @@ public class AdpickCampaignSyncService {
                 .filter(AdpickShoppingResponse::isRenderable)
                 .toList();
 
+        Set<String> buyUrls = new HashSet<>();
+        int synced = 0;
         for (AdpickShoppingResponse product : products) {
-            String externalId = shoppingIdOf(product.buyUrl());
-            if (!seen.add(externalId)) {
+            if (!buyUrls.add(product.buyUrl())) {
                 // 쇼핑과 핫딜에 같은 상품이 함께 실릴 수 있다. 먼저 담은 쪽만 남긴다.
                 continue;
             }
-            upsertShopping(existing.get(externalId), externalId, product);
+            for (AdSlotCode target : shoppingSlots) {
+                String externalId = shoppingIdOf(product.buyUrl(), target);
+                seen.add(externalId);
+                upsertShopping(existing.get(externalId), externalId, target, product);
+                synced++;
+            }
         }
-        return products.size();
+        return synced;
     }
 
-    private void upsertShopping(AdCreative found, String externalId, AdpickShoppingResponse product) {
-        AdSlotCode target = slotOf(externalId);
+    private void upsertShopping(
+            AdCreative found, String externalId, AdSlotCode target, AdpickShoppingResponse product) {
         if (found != null) {
             found.syncFromAdpick(
                     truncate(product.productName(), TITLE_MAX_LENGTH),
@@ -162,11 +172,14 @@ public class AdpickCampaignSyncService {
     /**
      * 상품에는 애드픽이 주는 코드가 없어 구매 링크에서 식별자를 만든다.
      * 링크가 그대로면 같은 소재로 갱신되고, 바뀌면 새 소재가 된다.
+     *
+     * <p>같은 상품이 지면마다 따로 등록되므로 지면까지 해시에 넣는다.
+     * 길이와 모양({@code sh} + 16진수 10자)은 그대로 둔다. 조회 쪽이 이 형태로 쇼핑 소재를 가려낸다.
      */
-    private String shoppingIdOf(String buyUrl) {
+    private String shoppingIdOf(String buyUrl, AdSlotCode slot) {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256")
-                    .digest(buyUrl.getBytes(StandardCharsets.UTF_8));
+                    .digest((buyUrl + "|" + slot.name()).getBytes(StandardCharsets.UTF_8));
             StringBuilder hex = new StringBuilder(SHOPPING_ID_PREFIX);
             for (int i = 0; hex.length() < SHOPPING_ID_PREFIX.length() + SHOPPING_ID_LENGTH; i++) {
                 hex.append(String.format("%02x", digest[i]));
@@ -175,15 +188,6 @@ public class AdpickCampaignSyncService {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 을 쓸 수 없다", e);
         }
-    }
-
-    /**
-     * 지면은 식별자로 정한다. 매 동기화마다 다시 뽑으면 같은 상품이 지면을 옮겨 다녀
-     * 노출 집계가 지면별로 흩어진다.
-     */
-    private AdSlotCode slotOf(String externalId) {
-        int index = Math.floorMod(externalId.hashCode(), shoppingSlots.size());
-        return shoppingSlots.get(index);
     }
 
     private void upsert(AdCreative found, AdpickCampaignResponse campaign) {

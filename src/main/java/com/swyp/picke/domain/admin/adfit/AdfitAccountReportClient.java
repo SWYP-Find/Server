@@ -11,8 +11,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -24,19 +24,19 @@ public class AdfitAccountReportClient {
     private static final String REPORT_URL =
             "https://adfit.kakao.com/api/v2/report/accountTotal/periodicIndicators";
 
-    private final String sessionCookie;
+    /** 쿠키는 조회할 때마다 다시 읽는다. 관리자가 만료된 값을 갈아끼우면 재배포 없이 바로 반영돼야 한다. */
+    private final Supplier<String> sessionCookieSupplier;
     private final AdfitHttpTransport transport;
     private final ObjectMapper objectMapper;
 
     @Autowired
-    public AdfitAccountReportClient(
-            @Value("${picke.adfit.session-cookie:${ADFIT_SESSION_COOKIE:}}") String sessionCookie,
-            AdfitHttpTransport transport) {
-        this(sessionCookie, transport, new ObjectMapper());
+    public AdfitAccountReportClient(AdfitSessionCookieStore cookieStore, AdfitHttpTransport transport) {
+        this(cookieStore::current, transport, new ObjectMapper());
     }
 
-    AdfitAccountReportClient(String sessionCookie, AdfitHttpTransport transport, ObjectMapper objectMapper) {
-        this.sessionCookie = sessionCookie;
+    AdfitAccountReportClient(Supplier<String> sessionCookieSupplier, AdfitHttpTransport transport,
+                             ObjectMapper objectMapper) {
+        this.sessionCookieSupplier = sessionCookieSupplier;
         this.transport = transport;
         this.objectMapper = objectMapper;
     }
@@ -44,6 +44,7 @@ public class AdfitAccountReportClient {
     public AdfitReport.AccountReport fetch(LocalDate from, LocalDate to, long expectedDays) {
         validateRange(from, to);
         List<AdfitReport.AccountDay> emptyDays = nullDays(from, to);
+        String sessionCookie = sessionCookieSupplier.get();
         if (!StringUtils.hasText(sessionCookie)) {
             return report(AdfitAccountReportStatus.NOT_CONFIGURED, null, expectedDays, null, emptyDays);
         }

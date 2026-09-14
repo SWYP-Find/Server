@@ -214,6 +214,29 @@ class AdpickCampaignSyncServiceTest {
     }
 
     @Test
+    @DisplayName("쇼핑 상품은 모든 쇼핑 지면에 각각 담긴다. 지면 하나에만 두면 지면당 재고가 쪼개진다")
+    void sync_registersShoppingProductOnEverySlot() {
+        ReflectionTestUtils.setField(syncService, "shoppingSlots",
+                List.of(AdSlotCode.HOME_FEED, AdSlotCode.CHAT_ROOM_INLINE, AdSlotCode.PROFILE_BOTTOM));
+        when(adpickCampaignClient.fetchCampaigns()).thenReturn(List.of());
+        when(adpickShoppingClient.isConfigured()).thenReturn(true);
+        when(adpickShoppingClient.fetchProducts()).thenReturn(List.of(
+                product("호텔 A", "https://adpick.co.kr/apis/goshopping.php?affid=ab2c41&offer=1&url=a")));
+
+        assertThat(syncService.sync()).isEqualTo(3);
+
+        ArgumentCaptor<AdCreative> captor = ArgumentCaptor.forClass(AdCreative.class);
+        verify(adCreativeRepository, times(3)).save(captor.capture());
+        assertThat(captor.getAllValues()).extracting(AdCreative::getSlot)
+                .containsExactlyInAnyOrder(AdSlotCode.HOME_FEED, AdSlotCode.CHAT_ROOM_INLINE,
+                                           AdSlotCode.PROFILE_BOTTOM);
+        // 지면별로 노출·클릭을 따로 세려면 식별자도 지면별로 달라야 한다.
+        assertThat(captor.getAllValues()).extracting(AdCreative::getExternalId)
+                .doesNotHaveDuplicates()
+                .allMatch(id -> id.matches("sh[0-9a-f]{10}"));
+    }
+
+    @Test
     @DisplayName("같은 상품이 쇼핑과 핫딜에 겹쳐 실려도 한 번만 담는다")
     void sync_deduplicatesProductsAcrossFeeds() {
         String buyUrl = "https://adpick.co.kr/apis/goshopping.php?affid=ab2c41&offer=1&url=same";

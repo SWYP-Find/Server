@@ -7,15 +7,28 @@
 
 ## Mixpanel
 
-- Query API `GET /api/query/segmentation`. 서비스 계정 Basic 인증이며 모든 요청에 `project_id`가 필요하다.
-- 이벤트 이름은 서버가 모른다. 앱이 무엇을 트래킹하는지에 달렸으므로 `events` 요청 파라미터 또는 `picke.analytics.mixpanel.default-events` 설정으로 받는다. 둘 다 비면 `NOT_CONFIGURED`.
-- `events[].days[]`: `{date, count}`. 최신 날짜부터. Mixpanel이 값을 주지 않은 날짜는 `null`이며 0이 아니다.
-- 이벤트 여러 개를 요청했을 때 하나라도 실패하면 전체가 `UNAVAILABLE`이다. 일부 합계를 전체처럼 보여주지 않는다.
-- segmentation은 Mixpanel이 유지보수 모드로 둔 엔드포인트다. 저장된 리포트(bookmark)를 미리 만들 필요가 없어 날짜만 바꿔 조회하는 관리자 화면에 맞다. 막히면 Insights Query API로 옮긴다.
-- **현재 Picke의 Mixpanel 플랜은 Query API를 허용하지 않는다**(2026-09-14 실측: 프로젝트 시크릿으로 인증은 통과하고 `HTTP 402 Your plan does not allow API calls`). 자격을 넣어도 `UNAVAILABLE`이 된다. 유료 플랜 전환 전까지는 이 지면이 비어 있는 게 정상이다.
-- 프로젝트 토큰(`project_token`)은 이벤트 수집용이라 조회 인증에 쓰이지 않는다(401).
-- 환경변수: `MIXPANEL_PROJECT_ID`, `MIXPANEL_SERVICE_ACCOUNT_USERNAME`, `MIXPANEL_SERVICE_ACCOUNT_SECRET`. 설정 키는 `picke.analytics.mixpanel.*`.
+집계 API가 아니라 **원본 이벤트를 내려받아 서버가 직접 센다.**
+
+- `GET https://data.mixpanel.com/api/2.0/export?from_date&to_date`. 응답은 한 줄에 이벤트 하나인 NDJSON.
+- 인증은 프로젝트 API 비밀을 Basic 사용자명 자리에 넣고 비밀번호를 비우는 레거시 방식이다. 이 방식에 `project_id`를 넣으면 400이 된다. 비밀이 이미 프로젝트를 특정한다.
+- `events[].days[]`: `{date, count}`. 최신 날짜부터. 원본을 전부 받아 세므로 이벤트가 없던 날짜는 미집계가 아니라 **0**이다.
+- `events`를 비우면 기간에 나타난 이벤트 전부를 발생 수 내림차순으로 준다. 이벤트 이름을 미리 설정해 둘 필요가 없다.
+- 원본을 전부 받으므로 기간은 **31일까지**다(`MixpanelClient.MAX_DAYS`). 4일치가 약 2MB다.
+- `properties.time`은 프로젝트 타임존 기준 epoch 초이고 `from_date`·`to_date` 경계도 같은 타임존을 따른다. 둘을 같은 타임존으로 묶어야 Mixpanel 화면 숫자와 맞는다. `picke.analytics.mixpanel.project-zone`(기본 `UTC`)로 맞춘다. 이 프로젝트는 UTC로 실측 확인했다.
+- 경계 하루가 타임존 차이로 걸쳐 들어올 수 있어 요청 기간 밖 이벤트는 버린다.
+
+### 왜 집계 API를 안 쓰는가
+
+- **현재 Picke의 Mixpanel 플랜은 Query API를 허용하지 않는다.** 2026-09-14 실측: `/api/query/segmentation`·`/api/query/insights` 모두 `HTTP 402 Your plan does not allow API calls`. 인증은 통과하므로 자격 문제가 아니다.
+- 같은 플랜에서 Raw Export는 **200으로 열려 있다.** 그래서 이쪽으로 붙였다. Mixpanel MCP나 다른 클라이언트를 붙여도 Query API를 호출하는 한 같은 402를 받는다.
+- 서비스 계정 방식(`username:secret`)은 이 프로젝트에서 401이다. 프로젝트 토큰(`project_token`)은 이벤트 수집용이라 조회 인증에 쓰이지 않는다(401).
+- 실측(2026-09-14, 09-10~09-13): 16종 이벤트, `screen_view` 644 · `network_request` 561 · `ui_action` 172 · `onboarding_step` 65 · `battle_step` 44 · `sign_up` 3 등.
+
+### 환경변수
+
+- `MIXPANEL_API_SECRET` 하나면 된다. 설정 키는 `picke.analytics.mixpanel.*`.
 - EU·인도 데이터 거주 프로젝트는 호스트가 다르다. `picke.analytics.mixpanel.base-url`로 바꾼다.
+- `ad_click` 이벤트에 `unit`·`placement`·`format` 속성이 붙어 온다. AdFit 클릭은 `unit` 없이 `format=popup`·`placement=app_start`로 들어온다. 광고 클릭을 매체별로 나누려면 이 속성을 쓴다.
 
 ## Sentry
 

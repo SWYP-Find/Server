@@ -12,7 +12,8 @@ import org.springframework.stereotype.Component;
 @Component
 class JavaNetAnalyticsHttpTransport implements AnalyticsHttpTransport {
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(3);
-    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(10);
+    /** Mixpanel 원본 이벤트는 한 달치가 수십 MB 가 된다. 내려받는 시간을 감당할 만큼 둔다. */
+    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(60);
 
     private final HttpClient client = HttpClient.newBuilder()
             .connectTimeout(CONNECT_TIMEOUT)

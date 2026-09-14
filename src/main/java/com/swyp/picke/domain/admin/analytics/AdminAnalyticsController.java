@@ -28,12 +28,12 @@ public class AdminAnalyticsController {
 
     @GetMapping("/mixpanel")
     @Operation(summary = "Mixpanel 이벤트 일별 발생 수",
-               description = "events 를 비우면 picke.analytics.mixpanel.default-events 를 쓴다. 설정·토큰이 없으면 NOT_CONFIGURED")
+               description = "events 를 비우면 기간에 나타난 이벤트 전부를 센다. 원본 이벤트를 받아 세므로 기간은 31일까지")
     public ApiResponse<MixpanelEventReport> mixpanel(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) List<String> events) {
-        validateRange(from, to);
+        validateRange(from, to, MixpanelClient.MAX_DAYS);
         return ApiResponse.onSuccess(mixpanelClient.fetchDailyCounts(events, from, to));
     }
 
@@ -43,14 +43,14 @@ public class AdminAnalyticsController {
     public ApiResponse<SentryIssueReport> sentry(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
-        validateRange(from, to);
+        validateRange(from, to, MAX_DAYS);
         return ApiResponse.onSuccess(sentryClient.fetchUnresolvedIssues(from, to));
     }
 
-    private void validateRange(LocalDate from, LocalDate to) {
+    private void validateRange(LocalDate from, LocalDate to, long maxDays) {
         long days = ChronoUnit.DAYS.between(from, to) + 1;
-        if (days < 1 || days > MAX_DAYS) {
-            throw new IllegalArgumentException("조회 기간은 1일부터 366일까지입니다.");
+        if (days < 1 || days > maxDays) {
+            throw new IllegalArgumentException("조회 기간은 1일부터 " + maxDays + "일까지입니다.");
         }
     }
 }

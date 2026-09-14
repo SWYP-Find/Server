@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -30,7 +31,7 @@ public class SentryClient {
 
     private final String baseUrl;
     private final String organization;
-    private final String project;
+    private final List<String> projects;
     private final String authToken;
     private final AnalyticsHttpTransport transport;
     private final ObjectMapper objectMapper;
@@ -38,18 +39,19 @@ public class SentryClient {
     @Autowired
     public SentryClient(
             @Value("${picke.analytics.sentry.base-url:https://sentry.io}") String baseUrl,
-            @Value("${picke.analytics.sentry.organization:${SENTRY_ORG:}}") String organization,
-            @Value("${picke.analytics.sentry.project:${SENTRY_PROJECT:}}") String project,
+            @Value("${picke.analytics.sentry.organization:${SENTRY_ORG:picke}}") String organization,
+            @Value("${picke.analytics.sentry.projects:${SENTRY_PROJECTS:picke-ios,picke-android}}")
+            List<String> projects,
             @Value("${picke.analytics.sentry.auth-token:${SENTRY_AUTH_TOKEN:}}") String authToken,
             AnalyticsHttpTransport transport) {
-        this(baseUrl, organization, project, authToken, transport, new ObjectMapper());
+        this(baseUrl, organization, projects, authToken, transport, new ObjectMapper());
     }
 
-    SentryClient(String baseUrl, String organization, String project, String authToken,
+    SentryClient(String baseUrl, String organization, List<String> projects, String authToken,
                  AnalyticsHttpTransport transport, ObjectMapper objectMapper) {
         this.baseUrl = baseUrl;
         this.organization = organization;
-        this.project = project;
+        this.projects = projects;
         this.authToken = authToken;
         this.transport = transport;
         this.objectMapper = objectMapper;
@@ -60,11 +62,26 @@ public class SentryClient {
             return SentryIssueReport.empty(AnalyticsStatus.NOT_CONFIGURED);
         }
 
-        AnalyticsHttpResponse response = transport.get(uri(from, to),
+        List<SentryIssueReport.ProjectIssues> fetched = projects.stream()
+                .map(project -> fetchProject(project, from, to))
+                .toList();
+        boolean allConnected = fetched.stream()
+                .allMatch(project -> project.status() == AnalyticsStatus.CONNECTED);
+        Long total = allConnected
+                ? fetched.stream().mapToLong(SentryIssueReport.ProjectIssues::totalEvents).sum()
+                : null;
+        return new SentryIssueReport(
+                allConnected ? AnalyticsStatus.CONNECTED : AnalyticsStatus.UNAVAILABLE,
+                Instant.now(), total, fetched);
+    }
+
+    /** 한 프로젝트가 막혀도 다른 프로젝트는 살린다. iOS 가 죽었다고 Android 지표까지 감추지 않는다. */
+    private SentryIssueReport.ProjectIssues fetchProject(String project, LocalDate from, LocalDate to) {
+        AnalyticsHttpResponse response = transport.get(uri(project, from, to),
                 Map.of("Authorization", "Bearer " + authToken));
         if (!response.isSuccess() || !response.isJson()) {
-            log.warn("[Sentry] 이슈 조회 실패: status={}", response.statusCode());
-            return SentryIssueReport.empty(AnalyticsStatus.UNAVAILABLE);
+            log.warn("[Sentry] 이슈 조회 실패: project={}, status={}", project, response.statusCode());
+            return SentryIssueReport.emptyProject(project, AnalyticsStatus.UNAVAILABLE);
         }
 
         try {
@@ -74,20 +91,21 @@ public class SentryClient {
                     .filter(events -> events != null)
                     .mapToLong(Long::longValue)
                     .sum();
-            return new SentryIssueReport(AnalyticsStatus.CONNECTED, Instant.now(), total, issues);
+            return new SentryIssueReport.ProjectIssues(project, AnalyticsStatus.CONNECTED, total, issues);
         } catch (Exception e) {
-            log.warn("[Sentry] 이슈 응답 파싱 실패: {}", e.getClass().getSimpleName());
-            return SentryIssueReport.empty(AnalyticsStatus.UNAVAILABLE);
+            log.warn("[Sentry] 이슈 응답 파싱 실패: project={}, {}", project, e.getClass().getSimpleName());
+            return SentryIssueReport.emptyProject(project, AnalyticsStatus.UNAVAILABLE);
         }
     }
 
     private boolean isConfigured() {
         return StringUtils.hasText(authToken)
                 && StringUtils.hasText(organization)
-                && StringUtils.hasText(project);
+                && projects != null
+                && !projects.isEmpty();
     }
 
-    private URI uri(LocalDate from, LocalDate to) {
+    private URI uri(String project, LocalDate from, LocalDate to) {
         return UriComponentsBuilder.fromUriString(baseUrl)
                 .path("/api/0/projects/{organization}/{project}/issues/")
                 .queryParam("query", "is:unresolved")
@@ -108,9 +126,9 @@ public class SentryClient {
             throw new IllegalArgumentException("Sentry issue response must be an array.");
         }
 
-        List<SentryIssueReport.Issue> issues = new ArrayList<>();
+        List<SentryIssueReport.Issue> parsed = new ArrayList<>();
         for (JsonNode node : root) {
-            issues.add(new SentryIssueReport.Issue(
+            parsed.add(new SentryIssueReport.Issue(
                     text(node, "id"),
                     text(node, "title"),
                     text(node, "culprit"),
@@ -121,7 +139,11 @@ public class SentryClient {
                     instant(node, "lastSeen"),
                     text(node, "permalink")));
         }
-        return issues;
+        // sort=freq 는 절대 기간에서 이벤트 수 내림차순을 보장하지 않는다. 응답 순서를 믿지 않고 다시 정렬한다.
+        return parsed.stream()
+                .sorted(Comparator.comparing(SentryIssueReport.Issue::events,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .toList();
     }
 
     private String text(JsonNode node, String field) {

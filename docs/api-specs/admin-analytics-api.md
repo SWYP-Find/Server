@@ -12,6 +12,8 @@
 - `events[].days[]`: `{date, count}`. 최신 날짜부터. Mixpanel이 값을 주지 않은 날짜는 `null`이며 0이 아니다.
 - 이벤트 여러 개를 요청했을 때 하나라도 실패하면 전체가 `UNAVAILABLE`이다. 일부 합계를 전체처럼 보여주지 않는다.
 - segmentation은 Mixpanel이 유지보수 모드로 둔 엔드포인트다. 저장된 리포트(bookmark)를 미리 만들 필요가 없어 날짜만 바꿔 조회하는 관리자 화면에 맞다. 막히면 Insights Query API로 옮긴다.
+- **현재 Picke의 Mixpanel 플랜은 Query API를 허용하지 않는다**(2026-09-14 실측: 프로젝트 시크릿으로 인증은 통과하고 `HTTP 402 Your plan does not allow API calls`). 자격을 넣어도 `UNAVAILABLE`이 된다. 유료 플랜 전환 전까지는 이 지면이 비어 있는 게 정상이다.
+- 프로젝트 토큰(`project_token`)은 이벤트 수집용이라 조회 인증에 쓰이지 않는다(401).
 - 환경변수: `MIXPANEL_PROJECT_ID`, `MIXPANEL_SERVICE_ACCOUNT_USERNAME`, `MIXPANEL_SERVICE_ACCOUNT_SECRET`. 설정 키는 `picke.analytics.mixpanel.*`.
 - EU·인도 데이터 거주 프로젝트는 호스트가 다르다. `picke.analytics.mixpanel.base-url`로 바꾼다.
 
@@ -19,10 +21,14 @@
 
 - `GET /api/0/projects/{org}/{project}/issues/?query=is:unresolved&sort=freq`. 조직 인증 토큰 `Authorization: Bearer`.
 - 절대 기간을 쓰려면 `statsPeriod`를 빈 값으로 함께 보낸다. 생략하면 Sentry 기본 기간이 적용된다.
-- 이벤트 수 내림차순 최대 20건. `totalEvents`는 그 20건의 합계이며 프로젝트 전체 합계가 아니다.
+- iOS·Android를 각각 호출해 `projects[]`로 나눠 준다. `projects[]`: `{project, status, totalEvents, issues[]}`.
+- 한 프로젝트가 막혀도 다른 프로젝트는 살린다. 대신 최상위 `status`는 `UNAVAILABLE`, 최상위 `totalEvents`는 `null`이다. 일부만 더한 값을 전체 합계처럼 보여주지 않는다.
+- 프로젝트별 최대 20건. `projects[].totalEvents`는 그 20건의 합계이며 프로젝트 전체 이벤트 수가 아니다.
+- `sort=freq`는 절대 기간에서 이벤트 수 내림차순을 보장하지 않는다(실측 확인). 응답 순서를 믿지 않고 서버가 다시 정렬한다.
 - `issues[].events`는 Sentry가 문자열로 주기도 한다. 숫자·문자열 모두 읽는다.
-- 환경변수: `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`(현재 `picke`), `SENTRY_PROJECT`(현재 `picke-ios`). 설정 키는 `picke.analytics.sentry.*`.
-- iOS 앱은 이미 같은 org·project로 Sentry에 리포트한다. 토큰만 서버에 넣으면 같은 데이터를 읽는다.
+- 환경변수: `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`(기본 `picke`), `SENTRY_PROJECTS`(기본 `picke-ios,picke-android`). 설정 키는 `picke.analytics.sentry.*`.
+- 앱은 이미 같은 org·project로 Sentry에 리포트한다. 토큰만 서버에 넣으면 같은 데이터를 읽는다.
+- 실측(2026-09-14, 최근 30일): `picke-ios` 미해결 2건·1,765 이벤트, `picke-android` 9건·181 이벤트.
 
 ## 공통
 

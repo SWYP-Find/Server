@@ -4,16 +4,29 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * Sentry 미해결 이슈 상위 목록.
+ * Sentry 미해결 이슈 상위 목록. iOS·Android 를 프로젝트별로 나눠 담는다.
  *
- * @param totalEvents 목록에 담긴 이슈들의 이벤트 합계. 프로젝트 전체 합계가 아니다.
- * @param issues      이벤트 수 내림차순.
+ * @param status      프로젝트 전부가 연결됐을 때만 CONNECTED.
+ * @param totalEvents 전부 연결됐을 때의 프로젝트 합계. 하나라도 못 읽으면 null 이다.
+ *                    일부만 더한 값을 전체 합계처럼 보여주지 않는다.
  */
 public record SentryIssueReport(
         AnalyticsStatus status,
         Instant fetchedAt,
         Long totalEvents,
-        List<Issue> issues) {
+        List<ProjectIssues> projects) {
+
+    /**
+     * @param project     Sentry 프로젝트 슬러그.
+     * @param totalEvents 이 프로젝트 목록에 담긴 이슈들의 합계. 프로젝트 전체 이벤트 수가 아니다.
+     * @param issues      이벤트 수 내림차순.
+     */
+    public record ProjectIssues(
+            String project,
+            AnalyticsStatus status,
+            Long totalEvents,
+            List<Issue> issues) {
+    }
 
     /**
      * @param events   기간 내 이벤트 수.
@@ -35,5 +48,9 @@ public record SentryIssueReport(
 
     static SentryIssueReport empty(AnalyticsStatus status) {
         return new SentryIssueReport(status, null, null, List.of());
+    }
+
+    static ProjectIssues emptyProject(String project, AnalyticsStatus status) {
+        return new ProjectIssues(project, status, null, List.of());
     }
 }

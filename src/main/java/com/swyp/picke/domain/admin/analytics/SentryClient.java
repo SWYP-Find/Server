@@ -34,7 +34,7 @@ public class SentryClient {
     /** full=true 는 Sentry가 페이지 크기를 최대 10건으로 제한한다. */
     private static final int RECENT_EVENT_LIMIT = 10;
     private static final int ANALYTICS_EVENT_BATCH_SIZE = 10;
-    private static final String ANALYTICS_EVENT_FIELD = "tag[analytics_event,string]";
+    private static final String ANALYTICS_EVENT_FIELD = "analytics_event";
     private static final List<String> DATASETS = List.of(
             "errors", "logs", "spans", "profile_functions", "tracemetrics");
 
@@ -107,8 +107,10 @@ public class SentryClient {
             List<SentryIssueReport.DatasetSeries> datasets = new ArrayList<>(DATASETS.stream()
                     .map(dataset -> fetchDataset(project, dataset, from, to))
                     .toList());
-            datasets.add(fetchSignUps(project, from, to));
-            SentryIssueReport.AnalyticsEventCatalog analyticsEvents = fetchAnalyticsEvents(project, from, to);
+            SentryIssueReport.DatasetSeries signUps = fetchSignUps(project, from, to);
+            datasets.add(signUps);
+            SentryIssueReport.AnalyticsEventCatalog analyticsEvents = fetchAnalyticsEvents(
+                    project, from, to, signUps);
             SentryIssueReport.MetricCatalog metricCatalog = fetchMetricCatalog(project, from, to);
             SentryIssueReport.SessionHealth sessionHealth = fetchSessionHealth(project, from, to);
             SentryIssueReport.ResourceCatalog releases = fetchReleases(project);
@@ -270,7 +272,10 @@ public class SentryClient {
     }
 
     private SentryIssueReport.AnalyticsEventCatalog fetchAnalyticsEvents(
-            String project, LocalDate from, LocalDate to) {
+            String project,
+            LocalDate from,
+            LocalDate to,
+            SentryIssueReport.DatasetSeries signUps) {
         AnalyticsHttpResponse catalogResponse = transport.get(analyticsEventCatalogUri(project, from, to),
                 Map.of("Authorization", "Bearer " + authToken));
         if (!catalogResponse.isSuccess() || !catalogResponse.isJson()) {
@@ -280,15 +285,23 @@ public class SentryClient {
         }
 
         try {
-            List<SentryIssueReport.AnalyticsEventSeries> catalog = parseAnalyticsEventCatalog(
-                    catalogResponse.body());
+            List<SentryIssueReport.AnalyticsEventSeries> catalog = new ArrayList<>(parseAnalyticsEventCatalog(
+                    catalogResponse.body()));
+            if (catalog.stream().noneMatch(event -> "sign_up".equals(event.event()))) {
+                analyticsEventFromMetric(signUps).ifPresent(catalog::add);
+            }
+            catalog.sort(Comparator.comparing(SentryIssueReport.AnalyticsEventSeries::total,
+                    Comparator.nullsLast(Comparator.reverseOrder())));
             if (catalog.isEmpty()) {
                 return new SentryIssueReport.AnalyticsEventCatalog(
                         AnalyticsStatus.CONNECTED, 0L, List.of());
             }
 
             Map<String, List<SentryIssueReport.AnalyticsEventDay>> daysByEvent = new LinkedHashMap<>();
-            List<String> names = catalog.stream().map(SentryIssueReport.AnalyticsEventSeries::event).toList();
+            List<String> names = catalog.stream()
+                    .filter(event -> event.days().isEmpty())
+                    .map(SentryIssueReport.AnalyticsEventSeries::event)
+                    .toList();
             for (int start = 0; start < names.size(); start += ANALYTICS_EVENT_BATCH_SIZE) {
                 List<String> batch = names.subList(start, Math.min(start + ANALYTICS_EVENT_BATCH_SIZE, names.size()));
                 AnalyticsHttpResponse seriesResponse = transport.get(
@@ -305,7 +318,9 @@ public class SentryClient {
             List<SentryIssueReport.AnalyticsEventSeries> events = catalog.stream()
                     .map(series -> new SentryIssueReport.AnalyticsEventSeries(
                             series.event(), series.total(), series.uniqueUsers(), series.firstSeen(), series.lastSeen(),
-                            daysByEvent.getOrDefault(series.event(), emptyAnalyticsDays(from, to))))
+                            daysByEvent.getOrDefault(series.event(), series.days().isEmpty()
+                                    ? emptyAnalyticsDays(from, to)
+                                    : series.days())))
                     .toList();
             long total = events.stream().map(SentryIssueReport.AnalyticsEventSeries::total)
                     .filter(value -> value != null).mapToLong(Long::longValue).sum();
@@ -316,6 +331,28 @@ public class SentryClient {
                     project, e.getClass().getSimpleName());
             return unavailableAnalyticsEvents();
         }
+    }
+
+    private java.util.Optional<SentryIssueReport.AnalyticsEventSeries> analyticsEventFromMetric(
+            SentryIssueReport.DatasetSeries signUps) {
+        if (signUps.status() != AnalyticsStatus.CONNECTED || signUps.total() == null) {
+            return java.util.Optional.empty();
+        }
+        List<SentryIssueReport.AnalyticsEventDay> days = signUps.days().stream()
+                .map(day -> new SentryIssueReport.AnalyticsEventDay(day.date(), day.events(), 0L))
+                .toList();
+        Instant firstSeen = signUps.days().stream()
+                .filter(day -> day.events() > 0)
+                .map(day -> day.date().atStartOfDay(ZoneOffset.UTC).toInstant())
+                .findFirst()
+                .orElse(null);
+        Instant lastSeen = signUps.days().stream()
+                .filter(day -> day.events() > 0)
+                .reduce((first, second) -> second)
+                .map(day -> day.date().atTime(LocalTime.MAX).withNano(0).toInstant(ZoneOffset.UTC))
+                .orElse(null);
+        return java.util.Optional.of(new SentryIssueReport.AnalyticsEventSeries(
+                "sign_up", signUps.total(), null, firstSeen, lastSeen, days));
     }
 
     private URI analyticsEventCatalogUri(String project, LocalDate from, LocalDate to) {
@@ -345,16 +382,18 @@ public class SentryClient {
                 .map(value -> events.size() > 1 ? "(" + value + ")" : value)
                 .orElse("has:analytics_event");
         return UriComponentsBuilder.fromUriString(baseUrl)
-                .path("/api/0/organizations/{organization}/events-timeseries/")
+                .path("/api/0/organizations/{organization}/events-stats/")
                 .queryParam("project", project)
                 .queryParam("dataset", "errors")
                 .queryParam("start", from.atStartOfDay())
                 .queryParam("end", to.atTime(LocalTime.MAX).withNano(0))
-                .queryParam("interval", 86400)
+                .queryParam("interval", "1d")
                 .queryParam("query", query)
-                .queryParam("groupBy", ANALYTICS_EVENT_FIELD)
+                .queryParam("field", ANALYTICS_EVENT_FIELD)
                 .queryParam("topEvents", events.size())
-                .queryParam("sort", "-count()")
+                // batch query already contains at most topEvents names, so alphabetical sorting loses none.
+                .queryParam("sort", ANALYTICS_EVENT_FIELD)
+                .queryParam("partial", 1)
                 .queryParam("excludeOther", 1)
                 .queryParam("yAxis", "count()")
                 .queryParam("yAxis", "count_unique(user)")
@@ -389,31 +428,16 @@ public class SentryClient {
 
     private Map<String, List<SentryIssueReport.AnalyticsEventDay>> parseAnalyticsEventDays(
             String body, List<String> events, LocalDate from, LocalDate to) throws Exception {
-        JsonNode timeSeries = objectMapper.readTree(body).path("timeSeries");
-        if (!timeSeries.isArray()) {
-            throw new IllegalArgumentException("Sentry analytics timeseries response must contain timeSeries.");
+        JsonNode root = objectMapper.readTree(body);
+        if (!root.isObject()) {
+            throw new IllegalArgumentException("Sentry analytics events-stats response must be an object.");
         }
         Map<String, Map<LocalDate, Long>> counts = new LinkedHashMap<>();
         Map<String, Map<LocalDate, Long>> users = new LinkedHashMap<>();
-        for (JsonNode series : timeSeries) {
-            String event = analyticsEventNameFromGroup(series.path("groupBy"));
-            if (!StringUtils.hasText(event) || !events.contains(event)) {
-                continue;
-            }
-            Map<String, Map<LocalDate, Long>> target = "count_unique(user)".equals(text(series, "yAxis"))
-                    ? users : counts;
-            Map<LocalDate, Long> valuesByDate = target.computeIfAbsent(event, ignored -> new LinkedHashMap<>());
-            JsonNode values = series.path("values");
-            if (!values.isArray()) {
-                continue;
-            }
-            for (JsonNode point : values) {
-                LocalDate date = Instant.ofEpochMilli(point.path("timestamp").asLong())
-                        .atZone(ZoneOffset.UTC).toLocalDate();
-                if (!date.isBefore(from) && !date.isAfter(to) && point.path("value").isNumber()) {
-                    valuesByDate.merge(date, point.path("value").asLong(), Long::sum);
-                }
-            }
+        for (String event : events) {
+            JsonNode eventSeries = root.path(event);
+            parseAnalyticsEventAxis(eventSeries.path("count()"), event, counts, from, to);
+            parseAnalyticsEventAxis(eventSeries.path("count_unique(user)"), event, users, from, to);
         }
 
         Map<String, List<SentryIssueReport.AnalyticsEventDay>> result = new LinkedHashMap<>();
@@ -430,25 +454,42 @@ public class SentryClient {
         return result;
     }
 
+    private void parseAnalyticsEventAxis(
+            JsonNode axis,
+            String event,
+            Map<String, Map<LocalDate, Long>> target,
+            LocalDate from,
+            LocalDate to) {
+        JsonNode points = axis.path("data");
+        if (!points.isArray()) {
+            return;
+        }
+        Map<LocalDate, Long> valuesByDate = target.computeIfAbsent(event, ignored -> new LinkedHashMap<>());
+        for (JsonNode point : points) {
+            if (!point.isArray() || point.size() < 2 || !point.get(0).canConvertToLong()) {
+                continue;
+            }
+            LocalDate date = Instant.ofEpochSecond(point.get(0).asLong())
+                    .atZone(ZoneOffset.UTC).toLocalDate();
+            JsonNode values = point.get(1);
+            if (date.isBefore(from) || date.isAfter(to) || !values.isArray()) {
+                continue;
+            }
+            long value = 0;
+            for (JsonNode bucket : values) {
+                if (bucket.path("count").isNumber()) {
+                    value += bucket.path("count").asLong();
+                }
+            }
+            valuesByDate.merge(date, value, Long::sum);
+        }
+    }
+
     private String analyticsEventName(JsonNode row) {
-        for (String field : List.of(ANALYTICS_EVENT_FIELD, "tag[analytics_event]", "analytics_event")) {
+        for (String field : List.of(ANALYTICS_EVENT_FIELD, "tags[analytics_event]", "tag[analytics_event]")) {
             String value = text(row, field);
             if (StringUtils.hasText(value)) {
                 return value;
-            }
-        }
-        return null;
-    }
-
-    private String analyticsEventNameFromGroup(JsonNode groupBy) {
-        if (!groupBy.isArray()) {
-            return null;
-        }
-        for (JsonNode group : groupBy) {
-            String key = text(group, "key");
-            if (ANALYTICS_EVENT_FIELD.equals(key) || "tag[analytics_event]".equals(key)
-                    || "analytics_event".equals(key)) {
-                return text(group, "value");
             }
         }
         return null;

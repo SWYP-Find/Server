@@ -20,6 +20,7 @@ public record MixpanelEventReport(
         LocalDate summaryDate,
         Long activeUsers,
         Long signUps,
+        List<SignUpDay> signUpDays,
         List<String> availableEvents,
         List<EventSeries> events) {
 
@@ -38,8 +39,11 @@ public record MixpanelEventReport(
     public record Day(LocalDate date, Long count, Long uniqueUsers) {
     }
 
+    public record SignUpDay(LocalDate date, Long count) {
+    }
+
     static MixpanelEventReport empty(AnalyticsStatus status, LocalDate from, LocalDate to) {
         return new MixpanelEventReport(
-                status, null, from, to, null, null, to, null, null, List.of(), List.of());
+                status, null, from, to, null, null, to, null, null, List.of(), List.of(), List.of());
     }
 }

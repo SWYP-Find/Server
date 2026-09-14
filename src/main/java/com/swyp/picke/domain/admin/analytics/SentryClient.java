@@ -339,7 +339,7 @@ public class SentryClient {
             return java.util.Optional.empty();
         }
         List<SentryIssueReport.AnalyticsEventDay> days = signUps.days().stream()
-                .map(day -> new SentryIssueReport.AnalyticsEventDay(day.date(), day.events(), 0L))
+                .map(day -> new SentryIssueReport.AnalyticsEventDay(day.date(), day.events(), null))
                 .toList();
         Instant firstSeen = signUps.days().stream()
                 .filter(day -> day.events() > 0)

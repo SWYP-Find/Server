@@ -169,6 +169,11 @@ class SentryClientTest {
                 && uri.toString().contains("project=picke-ios")
                 && uri.toString().contains("dataset=logs")
                 && uri.toString().contains("yAxis=count()"));
+        assertThat(transport.uris).anyMatch(uri -> uri.toString()
+                .contains("/api/0/organizations/picke/events-timeseries/")
+                && uri.toString().contains("project=picke-ios")
+                && uri.toString().contains("dataset=tracemetrics")
+                && uri.toString().contains("yAxis=count(metric)"));
         assertThat(result.status()).isEqualTo(AnalyticsStatus.CONNECTED);
         assertThat(result.fetchedAt()).isNotNull();
         assertThat(result.projects()).extracting(SentryIssueReport.ProjectIssues::project,

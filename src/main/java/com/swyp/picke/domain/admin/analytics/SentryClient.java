@@ -6,6 +6,7 @@ import java.net.URI;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -59,7 +60,7 @@ public class SentryClient {
 
     public SentryIssueReport fetchUnresolvedIssues(LocalDate from, LocalDate to) {
         if (!isConfigured()) {
-            return SentryIssueReport.empty(AnalyticsStatus.NOT_CONFIGURED);
+            return SentryIssueReport.empty(AnalyticsStatus.NOT_CONFIGURED, from, to);
         }
 
         List<SentryIssueReport.ProjectIssues> fetched = projects.stream()
@@ -72,26 +73,33 @@ public class SentryClient {
                 : null;
         return new SentryIssueReport(
                 allConnected ? AnalyticsStatus.CONNECTED : AnalyticsStatus.UNAVAILABLE,
-                Instant.now(), total, fetched);
+                Instant.now(), from, to, total, fetched);
     }
 
     /** 한 프로젝트가 막혀도 다른 프로젝트는 살린다. iOS 가 죽었다고 Android 지표까지 감추지 않는다. */
     private SentryIssueReport.ProjectIssues fetchProject(String project, LocalDate from, LocalDate to) {
-        AnalyticsHttpResponse response = transport.get(uri(project, from, to),
+        AnalyticsHttpResponse issueResponse = transport.get(issueUri(project, from, to),
                 Map.of("Authorization", "Bearer " + authToken));
-        if (!response.isSuccess() || !response.isJson()) {
-            log.warn("[Sentry] 이슈 조회 실패: project={}, status={}", project, response.statusCode());
+        AnalyticsHttpResponse statsResponse = transport.get(statsUri(project, from, to),
+                Map.of("Authorization", "Bearer " + authToken));
+        if (!issueResponse.isSuccess() || !issueResponse.isJson()
+                || !statsResponse.isSuccess() || !statsResponse.isJson()) {
+            log.warn("[Sentry] 조회 실패: project={}, issuesStatus={}, statsStatus={}",
+                    project, issueResponse.statusCode(), statsResponse.statusCode());
             return SentryIssueReport.emptyProject(project, AnalyticsStatus.UNAVAILABLE);
         }
 
         try {
-            List<SentryIssueReport.Issue> issues = parseIssues(response.body());
-            long total = issues.stream()
+            List<SentryIssueReport.Issue> issues = parseIssues(issueResponse.body());
+            List<SentryIssueReport.Day> days = parseDays(statsResponse.body(), from, to);
+            long unresolvedTotal = issues.stream()
                     .map(SentryIssueReport.Issue::events)
                     .filter(events -> events != null)
                     .mapToLong(Long::longValue)
                     .sum();
-            return new SentryIssueReport.ProjectIssues(project, AnalyticsStatus.CONNECTED, total, issues);
+            long total = days.stream().mapToLong(SentryIssueReport.Day::events).sum();
+            return new SentryIssueReport.ProjectIssues(
+                    project, AnalyticsStatus.CONNECTED, total, unresolvedTotal, days, issues);
         } catch (Exception e) {
             log.warn("[Sentry] 이슈 응답 파싱 실패: project={}, {}", project, e.getClass().getSimpleName());
             return SentryIssueReport.emptyProject(project, AnalyticsStatus.UNAVAILABLE);
@@ -105,7 +113,7 @@ public class SentryClient {
                 && !projects.isEmpty();
     }
 
-    private URI uri(String project, LocalDate from, LocalDate to) {
+    private URI issueUri(String project, LocalDate from, LocalDate to) {
         return UriComponentsBuilder.fromUriString(baseUrl)
                 .path("/api/0/projects/{organization}/{project}/issues/")
                 .queryParam("query", "is:unresolved")
@@ -118,6 +126,41 @@ public class SentryClient {
                 .queryParam("utc", "true")
                 .buildAndExpand(organization, project)
                 .toUri();
+    }
+
+    private URI statsUri(String project, LocalDate from, LocalDate to) {
+        long since = from.atStartOfDay(ZoneOffset.UTC).toEpochSecond();
+        long until = to.plusDays(1).atStartOfDay(ZoneOffset.UTC).toEpochSecond();
+        return UriComponentsBuilder.fromUriString(baseUrl)
+                .path("/api/0/projects/{organization}/{project}/stats/")
+                .queryParam("stat", "received")
+                .queryParam("since", since)
+                .queryParam("until", until)
+                .queryParam("resolution", "1d")
+                .buildAndExpand(organization, project)
+                .toUri();
+    }
+
+    private List<SentryIssueReport.Day> parseDays(String body, LocalDate from, LocalDate to) throws Exception {
+        JsonNode root = objectMapper.readTree(body);
+        if (!root.isArray()) {
+            throw new IllegalArgumentException("Sentry stats response must be an array.");
+        }
+        Map<LocalDate, Long> counts = new java.util.HashMap<>();
+        for (JsonNode point : root) {
+            if (!point.isArray() || point.size() < 2 || !point.get(0).isNumber() || !point.get(1).isNumber()) {
+                throw new IllegalArgumentException("Sentry stats point must contain timestamp and count.");
+            }
+            LocalDate date = Instant.ofEpochSecond(point.get(0).asLong()).atZone(ZoneOffset.UTC).toLocalDate();
+            if (!date.isBefore(from) && !date.isAfter(to)) {
+                counts.merge(date, point.get(1).asLong(), Long::sum);
+            }
+        }
+        List<SentryIssueReport.Day> days = new ArrayList<>();
+        for (LocalDate cursor = from; !cursor.isAfter(to); cursor = cursor.plusDays(1)) {
+            days.add(new SentryIssueReport.Day(cursor, counts.getOrDefault(cursor, 0L)));
+        }
+        return days;
     }
 
     private List<SentryIssueReport.Issue> parseIssues(String body) throws Exception {

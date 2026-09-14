@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.admin.analytics;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -13,6 +14,8 @@ import java.util.List;
 public record SentryIssueReport(
         AnalyticsStatus status,
         Instant fetchedAt,
+        LocalDate from,
+        LocalDate to,
         Long totalEvents,
         List<ProjectIssues> projects) {
 
@@ -25,7 +28,12 @@ public record SentryIssueReport(
             String project,
             AnalyticsStatus status,
             Long totalEvents,
+            Long unresolvedEvents,
+            List<Day> days,
             List<Issue> issues) {
+    }
+
+    public record Day(LocalDate date, Long events) {
     }
 
     /**
@@ -46,11 +54,11 @@ public record SentryIssueReport(
             String permalink) {
     }
 
-    static SentryIssueReport empty(AnalyticsStatus status) {
-        return new SentryIssueReport(status, null, null, List.of());
+    static SentryIssueReport empty(AnalyticsStatus status, LocalDate from, LocalDate to) {
+        return new SentryIssueReport(status, null, from, to, null, List.of());
     }
 
     static ProjectIssues emptyProject(String project, AnalyticsStatus status) {
-        return new ProjectIssues(project, status, null, List.of());
+        return new ProjectIssues(project, status, null, null, List.of(), List.of());
     }
 }

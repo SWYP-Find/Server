@@ -376,11 +376,9 @@ public class SentryClient {
 
     private URI analyticsEventTimeseriesUri(
             String project, List<String> events, LocalDate from, LocalDate to) {
-        String query = events.stream()
-                .map(event -> "analytics_event:\"" + event.replace("\"", "\\\"") + "\"")
-                .reduce((left, right) -> left + " OR " + right)
-                .map(value -> events.size() > 1 ? "(" + value + ")" : value)
-                .orElse("has:analytics_event");
+        String query = events.isEmpty()
+                ? "has:analytics_event"
+                : ANALYTICS_EVENT_FIELD + ":[" + String.join(",", events) + "]";
         return UriComponentsBuilder.fromUriString(baseUrl)
                 .path("/api/0/organizations/{organization}/events-stats/")
                 .queryParam("project", project)

@@ -31,7 +31,15 @@
 - EU·인도 데이터 거주 프로젝트는 호스트가 다르다. `picke.analytics.mixpanel.base-url`로 바꾼다.
 - `ad_click` 이벤트에 `unit`·`placement`·`format` 속성이 붙어 온다. AdFit 클릭은 `unit` 없이 `format=popup`·`placement=app_start`로 들어온다. 광고 클릭을 매체별로 나누려면 이 속성을 쓴다.
 
-## Sentry
+## Sentry 사용자 이벤트
+
+- iOS 분석 모듈은 Mixpanel에 보내는 모든 이벤트를 Sentry에도 info 이벤트로 전송하고 `analytics_event` 태그를 붙인다.
+- `projects[].analyticsEvents.events[]`는 이 태그를 기준으로 이벤트명·기간 발생 수·고유 사용자·최초/마지막 발생·일별 발생 수/고유 사용자를 제공한다.
+- 이벤트 이름은 서버에 하드코딩하지 않는다. 선택 기간에 실제 수집된 태그 값을 전부 조회하므로 `sign_up`, `ui_action` 등 새 액션도 자동으로 노출된다.
+- Sentry Explore의 한 요청당 상위 시계열 10개 제한 때문에 이벤트명을 먼저 조회한 뒤 10개씩 나누어 일별 추이를 조회한다.
+- `analyticsEvents.status`가 `UNAVAILABLE`이어도 오류·세션·릴리즈 등 다른 Sentry 데이터는 가능한 범위에서 유지한다.
+
+## Sentry 오류
 
 - `GET /api/0/projects/{org}/{project}/issues/?query=is:unresolved&sort=freq`. 조직 인증 토큰 `Authorization: Bearer`.
 - 절대 기간을 쓰려면 `statsPeriod`를 빈 값으로 함께 보낸다. 생략하면 Sentry 기본 기간이 적용된다.

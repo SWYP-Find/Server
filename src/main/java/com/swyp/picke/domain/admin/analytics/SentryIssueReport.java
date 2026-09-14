@@ -34,6 +34,7 @@ public record SentryIssueReport(
             List<Issue> issues,
             List<Event> recentEvents,
             List<DatasetSeries> datasets,
+            AnalyticsEventCatalog analyticsEvents,
             MetricCatalog metricCatalog,
             SessionHealth sessionHealth,
             ResourceCatalog releases) {
@@ -93,6 +94,28 @@ public record SentryIssueReport(
             List<Day> days) {
     }
 
+    /** analytics_event 태그로 전송된 사용자 행동 이벤트 집계. */
+    public record AnalyticsEventCatalog(
+            AnalyticsStatus status,
+            Long totalEvents,
+            List<AnalyticsEventSeries> events) {
+    }
+
+    public record AnalyticsEventSeries(
+            String event,
+            Long total,
+            Long uniqueUsers,
+            Instant firstSeen,
+            Instant lastSeen,
+            List<AnalyticsEventDay> days) {
+    }
+
+    public record AnalyticsEventDay(
+            LocalDate date,
+            Long count,
+            Long uniqueUsers) {
+    }
+
     /** 앱이 전송한 커스텀 Sentry 메트릭의 이름·타입·단위·건수·마지막 수집 시각 원본. */
     public record MetricCatalog(
             AnalyticsStatus status,
@@ -122,6 +145,7 @@ public record SentryIssueReport(
 
     static ProjectIssues emptyProject(String project, AnalyticsStatus status) {
         return new ProjectIssues(project, status, null, null, List.of(), List.of(), List.of(), List.of(),
+                new AnalyticsEventCatalog(status, null, List.of()),
                 new MetricCatalog(status, List.of()),
                 new SessionHealth(status, List.of(), Map.of()),
                 new ResourceCatalog(status, List.of()));

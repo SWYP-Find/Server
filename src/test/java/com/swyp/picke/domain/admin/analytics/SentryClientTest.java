@@ -19,6 +19,10 @@ class SentryClientTest {
     /** 프로젝트 슬러그별로 다른 응답을 준다. 슬러그에 맞는 응답이 없으면 마지막 등록 응답을 쓴다. */
     private static class CapturingTransport implements AnalyticsHttpTransport {
         private final Map<String, AnalyticsHttpResponse> byProject = new java.util.LinkedHashMap<>();
+        private AnalyticsHttpResponse statsResponse = new AnalyticsHttpResponse(
+                200,
+                Map.of("content-type", List.of("application/json")),
+                "[[1788825600,25],[1788912000,40],[1788998400,60]]");
         final List<URI> uris = new java.util.ArrayList<>();
         Map<String, String> headers;
 
@@ -31,10 +35,18 @@ class SentryClientTest {
             return this;
         }
 
+        CapturingTransport withStats(AnalyticsHttpResponse response) {
+            statsResponse = response;
+            return this;
+        }
+
         @Override
         public AnalyticsHttpResponse get(URI uri, Map<String, String> headers) {
             this.uris.add(uri);
             this.headers = headers;
+            if (uri.getPath().endsWith("/stats/")) {
+                return statsResponse;
+            }
             return byProject.entrySet().stream()
                     .filter(entry -> uri.getPath().contains(entry.getKey()))
                     .map(Map.Entry::getValue)
@@ -81,7 +93,7 @@ class SentryClientTest {
         var result = client("token", transport).fetchUnresolvedIssues(from, to);
 
         assertThat(transport.headers).containsEntry("Authorization", "Bearer token");
-        assertThat(transport.uris).hasSize(2);
+        assertThat(transport.uris).hasSize(4);
         assertThat(transport.uris.getFirst().toString())
                 .contains("/api/0/projects/picke/picke-ios/issues/")
                 .contains("query=is:unresolved")
@@ -89,8 +101,12 @@ class SentryClientTest {
                 .contains("statsPeriod=")
                 .contains("start=2026-09-08T00:00")
                 .contains("end=2026-09-10T23:59:59");
-        assertThat(transport.uris.getLast().toString())
-                .contains("/api/0/projects/picke/picke-android/issues/");
+        assertThat(transport.uris).anyMatch(uri -> uri.toString()
+                .contains("/api/0/projects/picke/picke-android/issues/"));
+        assertThat(transport.uris).anyMatch(uri -> uri.toString()
+                .contains("/api/0/projects/picke/picke-ios/stats/")
+                && uri.toString().contains("resolution=1d")
+                && uri.toString().contains("stat=received"));
         assertThat(result.status()).isEqualTo(AnalyticsStatus.CONNECTED);
         assertThat(result.fetchedAt()).isNotNull();
         assertThat(result.projects()).extracting(SentryIssueReport.ProjectIssues::project,
@@ -98,6 +114,12 @@ class SentryClientTest {
                 .containsExactly(tuple("picke-ios", 125L), tuple("picke-android", 125L));
         // 두 프로젝트 합계다. 프로젝트별 합계와 구분한다.
         assertThat(result.totalEvents()).isEqualTo(250);
+        assertThat(result.projects().getFirst().days())
+                .extracting(SentryIssueReport.Day::date, SentryIssueReport.Day::events)
+                .containsExactly(tuple(LocalDate.of(2026, 9, 8), 25L),
+                                 tuple(LocalDate.of(2026, 9, 9), 40L),
+                                 tuple(LocalDate.of(2026, 9, 10), 60L));
+        assertThat(result.projects().getFirst().unresolvedEvents()).isEqualTo(125);
         var issues = result.projects().getFirst().issues();
         assertThat(issues).extracting(SentryIssueReport.Issue::title, SentryIssueReport.Issue::events)
                 .containsExactly(tuple("Crash A", 120L), tuple("Crash B", 5L));
@@ -163,5 +185,17 @@ class SentryClientTest {
         assertThat(result.status()).isEqualTo(AnalyticsStatus.UNAVAILABLE);
         assertThat(result.projects()).extracting(SentryIssueReport.ProjectIssues::status)
                 .containsOnly(AnalyticsStatus.UNAVAILABLE);
+    }
+
+    @Test
+    @DisplayName("일별 통계 응답이 잘못되면 0건으로 꾸미지 않고 UNAVAILABLE 이다")
+    void reportsUnavailableOnUnexpectedStatsSchema() {
+        var transport = new CapturingTransport(response(200, "application/json", "[]"))
+                .withStats(response(200, "application/json", "{\"points\":[]}"));
+
+        var result = client("token", transport).fetchUnresolvedIssues(from, to);
+
+        assertThat(result.status()).isEqualTo(AnalyticsStatus.UNAVAILABLE);
+        assertThat(result.projects()).allMatch(project -> project.days().isEmpty());
     }
 }

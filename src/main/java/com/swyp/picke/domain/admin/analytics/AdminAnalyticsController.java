@@ -28,7 +28,7 @@ public class AdminAnalyticsController {
 
     @GetMapping("/mixpanel")
     @Operation(summary = "Mixpanel 이벤트 일별 발생 수",
-               description = "events 를 비우면 기간에 나타난 이벤트 전부를 센다. 원본 이벤트를 받아 세므로 기간은 31일까지")
+               description = "events 를 비우면 기간에 나타난 이벤트 전부를 센다. 이벤트·사용자·가입 집계를 함께 반환한다. 원본 이벤트를 받아 세므로 기간은 31일까지")
     public ApiResponse<MixpanelEventReport> mixpanel(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
@@ -39,7 +39,7 @@ public class AdminAnalyticsController {
 
     @GetMapping("/sentry")
     @Operation(summary = "Sentry 미해결 이슈 상위 목록",
-               description = "이벤트 수 내림차순 최대 20건. 토큰·프로젝트 설정이 없으면 NOT_CONFIGURED")
+               description = "프로젝트별 일간 수신 오류와 미해결 이슈 최대 20건을 반환한다. 토큰·프로젝트 설정이 없으면 NOT_CONFIGURED")
     public ApiResponse<SentryIssueReport> sentry(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {

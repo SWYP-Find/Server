@@ -2,6 +2,8 @@ package com.swyp.picke.domain.admin.analytics;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -229,6 +231,177 @@ public class MixpanelClient {
                 lastSeen = occurredAt;
             }
         }
+    }
+
+    /**
+     * 지정한 순서대로 이벤트를 밟은 고유 사용자를 센다.
+     *
+     * <p>집계 API 의 퍼널 리포트를 쓸 수 없어(플랜 제한) 원본 이벤트로 직접 계산한다.
+     * 규칙은 Mixpanel 화면과 같다. 다음 단계는 앞 단계 이후여야 하고, 첫 단계로부터
+     * {@code windowDays} 안에 끝나야 한다. 2026-08 실데이터로 Mixpanel 화면 숫자와 일치를 확인했다.
+     */
+    public MixpanelFunnelReport fetchFunnel(
+            List<String> steps, int windowDays, LocalDate from, LocalDate to) {
+        if (!StringUtils.hasText(apiSecret)) {
+            return MixpanelFunnelReport.empty(AnalyticsStatus.NOT_CONFIGURED, steps, windowDays, from, to);
+        }
+
+        AnalyticsHttpResponse response = transport.get(uri(from, to),
+                Map.of("Authorization", "Basic " + basicCredentials()));
+        if (!response.isSuccess()) {
+            log.warn("[Mixpanel] 퍼널용 원본 이벤트 조회 실패: status={}", response.statusCode());
+            return MixpanelFunnelReport.empty(AnalyticsStatus.UNAVAILABLE, steps, windowDays, from, to);
+        }
+
+        try {
+            long[] reached = walkFunnel(response.body(), steps, windowDays, from, to);
+            return funnelReport(steps, windowDays, from, to, reached);
+        } catch (Exception e) {
+            log.warn("[Mixpanel] 퍼널 계산 실패: {}", e.getClass().getSimpleName());
+            return MixpanelFunnelReport.empty(AnalyticsStatus.UNAVAILABLE, steps, windowDays, from, to);
+        }
+    }
+
+    /**
+     * 단계 하나를 가리키는 조건. {@code battle_step} 처럼 이벤트 이름만 쓰거나
+     * {@code battle_step:step_name=pre_vote} 처럼 속성까지 좁힌다.
+     *
+     * <p>배틀 흐름은 선택·재생·투표가 모두 {@code battle_step} 한 이벤트로 들어오고
+     * {@code step_name} 으로만 갈린다. 속성을 못 좁히면 이 구간이 한 단계로 뭉쳐 이탈율을 볼 수 없다.
+     */
+    private record StepMatcher(String spec, String event, String property, String value) {
+        static StepMatcher parse(String spec) {
+            int marker = spec.indexOf(':');
+            if (marker < 0) {
+                return new StepMatcher(spec, spec, null, null);
+            }
+            String event = spec.substring(0, marker);
+            String filter = spec.substring(marker + 1);
+            int equals = filter.indexOf('=');
+            if (equals < 0) {
+                throw new IllegalArgumentException("퍼널 단계 속성은 property=value 형태여야 합니다: " + spec);
+            }
+            return new StepMatcher(spec, event, filter.substring(0, equals), filter.substring(equals + 1));
+        }
+
+        boolean matches(String event, JsonNode properties) {
+            if (!this.event.equals(event)) {
+                return false;
+            }
+            if (property == null) {
+                return true;
+            }
+            JsonNode actual = properties.get(property);
+            return actual != null && !actual.isNull() && value.equals(actual.asText());
+        }
+    }
+
+    /** 사용자별로 단계 이벤트만 모아 시간순으로 훑는다. 단계에 없는 이벤트는 담지 않아 메모리를 아낀다. */
+    private long[] walkFunnel(
+            String body, List<String> steps, int windowDays, LocalDate from, LocalDate to) throws Exception {
+        List<StepMatcher> matchers = steps.stream().map(StepMatcher::parse).toList();
+        Map<String, List<long[]>> byUser = new HashMap<>();
+
+        for (String line : body.split("\n")) {
+            if (line.isBlank()) {
+                continue;
+            }
+            JsonNode node = objectMapper.readTree(line);
+            String event = node.path("event").asText(null);
+            JsonNode time = node.path("properties").path("time");
+            if (event == null || !time.isNumber()) {
+                throw new IllegalArgumentException("Mixpanel export line is missing event or time.");
+            }
+            JsonNode properties = node.path("properties");
+            int step = -1;
+            for (int index = 0; index < matchers.size(); index++) {
+                if (matchers.get(index).matches(event, properties)) {
+                    step = index;
+                    break;
+                }
+            }
+            if (step < 0) {
+                continue;
+            }
+            Instant occurredAt = Instant.ofEpochSecond(time.asLong());
+            LocalDate date = occurredAt.atZone(projectZone).toLocalDate();
+            if (date.isBefore(from) || date.isAfter(to)) {
+                continue;
+            }
+            String distinctId = text(properties.get("distinct_id"));
+            if (distinctId == null) {
+                // 사용자를 못 가리는 이벤트는 고유 전환을 셀 수 없다.
+                continue;
+            }
+            byUser.computeIfAbsent(distinctId, key -> new ArrayList<>())
+                    .add(new long[]{time.asLong(), step});
+        }
+
+        long[] reached = new long[steps.size()];
+        long window = (long) windowDays * 86_400L;
+        for (List<long[]> events : byUser.values()) {
+            events.sort(Comparator.comparingLong(entry -> entry[0]));
+            Long entry = firstTimeOf(events, 0);
+            if (entry == null) {
+                continue;
+            }
+            reached[0]++;
+            long cursor = entry;
+            long deadline = entry + window;
+            for (int step = 1; step < steps.size(); step++) {
+                Long next = nextTimeOf(events, step, cursor, deadline);
+                if (next == null) {
+                    break;
+                }
+                reached[step]++;
+                cursor = next;
+            }
+        }
+        return reached;
+    }
+
+    private Long firstTimeOf(List<long[]> events, int step) {
+        return nextTimeOf(events, step, Long.MIN_VALUE, Long.MAX_VALUE);
+    }
+
+    private Long nextTimeOf(List<long[]> events, int step, long notBefore, long notAfter) {
+        for (long[] entry : events) {
+            if (entry[1] == step && entry[0] >= notBefore && entry[0] <= notAfter) {
+                return entry[0];
+            }
+        }
+        return null;
+    }
+
+    private MixpanelFunnelReport funnelReport(
+            List<String> steps, int windowDays, LocalDate from, LocalDate to, long[] reached) {
+        long entered = reached[0];
+        List<MixpanelFunnelReport.Step> rows = new ArrayList<>();
+        for (int index = 0; index < steps.size(); index++) {
+            long users = reached[index];
+            Long previous = index == 0 ? null : reached[index - 1];
+            rows.add(new MixpanelFunnelReport.Step(
+                    index + 1,
+                    steps.get(index),
+                    users,
+                    percentage(users, entered),
+                    previous == null ? null : percentage(users, previous),
+                    previous == null ? null : previous - users,
+                    previous == null ? null : percentage(previous - users, previous)));
+        }
+        long completed = reached[reached.length - 1];
+        return new MixpanelFunnelReport(AnalyticsStatus.CONNECTED, Instant.now(), from, to, windowDays,
+                entered, completed, percentage(completed, entered), rows);
+    }
+
+    /** 분모가 0이면 0%가 아니라 null 이다. 아무도 진입하지 않은 것과 전환 실패를 구분한다. */
+    private Double percentage(long value, long total) {
+        if (total <= 0) {
+            return null;
+        }
+        return BigDecimal.valueOf(value * 100.0 / total)
+                .setScale(2, RoundingMode.HALF_UP)
+                .doubleValue();
     }
 
     private String basicCredentials() {

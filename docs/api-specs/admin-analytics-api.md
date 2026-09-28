@@ -18,6 +18,17 @@
 - `properties.time`은 프로젝트 타임존 기준 epoch 초이고 `from_date`·`to_date` 경계도 같은 타임존을 따른다. 둘을 같은 타임존으로 묶어야 Mixpanel 화면 숫자와 맞는다. `picke.analytics.mixpanel.project-zone`(기본 `UTC`)로 맞춘다. 이 프로젝트는 UTC로 실측 확인했다.
 - 경계 하루가 타임존 차이로 걸쳐 들어올 수 있어 요청 기간 밖 이벤트는 버린다.
 
+### 퍼널 (이탈율)
+
+- `GET /api/v1/admin/analytics/mixpanel/funnel?from&to&steps=A,B,C&windowDays=7`: ADMIN 전용.
+- 고유 사용자 기준이다. 한 사람이 같은 단계를 여러 번 밟아도 한 번으로 센다.
+- 다음 단계는 앞 단계 **이후**여야 하고, 첫 단계로부터 `windowDays` 안에 끝나야 한다. Mixpanel 화면의 Unique Conversion·전환 윈도우와 같은 규칙이다.
+- 단계는 이벤트 이름만 쓰거나 `event:property=value`로 속성까지 좁힌다. 배틀 흐름은 선택·재생·투표가 모두 `battle_step` 한 이벤트로 들어오고 `step_name`으로만 갈리므로 속성을 좁히지 않으면 한 단계로 뭉친다.
+- 단계는 2~8개, `windowDays`는 1~30. 원본 이벤트를 받으므로 기간은 31일까지.
+- 분모가 0이면 전환율은 0%가 아니라 `null`이다. 아무도 진입하지 않은 것과 전환 실패를 구분한다.
+- 검증: 2026-08-01~08-31 `battle_step → screen_view → community_action` 7일 윈도우로 24 / 24 / 2 (8.33%) — Mixpanel 콘솔 퍼널 화면 숫자와 일치한다.
+- 실측 MVP 퍼널(같은 기간, `battle_step:step_name=pre_vote → audio_end → post_vote → community_action`): 24 → 14 → 11 → 1. 사후 투표에서 댓글 참여로 넘어갈 때 90.9%가 이탈한다.
+
 ### 왜 집계 API를 안 쓰는가
 
 - **현재 Picke의 Mixpanel 플랜은 Query API를 허용하지 않는다.** 2026-09-14 실측: `/api/query/segmentation`·`/api/query/insights` 모두 `HTTP 402 Your plan does not allow API calls`. 인증은 통과하므로 자격 문제가 아니다.

@@ -56,6 +56,11 @@ public class ScenarioConverter {
     }
 
         public AdminScenarioDetailResponse toAdminDetailResponse(Scenario scenario) {
+        // 어드민은 노드 이름으로 연결을 편집하므로 ID 기반 링크를 이름으로도 내려준다.
+        Map<Long, String> nodeNameById = scenario.getNodes().stream()
+                .filter(node -> node.getId() != null && node.getNodeName() != null)
+                .collect(Collectors.toMap(ScenarioNode::getId, ScenarioNode::getNodeName, (first, second) -> first));
+
         return AdminScenarioDetailResponse.builder()
                 .scenarioId(scenario.getId())
                 .battleId(scenario.getBattle().getId())
@@ -63,7 +68,7 @@ public class ScenarioConverter {
                 .isInteractive(scenario.getIsInteractive())
                 .voiceSettings(new HashMap<>(scenario.getVoiceSettings()))
                 .nodes(scenario.getNodes().stream()
-                        .map(this::toAdminNodeResponse)
+                        .map(node -> toAdminNodeResponse(node, nodeNameById))
                         .collect(Collectors.toList()))
                 .build();
     }
@@ -99,17 +104,19 @@ public class ScenarioConverter {
                 .build();
     }
 
-    private AdminScenarioNodeResponse toAdminNodeResponse(ScenarioNode node) {
+    private AdminScenarioNodeResponse toAdminNodeResponse(ScenarioNode node, Map<Long, String> nodeNameById) {
         return AdminScenarioNodeResponse.builder()
                 .nodeId(node.getId())
                 .nodeName(node.getNodeName())
+                .isStartNode(Boolean.TRUE.equals(node.getIsStartNode()))
                 .audioDuration(node.getAudioDuration())
                 .autoNextNodeId(node.getAutoNextNodeId())
+                .autoNextNode(nodeNameById.get(node.getAutoNextNodeId()))
                 .scripts(node.getScripts().stream()
                         .map(this::toAdminScriptResponse)
                         .collect(Collectors.toList()))
                 .interactiveOptions(node.getOptions().stream()
-                        .map(this::toAdminOptionResponse)
+                        .map(option -> toAdminOptionResponse(option, nodeNameById))
                         .collect(Collectors.toList()))
                 .build();
     }
@@ -133,11 +140,12 @@ public class ScenarioConverter {
                 .build();
     }
 
-    private AdminScenarioOptionResponse toAdminOptionResponse(InteractiveOption option) {
+    private AdminScenarioOptionResponse toAdminOptionResponse(InteractiveOption option, Map<Long, String> nodeNameById) {
         return AdminScenarioOptionResponse.builder()
                 .label(option.getLabel())
                 .title(option.getTitle())
                 .nextNodeId(option.getNextNodeId())
+                .nextNodeName(nodeNameById.get(option.getNextNodeId()))
                 .build();
     }
 }

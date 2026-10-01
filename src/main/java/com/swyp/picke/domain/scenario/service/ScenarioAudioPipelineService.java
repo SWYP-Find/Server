@@ -16,6 +16,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.io.File;
 import java.util.*;
@@ -86,6 +88,8 @@ public class ScenarioAudioPipelineService {
             // 경로 탐색
             List<List<ScenarioNode>> paths = PathFinder.findAllPaths(scenario.getNodes());
             List<Integer> pathDurations = new ArrayList<>();
+            // 새 병합 파일은 매번 다른 키로 올라가므로, 기존 병합 파일은 커밋 후 정리한다.
+            Set<String> previousMergedAudios = new HashSet<>(scenario.getAudios().values());
             log.info("--- [2단계] 경로 탐색 완료. 총 {}개의 통합 경로 발견 ---", paths.size());
 
             for (int i = 0; i < paths.size(); i++) {
@@ -97,6 +101,9 @@ public class ScenarioAudioPipelineService {
             // 최종 상태 및 시간 계산 결과 저장
             scenario.updateStatus(ScenarioStatus.PUBLISHED);
             scenarioRepository.saveAndFlush(scenario);
+
+            previousMergedAudios.removeAll(scenario.getAudios().values());
+            deleteMergedAudiosAfterCommit(previousMergedAudios);
 
             cleanUpFiles(ttsCache, silence);
             if (!pathDurations.isEmpty()) {
@@ -162,7 +169,8 @@ public class ScenarioAudioPipelineService {
         }
 
         File merged = ffmpegService.mergeAudioFiles(segments);
-        String s3Key = FileCategory.SCENARIO.getPath() + "/" + scenario.getId() + "/" + type + ".mp3";
+        // 재생성 시 URL이 바뀌어야 앱/플레이어 캐시에 이전 오디오가 남지 않는다.
+        String s3Key = FileCategory.SCENARIO.getPath() + "/" + scenario.getId() + "/" + type + "_" + UUID.randomUUID() + ".mp3";
         String url = s3UploadService.uploadFile(s3Key, merged);
 
         log.info("[S3 업로드 완료] {} 오디오 주소: {}", type, url);
@@ -179,6 +187,30 @@ public class ScenarioAudioPipelineService {
             if (n.getNodeName().toUpperCase().contains("_B")) return AudioPathType.PATH_B;
         }
         return AudioPathType.COMMON;
+    }
+
+    private void deleteMergedAudiosAfterCommit(Set<String> mergedAudioUrls) {
+        if (mergedAudioUrls.isEmpty()) return;
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            deleteMergedAudios(mergedAudioUrls);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                deleteMergedAudios(mergedAudioUrls);
+            }
+        });
+    }
+
+    private void deleteMergedAudios(Set<String> mergedAudioUrls) {
+        for (String mergedAudioUrl : mergedAudioUrls) {
+            try {
+                s3UploadService.deleteFile(mergedAudioUrl);
+            } catch (Exception e) {
+                log.warn("[S3 정리 실패] 이전 병합 오디오: {}", mergedAudioUrl, e);
+            }
+        }
     }
 
     private void cleanUpFiles(Map<Long, File> cache, File silence) {

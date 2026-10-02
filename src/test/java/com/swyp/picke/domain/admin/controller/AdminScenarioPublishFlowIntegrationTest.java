@@ -34,6 +34,7 @@ import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -109,6 +110,66 @@ class AdminScenarioPublishFlowIntegrationTest {
                 .andExpect(jsonPath("$.data.status").value("PUBLISHED"));
 
         verify(scenarioAudioPipelineService, timeout(1000)).generateAndMergeAudioAsync(scenarioId);
+    }
+
+    @Test
+    void getAdminScenario_returnsNodeLinksByName() throws Exception {
+        String adminToken = createAdminToken();
+        Battle battle = createBattle();
+
+        mockMvc.perform(post("/api/v1/admin/scenarios")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(interactiveScenarioPayload(battle.getId()))))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/v1/admin/battles/{battleId}/scenario", battle.getId())
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.nodes[?(@.nodeName == 'START')].isStartNode").value(true))
+                .andExpect(jsonPath("$.data.nodes[?(@.nodeName == 'START')].interactiveOptions[0].nextNodeName").value("BRANCH_A"))
+                .andExpect(jsonPath("$.data.nodes[?(@.nodeName == 'START')].interactiveOptions[1].nextNodeName").value("BRANCH_B"))
+                .andExpect(jsonPath("$.data.nodes[?(@.nodeName == 'BRANCH_A')].isStartNode").value(false))
+                .andExpect(jsonPath("$.data.nodes[?(@.nodeName == 'BRANCH_A')].autoNextNode").value("CLOSING"))
+                .andExpect(jsonPath("$.data.nodes[?(@.nodeName == 'BRANCH_B')].autoNextNode").value("CLOSING"));
+    }
+
+    private Map<String, Object> interactiveScenarioPayload(Long battleId) {
+        return Map.of(
+                "battleId", battleId,
+                "isInteractive", true,
+                "status", "PENDING",
+                "nodes", List.of(
+                        Map.of(
+                                "nodeName", "START",
+                                "isStartNode", true,
+                                "autoNextNode", "",
+                                "scripts", List.of(script("A", "Opening")),
+                                "interactiveOptions", List.of(
+                                        Map.of("label", "A", "title", "A side", "nextNodeName", "BRANCH_A"),
+                                        Map.of("label", "B", "title", "B side", "nextNodeName", "BRANCH_B")
+                                )
+                        ),
+                        node("BRANCH_A", "CLOSING", script("A", "Branch A")),
+                        node("BRANCH_B", "CLOSING", script("B", "Branch B")),
+                        node("CLOSING", "", script("NARRATOR", "Closing"))
+                ),
+                "voiceSettings", Map.of("NARRATOR", "voice-narrator")
+        );
+    }
+
+    private Map<String, Object> node(String nodeName, String autoNextNode, Map<String, Object> script) {
+        return Map.of(
+                "nodeName", nodeName,
+                "isStartNode", false,
+                "autoNextNode", autoNextNode,
+                "scripts", List.of(script),
+                "interactiveOptions", List.of()
+        );
+    }
+
+    private Map<String, Object> script(String speakerType, String text) {
+        return Map.of("speakerType", speakerType, "speakerName", speakerType, "text", text);
     }
 
     private Map<String, Object> scenarioPayload(Long battleId, String status) {

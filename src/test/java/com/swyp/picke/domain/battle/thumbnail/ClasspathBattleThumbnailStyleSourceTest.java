@@ -11,9 +11,9 @@ class ClasspathBattleThumbnailStyleSourceTest {
     private final ClasspathBattleThumbnailStyleSource source = new ClasspathBattleThumbnailStyleSource();
 
     @Test
-    void 프롬프트_템플릿에_배틀_자리표시자가_있다() {
+    void 프롬프트_템플릿에_장면_자리표시자가_있다() {
         assertThat(source.promptTemplate())
-                .contains("{title}", "{summary}", "{description}", "{optionA}", "{optionB}");
+                .contains("{scene}");
     }
 
     @Test

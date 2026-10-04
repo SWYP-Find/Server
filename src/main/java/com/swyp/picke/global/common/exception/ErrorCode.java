@@ -65,6 +65,7 @@ public enum ErrorCode {
     BATTLE_CANNOT_REVERT_TO_PENDING(HttpStatus.BAD_REQUEST, "BATTLE_400_REVERT", "발행된 시나리오는 다시 대기(PENDING) 상태로 되돌릴 수 없습니다."),
     BATTLE_NOT_QUIZ(HttpStatus.BAD_REQUEST, "BATTLE_400_QUIZ", "해당 배틀은 퀴즈 타입이 아닙니다."),
     BATTLE_NOT_POLL(HttpStatus.BAD_REQUEST, "BATTLE_400_POLL", "해당 배틀은 투표 타입이 아닙니다."),
+    BATTLE_THUMBNAIL_MODERATION_BLOCKED(HttpStatus.UNPROCESSABLE_ENTITY, "BATTLE_422_THUMB", "배틀 주제가 이미지 생성 안전 정책에 걸려 썸네일 후보를 만들지 못했습니다. 다시 생성하거나 직접 업로드해 주세요."),
     BATTLE_THUMBNAIL_GENERATION_FAILED(HttpStatus.BAD_GATEWAY, "BATTLE_502_THUMB", "썸네일 후보 생성에 실패했습니다. 잠시 후 다시 시도해 주세요."),
 
     // Scenario

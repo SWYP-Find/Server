@@ -10,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
 /**
@@ -43,10 +44,17 @@ public class OpenAiImageClient {
     private String size;
 
     public byte[] generate(String prompt, List<ReferenceImage> references) {
-        Map<?, ?> response = references.isEmpty()
-                ? callGenerations(prompt)
-                : callEdits(prompt, references);
-        return decodeFirstImage(response);
+        try {
+            Map<?, ?> response = references.isEmpty()
+                    ? callGenerations(prompt)
+                    : callEdits(prompt, references);
+            return decodeFirstImage(response);
+        } catch (HttpClientErrorException e) {
+            if (e.getResponseBodyAsString().contains("moderation_blocked")) {
+                throw new ImageModerationBlockedException("OpenAI 안전 필터가 이미지 생성을 거절했습니다.", e);
+            }
+            throw e;
+        }
     }
 
     private Map<?, ?> callGenerations(String prompt) {

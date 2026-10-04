@@ -91,6 +91,12 @@ openai:
   tts:
     url: https://api.openai.com/v1/audio/speech
     model: gpt-4o-mini-tts
+  image:
+    generations-url: https://api.openai.com/v1/images/generations
+    edits-url: https://api.openai.com/v1/images/edits
+    model: ${OPENAI_IMAGE_MODEL:gpt-image-2}
+    quality: ${OPENAI_IMAGE_QUALITY:medium}
+    size: 1024x1024
 
 fishaudio:
   api-key: ${FISHAUDIO_API_KEY}

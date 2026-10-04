@@ -65,6 +65,7 @@ public enum ErrorCode {
     BATTLE_CANNOT_REVERT_TO_PENDING(HttpStatus.BAD_REQUEST, "BATTLE_400_REVERT", "발행된 시나리오는 다시 대기(PENDING) 상태로 되돌릴 수 없습니다."),
     BATTLE_NOT_QUIZ(HttpStatus.BAD_REQUEST, "BATTLE_400_QUIZ", "해당 배틀은 퀴즈 타입이 아닙니다."),
     BATTLE_NOT_POLL(HttpStatus.BAD_REQUEST, "BATTLE_400_POLL", "해당 배틀은 투표 타입이 아닙니다."),
+    BATTLE_THUMBNAIL_GENERATION_FAILED(HttpStatus.BAD_GATEWAY, "BATTLE_502_THUMB", "썸네일 후보 생성에 실패했습니다. 잠시 후 다시 시도해 주세요."),
 
     // Scenario
     SCENARIO_NOT_FOUND(HttpStatus.NOT_FOUND, "SCENARIO_404", "존재하지 않는 시나리오입니다."),

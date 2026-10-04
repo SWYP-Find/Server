@@ -1,6 +1,9 @@
 package com.swyp.picke.domain.admin.controller;
 
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleCreateRequest;
+import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleThumbnailCandidateRequest;
+import com.swyp.picke.domain.admin.dto.battle.response.AdminBattleThumbnailCandidatesResponse;
+import com.swyp.picke.domain.battle.thumbnail.BattleThumbnailCandidateService;
 import com.swyp.picke.domain.battle.dto.parse.AdminBattleParseRequest;
 import com.swyp.picke.domain.battle.dto.parse.AdminBattleParseResponse;
 import com.swyp.picke.domain.admin.dto.battle.response.AdminBattleDeleteResponse;
@@ -32,6 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminBattleController {
 
     private final AdminBattleService adminBattleService;
+    private final BattleThumbnailCandidateService battleThumbnailCandidateService;
 
     @Operation(summary = "배틀 대본 붙여넣기 파싱 (미리보기용, 저장 안 함)")
     @PostMapping("/parse")
@@ -39,6 +43,14 @@ public class AdminBattleController {
             @RequestBody @Valid AdminBattleParseRequest request
     ) {
         return ApiResponse.onSuccess(adminBattleService.parseBattleScript(request.rawText()));
+    }
+
+    @Operation(summary = "배틀 썸네일 AI 후보 생성 (S3 업로드만, 배틀에는 저장 안 함)")
+    @PostMapping("/thumbnail-candidates")
+    public ApiResponse<AdminBattleThumbnailCandidatesResponse> generateThumbnailCandidates(
+            @RequestBody @Valid AdminBattleThumbnailCandidateRequest request
+    ) {
+        return ApiResponse.onSuccess(battleThumbnailCandidateService.generate(request));
     }
 
     @Operation(summary = "배틀 생성")

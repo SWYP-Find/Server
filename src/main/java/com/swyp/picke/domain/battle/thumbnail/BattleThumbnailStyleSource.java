@@ -9,8 +9,7 @@ import java.util.List;
 public interface BattleThumbnailStyleSource {
 
     /**
-     * 프롬프트 템플릿. 다음 자리표시자를 배틀 내용으로 치환한다:
-     * {title} {summary} {description} {optionA} {optionB}
+     * 프롬프트 템플릿. {scene} 자리에 배틀 내용으로 만든 장면 묘사가 들어간다.
      */
     String promptTemplate();
 

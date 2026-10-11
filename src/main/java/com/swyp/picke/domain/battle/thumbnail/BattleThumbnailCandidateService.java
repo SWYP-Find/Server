@@ -35,6 +35,14 @@ public class BattleThumbnailCandidateService {
 
     static final int CANDIDATE_COUNT = 3;
 
+    private static final String REFERENCE_GUIDE = """
+            - 첨부한 이미지 %d장은 모두 스타일 예시입니다.
+            - 면 처리, 명암, 형태를 단순화하는 정도만 참고합니다.
+            - 예시의 소재(인물, 사물), 구도, 색상은 따라 하지 않습니다. 색상은 [색상]의 팔레트를, 구도는 [구도]를 따릅니다.""";
+    private static final String CAPTION_GUIDE =
+            "- 아래는 각 예시가 어떤 주제를 어떤 장면으로 옮긴 것인지에 대한 설명입니다. 주제를 상징으로 옮기는 방식만 참고합니다.";
+    private static final String NO_REFERENCE_GUIDE = "- 첨부한 예시 이미지는 없습니다. [스타일]의 설명만으로 그립니다.";
+
     private final BattleThumbnailStyleSource styleSource;
     private final ThumbnailSceneWriter sceneWriter;
     private final OpenAiImageClient imageClient;
@@ -43,9 +51,10 @@ public class BattleThumbnailCandidateService {
 
     public AdminBattleThumbnailCandidatesResponse generate(AdminBattleThumbnailCandidateRequest request) {
         String template = styleSource.promptTemplate();
+        String palette = styleSource.palette();
         List<ReferenceImage> references = styleSource.referenceImages();
-        List<String> prompts = scenesFor(request).stream()
-                .map(scene -> buildPrompt(template, scene))
+        List<String> prompts = scenesFor(request, references).stream()
+                .map(scene -> buildPrompt(template, palette, references, scene))
                 .toList();
 
         AtomicInteger blockedCount = new AtomicInteger();
@@ -70,8 +79,8 @@ public class BattleThumbnailCandidateService {
     }
 
     /** 후보 수만큼 장면을 만든다. 장면 묘사에 실패하면 배틀 원문을 그대로 쓴다. */
-    private List<String> scenesFor(AdminBattleThumbnailCandidateRequest request) {
-        List<String> scenes = sceneWriter.write(request, CANDIDATE_COUNT);
+    private List<String> scenesFor(AdminBattleThumbnailCandidateRequest request, List<ReferenceImage> references) {
+        List<String> scenes = sceneWriter.write(request, CANDIDATE_COUNT, references);
         if (scenes.isEmpty()) {
             scenes = List.of(ThumbnailSceneWriter.describeBattle(request));
         }
@@ -107,7 +116,32 @@ public class BattleThumbnailCandidateService {
         }
     }
 
-    static String buildPrompt(String template, String scene) {
-        return template.replace("{scene}", scene);
+    static String buildPrompt(String template, String palette, List<ReferenceImage> references, String scene) {
+        return template
+                .replace("{palette}", palette)
+                .replace("{references}", referenceGuide(references))
+                .replace("{scene}", scene);
+    }
+
+    /** 첨부 순서대로 번호를 매겨, 설명이 있는 예시는 주제와 장면을 함께 알려준다. */
+    private static String referenceGuide(List<ReferenceImage> references) {
+        if (references.isEmpty()) {
+            return NO_REFERENCE_GUIDE;
+        }
+        StringBuilder guide = new StringBuilder(REFERENCE_GUIDE.formatted(references.size()));
+        if (references.stream().anyMatch(reference -> reference.caption().hasTopic())) {
+            guide.append('\n').append(CAPTION_GUIDE);
+        }
+        for (int i = 0; i < references.size(); i++) {
+            ReferenceCaption caption = references.get(i).caption();
+            if (!caption.hasTopic()) {
+                continue;
+            }
+            guide.append("\n  - ").append(i + 1).append("번째 예시: 주제 \"").append(caption.topic()).append('"');
+            if (caption.hasScene()) {
+                guide.append(" → 장면 \"").append(caption.scene()).append('"');
+            }
+        }
+        return guide.toString();
     }
 }

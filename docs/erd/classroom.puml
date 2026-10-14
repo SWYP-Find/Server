@@ -1,0 +1,124 @@
+@startuml classroom
+hide circle
+hide methods
+skinparam linetype ortho
+
+entity "USERS\n사용자" as users {
+  * id : BIGINT <<PK>>
+  --
+  user_tag : VARCHAR(30) <<UNIQUE>>
+  nickname : VARCHAR(50)
+  character_url : TEXT
+  role : ENUM('USER', 'ADMIN')
+  status : ENUM('PENDING', 'ACTIVE', 'SUSPENDED', 'BANNED', 'DELETED')
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+  deleted_at : TIMESTAMP (nullable)
+}
+
+entity "CLASSROOMS\n클래스" as classrooms {
+  * id : BIGINT <<PK>>
+  --
+  host_id : BIGINT <<FK>>
+  battle_id : BIGINT <<FK>>
+  title : VARCHAR(100)
+  description : TEXT (nullable)
+  entry_code : VARCHAR(20) <<UNIQUE>>
+  classroom_type : ENUM('PICKE', 'CUSTOM')
+  status : ENUM('READY', 'OPEN', 'CLOSED')
+  max_participants : INT (nullable)
+  deadline_status : ENUM('ENABLE', 'DISABLE')
+  deadline_at : TIMESTAMP (nullable)
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "CLASSROOM_PARTICIPANTS\n클래스 참여자" as classroom_participants {
+  * id : BIGINT <<PK>>
+  --
+  classroom_id : BIGINT <<FK>>
+  user_id : BIGINT <<FK>>
+  joined_at : TIMESTAMP
+}
+
+entity "CLASSROOM_BATTLE_RESULTS\n클래스 배틀 결과" as classroom_battle_results {
+  * id : BIGINT <<PK>>
+  --
+  classroom_id : BIGINT <<FK>>
+  user_id : BIGINT <<FK>>
+  battle_id : BIGINT <<FK>>
+  selected_option : VARCHAR(10)
+  is_correct : BOOLEAN (nullable)
+  created_at : TIMESTAMP
+}
+
+entity "BATTLES\n배틀" as battles {
+  * id : BIGINT <<PK>>
+  --
+  title : VARCHAR(200)
+  battle_type : ENUM('POLL', 'QUIZ', 'TTS')
+  status : ENUM('PENDING', 'OPEN', 'CLOSED')
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+
+entity "TAGS\n태그" as tags {
+  * id : BIGINT <<PK>>
+  --
+  name : VARCHAR(50)
+  type : VARCHAR(20)
+  deleted_at : TIMESTAMP (nullable)
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "CLASSROOM_TAGS\n클래스 카테고리" as classroom_tags {
+  * id : BIGINT <<PK>>
+  --
+  classroom_id : BIGINT <<FK>>
+  tag_id : BIGINT <<FK>>
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+users -[hidden]down- classrooms
+classrooms -[hidden]down- classroom_participants
+classroom_participants -[hidden]down- classroom_battle_results
+
+users ||--o{ classrooms : "host"
+battles ||--o{ classrooms : ""
+classrooms ||--o{ classroom_participants : ""
+users ||--o{ classroom_participants : ""
+classrooms ||--o{ classroom_battle_results : ""
+users ||--o{ classroom_battle_results : ""
+battles ||--o{ classroom_battle_results : ""
+classrooms ||--o{ classroom_tags : ""
+tags ||--o{ classroom_tags : ""
+
+note right of classrooms
+  entry_code: 참여 코드 (ex. PK7M2Q)
+  classroom_type: PICKE(PICKE 배틀) / CUSTOM(커스텀 배틀)
+  status: READY(준비) / OPEN(진행중) / CLOSED(마감)
+  deadline_at: 마감일 설정값 (nullable)
+  max_participants: 최대 참여 인원 (nullable)
+end note
+
+note right of classroom_participants
+  (classroom_id, user_id) UNIQUE 제약
+  — 중복 참여 방지
+end note
+
+note bottom of classroom_battle_results
+  클래스 내 배틀 참여 결과 이력
+  is_correct: QUIZ 타입일 때만 사용
+  POLL / TTS 타입은 null 허용
+end note
+
+note right of classroom_tags
+  기존 tags 테이블 재사용 (type = 'CATEGORY')
+  classrooms ↔ tags 다대다 연결
+  (classroom_id, tag_id) UNIQUE 제약
+end note
+
+@enduml

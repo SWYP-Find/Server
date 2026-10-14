@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
 
 @ExtendWith(MockitoExtension.class)
 class BattleThumbnailCandidateServiceTest {
@@ -53,8 +54,9 @@ class BattleThumbnailCandidateServiceTest {
         service = new BattleThumbnailCandidateService(
                 styleSource, sceneWriter, imageClient, s3UploadService, s3PresignedUrlService);
         lenient().when(styleSource.promptTemplate()).thenReturn(TEMPLATE);
+        lenient().when(styleSource.palette()).thenReturn("PALETTE");
         lenient().when(styleSource.referenceImages()).thenReturn(List.of());
-        lenient().when(sceneWriter.write(any(), anyInt())).thenReturn(List.of("장면1", "장면2", "장면3"));
+        lenient().when(sceneWriter.write(any(), anyInt(), anyList())).thenReturn(List.of("장면1", "장면2", "장면3"));
     }
 
     private void stubUploadSuccess() {
@@ -84,7 +86,7 @@ class BattleThumbnailCandidateServiceTest {
 
     @Test
     void 장면_묘사에_실패하면_제목_기반_원문으로_생성한다() {
-        when(sceneWriter.write(any(), anyInt())).thenReturn(List.of());
+        when(sceneWriter.write(any(), anyInt(), anyList())).thenReturn(List.of());
         when(imageClient.generate(anyString(), anyList())).thenReturn(new byte[]{1});
         stubUploadSuccess();
 
@@ -93,6 +95,51 @@ class BattleThumbnailCandidateServiceTest {
         String fallback = "STYLE / " + ThumbnailSceneWriter.describeBattle(request);
         verify(imageClient, times(BattleThumbnailCandidateService.CANDIDATE_COUNT)).generate(eq(fallback), anyList());
         assertThat(fallback).contains("트롤리 딜레마").doesNotContain("A 입장", "B 입장");
+    }
+
+    @Test
+    void 프롬프트에_팔레트와_예시_이미지_장수를_채운다() {
+        String template = "{palette} / {references} / {scene}";
+        List<ReferenceImage> references = List.of(reference(ReferenceCaption.NONE), reference(ReferenceCaption.NONE));
+
+        String withReferences = BattleThumbnailCandidateService.buildPrompt(template, "#492C24", references, "장면");
+        String withoutReferences = BattleThumbnailCandidateService.buildPrompt(template, "#492C24", List.of(), "장면");
+
+        assertThat(withReferences).startsWith("#492C24 / ").endsWith(" / 장면").contains("이미지 2장");
+        assertThat(withReferences).doesNotContain("번째 예시");
+        assertThat(withoutReferences).contains("예시 이미지는 없습니다").doesNotContain("0장");
+        assertThat(withReferences + withoutReferences).doesNotContain("{");
+    }
+
+    @Test
+    void 설명이_있는_예시는_첨부_순서_번호와_함께_주제와_장면을_알려준다() {
+        List<ReferenceImage> references = List.of(
+                reference(ReferenceCaption.NONE),
+                reference(new ReferenceCaption("AI 예술", "이젤 앞의 로봇")),
+                reference(new ReferenceCaption("전쟁", "")));
+
+        String prompt = BattleThumbnailCandidateService.buildPrompt("{references}", "", references, "");
+
+        assertThat(prompt)
+                .contains("2번째 예시: 주제 \"AI 예술\" → 장면 \"이젤 앞의 로봇\"")
+                .contains("3번째 예시: 주제 \"전쟁\"")
+                .doesNotContain("1번째 예시", "\"전쟁\" →");
+    }
+
+    @Test
+    void 장면_기획에는_주제와_장면이_모두_있는_예시만_넘긴다() {
+        List<ReferenceImage> references = List.of(
+                reference(new ReferenceCaption("AI 예술", "이젤 앞의 로봇")),
+                reference(new ReferenceCaption("전쟁", "")));
+
+        assertThat(ThumbnailSceneWriter.examples(references))
+                .contains("- 제목: AI 예술 → 장면: 이젤 앞의 로봇")
+                .doesNotContain("전쟁");
+        assertThat(ThumbnailSceneWriter.examples(List.of(reference(ReferenceCaption.NONE)))).isEmpty();
+    }
+
+    private static ReferenceImage reference(ReferenceCaption caption) {
+        return new ReferenceImage("image.png", new byte[]{1}, MediaType.IMAGE_PNG, caption);
     }
 
     @Test

@@ -128,7 +128,15 @@ public enum ErrorCode {
     AD_INVALID_LANDING_URL(HttpStatus.BAD_REQUEST, "AD_400_URL", "제휴 링크 형식이 올바르지 않습니다. 인코딩된 전체 URL을 넣어 주세요."),
 
     // Attendance
-    ATTENDANCE_ALREADY_CHECKED(HttpStatus.CONFLICT, "ATTENDANCE_409", "오늘 이미 출석체크를 완료했습니다.");
+    ATTENDANCE_ALREADY_CHECKED(HttpStatus.CONFLICT, "ATTENDANCE_409", "오늘 이미 출석체크를 완료했습니다."),
+
+    // ClassTicket (클래스 이용권)
+    TICKET_CODE_INVALID(HttpStatus.NOT_FOUND, "TICKET_404_CODE", "유효하지 않은 이용권 코드입니다."),
+    TICKET_CODE_ALREADY_CLAIMED(HttpStatus.CONFLICT, "TICKET_409_CLAIMED", "이미 등록된 이용권 코드입니다."),
+    TICKET_CODE_REVOKED(HttpStatus.CONFLICT, "TICKET_409_REVOKED", "재발급되어 더 이상 사용할 수 없는 이용권 코드입니다."),
+    TICKET_REGISTER_EXPIRED(HttpStatus.CONFLICT, "TICKET_409_REG_EXP", "등록 기한이 지난 이용권 코드입니다."),
+    TICKET_ALREADY_ACTIVE(HttpStatus.CONFLICT, "TICKET_409_ACTIVE", "이미 사용 중인 이용권이 있습니다. 만료 후 등록할 수 있습니다."),
+    TICKET_NOT_FOUND(HttpStatus.NOT_FOUND, "TICKET_404", "등록된 이용권이 없습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

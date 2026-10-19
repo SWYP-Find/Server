@@ -2,6 +2,7 @@ package com.swyp.picke.domain.classroom.repository;
 
 import com.swyp.picke.domain.classroom.entity.Classroom;
 import com.swyp.picke.domain.classroom.enums.ClassStatus;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import jakarta.persistence.LockModeType;
@@ -41,4 +42,23 @@ public interface ClassroomRepository extends JpaRepository<Classroom, Long> {
             order by c.createdAt desc
             """)
     List<Classroom> findMyClasses(@Param("userId") Long userId);
+
+    /**
+     * 리포트 스케줄러용: 마감(effective_close_at = min(deadline, 이용권 종료))이 지났는데 아직 CLASS_SUMMARY 리포트 행이 없는 클래스.
+     * 리포트 행 생성이 마감 1회 처리 마커 역할을 한다 (UK(class_id, member_id, type)).
+     */
+    @Query("""
+            select c from Classroom c
+            join fetch c.ticket t
+            join fetch c.battle
+            where c.status = com.swyp.picke.domain.classroom.enums.ClassStatus.ACTIVE
+              and ((c.deadline is not null and c.deadline <= :now)
+                   or (t.expiresAt is not null and t.expiresAt <= :now)
+                   or t.status = com.swyp.picke.domain.ticket.enums.TicketStatus.REVOKED)
+              and not exists (select 1 from ClassReport r
+                              where r.classroom = c
+                                and r.type = com.swyp.picke.domain.classroom.enums.ClassReportType.CLASS_SUMMARY)
+            order by c.id asc
+            """)
+    List<Classroom> findClosedWithoutReports(@Param("now") LocalDateTime now);
 }

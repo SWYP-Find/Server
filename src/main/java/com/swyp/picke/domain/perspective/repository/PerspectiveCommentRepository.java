@@ -29,6 +29,11 @@ public interface PerspectiveCommentRepository extends JpaRepository<PerspectiveC
 
     void deleteAllByPerspective(Perspective perspective);
 
+    // 클래스 결과·리포트용: 클래스 안의 공개 댓글 전체 / 본인 댓글 (시간순)
+    List<PerspectiveComment> findByClassroomIdAndHiddenFalseOrderByCreatedAtAsc(Long classroomId);
+
+    List<PerspectiveComment> findByClassroomIdAndUserIdAndHiddenFalseOrderByCreatedAtAsc(Long classroomId, Long userId);
+
     @Query("SELECT c FROM PerspectiveComment c WHERE c.perspective.battle.id = :battleId AND c.classroom IS NULL AND c.hidden = false AND c.likeCount >= :minLikeCount ORDER BY c.likeCount DESC")
     List<PerspectiveComment> findTopCommentsByBattleId(@Param("battleId") Long battleId, @Param("minLikeCount") int minLikeCount, Pageable pageable);
 }

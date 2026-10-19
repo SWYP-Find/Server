@@ -6,6 +6,7 @@ import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.entity.UserBattle;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface UserBattleRepository extends JpaRepository<UserBattle, Long> {
@@ -15,4 +16,7 @@ public interface UserBattleRepository extends JpaRepository<UserBattle, Long> {
 
     // 클래스 내 활동 이력(사전투표 이후) 존재 여부 — 나가기/내보내기 시 좌석 유지 판정(F15)
     boolean existsByUserIdAndClassroomId(Long userId, Long classroomId);
+
+    // 클래스 결과 집계·리포트 대상 선별: 이 클래스 안의 진행 기록 전체 (user 는 LAZY)
+    List<UserBattle> findByClassroomId(Long classroomId);
 }

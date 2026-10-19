@@ -161,6 +161,10 @@ picke:
       expiration-hours: 6
   local-storage:
     root: ${PICKE_LOCAL_STORAGE_ROOT:${java.io.tmpdir}/picke-local-storage}
+  class-report:
+    # 클래스 마감 감지·AI 리포트 생성 스케줄러. 테스트에서는 끈다.
+    scheduler-enabled: ${CLASS_REPORT_SCHEDULER_ENABLED:true}
+    scheduler-delay-ms: ${CLASS_REPORT_SCHEDULER_DELAY_MS:60000}
 
 media:
   ffmpeg:

@@ -304,6 +304,22 @@ note bottom of class_reports
     next_focus{title,body}|null, next_question, evidence_refs[], analysis_status, coverage
   LIMITED(글 없음)은 서버 템플릿, AI 호출 없음
   UK(class_id, member_id, type)
+  -- #541 구현 반영 --
+  content(CLASS_SUMMARY) : cutoff_at, stats{active_member_count, completed_count, participation_rate,
+    comment_writer_count, comment_rate, post_vote_count, options[]}, insight{insight_text, evidence_ids[],
+    highlight_ids[], analysis_status, coverage, excluded_count}
+  CLASS_SUMMARY 행 존재 = 마감 스냅샷 생성됨. 마감 후 통계는 이 stats 로 고정(SNAPSHOT), 마감 전은 실시간(LIVE)
+  생성: 스케줄러(ClassReportScheduler, 60초 fixedDelay)가 effective_close_at 경과·CLASS_SUMMARY 없는 클래스를 찾아
+    CLASS_SUMMARY + 참여 완료자별 MEMBER_FEEDBACK(PENDING) 을 한 트랜잭션에 만들고, PENDING 을 순차 생성
+  MEMBER_FEEDBACK 입력: 본인 PUBLISHED 의견 + 본인 댓글 최신 20건, 8,000자 내 (초과 시 오래된 댓글부터 제외 → coverage=partial)
+    글 없음 → LIMITED 템플릿(AI·ai_jobs 없음). evidence_refs 의 source_id 는 본인 글 id, quote 는 원문 포함 검증
+    judgment_basis 근거 없음 → REJECTED(EVIDENCE_MISSING), strength/next_focus 근거 없음 → null
+  CLASS_INSIGHT 입력: 공개 의견·댓글 작성자별 최신 2건, 입장 교차, 최대 60건·12,000자, 작성자 익명 번호
+    유효 작성자 3명 미만 → LIMITED 템플릿. evidence_ids 1~5, highlight_ids ≤2 (조회 시 최신 의견으로 보충)
+  실패: 자동 2회(attempt<2 면 PENDING 복귀) → FAILED. 운영자 재시도 POST /result/insight/retry 는 attempt<3 일 때만
+    같은 ai_jobs 행(idempotency_key = TYPE:classId:memberId|class)에 attempt 누적, 토큰은 succeed 시 기록 (§21)
+  열람: 운영자·ACTIVE 멤버, 이용권 종료 + 30일(ClassTicket.getReadGraceEndsAt) 까지, 이후 409 CLASS_409_RESULT_EXPIRED
+  근거 글은 조회 시점에 다시 읽어 삭제·숨김이면 제외 (저장된 content 는 id·quote 만)
 end note
 
 note bottom of votes

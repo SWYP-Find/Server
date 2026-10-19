@@ -80,6 +80,19 @@ public class ClassAccessService {
         return requireWritable(resolve(classroom, userId), now);
     }
 
+    /**
+     * 결과·리포트 열람 판정. 읽기 권한 + 이용권 종료 후 30일 열람 유예 안이어야 한다 (PRD §15 "사후 30일 읽기 전용").
+     * 유예가 끝나면 409 CLASS_409_RESULT_EXPIRED.
+     */
+    public ClassAccess requireResultReadable(Long classId, Long userId, LocalDateTime now) {
+        ClassAccess access = requireReadable(resolve(classId, userId));
+        LocalDateTime readUntil = access.classroom().getTicket().getReadGraceEndsAt();
+        if (readUntil != null && !now.isBefore(readUntil)) {
+            throw new CustomException(ErrorCode.CLASS_RESULT_EXPIRED);
+        }
+        return access;
+    }
+
     private static ClassAccess requireReadable(ClassAccess access) {
         if (!access.canRead()) {
             throw new CustomException(ErrorCode.CLASS_MEMBER_ONLY);

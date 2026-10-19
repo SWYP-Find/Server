@@ -92,4 +92,18 @@ public class ClassReport extends BaseEntity {
     public void fail() {
         this.status = ClassReportStatus.FAILED;
     }
+
+    /** 마감 스냅샷(정량 통계) 저장. 아직 AI 결과는 없으므로 상태는 PENDING 그대로 (PRD §14 "같은 종료 스냅샷") */
+    public void attachSnapshot(Map<String, Object> snapshot) {
+        this.content = snapshot;
+    }
+
+    /** 운영자 재시도: FAILED 를 PENDING 으로 되돌려 스케줄러가 같은 job 으로 다시 처리하게 한다 */
+    public void requeue() {
+        this.status = ClassReportStatus.PENDING;
+    }
+
+    public boolean isDone() {
+        return status == ClassReportStatus.SUCCEEDED || status == ClassReportStatus.LIMITED;
+    }
 }

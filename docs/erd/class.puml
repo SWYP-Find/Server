@@ -257,7 +257,9 @@ note bottom of classes
   마감 후 : 투표·댓글 차단, 결과 보기만 가능
   capacity 는 생성 시점 ticket.capacity 복사 (운영자 참여 시 운영자 1석 포함)
   개설 후 수정 가능 항목 : name, deadline 연장만
-  name 길이 : PRD 1~50자 / 기획 Q&A 20자 → 20자로 반영, 확정 필요
+  name 길이 : 1~20자 (기획 Q&A 확정)
+  battle_type = CUSTOM 썸네일은 디자인 고정 이미지 1종, 생성 안 함 (기획 Q&A 확정)
+  참여는 로그인(가입) 필수, 비회원 참여 없음 (기획 Q&A 확정)
 end note
 
 note bottom of class_members
@@ -267,7 +269,7 @@ note bottom of class_members
   seat_held : 좌석 소비 여부. 사전투표 이후 활동이 있으면 나가도 true 유지 (D04)
               → 정원 판정 = COUNT(seat_held = true)
   UK(class_id, user_id)
-  UK(class_id, display_name) WHERE status = 'ACTIVE' (partial, 동명이인 불가)
+  UK(class_id, display_name) WHERE status = 'ACTIVE' (partial, 동명이인 불가 - 기획 Q&A 확정)
   운영자는 owner_participates = true 일 때만 행 생성
   참여 단계는 user_battles.step (class_id 스코프) 로 추적
 end note
@@ -279,6 +281,7 @@ note bottom of ai_jobs
   status : QUEUED | RUNNING | SUCCEEDED | FAILED | REJECTED
   idempotency_key 로 연속 탭 중복 생성 방지 (UX04)
   불완전 JSON·거절·한도 종료는 SUCCEEDED 로 저장하지 않음 (A13)
+  DEBATE_ARGUMENT(AI 철학자 반박) 길이 : 50~500자 (기획 Q&A 확정, 초과 시 재생성/절삭 필요)
 end note
 
 note bottom of class_reports
@@ -294,6 +297,7 @@ end note
 note bottom of votes
   mid_vote_option_id : 기존 콘텐츠 중 중간투표가 있는 것만 사용
     (battles.mid_vote_enabled = true, 예: 뒤샹의 변기). 현재 코드에 중간투표 없음 → 신규
+    클래스용 별도 중간투표 UI 없음, 기존 콘텐츠 결과 수집 용도만 (기획 Q&A 확정)
   클래스 내 배틀 화면은 일반 배틀과 동일 (사전투표·채팅방·최종투표·의견 목록, 좋아요/정렬)
   → votes / perspectives / perspective_comments 를 class_id 로 스코프만 분리해 재사용
   class_id 추가에 따라 유니크 변경:

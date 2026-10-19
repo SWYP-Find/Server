@@ -128,6 +128,15 @@ public class ClassTicket extends BaseEntity {
         this.revokedAt = now;
     }
 
+    /** 이 계정이 등록한 이용권인지. 본인 코드 재등록은 거절 대신 기존 결과를 돌려주기 위해 쓴다 (PRD §4) */
+    public boolean isRegisteredBy(Long userId) {
+        return registeredUser != null && registeredUser.getId() != null && registeredUser.getId().equals(userId);
+    }
+
+    public boolean isRevoked() {
+        return codeStatus == TicketCodeStatus.REVOKED || status == TicketStatus.REVOKED;
+    }
+
     public boolean isRegisterWindowOpen(LocalDateTime now) {
         return !now.isAfter(registerBy);
     }

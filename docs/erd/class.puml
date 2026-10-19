@@ -247,6 +247,8 @@ note bottom of class_tickets
   계정당 이용권 : 보유 이력은 여러 행 허용, 동시에 ACTIVE 는 1개만
     UK(registered_user_id) WHERE status = 'ACTIVE' (partial)
     ACTIVE 보유 중 추가 등록 → 거절 ("사용 중인 이용권이 있어요"), 만료 후 재등록 허용
+    본인이 등록한 코드 재입력 → 거절 대신 기존 결과 반환, 기간 불변 (PRD §4, #535)
+    코드 확인(preview) 은 소비 없이 정원·등록기한만 반환 (PRD §17, #535)
     "이용권 추가등록하기" 버튼은 만료/유예 상태에서만 활성
   재발급 = 기존 행 REVOKED + 새 행, register_by 는 그대로 복사 (CF06)
 end note
@@ -255,6 +257,7 @@ note bottom of classes
   battle_type : TTS | CUSTOM  (CUSTOM 은 2차, 1차는 TTS 만)
   status : ACTIVE | DELETED  (마감 여부는 effective_close_at 으로 조회 시 판정)
   effective_close_at = LEAST(deadline, ticket.expires_at)  (계산값)
+  이용권이 REVOKED(환불·재발급) 면 revoked_at 기준으로 즉시 마감 (PRD §18 ENTITLEMENT_REVOKED, #535)
   deadline 은 "현재 시각 이후 ~ 이용권 종료일" 범위만 허용 (디자인 에러 문구)
   deadline null = 마감 없음 (디자인 "참여 마감일" 토글 OFF)
   마감 후 : 투표·댓글 차단, 결과 보기만 가능

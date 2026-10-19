@@ -1,0 +1,315 @@
+@startuml class
+hide circle
+hide methods
+skinparam linetype ortho
+
+' ===== 기존 테이블 (클래스 관련 컬럼만 표시) =====
+
+entity "users" as users {
+  * id : BIGINT <<PK>>
+  --
+  nickname : VARCHAR(50)
+}
+
+entity "battles" as battles {
+  * id : BIGINT <<PK>>
+  --
+  title : VARCHAR(255)
+  difficulty : VARCHAR(20) <<NEW, nullable>>
+  category : VARCHAR(20) <<NEW, nullable>>
+  class_recommendable : BOOLEAN <<NEW>>
+  mid_vote_enabled : BOOLEAN <<NEW>>
+}
+
+entity "battle_options" as battle_options {
+  * id : BIGINT <<PK>>
+  --
+  battle_id : BIGINT <<FK>>
+  title : VARCHAR(255)
+}
+
+entity "votes" as votes {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK>>
+  battle_id : BIGINT <<FK>>
+  class_id : BIGINT <<FK, NEW, nullable>>
+  pre_vote_option_id : BIGINT <<FK, nullable>>
+  mid_vote_option_id : BIGINT <<FK, NEW, nullable>>
+  post_vote_option_id : BIGINT <<FK, nullable>>
+  is_tts_listened : BOOLEAN
+}
+
+entity "perspectives" as perspectives {
+  * id : BIGINT <<PK>>
+  --
+  battle_id : BIGINT <<FK>>
+  user_id : BIGINT <<FK>>
+  option_id : BIGINT <<FK>>
+  class_id : BIGINT <<FK, NEW, nullable>>
+  content : TEXT
+  like_count : INTEGER
+  comment_count : INTEGER
+}
+
+entity "perspective_comments" as perspective_comments {
+  * id : BIGINT <<PK>>
+  --
+  perspective_id : BIGINT <<FK>>
+  user_id : BIGINT <<FK>>
+  class_id : BIGINT <<FK, NEW, nullable>>
+  content : TEXT
+}
+
+entity "user_battles" as user_battles {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK>>
+  battle_id : BIGINT <<FK>>
+  class_id : BIGINT <<FK, NEW, nullable>>
+  step : VARCHAR(20)
+}
+
+' ===== 신규 테이블 : 펀딩 / 이용권 =====
+
+entity "funding_orders" as funding_orders {
+  * id : BIGINT <<PK>>
+  --
+  platform : VARCHAR(20)
+  campaign_id : VARCHAR(50)
+  order_id : VARCHAR(50) <<UK>>
+  reward_tier : VARCHAR(10)
+  quantity : INTEGER
+  supporter_name : VARCHAR(50)
+  supporter_email : VARCHAR(255) <<nullable>>
+  supporter_phone : VARCHAR(20) <<nullable>>
+  payment_status : VARCHAR(20)
+  paid_at : TIMESTAMP <<nullable>>
+  import_file_hash : VARCHAR(64) <<nullable>>
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "class_tickets" as class_tickets {
+  * id : BIGINT <<PK>>
+  --
+  funding_order_id : BIGINT <<FK, UK>>
+  capacity : INTEGER
+  code_hash : VARCHAR(64) <<UK>>
+  code_status : VARCHAR(20)
+  delivered_at : TIMESTAMP <<nullable>>
+  register_by : TIMESTAMP
+  registered_user_id : BIGINT <<FK, nullable>>
+  activated_at : TIMESTAMP <<nullable>>
+  expires_at : TIMESTAMP <<nullable>>
+  status : VARCHAR(20)
+  revoked_at : TIMESTAMP <<nullable>>
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "ticket_delivery_attempts" as ticket_delivery_attempts {
+  * id : BIGINT <<PK>>
+  --
+  ticket_id : BIGINT <<FK>>
+  channel : VARCHAR(20)
+  status : VARCHAR(20)
+  failure_reason : VARCHAR(255) <<nullable>>
+  attempted_at : TIMESTAMP
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+' ===== 신규 테이블 : 클래스 =====
+
+entity "classes" as classes {
+  * id : BIGINT <<PK>>
+  --
+  name : VARCHAR(20)
+  invite_code : VARCHAR(6) <<UK>>
+  owner_id : BIGINT <<FK>>
+  ticket_id : BIGINT <<FK>>
+  battle_id : BIGINT <<FK>>
+  battle_type : VARCHAR(10)
+  capacity : INTEGER
+  deadline : TIMESTAMP <<nullable>>
+  comment_required : BOOLEAN
+  owner_participates : BOOLEAN
+  status : VARCHAR(20)
+  deleted_at : TIMESTAMP <<nullable>>
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "class_members" as class_members {
+  * id : BIGINT <<PK>>
+  --
+  class_id : BIGINT <<FK>>
+  user_id : BIGINT <<FK>>
+  display_name : VARCHAR(20)
+  role : VARCHAR(10)
+  status : VARCHAR(10)
+  seat_held : BOOLEAN
+  joined_at : TIMESTAMP
+  left_at : TIMESTAMP <<nullable>>
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+' ===== 신규 테이블 : AI =====
+
+entity "ai_jobs" as ai_jobs {
+  * id : BIGINT <<PK>>
+  --
+  type : VARCHAR(30)
+  status : VARCHAR(20)
+  idempotency_key : VARCHAR(100) <<UK>>
+  ticket_id : BIGINT <<FK, nullable>>
+  class_id : BIGINT <<FK, nullable>>
+  member_id : BIGINT <<FK, nullable>>
+  model : VARCHAR(50) <<nullable>>
+  input_tokens : INTEGER <<nullable>>
+  output_tokens : INTEGER <<nullable>>
+  attempt : INTEGER
+  error_code : VARCHAR(50) <<nullable>>
+  started_at : TIMESTAMP <<nullable>>
+  finished_at : TIMESTAMP <<nullable>>
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "class_reports" as class_reports {
+  * id : BIGINT <<PK>>
+  --
+  class_id : BIGINT <<FK>>
+  member_id : BIGINT <<FK, nullable>>
+  type : VARCHAR(20)
+  status : VARCHAR(20)
+  content : JSONB <<nullable>>
+  ai_job_id : BIGINT <<FK, nullable>>
+  generated_at : TIMESTAMP <<nullable>>
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+' ===== 관계 =====
+
+funding_orders ||--o| class_tickets : issues
+users          |o--o{ class_tickets : registers
+class_tickets  ||--o{ ticket_delivery_attempts : delivered by
+
+users          ||--o{ classes       : owns
+class_tickets  ||--o{ classes       : issued with
+battles        ||--o{ classes       : uses
+battles        ||--o{ battle_options : has
+
+classes        ||--o{ class_members : has
+users          ||--o{ class_members : joins
+
+classes        ||--o{ class_reports : summarized by
+class_members  |o--o{ class_reports : personal report
+ai_jobs        |o--o| class_reports : produced by
+
+class_tickets  |o--o{ ai_jobs : cost of
+classes        |o--o{ ai_jobs : scoped
+class_members  |o--o{ ai_jobs : scoped
+
+classes        |o--o{ votes                : scoped
+classes        |o--o{ perspectives         : scoped
+classes        |o--o{ perspective_comments : scoped
+classes        |o--o{ user_battles         : scoped
+
+' ===== 노트 =====
+
+note bottom of funding_orders
+  펀딩 플랫폼(텀블벅/와디즈, 미정) 결제 명단을 어드민이 CSV 업로드한 원본.
+  reward_tier : SEAT_5 | SEAT_15 | SEAT_30  (9,900 / 19,900 / 29,900원, PRD 확정)
+  payment_status : RESERVED | PAYMENT_PENDING | PAID_CONFIRMED
+                 | PAYMENT_FAILED | CANCELED | REFUNDED
+  quantity != 1 인 행은 발급 보류 (PRD §30)
+  같은 명단 재업로드 시 order_id 기준 멱등 (CF01)
+  구매자(supporter_*)와 등록자(class_tickets.registered_user_id)는 다를 수 있다.
+end note
+
+note bottom of class_tickets
+  이용권(PRD Entitlement + RewardCode 통합).
+  코드 : 128bit 랜덤 → Base32 표시 (티어 등 의미 없음, 디자인 PICKE-30-DEMO 는 예시일 뿐)
+         원문은 발급 시 1회만 전달, DB 에는 code_hash(SHA-256) 만 보관, 조회도 해시로
+         등록 확인 화면의 인원/기간은 해시로 찾은 행에서 읽어 보여줌
+  code_status : ISSUED | DELIVERED | CLAIMED | REVOKED
+  status      : UNREGISTERED | ACTIVE | EXPIRED | REGISTER_EXPIRED | REVOKED
+  register_by  = funding_orders.paid_at + 1년 (결제 확정일 기준 확정, 발급 시 계산, NOT NULL)
+               경과 시 "등록기간이 만료되었습니다" (디자인 확인)
+  activated_at = 등록 버튼 누른 시각 (D01, 디자인 "등록하는 순간 이용 기간이 시작")
+  expires_at   = activated_at + 6개월 (디자인 예시 2026.10.09 ~ 2027.04.08)
+  읽기 유예 종료 = expires_at + 30일 (계산값, 컬럼 없음)
+  클래스 생성 수 무제한 → max_classes 없음
+  계정당 이용권 : 보유 이력은 여러 행 허용, 동시에 ACTIVE 는 1개만
+    UK(registered_user_id) WHERE status = 'ACTIVE' (partial)
+    ACTIVE 보유 중 추가 등록 → 거절 ("사용 중인 이용권이 있어요"), 만료 후 재등록 허용
+    "이용권 추가등록하기" 버튼은 만료/유예 상태에서만 활성
+  재발급 = 기존 행 REVOKED + 새 행, register_by 는 그대로 복사 (CF06)
+end note
+
+note bottom of classes
+  battle_type : TTS | CUSTOM  (CUSTOM 은 2차, 1차는 TTS 만)
+  status : ACTIVE | DELETED  (마감 여부는 effective_close_at 으로 조회 시 판정)
+  effective_close_at = LEAST(deadline, ticket.expires_at)  (계산값)
+  deadline 은 "현재 시각 이후 ~ 이용권 종료일" 범위만 허용 (디자인 에러 문구)
+  deadline null = 마감 없음 (디자인 "참여 마감일" 토글 OFF)
+  마감 후 : 투표·댓글 차단, 결과 보기만 가능
+  capacity 는 생성 시점 ticket.capacity 복사 (운영자 참여 시 운영자 1석 포함)
+  개설 후 수정 가능 항목 : name, deadline 연장만
+  name 길이 : 1~20자 (기획 Q&A 확정)
+  battle_type = CUSTOM 썸네일은 디자인 고정 이미지 1종, 생성 안 함 (기획 Q&A 확정)
+  참여는 로그인(가입) 필수, 비회원 참여 없음 (기획 Q&A 확정)
+end note
+
+note bottom of class_members
+  display_name : 클래스 안에서만 보이는 별칭, 본인이 수정 가능, 1~20자
+  role   : OWNER | MEMBER
+  status : ACTIVE | LEFT | REMOVED  (REMOVED 는 되돌릴 수 없음, 디자인 확인)
+  seat_held : 좌석 소비 여부. 사전투표 이후 활동이 있으면 나가도 true 유지 (D04)
+              → 정원 판정 = COUNT(seat_held = true)
+  UK(class_id, user_id)
+  UK(class_id, display_name) WHERE status = 'ACTIVE' (partial, 동명이인 불가 - 기획 Q&A 확정)
+  운영자는 owner_participates = true 일 때만 행 생성
+  참여 단계는 user_battles.step (class_id 스코프) 로 추적
+end note
+
+note bottom of ai_jobs
+  AI 호출 1건 = 1행. 비용은 ticket_id 기준 합산 (PRD §21).
+  type   : TOPIC_CANDIDATES | TOPIC_VALIDATION | DEBATE_ARGUMENT
+         | MEMBER_REPORT | CLASS_INSIGHT
+  status : QUEUED | RUNNING | SUCCEEDED | FAILED | REJECTED
+  idempotency_key 로 연속 탭 중복 생성 방지 (UX04)
+  불완전 JSON·거절·한도 종료는 SUCCEEDED 로 저장하지 않음 (A13)
+  DEBATE_ARGUMENT(AI 철학자 반박) 길이 : 50~500자 (기획 Q&A 확정, 초과 시 재생성/절삭 필요)
+end note
+
+note bottom of class_reports
+  GPT 생성 결과 캐시. 클래스 마감 후 1회 생성 (D06).
+  type   : CLASS_SUMMARY (member_id null) | MEMBER_FEEDBACK
+  status : PENDING | GENERATING | SUCCEEDED | LIMITED | FAILED
+  content(MEMBER_FEEDBACK) : headline, judgment_basis, strength{title,body}|null,
+    next_focus{title,body}|null, next_question, evidence_refs[], analysis_status, coverage
+  LIMITED(글 없음)은 서버 템플릿, AI 호출 없음
+  UK(class_id, member_id, type)
+end note
+
+note bottom of votes
+  mid_vote_option_id : 기존 콘텐츠 중 중간투표가 있는 것만 사용
+    (battles.mid_vote_enabled = true, 예: 뒤샹의 변기). 현재 코드에 중간투표 없음 → 신규
+    클래스용 별도 중간투표 UI 없음, 기존 콘텐츠 결과 수집 용도만 (기획 Q&A 확정)
+  클래스 내 배틀 화면은 일반 배틀과 동일 (사전투표·채팅방·최종투표·의견 목록, 좋아요/정렬)
+  → votes / perspectives / perspective_comments 를 class_id 로 스코프만 분리해 재사용
+  class_id 추가에 따라 유니크 변경:
+  votes          UK(user_id, battle_id) → UK(user_id, battle_id, class_id)
+  user_battles   UK(user_id, battle_id) → UK(user_id, battle_id, class_id)
+  일반 배틀 조회는 class_id IS NULL 조건 필요
+  PostgreSQL은 UK에서 NULL을 서로 다른 값으로 취급하므로
+  일반 배틀(class_id NULL)은 partial unique index 로 기존 1행 보장 유지
+  → UK(user_id, battle_id) WHERE class_id IS NULL 추가
+end note
+
+@enduml

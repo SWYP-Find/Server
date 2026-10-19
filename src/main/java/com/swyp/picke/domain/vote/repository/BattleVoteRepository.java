@@ -54,6 +54,9 @@ public interface BattleVoteRepository extends JpaRepository<BattleVote, Long> {
 
     Optional<BattleVote> findTopByBattleAndClassroomOrderByUpdatedAtDesc(Battle battle, Classroom classroom);
 
+    // 클래스 결과 집계용: 클래스 안의 투표 전체
+    List<BattleVote> findByClassroomId(Long classroomId);
+
     // ===== 마이페이지·성향·추천: 일반 배틀 기록만 =====
 
     // 내 배틀 기록: 사후투표까지 완료한 기록만 노출

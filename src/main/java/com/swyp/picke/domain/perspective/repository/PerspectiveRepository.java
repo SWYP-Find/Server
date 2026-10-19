@@ -20,6 +20,11 @@ public interface PerspectiveRepository extends JpaRepository<Perspective, Long> 
     // 클래스 참여 완료 판정(댓글 필수): 본인 최상위 의견 존재 여부
     boolean existsByBattleIdAndUserIdAndClassroomIdAndStatus(Long battleId, Long userId, Long classroomId, PerspectiveStatus status);
 
+    // 클래스 결과·리포트용: 클래스 안의 PUBLISHED 의견 전체 / 본인 의견 (시간순)
+    List<Perspective> findByClassroomIdAndStatusOrderByCreatedAtAsc(Long classroomId, PerspectiveStatus status);
+
+    List<Perspective> findByClassroomIdAndUserIdAndStatusOrderByCreatedAtAsc(Long classroomId, Long userId, PerspectiveStatus status);
+
     // 마이페이지: 일반 배틀 의견만
     List<Perspective> findByUserIdAndClassroomIsNullOrderByCreatedAtDesc(Long userId, Pageable pageable);
 

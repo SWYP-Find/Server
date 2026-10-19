@@ -94,7 +94,7 @@ class PerspectiveCommentServiceTest {
                 .thenReturn(List.of(comment));
         when(userQueryService.findSummaryById(2L)).thenReturn(new UserSummary("user-2", "nick", "OWL"));
         when(s3PresignedUrlService.generatePresignedUrl(anyString())).thenReturn("character-url");
-        when(battleVoteService.findPostVoteOptionId(100L, 2L)).thenReturn(11L);
+        when(battleVoteService.findPostVoteOptionId(100L, 2L, null)).thenReturn(11L);
         when(battleService.findOptionById(11L)).thenReturn(votedOption);
 
         CommentListResponse response = commentService.getComments(1000L, 1L, null, null);

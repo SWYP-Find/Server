@@ -63,7 +63,7 @@ public class ScenarioServiceImpl implements ScenarioService {
         Scenario scenario = scenarioRepository.findByBattleIdAndStatus(battleId, ScenarioStatus.PUBLISHED)
                 .orElseThrow(() -> new CustomException(ErrorCode.SCENARIO_NOT_FOUND));
 
-        Optional<BattleVote> optionalVote = battleVoteRepository.findByBattleIdAndUserId(battleId, userId);
+        Optional<BattleVote> optionalVote = battleVoteRepository.findByBattleIdAndUserIdAndClassroomIsNull(battleId, userId);
         AudioPathType recommendedKey = AudioPathType.COMMON;
 
         if (optionalVote.isPresent()) {

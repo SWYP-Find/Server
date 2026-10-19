@@ -157,7 +157,10 @@ public enum ErrorCode {
     CLASS_DISPLAY_NAME_DUPLICATED(HttpStatus.CONFLICT, "CLASS_409_NAME", "이미 사용 중인 이름입니다. 다른 이름을 입력해 주세요."),
     CLASS_OWNER_CANNOT_JOIN(HttpStatus.CONFLICT, "CLASS_409_OWNER", "내가 운영하는 클래스에는 참여자로 들어갈 수 없습니다."),
     CLASS_MEMBER_REMOVED(HttpStatus.FORBIDDEN, "CLASS_403_REMOVED", "내보내진 클래스에는 다시 참여할 수 없습니다."),
-    CLASS_OWNER_CANNOT_LEAVE(HttpStatus.FORBIDDEN, "CLASS_403_OWNER_LEAVE", "운영자는 클래스를 나가거나 내보내질 수 없습니다. 클래스를 삭제해 주세요.");
+    CLASS_OWNER_CANNOT_LEAVE(HttpStatus.FORBIDDEN, "CLASS_403_OWNER_LEAVE", "운영자는 클래스를 나가거나 내보내질 수 없습니다. 클래스를 삭제해 주세요."),
+
+    // Classroom battle (클래스 내 배틀 진행)
+    CLASS_PRE_VOTE_LOCKED(HttpStatus.CONFLICT, "CLASS_409_PRE_VOTE_LOCKED", "배틀이 시작된 뒤에는 사전투표를 변경할 수 없습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

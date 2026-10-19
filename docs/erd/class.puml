@@ -319,6 +319,16 @@ note bottom of votes
   PostgreSQL은 UK에서 NULL을 서로 다른 값으로 취급하므로
   일반 배틀(class_id NULL)은 partial unique index 로 기존 1행 보장 유지
   → UK(user_id, battle_id) WHERE class_id IS NULL 추가
+  -- #539 구현 반영 --
+  클래스 진행 API: /api/v1/classes/{classId}/battle/** (배틀 ID 는 classes.battle_id 사용)
+  접근: ACTIVE 멤버 또는 운영자만 조회, 쓰기는 ACTIVE 멤버만(미참여 운영자 403)
+    + 이용권 종료 409 CLASS_TICKET_ENDED, effective_close_at 경과 409 CLASS_CLOSED
+  투표 잠금(PRD §7): 사전투표는 user_battles.step 이 NONE/PRE_VOTE 일 때만 변경(이후 CLASS_PRE_VOTE_LOCKED),
+    사후투표는 1회(이후 VOTE_ALREADY_SUBMITTED), TTS 재청취는 COMPLETED 를 되돌리지 않음
+  클래스 투표는 크레딧 차감·성향 점수·battles.total_participants_count·SSE·새 댓글 알림 없음
+  참여 완료(F10) = step COMPLETED + (classes.comment_required 면) 내 PUBLISHED perspective 1건 이상
+  class_members.has_activity 판정 = user_battles(user_id, class_id) 존재 여부 (F15 좌석 유지)
+  미구현: 중간투표(mid_vote_option_id), 좋아요/신고의 클래스 가드
 end note
 
 @enduml

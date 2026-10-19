@@ -10,6 +10,10 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * perspective_comments.class_id 는 부모 의견의 class_id 를 복사한다.
+ * 의견(perspective) 기준 조회는 부모가 이미 스코프를 가지므로 추가 조건 불필요, 유저·배틀 단위 집계는 일반(NULL)만.
+ */
 public interface PerspectiveCommentRepository extends JpaRepository<PerspectiveComment, Long> {
 
     List<PerspectiveComment> findByPerspective(Perspective perspective);
@@ -18,13 +22,13 @@ public interface PerspectiveCommentRepository extends JpaRepository<PerspectiveC
 
     List<PerspectiveComment> findByPerspectiveAndCreatedAtBeforeOrderByCreatedAtDesc(Perspective perspective, LocalDateTime cursor, Pageable pageable);
 
-    @Query("SELECT c FROM PerspectiveComment c JOIN FETCH c.perspective WHERE c.user.id = :userId ORDER BY c.createdAt DESC")
+    @Query("SELECT c FROM PerspectiveComment c JOIN FETCH c.perspective WHERE c.user.id = :userId AND c.classroom IS NULL ORDER BY c.createdAt DESC")
     List<PerspectiveComment> findByUserIdOrderByCreatedAtDesc(@Param("userId") Long userId, Pageable pageable);
 
-    long countByUserId(Long userId);
+    long countByUserIdAndClassroomIsNull(Long userId);
 
     void deleteAllByPerspective(Perspective perspective);
 
-    @Query("SELECT c FROM PerspectiveComment c WHERE c.perspective.battle.id = :battleId AND c.hidden = false AND c.likeCount >= :minLikeCount ORDER BY c.likeCount DESC")
+    @Query("SELECT c FROM PerspectiveComment c WHERE c.perspective.battle.id = :battleId AND c.classroom IS NULL AND c.hidden = false AND c.likeCount >= :minLikeCount ORDER BY c.likeCount DESC")
     List<PerspectiveComment> findTopCommentsByBattleId(@Param("battleId") Long battleId, @Param("minLikeCount") int minLikeCount, Pageable pageable);
 }

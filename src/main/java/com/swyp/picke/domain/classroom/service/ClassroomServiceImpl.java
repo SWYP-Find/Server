@@ -199,15 +199,15 @@ public class ClassroomServiceImpl implements ClassroomService {
 
     // ===== 생성 검증 =====
 
-    /** 사용 중(ACTIVE) 이용권이 없거나 기간이 끝났으면 생성 불가. 끝난 ACTIVE 는 EXPIRED 로 내린다. */
+    /**
+     * 사용 중(ACTIVE) 이용권이 없거나 기간이 끝났으면 생성 불가.
+     * 기간이 끝난 ACTIVE 를 EXPIRED 로 내리는 건 이용권 조회/등록(ClassTicketService) 몫이다.
+     * 여기서 바꾸면 거절 예외로 트랜잭션이 롤백돼 어차피 남지 않는다.
+     */
     private ClassTicket findUsableTicket(Long userId, LocalDateTime now) {
-        ClassTicket ticket = classTicketRepository.findByRegisteredUserIdAndStatus(userId, TicketStatus.ACTIVE)
+        return classTicketRepository.findByRegisteredUserIdAndStatus(userId, TicketStatus.ACTIVE)
+                .filter(ticket -> ticket.isUsable(now))
                 .orElseThrow(() -> new CustomException(ErrorCode.CLASS_TICKET_REQUIRED));
-        if (!ticket.isUsable(now)) {
-            ticket.expire();
-            throw new CustomException(ErrorCode.CLASS_TICKET_REQUIRED);
-        }
-        return ticket;
     }
 
     /** 1차는 TTS(기존 콘텐츠) 만. 공개(PUBLISHED) 상태이고 삭제되지 않은 배틀만 붙일 수 있다. */

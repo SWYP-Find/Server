@@ -175,8 +175,8 @@ class ClassroomServiceImplTest {
     }
 
     @Test
-    @DisplayName("기간이 끝난 ACTIVE 이용권은 EXPIRED 로 내리고 CLASS_403_TICKET")
-    void create_expiresStaleTicketAndRejects() {
+    @DisplayName("기간이 끝난 ACTIVE 이용권으로는 만들 수 없고(CLASS_403_TICKET), 이용권 상태는 건드리지 않는다")
+    void create_rejectsStaleTicketWithoutTouchingIt() {
         ClassTicket stale = activeTicket(owner, LocalDateTime.now().minusMonths(7));
         when(userRepository.findById(OWNER_ID)).thenReturn(Optional.of(owner));
         when(classTicketRepository.findByRegisteredUserIdAndStatus(OWNER_ID, TicketStatus.ACTIVE))
@@ -187,7 +187,7 @@ class ClassroomServiceImplTest {
                 .isInstanceOf(CustomException.class)
                 .extracting(ClassroomServiceImplTest::errorCodeOf)
                 .isEqualTo(ErrorCode.CLASS_TICKET_REQUIRED);
-        assertThat(stale.getStatus()).isEqualTo(TicketStatus.EXPIRED);
+        assertThat(stale.getStatus()).isEqualTo(TicketStatus.ACTIVE);
     }
 
     @Test

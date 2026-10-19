@@ -98,7 +98,7 @@ entity "class_tickets" as class_tickets {
   code_hash : VARCHAR(64) <<UK>>
   code_status : VARCHAR(20)
   delivered_at : TIMESTAMP <<nullable>>
-  register_by : TIMESTAMP
+  register_by : TIMESTAMP <<nullable>>
   registered_user_id : BIGINT <<FK, nullable>>
   activated_at : TIMESTAMP <<nullable>>
   expires_at : TIMESTAMP <<nullable>>
@@ -233,18 +233,21 @@ end note
 
 note bottom of class_tickets
   이용권(PRD Entitlement + RewardCode 통합).
-  코드는 이메일로 전달되는 가독형 문자열 (디자인 예시 PICKE-30-DEMO), 사용자가 직접 입력.
-  코드 원문은 저장하지 않고 code_hash(SHA-256)만 보관, 조회도 해시로.
+  코드 : 128bit 랜덤 → Base32 표시 (티어 등 의미 없음, 디자인 PICKE-30-DEMO 는 예시일 뿐)
+         원문은 발급 시 1회만 전달, DB 에는 code_hash(SHA-256) 만 보관, 조회도 해시로
+         등록 확인 화면의 인원/기간은 해시로 찾은 행에서 읽어 보여줌
   code_status : ISSUED | DELIVERED | CLAIMED | REVOKED
   status      : UNREGISTERED | ACTIVE | EXPIRED | REGISTER_EXPIRED | REVOKED
-  register_by  = funding_orders.paid_at + 1년 (기산점은 D09 확정 후 조정)
+  register_by  = delivered_at + 1년 (지급일 기준 확정). 지급 전에는 null
                경과 시 "등록기간이 만료되었습니다" (디자인 확인)
   activated_at = 등록 버튼 누른 시각 (D01, 디자인 "등록하는 순간 이용 기간이 시작")
   expires_at   = activated_at + 6개월 (디자인 예시 2026.10.09 ~ 2027.04.08)
   읽기 유예 종료 = expires_at + 30일 (계산값, 컬럼 없음)
   클래스 생성 수 무제한 → max_classes 없음
-  계정당 이용권 수: 디자인에 "이용권 추가등록하기" 버튼 있음 → 복수 보유 허용 가정, UK 없음
-  (PRD UX11 은 중복 등록 차단 → 확정 필요. 만료 후 재등록은 디자인상 허용)
+  계정당 이용권 : 보유 이력은 여러 행 허용, 동시에 ACTIVE 는 1개만
+    UK(registered_user_id) WHERE status = 'ACTIVE' (partial)
+    ACTIVE 보유 중 추가 등록 → 거절 ("사용 중인 이용권이 있어요"), 만료 후 재등록 허용
+    "이용권 추가등록하기" 버튼은 만료/유예 상태에서만 활성
   재발급 = 기존 행 REVOKED + 새 행, register_by 는 그대로 복사 (CF06)
 end note
 

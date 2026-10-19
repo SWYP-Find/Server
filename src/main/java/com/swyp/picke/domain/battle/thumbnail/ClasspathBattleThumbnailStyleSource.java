@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component;
  * - prompt.txt : 프롬프트 템플릿
  * - palette.txt : 색상 팔레트(헥사 코드)
  * - references/ : 스타일 예시 썸네일(png/jpg/webp). 파일명 순서대로 전달된다.
- *   같은 이름의 txt(art1.png ↔ art1.txt)가 있으면 그 예시의 주제·장면 설명으로 읽는다.
+ *   같은 이름의 txt(reference1.png ↔ reference1.txt)가 있으면 그 예시의 주제·장면 설명으로 읽는다.
  */
 @Slf4j
 @Component

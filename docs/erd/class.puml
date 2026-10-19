@@ -233,14 +233,18 @@ end note
 
 note bottom of class_tickets
   이용권(PRD Entitlement + RewardCode 통합).
-  코드 원문은 저장하지 않고 code_hash(SHA-256)만 보관, 발급 시 1회 전달.
+  코드는 이메일로 전달되는 가독형 문자열 (디자인 예시 PICKE-30-DEMO), 사용자가 직접 입력.
+  코드 원문은 저장하지 않고 code_hash(SHA-256)만 보관, 조회도 해시로.
   code_status : ISSUED | DELIVERED | CLAIMED | REVOKED
   status      : UNREGISTERED | ACTIVE | EXPIRED | REGISTER_EXPIRED | REVOKED
   register_by  = funding_orders.paid_at + 1년 (기산점은 D09 확정 후 조정)
-  activated_at = 등록 시각, expires_at = activated_at + 6개월
+               경과 시 "등록기간이 만료되었습니다" (디자인 확인)
+  activated_at = 등록 버튼 누른 시각 (D01, 디자인 "등록하는 순간 이용 기간이 시작")
+  expires_at   = activated_at + 6개월 (디자인 예시 2026.10.09 ~ 2027.04.08)
   읽기 유예 종료 = expires_at + 30일 (계산값, 컬럼 없음)
   클래스 생성 수 무제한 → max_classes 없음
-  1계정 1이용권: UK(registered_user_id) WHERE status = 'ACTIVE' (partial)
+  계정당 이용권 수: 디자인에 "이용권 추가등록하기" 버튼 있음 → 복수 보유 허용 가정, UK 없음
+  (PRD UX11 은 중복 등록 차단 → 확정 필요. 만료 후 재등록은 디자인상 허용)
   재발급 = 기존 행 REVOKED + 새 행, register_by 는 그대로 복사 (CF06)
 end note
 
@@ -248,7 +252,9 @@ note bottom of classes
   battle_type : TTS | CUSTOM  (CUSTOM 은 2차, 1차는 TTS 만)
   status : ACTIVE | DELETED  (마감 여부는 effective_close_at 으로 조회 시 판정)
   effective_close_at = LEAST(deadline, ticket.expires_at)  (계산값)
-  deadline 은 ticket.expires_at 이하만 허용, null = 마감 없음
+  deadline 은 "현재 시각 이후 ~ 이용권 종료일" 범위만 허용 (디자인 에러 문구)
+  deadline null = 마감 없음 (디자인 "참여 마감일" 토글 OFF)
+  마감 후 : 투표·댓글 차단, 결과 보기만 가능
   capacity 는 생성 시점 ticket.capacity 복사 (운영자 참여 시 운영자 1석 포함)
   개설 후 수정 가능 항목 : name, deadline 연장만
   name 길이 : PRD 1~50자 / 기획 Q&A 20자 → 20자로 반영, 확정 필요
@@ -257,7 +263,7 @@ end note
 note bottom of class_members
   display_name : 클래스 안에서만 보이는 별칭, 본인이 수정 가능, 1~20자
   role   : OWNER | MEMBER
-  status : ACTIVE | LEFT | REMOVED
+  status : ACTIVE | LEFT | REMOVED  (REMOVED 는 되돌릴 수 없음, 디자인 확인)
   seat_held : 좌석 소비 여부. 사전투표 이후 활동이 있으면 나가도 true 유지 (D04)
               → 정원 판정 = COUNT(seat_held = true)
   UK(class_id, user_id)
@@ -288,6 +294,8 @@ end note
 note bottom of votes
   mid_vote_option_id : 기존 콘텐츠 중 중간투표가 있는 것만 사용
     (battles.mid_vote_enabled = true, 예: 뒤샹의 변기). 현재 코드에 중간투표 없음 → 신규
+  클래스 내 배틀 화면은 일반 배틀과 동일 (사전투표·채팅방·최종투표·의견 목록, 좋아요/정렬)
+  → votes / perspectives / perspective_comments 를 class_id 로 스코프만 분리해 재사용
   class_id 추가에 따라 유니크 변경:
   votes          UK(user_id, battle_id) → UK(user_id, battle_id, class_id)
   user_battles   UK(user_id, battle_id) → UK(user_id, battle_id, class_id)

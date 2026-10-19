@@ -95,7 +95,23 @@ public class ClassMember extends BaseEntity {
         this.seatHeld = hadActivity;
     }
 
+    /**
+     * 나갔던(LEFT) 멤버가 같은 클래스에 다시 들어온다. UK(class_id, user_id) 때문에 새 행 대신 같은 행을 되살린다.
+     * 활동 이력으로 좌석을 쥐고 있었으면(seatHeld) 좌석을 추가로 소비하지 않는다.
+     */
+    public void rejoin(String displayName, LocalDateTime now) {
+        this.displayName = displayName;
+        this.status = ClassMemberStatus.ACTIVE;
+        this.joinedAt = now;
+        this.leftAt = null;
+        this.seatHeld = true;
+    }
+
     public boolean isActive() {
         return status == ClassMemberStatus.ACTIVE;
+    }
+
+    public boolean isOwner() {
+        return role == ClassMemberRole.OWNER;
     }
 }

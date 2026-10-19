@@ -278,6 +278,10 @@ note bottom of class_members
   UK(class_id, display_name) WHERE status = 'ACTIVE' (partial, 동명이인 불가 - 기획 Q&A 확정)
   운영자는 owner_participates = true 일 때만 행 생성
   참여 단계는 user_battles.step (class_id 스코프) 로 추적
+  참여는 클래스 행 잠금(FOR UPDATE) 뒤 정원 검사 → 멤버 생성 한 트랜잭션 (PRD F06, #537)
+  같은 계정 재참여 요청 → 거절 대신 기존 상세 반환 (PRD §15 "멤버 수를 늘리지 않고 기존 상세로", #537)
+  LEFT 재참여 → 같은 행 되살림 (UK 유지), seat_held 였으면 좌석 추가 소비 없음 (#537)
+  운영자는 자기 코드로 참여 불가, 나가기·내보내기 대상 아님 → 클래스 삭제로 종료 (PRD §15, #537)
 end note
 
 note bottom of ai_jobs

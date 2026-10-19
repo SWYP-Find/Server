@@ -146,8 +146,17 @@ public enum ErrorCode {
     CLASS_BATTLE_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "CLASS_400_BATTLE", "클래스에 사용할 수 없는 배틀입니다."),
     CLASS_INVALID_DEADLINE(HttpStatus.BAD_REQUEST, "CLASS_400_DEADLINE", "마감일은 현재 시각 이후, 이용권 종료일 이전이어야 합니다."),
     CLASS_DEADLINE_NOT_EXTENDED(HttpStatus.BAD_REQUEST, "CLASS_400_DEADLINE_EXT", "마감일은 기존 마감일보다 뒤로 연장만 할 수 있습니다."),
-    CLASS_CLOSED(HttpStatus.CONFLICT, "CLASS_409_CLOSED", "마감된 클래스는 수정할 수 없습니다."),
-    CLASS_INVITE_CODE_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "CLASS_500_CODE", "초대코드 생성에 실패했습니다. 다시 시도해 주세요.");
+    CLASS_CLOSED(HttpStatus.CONFLICT, "CLASS_409_CLOSED", "마감된 클래스입니다."),
+    CLASS_INVITE_CODE_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "CLASS_500_CODE", "초대코드 생성에 실패했습니다. 다시 시도해 주세요."),
+
+    // Classroom member (클래스 참여·멤버)
+    CLASS_INVITE_CODE_NOT_FOUND(HttpStatus.NOT_FOUND, "CLASS_404_CODE", "존재하지 않는 초대코드입니다."),
+    CLASS_MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "CLASS_404_MEMBER", "존재하지 않는 멤버입니다."),
+    CLASS_FULL(HttpStatus.CONFLICT, "CLASS_409_FULL", "정원이 가득 찬 클래스입니다."),
+    CLASS_DISPLAY_NAME_DUPLICATED(HttpStatus.CONFLICT, "CLASS_409_NAME", "이미 사용 중인 이름입니다. 다른 이름을 입력해 주세요."),
+    CLASS_OWNER_CANNOT_JOIN(HttpStatus.CONFLICT, "CLASS_409_OWNER", "내가 운영하는 클래스에는 참여자로 들어갈 수 없습니다."),
+    CLASS_MEMBER_REMOVED(HttpStatus.FORBIDDEN, "CLASS_403_REMOVED", "내보내진 클래스에는 다시 참여할 수 없습니다."),
+    CLASS_OWNER_CANNOT_LEAVE(HttpStatus.FORBIDDEN, "CLASS_403_OWNER_LEAVE", "운영자는 클래스를 나가거나 내보내질 수 없습니다. 클래스를 삭제해 주세요.");
 
     private final HttpStatus httpStatus;
     private final String code;

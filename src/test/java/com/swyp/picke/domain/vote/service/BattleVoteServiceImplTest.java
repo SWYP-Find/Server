@@ -96,15 +96,15 @@ class BattleVoteServiceImplTest {
         when(battleService.findById(100L)).thenReturn(battle);
         when(userRepository.findById(10L)).thenReturn(Optional.of(user));
         when(battleOptionRepository.findById(201L)).thenReturn(Optional.of(option));
-        when(battleVoteRepository.findByBattleAndUser(battle, user)).thenReturn(Optional.empty());
-        when(userBattleService.getUserBattleStatus(user, battle))
+        when(battleVoteRepository.findByBattleAndUserAndClassroom(battle, user, null)).thenReturn(Optional.empty());
+        when(userBattleService.getUserBattleStatus(user, battle, null))
                 .thenReturn(new UserBattleStatusResponse(100L, UserBattleStep.NONE));
 
         VoteResultResponse response = battleVoteService.preVote(100L, 10L, new VoteRequest(201L));
 
         assertThat(response.status()).isEqualTo(UserBattleStep.PRE_VOTE);
         verify(creditService).addCredit(10L, CreditType.BATTLE_ENTRY, 100L);
-        verify(userBattleService).upsertStep(user, battle, UserBattleStep.PRE_VOTE);
+        verify(userBattleService).upsertStep(user, battle, null, UserBattleStep.PRE_VOTE);
     }
 
     @Test
@@ -117,8 +117,8 @@ class BattleVoteServiceImplTest {
         when(battleService.findById(100L)).thenReturn(battle);
         when(userRepository.findById(10L)).thenReturn(Optional.of(user));
         when(battleOptionRepository.findById(201L)).thenReturn(Optional.of(option));
-        when(battleVoteRepository.findByBattleAndUser(battle, user)).thenReturn(Optional.empty());
-        when(userBattleService.getUserBattleStatus(user, battle))
+        when(battleVoteRepository.findByBattleAndUserAndClassroom(battle, user, null)).thenReturn(Optional.empty());
+        when(userBattleService.getUserBattleStatus(user, battle, null))
                 .thenReturn(new UserBattleStatusResponse(100L, UserBattleStep.NONE));
 
         VoteResultResponse response = battleVoteService.preVote(100L, 10L, new VoteRequest(201L));
@@ -137,9 +137,9 @@ class BattleVoteServiceImplTest {
         when(battleService.findById(100L)).thenReturn(battle);
         when(userRepository.findById(10L)).thenReturn(Optional.of(user));
         when(battleOptionRepository.findById(201L)).thenReturn(Optional.of(option));
-        when(battleVoteRepository.findByBattleAndUser(battle, user)).thenReturn(Optional.empty());
-        when(battleVoteRepository.existsByUserIdAndBattle_TargetDate(10L, today())).thenReturn(true);
-        when(userBattleService.getUserBattleStatus(user, battle))
+        when(battleVoteRepository.findByBattleAndUserAndClassroom(battle, user, null)).thenReturn(Optional.empty());
+        when(battleVoteRepository.existsByUserIdAndClassroomIsNullAndBattle_TargetDate(10L, today())).thenReturn(true);
+        when(userBattleService.getUserBattleStatus(user, battle, null))
                 .thenReturn(new UserBattleStatusResponse(100L, UserBattleStep.NONE));
 
         VoteResultResponse response = battleVoteService.preVote(100L, 10L, new VoteRequest(201L));
@@ -164,8 +164,8 @@ class BattleVoteServiceImplTest {
         when(battleService.findById(100L)).thenReturn(battle);
         when(userRepository.findById(10L)).thenReturn(Optional.of(user));
         when(battleOptionRepository.findById(201L)).thenReturn(Optional.of(newOption));
-        when(battleVoteRepository.findByBattleAndUser(battle, user)).thenReturn(Optional.of(vote));
-        when(userBattleService.getUserBattleStatus(user, battle))
+        when(battleVoteRepository.findByBattleAndUserAndClassroom(battle, user, null)).thenReturn(Optional.of(vote));
+        when(userBattleService.getUserBattleStatus(user, battle, null))
                 .thenReturn(new UserBattleStatusResponse(100L, UserBattleStep.PRE_VOTE));
 
         VoteResultResponse response = battleVoteService.preVote(100L, 10L, new VoteRequest(201L));
@@ -192,8 +192,8 @@ class BattleVoteServiceImplTest {
         when(battleService.findById(100L)).thenReturn(battle);
         when(userRepository.findById(10L)).thenReturn(Optional.of(user));
         when(battleOptionRepository.findById(202L)).thenReturn(Optional.of(postOption));
-        when(battleVoteRepository.findByBattleAndUser(battle, user)).thenReturn(Optional.of(vote));
-        when(userBattleService.getUserBattleStatus(user, battle))
+        when(battleVoteRepository.findByBattleAndUserAndClassroom(battle, user, null)).thenReturn(Optional.of(vote));
+        when(userBattleService.getUserBattleStatus(user, battle, null))
                 .thenReturn(new UserBattleStatusResponse(100L, UserBattleStep.POST_VOTE));
 
         VoteResultResponse response = battleVoteService.postVote(100L, 10L, new VoteRequest(202L));
@@ -201,7 +201,7 @@ class BattleVoteServiceImplTest {
         assertThat(vote.getPostVoteOption()).isEqualTo(postOption);
         assertThat(response.voteId()).isEqualTo(300L);
         assertThat(response.status()).isEqualTo(UserBattleStep.COMPLETED);
-        verify(userBattleService).upsertStep(user, battle, UserBattleStep.COMPLETED);
+        verify(userBattleService).upsertStep(user, battle, null, UserBattleStep.COMPLETED);
     }
 
     @Test
@@ -225,8 +225,8 @@ class BattleVoteServiceImplTest {
         when(battleService.findById(100L)).thenReturn(battle);
         when(userRepository.findById(10L)).thenReturn(Optional.of(user));
         when(battleOptionRepository.findById(202L)).thenReturn(Optional.of(option));
-        when(battleVoteRepository.findByBattleAndUser(battle, user)).thenReturn(Optional.of(vote));
-        when(userBattleService.getUserBattleStatus(user, battle))
+        when(battleVoteRepository.findByBattleAndUserAndClassroom(battle, user, null)).thenReturn(Optional.of(vote));
+        when(userBattleService.getUserBattleStatus(user, battle, null))
                 .thenReturn(new UserBattleStatusResponse(100L, UserBattleStep.POST_VOTE));
         when(userTendencyScoreRepository.findByUserId(10L)).thenReturn(Optional.of(score));
         when(battleOptionTagRepository.findByBattleOption(option)).thenReturn(List.of(optionTag));
@@ -262,8 +262,8 @@ class BattleVoteServiceImplTest {
         when(battleService.findById(100L)).thenReturn(battle);
         when(userRepository.findById(10L)).thenReturn(Optional.of(user));
         when(battleOptionRepository.findById(202L)).thenReturn(Optional.of(newOption));
-        when(battleVoteRepository.findByBattleAndUser(battle, user)).thenReturn(Optional.of(vote));
-        when(userBattleService.getUserBattleStatus(user, battle))
+        when(battleVoteRepository.findByBattleAndUserAndClassroom(battle, user, null)).thenReturn(Optional.of(vote));
+        when(userBattleService.getUserBattleStatus(user, battle, null))
                 .thenReturn(new UserBattleStatusResponse(100L, UserBattleStep.COMPLETED));
         when(userTendencyScoreRepository.findByUserId(10L)).thenReturn(Optional.of(score));
         when(battleOptionTagRepository.findByBattleOption(previousOption)).thenReturn(List.of(innerTag));

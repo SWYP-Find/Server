@@ -4,6 +4,8 @@ import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.service.BattleService;
 import com.swyp.picke.domain.battle.util.BattleOptionDisplay;
+import com.swyp.picke.domain.classroom.entity.Classroom;
+import com.swyp.picke.domain.classroom.service.ClassAccessService;
 import com.swyp.picke.domain.perspective.enums.PerspectiveStatus;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.repository.UserRepository;
@@ -35,14 +37,22 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
+/**
+ * 의견(Perspective) 서비스.
+ * classroom 인자가 없는 메서드는 일반 배틀(class_id IS NULL)만 다루고,
+ * classroom 을 받는 메서드는 해당 클래스 안의 의견만 다룬다.
+ * 의견 단건(상세·수정·삭제)은 저장된 class_id 로 클래스 여부를 판단해 멤버 권한·마감을 검사한다.
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PerspectiveService {
 
     private static final int DEFAULT_PAGE_SIZE = 20;
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final PerspectiveRepository perspectiveRepository;
     private final PerspectiveCommentRepository perspectiveCommentRepository;
@@ -56,12 +66,14 @@ public class PerspectiveService {
     private final UserRepository userRepository;
     private final GptModerationService gptModerationService;
     private final S3PresignedUrlService s3PresignedUrlService;
+    private final ClassAccessService classAccessService;
 
     public PerspectiveDetailResponse getPerspectiveDetail(Long perspectiveId, Long userId) {
         Perspective perspective = findPerspectiveById(perspectiveId);
         if (perspective.getStatus() == PerspectiveStatus.HIDDEN) {
             throw new CustomException(ErrorCode.PERSPECTIVE_NOT_FOUND);
         }
+        requireClassReadable(perspective, userId);
         UserSummary user = userQueryService.findSummaryById(perspective.getUser().getId());
         String characterImageUrl = resolveCharacterImageUrl(user.characterType());
         BattleOption option = perspective.getOption();
@@ -81,17 +93,27 @@ public class PerspectiveService {
 
     @Transactional
     public CreatePerspectiveResponse createPerspective(Long battleId, Long userId, CreatePerspectiveRequest request) {
+        return createPerspective(battleId, userId, null, request);
+    }
+
+    /**
+     * 의견 등록. 사후투표한 선택지에 귀속된다.
+     * 클래스 의견은 호출자(ClassBattleService)가 멤버·마감 검사를 끝낸 뒤 classroom 을 넘긴다.
+     */
+    @Transactional
+    public CreatePerspectiveResponse createPerspective(Long battleId, Long userId, Classroom classroom, CreatePerspectiveRequest request) {
         Battle battle = battleService.findById(battleId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        Long postVoteOptionId = BattleVoteService.findPostVoteOptionId(battleId, userId);
+        Long postVoteOptionId = BattleVoteService.findPostVoteOptionId(battleId, userId, classroom);
         BattleOption option = battleService.findOptionById(postVoteOptionId);
 
         Perspective perspective = Perspective.builder()
                 .battle(battle)
                 .user(user)
                 .option(option)
+                .classroom(classroom)
                 .content(request.content())
                 .build();
 
@@ -101,6 +123,11 @@ public class PerspectiveService {
     }
 
     public PerspectiveListResponse getPerspectives(Long battleId, Long userId, String cursor, Integer size, Long optionId, String sort) {
+        return getPerspectives(battleId, userId, null, cursor, size, optionId, sort);
+    }
+
+    public PerspectiveListResponse getPerspectives(Long battleId, Long userId, Classroom classroom,
+                                                   String cursor, Integer size, Long optionId, String sort) {
         Battle battle = battleService.findById(battleId);
 
         int pageSize = (size == null || size <= 0) ? DEFAULT_PAGE_SIZE : size;
@@ -112,16 +139,16 @@ public class PerspectiveService {
         if (optionId != null) {
             BattleOption option = findFilterOption(battle, optionId);
             perspectives = isPopular
-                    ? perspectiveRepository.findByBattleIdAndOptionIdAndStatusOrderByLikeCountDescCreatedAtDesc(battleId, option.getId(), PerspectiveStatus.PUBLISHED, pageable)
+                    ? perspectiveRepository.findByBattleIdAndClassroomAndOptionIdAndStatusOrderByLikeCountDescCreatedAtDesc(battleId, classroom, option.getId(), PerspectiveStatus.PUBLISHED, pageable)
                     : cursor == null
-                        ? perspectiveRepository.findByBattleIdAndOptionIdAndStatusOrderByCreatedAtDesc(battleId, option.getId(), PerspectiveStatus.PUBLISHED, pageable)
-                        : perspectiveRepository.findByBattleIdAndOptionIdAndStatusAndCreatedAtBeforeOrderByCreatedAtDesc(battleId, option.getId(), PerspectiveStatus.PUBLISHED, LocalDateTime.parse(cursor), pageable);
+                        ? perspectiveRepository.findByBattleIdAndClassroomAndOptionIdAndStatusOrderByCreatedAtDesc(battleId, classroom, option.getId(), PerspectiveStatus.PUBLISHED, pageable)
+                        : perspectiveRepository.findByBattleIdAndClassroomAndOptionIdAndStatusAndCreatedAtBeforeOrderByCreatedAtDesc(battleId, classroom, option.getId(), PerspectiveStatus.PUBLISHED, LocalDateTime.parse(cursor), pageable);
         } else {
             perspectives = isPopular
-                    ? perspectiveRepository.findByBattleIdAndStatusOrderByLikeCountDescCreatedAtDesc(battleId, PerspectiveStatus.PUBLISHED, pageable)
+                    ? perspectiveRepository.findByBattleIdAndClassroomAndStatusOrderByLikeCountDescCreatedAtDesc(battleId, classroom, PerspectiveStatus.PUBLISHED, pageable)
                     : cursor == null
-                        ? perspectiveRepository.findByBattleIdAndStatusOrderByCreatedAtDesc(battleId, PerspectiveStatus.PUBLISHED, pageable)
-                        : perspectiveRepository.findByBattleIdAndStatusAndCreatedAtBeforeOrderByCreatedAtDesc(battleId, PerspectiveStatus.PUBLISHED, LocalDateTime.parse(cursor), pageable);
+                        ? perspectiveRepository.findByBattleIdAndClassroomAndStatusOrderByCreatedAtDesc(battleId, classroom, PerspectiveStatus.PUBLISHED, pageable)
+                        : perspectiveRepository.findByBattleIdAndClassroomAndStatusAndCreatedAtBeforeOrderByCreatedAtDesc(battleId, classroom, PerspectiveStatus.PUBLISHED, LocalDateTime.parse(cursor), pageable);
         }
 
         List<PerspectiveListResponse.Item> items = perspectives.stream()
@@ -155,6 +182,7 @@ public class PerspectiveService {
     public void deletePerspective(Long perspectiveId, Long userId) {
         Perspective perspective = findPerspectiveById(perspectiveId);
         validateOwnership(perspective, userId);
+        requireClassWritable(perspective, userId);
 
         List<PerspectiveComment> comments = perspectiveCommentRepository.findByPerspective(perspective);
         if (!comments.isEmpty()) {
@@ -172,14 +200,20 @@ public class PerspectiveService {
     public UpdatePerspectiveResponse updatePerspective(Long perspectiveId, Long userId, UpdatePerspectiveRequest request) {
         Perspective perspective = findPerspectiveById(perspectiveId);
         validateOwnership(perspective, userId);
+        requireClassWritable(perspective, userId);
         perspective.updateContent(request.content());
         perspective.updateStatus(PerspectiveStatus.PUBLISHED);
         return new UpdatePerspectiveResponse(perspective.getId(), perspective.getContent(), perspective.getUpdatedAt());
     }
 
     public List<MyPerspectiveResponse> getMyPerspective(Long battleId, Long userId) {
+        return getMyPerspective(battleId, userId, null);
+    }
+
+    public List<MyPerspectiveResponse> getMyPerspective(Long battleId, Long userId, Classroom classroom) {
         battleService.findById(battleId);
-        List<Perspective> perspectives = perspectiveRepository.findByBattleIdAndUserIdOrderByCreatedAtDesc(battleId, userId);
+        List<Perspective> perspectives = perspectiveRepository
+                .findByBattleIdAndUserIdAndClassroomOrderByCreatedAtDesc(battleId, userId, classroom);
 
         UserSummary user = userQueryService.findSummaryById(userId);
         String characterImageUrl = resolveCharacterImageUrl(user.characterType());
@@ -207,6 +241,7 @@ public class PerspectiveService {
     public void retryModeration(Long perspectiveId, Long userId) {
         Perspective perspective = findPerspectiveById(perspectiveId);
         validateOwnership(perspective, userId);
+        requireClassWritable(perspective, userId);
         if (perspective.getStatus() != PerspectiveStatus.MODERATION_FAILED) {
             throw new CustomException(ErrorCode.PERSPECTIVE_MODERATION_NOT_FAILED);
         }
@@ -222,6 +257,20 @@ public class PerspectiveService {
     private void validateOwnership(Perspective perspective, Long userId) {
         if (!perspective.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.PERSPECTIVE_FORBIDDEN);
+        }
+    }
+
+    /** 클래스 의견이면 운영자/ACTIVE 멤버만 읽을 수 있다. 일반 의견은 그대로 통과 */
+    private void requireClassReadable(Perspective perspective, Long userId) {
+        if (perspective.getClassroom() != null) {
+            classAccessService.requireReadable(perspective.getClassroom(), userId);
+        }
+    }
+
+    /** 클래스 의견이면 ACTIVE 멤버이고 마감 전일 때만 수정·삭제할 수 있다. 일반 의견은 그대로 통과 */
+    private void requireClassWritable(Perspective perspective, Long userId) {
+        if (perspective.getClassroom() != null) {
+            classAccessService.requireWritable(perspective.getClassroom(), userId, LocalDateTime.now(KST));
         }
     }
 

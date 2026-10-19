@@ -65,8 +65,8 @@ class MajorityWinRewardJobTest {
         when(battleRepository.findByTargetDateBetweenAndStatusAndDeletedAtIsNull(any(), any(), any()))
                 .thenReturn(List.of(battle));
         when(battleOptionRepository.findByBattle(battle)).thenReturn(List.of(winner, loser));
-        when(battleVoteRepository.countByBattleAndPreVoteOption(battle, winner)).thenReturn(10L);
-        when(battleVoteRepository.countByBattleAndPreVoteOption(battle, loser)).thenReturn(5L);
+        when(battleVoteRepository.countByBattleAndClassroomIsNullAndPreVoteOption(battle, winner)).thenReturn(10L);
+        when(battleVoteRepository.countByBattleAndClassroomIsNullAndPreVoteOption(battle, loser)).thenReturn(5L);
 
         User userA = user(11L);
         User userB = user(12L);
@@ -74,7 +74,7 @@ class MajorityWinRewardJobTest {
         BattleVote winVoteA = vote(userA, winner);
         BattleVote winVoteB = vote(userB, winner);
         BattleVote lossVoteC = vote(userC, loser);
-        when(battleVoteRepository.findAllByBattle(battle)).thenReturn(List.of(winVoteA, winVoteB, lossVoteC));
+        when(battleVoteRepository.findAllByBattleAndClassroomIsNull(battle)).thenReturn(List.of(winVoteA, winVoteB, lossVoteC));
 
         job.run(runDate);
 

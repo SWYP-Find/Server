@@ -13,6 +13,8 @@ import com.swyp.picke.domain.battle.dto.response.TodayBattleResponse;
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.user.dto.response.UserBattleStatusResponse;
+import com.swyp.picke.domain.user.enums.UserBattleStep;
+import com.swyp.picke.domain.user.enums.VoteSide;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -39,6 +41,9 @@ public interface BattleService {
     TodayBattleListResponse getTodayBattles();
 
     BattleUserDetailResponse getBattleDetail(Long battleId);
+
+    /** 조회수·현재 로그인 사용자와 무관하게, 주어진 투표 상태·단계·참여자 수로 배틀 상세를 조립한다 (클래스 배틀 상세에서 재사용) */
+    BattleUserDetailResponse buildUserDetail(Battle battle, Long participantsCount, VoteSide voteSide, UserBattleStep step);
 
     BattleVoteResponse BattleVote(Long battleId, Long optionId);
 

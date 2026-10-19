@@ -78,12 +78,12 @@ class VoteQueryServiceTest {
     @Test
     @DisplayName("총 참여 횟수(countTotalParticipation)는 사전투표만 한 기록도 포함한다")
     void countTotalParticipation_includes_pre_vote_only_records() {
-        when(battleVoteRepository.countByUserId(1L)).thenReturn(5L);
+        when(battleVoteRepository.countByUserIdAndClassroomIsNull(1L)).thenReturn(5L);
 
         long count = voteQueryService.countTotalParticipation(1L);
 
         assertThat(count).isEqualTo(5L);
-        verify(battleVoteRepository).countByUserId(1L);
+        verify(battleVoteRepository).countByUserIdAndClassroomIsNull(1L);
     }
 
     @Test

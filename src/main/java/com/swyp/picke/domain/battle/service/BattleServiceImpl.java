@@ -229,14 +229,6 @@ public class BattleServiceImpl implements BattleService {
     public BattleUserDetailResponse getBattleDetail(Long battleId) {
         Battle battle = findPublishedById(battleId);
         battle.increaseViewCount();
-        List<Tag> tags = getTagsByBattle(battle);
-        List<BattleOption> options = battleOptionRepository.findByBattle(battle);
-        Map<Long, List<Tag>> optionTagsMap = battleOptionTagRepository.findByBattleWithTags(battle)
-                .stream()
-                .collect(Collectors.groupingBy(
-                        bot -> bot.getBattleOption().getId(),
-                        Collectors.mapping(BattleOptionTag::getTag, Collectors.toList())
-                ));
         Long currentUserId = SecurityUtil.getCurrentUserId();
         User user = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
@@ -254,12 +246,20 @@ public class BattleServiceImpl implements BattleService {
                 })
                 .orElse(null);
 
-        return battleConverter.toUserDetailResponse(
-                battle, tags, options, optionTagsMap,
-                battle.getTotalParticipantsCount(),
-                voteStatus,
-                currentStep
-        );
+        return buildUserDetail(battle, battle.getTotalParticipantsCount(), voteStatus, currentStep);
+    }
+
+    @Override
+    public BattleUserDetailResponse buildUserDetail(Battle battle, Long participantsCount, VoteSide voteSide, UserBattleStep step) {
+        List<Tag> tags = getTagsByBattle(battle);
+        List<BattleOption> options = battleOptionRepository.findByBattle(battle);
+        Map<Long, List<Tag>> optionTagsMap = battleOptionTagRepository.findByBattleWithTags(battle)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        bot -> bot.getBattleOption().getId(),
+                        Collectors.mapping(BattleOptionTag::getTag, Collectors.toList())
+                ));
+        return battleConverter.toUserDetailResponse(battle, tags, options, optionTagsMap, participantsCount, voteSide, step);
     }
 
     @Override

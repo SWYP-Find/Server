@@ -3,6 +3,8 @@ package com.swyp.picke.domain.perspective.service;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.service.BattleService;
 import com.swyp.picke.domain.battle.util.BattleOptionDisplay;
+import com.swyp.picke.domain.classroom.entity.Classroom;
+import com.swyp.picke.domain.classroom.service.ClassAccessService;
 import com.swyp.picke.domain.notification.service.NotificationDispatchService;
 import com.swyp.picke.domain.perspective.dto.request.CreateCommentRequest;
 import com.swyp.picke.domain.perspective.dto.request.UpdateCommentRequest;
@@ -32,14 +34,21 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
+/**
+ * 의견 댓글 서비스. 댓글은 부모 의견의 class_id 를 그대로 물려받는다.
+ * 클래스 의견의 댓글은 운영자/ACTIVE 멤버만 읽고, ACTIVE 멤버가 마감 전에만 쓴다 (PRD §15, 피그마 "참여가 마감되어 댓글을 등록할 수 없어요").
+ * 클래스 댓글은 일반 알림(새 답글)·마이페이지 집계에 섞이지 않는다.
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PerspectiveCommentService {
 
     private static final int DEFAULT_PAGE_SIZE = 20;
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final PerspectiveRepository perspectiveRepository;
     private final PerspectiveCommentRepository commentRepository;
@@ -51,31 +60,33 @@ public class PerspectiveCommentService {
     private final BattleService battleService;
     private final S3PresignedUrlService s3PresignedUrlService;
     private final NotificationDispatchService notificationDispatchService;
+    private final ClassAccessService classAccessService;
 
     @Transactional
     public CreateCommentResponse createComment(Long perspectiveId, Long userId, CreateCommentRequest request) {
         Perspective perspective = findPerspectiveById(perspectiveId);
+        Classroom classroom = perspective.getClassroom();
+        requireClassWritable(classroom, userId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         PerspectiveComment comment = PerspectiveComment.builder()
                 .perspective(perspective)
                 .user(user)
+                .classroom(classroom)
                 .content(request.content())
                 .build();
 
         commentRepository.save(comment);
         perspective.incrementCommentCount();
 
-        notifyNewCommentAfterCommit(comment, perspective, userId);
+        if (classroom == null) {
+            notifyNewCommentAfterCommit(comment, perspective, userId);
+        }
 
         UserSummary userSummary = userQueryService.findSummaryById(userId);
         String characterImageUrl = resolveCharacterImageUrl(userSummary.characterType());
-        Long postVoteOptionId = BattleVoteService.findPostVoteOptionId(perspective.getBattle().getId(), userId);
-        String stance = null;
-        if (postVoteOptionId != null) {
-            stance = BattleOptionDisplay.opinion(battleService.findOptionById(postVoteOptionId));
-        }
+        String stance = resolveStance(perspective.getBattle().getId(), userId, classroom);
         return new CreateCommentResponse(
                 comment.getId(),
                 new CreateCommentResponse.UserSummary(userSummary.userTag(), userSummary.nickname(), userSummary.characterType(), characterImageUrl),
@@ -112,51 +123,17 @@ public class PerspectiveCommentService {
     }
 
     public CommentListResponse getComments(Long perspectiveId, Long userId, String cursor, Integer size) {
-        Perspective perspective = findPerspectiveById(perspectiveId);
-
-        int pageSize = (size == null || size <= 0) ? DEFAULT_PAGE_SIZE : size;
-        PageRequest pageable = PageRequest.of(0, pageSize);
-
-        List<PerspectiveComment> comments = cursor == null
-                ? commentRepository.findByPerspectiveOrderByCreatedAtDesc(perspective, pageable)
-                : commentRepository.findByPerspectiveAndCreatedAtBeforeOrderByCreatedAtDesc(
-                        perspective, LocalDateTime.parse(cursor), pageable);
-
-        Long battleId = perspective.getBattle().getId();
-        List<CommentListResponse.Item> items = comments.stream()
-                .filter(c -> !c.isHidden())
-                .map(c -> {
-                    UserSummary user = userQueryService.findSummaryById(c.getUser().getId());
-                    String characterImageUrl = resolveCharacterImageUrl(user.characterType());
-                    Long postVoteOptionId = BattleVoteService.findPostVoteOptionId(battleId, c.getUser().getId());
-                    String stance = null;
-                    if (postVoteOptionId != null) {
-                        BattleOption option = battleService.findOptionById(postVoteOptionId);
-                        stance = BattleOptionDisplay.opinion(option);
-                    }
-                    boolean isLiked = commentLikeRepository.existsByCommentAndUserId(c, userId);
-                    return new CommentListResponse.Item(
-                            c.getId(),
-                            new CommentListResponse.UserSummary(user.userTag(), user.nickname(), user.characterType(), characterImageUrl),
-                            stance,
-                            c.getContent(),
-                            c.getLikeCount(),
-                            isLiked,
-                            c.getUser().getId().equals(userId),
-                            c.getCreatedAt()
-                    );
-                })
-                .toList();
-
-        String nextCursor = comments.size() == pageSize
-                ? comments.get(comments.size() - 1).getCreatedAt().toString()
-                : null;
-
-        return new CommentListResponse(items, nextCursor, nextCursor != null);
+        return listComments(perspectiveId, userId, cursor, size);
     }
 
     public CommentListResponse getCommentsWithLabel(Long perspectiveId, Long userId, String cursor, Integer size) {
+        return listComments(perspectiveId, userId, cursor, size);
+    }
+
+    private CommentListResponse listComments(Long perspectiveId, Long userId, String cursor, Integer size) {
         Perspective perspective = findPerspectiveById(perspectiveId);
+        Classroom classroom = perspective.getClassroom();
+        requireClassReadable(classroom, userId);
 
         int pageSize = (size == null || size <= 0) ? DEFAULT_PAGE_SIZE : size;
         PageRequest pageable = PageRequest.of(0, pageSize);
@@ -172,12 +149,7 @@ public class PerspectiveCommentService {
                 .map(c -> {
                     UserSummary user = userQueryService.findSummaryById(c.getUser().getId());
                     String characterImageUrl = resolveCharacterImageUrl(user.characterType());
-                    Long postVoteOptionId = BattleVoteService.findPostVoteOptionId(battleId, c.getUser().getId());
-                    String stance = null;
-                    if (postVoteOptionId != null) {
-                        BattleOption option = battleService.findOptionById(postVoteOptionId);
-                        stance = BattleOptionDisplay.opinion(option);
-                    }
+                    String stance = resolveStance(battleId, c.getUser().getId(), classroom);
                     boolean isLiked = commentLikeRepository.existsByCommentAndUserId(c, userId);
                     return new CommentListResponse.Item(
                             c.getId(),
@@ -204,6 +176,7 @@ public class PerspectiveCommentService {
         Perspective perspective = findPerspectiveById(perspectiveId);
         PerspectiveComment comment = findCommentById(commentId);
         validateOwnership(comment, userId);
+        requireClassWritable(perspective.getClassroom(), userId);
 
         commentLikeRepository.deleteAllByComment(comment);
         commentReportRepository.deleteAllByComment(comment);
@@ -213,12 +186,35 @@ public class PerspectiveCommentService {
 
     @Transactional
     public UpdateCommentResponse updateComment(Long perspectiveId, Long commentId, Long userId, UpdateCommentRequest request) {
-        findPerspectiveById(perspectiveId);
+        Perspective perspective = findPerspectiveById(perspectiveId);
         PerspectiveComment comment = findCommentById(commentId);
         validateOwnership(comment, userId);
+        requireClassWritable(perspective.getClassroom(), userId);
 
         comment.updateContent(request.content());
         return new UpdateCommentResponse(comment.getId(), comment.getContent(), comment.getUpdatedAt());
+    }
+
+    /** 댓글 작성자의 사후투표 입장. 클래스 의견이면 같은 클래스 안의 투표만 본다 */
+    private String resolveStance(Long battleId, Long authorId, Classroom classroom) {
+        Long postVoteOptionId = BattleVoteService.findPostVoteOptionId(battleId, authorId, classroom);
+        if (postVoteOptionId == null) {
+            return null;
+        }
+        BattleOption option = battleService.findOptionById(postVoteOptionId);
+        return BattleOptionDisplay.opinion(option);
+    }
+
+    private void requireClassReadable(Classroom classroom, Long userId) {
+        if (classroom != null) {
+            classAccessService.requireReadable(classroom, userId);
+        }
+    }
+
+    private void requireClassWritable(Classroom classroom, Long userId) {
+        if (classroom != null) {
+            classAccessService.requireWritable(classroom, userId, LocalDateTime.now(KST));
+        }
     }
 
     private Perspective findPerspectiveById(Long perspectiveId) {

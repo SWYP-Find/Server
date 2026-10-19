@@ -23,6 +23,7 @@ import com.swyp.picke.domain.ticket.enums.RewardTier;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.enums.UserRole;
 import com.swyp.picke.domain.user.enums.UserStatus;
+import com.swyp.picke.domain.user.repository.UserBattleRepository;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
@@ -63,6 +64,8 @@ class ClassMemberServiceImplTest {
     private ClassMemberRepository classMemberRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private UserBattleRepository userBattleRepository;
 
     @InjectMocks
     private ClassMemberServiceImpl service;

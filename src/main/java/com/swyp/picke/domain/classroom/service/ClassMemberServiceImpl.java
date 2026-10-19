@@ -14,6 +14,7 @@ import com.swyp.picke.domain.classroom.enums.ClassStatus;
 import com.swyp.picke.domain.classroom.repository.ClassMemberRepository;
 import com.swyp.picke.domain.classroom.repository.ClassroomRepository;
 import com.swyp.picke.domain.user.entity.User;
+import com.swyp.picke.domain.user.repository.UserBattleRepository;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
@@ -48,6 +49,7 @@ public class ClassMemberServiceImpl implements ClassMemberService {
     private final ClassroomRepository classroomRepository;
     private final ClassMemberRepository classMemberRepository;
     private final UserRepository userRepository;
+    private final UserBattleRepository userBattleRepository;
 
     @Override
     @Transactional
@@ -187,10 +189,10 @@ public class ClassMemberServiceImpl implements ClassMemberService {
 
     /**
      * 사전투표 이후 활동이 있으면 나가도 좌석을 돌려주지 않는다 (PRD F15, ERD D04).
-     * 클래스 내 배틀 참여(user_battles.class_id) 가 붙기 전이라 지금은 항상 false. 배틀 스코핑 이슈에서 연결한다.
+     * 클래스 안에서 사전투표하면 user_battles 에 class_id 행이 생기므로 그 존재 여부로 판단한다.
      */
     private boolean hasActivity(ClassMember member) {
-        return false;
+        return userBattleRepository.existsByUserIdAndClassroomId(member.getUser().getId(), member.getClassroom().getId());
     }
 
     // ===== 조회 헬퍼 =====

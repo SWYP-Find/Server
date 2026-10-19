@@ -5,6 +5,7 @@ import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.repository.BattleOptionRepository;
 import com.swyp.picke.domain.battle.repository.BattleOptionTagRepository;
 import com.swyp.picke.domain.battle.service.BattleService;
+import com.swyp.picke.domain.classroom.entity.Classroom;
 import com.swyp.picke.domain.tag.enums.TagType;
 import com.swyp.picke.domain.user.dto.response.UserBattleStatusResponse;
 import com.swyp.picke.domain.user.entity.User;
@@ -37,6 +38,12 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 일반 배틀과 클래스 내 배틀은 같은 테이블(votes/user_battles)에 class_id 로 구분해 저장한다.
+ * 클래스 스코프(classroom != null)에서는 다음이 적용되지 않는다 (PRD §7, ERD votes 노트):
+ * 크레딧 차감(BATTLE_ENTRY)·오늘의 배틀 무료 진입 판정, battles.total_participants 증가, 성향 점수(value tag) 반영, SSE 통계 이벤트.
+ * 대신 사전투표는 콘텐츠 시작 후 잠기고, 사후투표는 제출 후 잠긴다.
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -58,10 +65,9 @@ public class BattleVoteServiceImpl implements BattleVoteService {
     @Override
     public BattleOption findPreVoteOption(Long battleId, Long userId) {
         Battle battle = battleService.findById(battleId);
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        User user = findUser(userId);
 
-        BattleVote vote = battleVoteRepository.findByBattleAndUser(battle, user)
+        BattleVote vote = battleVoteRepository.findByBattleAndUserAndClassroom(battle, user, null)
                 .orElseThrow(() -> new CustomException(ErrorCode.VOTE_NOT_FOUND));
 
         if (vote.getPreVoteOption() == null) {
@@ -72,20 +78,37 @@ public class BattleVoteServiceImpl implements BattleVoteService {
 
     @Override
     public Long findPostVoteOptionId(Long battleId, Long userId) {
-        return battleVoteRepository.findByBattleIdAndUserId(battleId, userId)
+        return battleVoteRepository.findByBattleIdAndUserIdAndClassroomIsNull(battleId, userId)
+                .map(vote -> vote.getPostVoteOption() != null ? vote.getPostVoteOption().getId() : null)
+                .orElse(null);
+    }
+
+    @Override
+    public Long findPostVoteOptionId(Long battleId, Long userId, Classroom classroom) {
+        if (classroom == null) {
+            return findPostVoteOptionId(battleId, userId);
+        }
+        Battle battle = battleService.findById(battleId);
+        User user = findUser(userId);
+        return battleVoteRepository.findByBattleAndUserAndClassroom(battle, user, classroom)
                 .map(vote -> vote.getPostVoteOption() != null ? vote.getPostVoteOption().getId() : null)
                 .orElse(null);
     }
 
     @Override
     public VoteStatsResponse getVoteStats(Long battleId) {
+        return getVoteStats(battleId, null);
+    }
+
+    @Override
+    public VoteStatsResponse getVoteStats(Long battleId, Classroom classroom) {
         Battle battle = battleService.findById(battleId);
         List<BattleOption> options = battleOptionRepository.findByBattle(battle);
-        long totalCount = battleVoteRepository.countByBattleAndPostVoteOptionIsNotNull(battle);
+        long totalCount = battleVoteRepository.countByBattleAndClassroomAndPostVoteOptionIsNotNull(battle, classroom);
 
         List<VoteStatsResponse.OptionStat> stats = options.stream()
                 .map(option -> {
-                    long count = battleVoteRepository.countByBattleAndPostVoteOption(battle, option);
+                    long count = battleVoteRepository.countByBattleAndClassroomAndPostVoteOption(battle, classroom, option);
                     double ratio = totalCount > 0
                             ? Math.round((double) count / totalCount * 1000.0) / 10.0
                             : 0.0;
@@ -99,7 +122,7 @@ public class BattleVoteServiceImpl implements BattleVoteService {
                 })
                 .toList();
 
-        LocalDateTime updatedAt = battleVoteRepository.findTopByBattleOrderByUpdatedAtDesc(battle)
+        LocalDateTime updatedAt = battleVoteRepository.findTopByBattleAndClassroomOrderByUpdatedAtDesc(battle, classroom)
                 .map(BattleVote::getUpdatedAt)
                 .orElse(null);
 
@@ -108,44 +131,58 @@ public class BattleVoteServiceImpl implements BattleVoteService {
 
     @Override
     public MyVoteResponse getMyVote(Long battleId, Long userId) {
-        Battle battle = battleService.findById(battleId);
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        return getMyVote(battleId, userId, null);
+    }
 
-        BattleVote vote = battleVoteRepository.findByBattleAndUser(battle, user)
+    @Override
+    public MyVoteResponse getMyVote(Long battleId, Long userId, Classroom classroom) {
+        Battle battle = battleService.findById(battleId);
+        User user = findUser(userId);
+
+        BattleVote vote = battleVoteRepository.findByBattleAndUserAndClassroom(battle, user, classroom)
                 .orElseThrow(() -> new CustomException(ErrorCode.VOTE_NOT_FOUND));
 
-        UserBattleStatusResponse status = userBattleService.getUserBattleStatus(user, battle);
+        UserBattleStatusResponse status = userBattleService.getUserBattleStatus(user, battle, classroom);
         return VoteConverter.toMyVoteResponse(vote, status.step());
     }
 
     @Override
     @Transactional
     public VoteResultResponse preVote(Long battleId, Long userId, VoteRequest request) {
-        Battle battle = battleService.findById(battleId);
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        BattleOption option = battleOptionRepository.findById(request.optionId())
-                .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));
+        return preVote(battleId, userId, null, request);
+    }
 
-        Optional<BattleVote> existingVote = battleVoteRepository.findByBattleAndUser(battle, user);
+    @Override
+    @Transactional
+    public VoteResultResponse preVote(Long battleId, Long userId, Classroom classroom, VoteRequest request) {
+        Battle battle = battleService.findById(battleId);
+        User user = findUser(userId);
+        BattleOption option = findOptionOf(battle, request.optionId());
+
+        UserBattleStatusResponse status = userBattleService.getUserBattleStatus(user, battle, classroom);
+        Optional<BattleVote> existingVote = battleVoteRepository.findByBattleAndUserAndClassroom(battle, user, classroom);
         BattleVote vote;
 
         if (existingVote.isPresent()) {
+            // 클래스: 콘텐츠(배틀)가 시작된 뒤에는 사전투표를 바꿀 수 없다 (PRD §7)
+            if (classroom != null && isPreVoteLocked(status.step())) {
+                throw new CustomException(ErrorCode.CLASS_PRE_VOTE_LOCKED);
+            }
             vote = existingVote.get();
             vote.updatePreVote(option);
         } else {
-            if (shouldChargeBattleEntryCredit(battle, user)) {
+            if (classroom == null && shouldChargeBattleEntryCredit(battle, user)) {
                 creditService.addCredit(user.getId(), CreditType.BATTLE_ENTRY, battle.getId());
             }
-            vote = BattleVote.createPreVote(user, battle, option);
+            vote = BattleVote.createPreVote(user, battle, classroom, option);
             battleVoteRepository.save(vote);
-            battle.addParticipant();
+            if (classroom == null) {
+                battle.addParticipant();
+            }
         }
 
-        UserBattleStatusResponse status = userBattleService.getUserBattleStatus(user, battle);
         if (status.step() == UserBattleStep.NONE) {
-            userBattleService.upsertStep(user, battle, UserBattleStep.PRE_VOTE);
+            userBattleService.upsertStep(user, battle, classroom, UserBattleStep.PRE_VOTE);
         }
 
         UserBattleStep currentStep = status.step() == UserBattleStep.NONE
@@ -157,30 +194,42 @@ public class BattleVoteServiceImpl implements BattleVoteService {
     @Override
     @Transactional
     public VoteResultResponse postVote(Long battleId, Long userId, VoteRequest request) {
-        Battle battle = battleService.findById(battleId);
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        BattleOption option = battleOptionRepository.findById(request.optionId())
-                .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));
+        return postVote(battleId, userId, null, request);
+    }
 
-        BattleVote vote = battleVoteRepository.findByBattleAndUser(battle, user)
+    @Override
+    @Transactional
+    public VoteResultResponse postVote(Long battleId, Long userId, Classroom classroom, VoteRequest request) {
+        Battle battle = battleService.findById(battleId);
+        User user = findUser(userId);
+        BattleOption option = findOptionOf(battle, request.optionId());
+
+        BattleVote vote = battleVoteRepository.findByBattleAndUserAndClassroom(battle, user, classroom)
                 .orElseThrow(() -> new CustomException(ErrorCode.VOTE_NOT_FOUND));
 
-        UserBattleStatusResponse status = userBattleService.getUserBattleStatus(user, battle);
+        UserBattleStatusResponse status = userBattleService.getUserBattleStatus(user, battle, classroom);
         if (status.step() == UserBattleStep.NONE) {
             throw new CustomException(ErrorCode.PRE_VOTE_REQUIRED);
+        }
+        // 클래스: 사후투표는 제출 후 잠긴다 (PRD §7). 일반 배틀은 기존대로 변경 허용(성향 점수 재계산)
+        if (classroom != null && status.step() == UserBattleStep.COMPLETED) {
+            throw new CustomException(ErrorCode.VOTE_ALREADY_SUBMITTED);
         }
 
         BattleOption previousOption = vote.getPostVoteOption();
         vote.doPostVote(option);
-        userTendencyScoreRepository.findByUserId(userId).ifPresent(score -> {
-            if (previousOption != null) {
-                applyValueTags(score, previousOption, -1);
-            }
-            applyValueTags(score, option, 1);
-        });
-        userBattleService.upsertStep(user, battle, UserBattleStep.COMPLETED);
-        eventPublisher.publishEvent(new VoteUpdatedEvent(battleId));
+        if (classroom == null) {
+            userTendencyScoreRepository.findByUserId(userId).ifPresent(score -> {
+                if (previousOption != null) {
+                    applyValueTags(score, previousOption, -1);
+                }
+                applyValueTags(score, option, 1);
+            });
+        }
+        userBattleService.upsertStep(user, battle, classroom, UserBattleStep.COMPLETED);
+        if (classroom == null) {
+            eventPublisher.publishEvent(new VoteUpdatedEvent(battleId));
+        }
 
         return new VoteResultResponse(vote.getId(), UserBattleStep.COMPLETED);
     }
@@ -192,11 +241,12 @@ public class BattleVoteServiceImpl implements BattleVoteService {
                 .forEach(tag -> score.applyValueTag(tag.getName(), multiplier));
     }
 
+    /** 어드민 배틀 투표 초기화: 일반 배틀 투표만 지운다. 클래스 내 투표는 클래스 결과의 일부라 건드리지 않는다 */
     @Override
     @Transactional
     public void deleteVotesByBattleId(Long battleId) {
         Battle battle = battleService.findById(battleId);
-        List<BattleVote> votes = battleVoteRepository.findAllByBattle(battle);
+        List<BattleVote> votes = battleVoteRepository.findAllByBattleAndClassroomIsNull(battle);
 
         for (BattleVote vote : votes) {
             userBattleService.upsertStep(vote.getUser(), battle, UserBattleStep.NONE);
@@ -208,15 +258,32 @@ public class BattleVoteServiceImpl implements BattleVoteService {
     @Override
     @Transactional
     public void completeTts(Long battleId, Long userId) {
-        Battle battle = battleService.findById(battleId);
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        completeTts(battleId, userId, null);
+    }
 
-        BattleVote vote = battleVoteRepository.findByBattleAndUser(battle, user)
+    @Override
+    @Transactional
+    public void completeTts(Long battleId, Long userId, Classroom classroom) {
+        Battle battle = battleService.findById(battleId);
+        User user = findUser(userId);
+
+        BattleVote vote = battleVoteRepository.findByBattleAndUserAndClassroom(battle, user, classroom)
                 .orElseThrow(() -> new CustomException(ErrorCode.VOTE_NOT_FOUND));
         vote.completeTts();
 
-        userBattleService.upsertStep(user, battle, UserBattleStep.POST_VOTE);
+        // 클래스: 이미 사후투표까지 끝났으면 다시 듣기(replay)가 단계를 되돌리지 않는다 (PRD §7)
+        if (classroom != null) {
+            UserBattleStatusResponse status = userBattleService.getUserBattleStatus(user, battle, classroom);
+            if (status.step() == UserBattleStep.COMPLETED) {
+                return;
+            }
+        }
+        userBattleService.upsertStep(user, battle, classroom, UserBattleStep.POST_VOTE);
+    }
+
+    // 사전투표 잠금: 콘텐츠 시작(사전투표 단계 통과) 이후
+    private static boolean isPreVoteLocked(UserBattleStep step) {
+        return step != UserBattleStep.NONE && step != UserBattleStep.PRE_VOTE;
     }
 
     // 오늘의 배틀(targetDate == 오늘)은 하루 1회에 한해 무료 진입, 그 외 진입 또는 이미 오늘 무료 진입을 사용한 경우 -5P 차감
@@ -226,6 +293,21 @@ public class BattleVoteServiceImpl implements BattleVoteService {
         if (!isTodayBattle) {
             return true;
         }
-        return battleVoteRepository.existsByUserIdAndBattle_TargetDate(user.getId(), today);
+        return battleVoteRepository.existsByUserIdAndClassroomIsNullAndBattle_TargetDate(user.getId(), today);
+    }
+
+    private User findUser(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    // 다른 배틀의 옵션 id 로 투표하는 것을 막는다
+    private BattleOption findOptionOf(Battle battle, Long optionId) {
+        BattleOption option = battleOptionRepository.findById(optionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));
+        if (option.getBattle() == null || !battle.getId().equals(option.getBattle().getId())) {
+            throw new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND);
+        }
+        return option;
     }
 }

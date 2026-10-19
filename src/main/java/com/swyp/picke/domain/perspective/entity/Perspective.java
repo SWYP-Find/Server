@@ -2,6 +2,7 @@ package com.swyp.picke.domain.perspective.entity;
 
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
+import com.swyp.picke.domain.classroom.entity.Classroom;
 import com.swyp.picke.domain.perspective.enums.PerspectiveStatus;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.global.common.BaseEntity;
@@ -36,6 +37,11 @@ public class Perspective extends BaseEntity {
     @JoinColumn(name = "option_id", nullable = false)
     private BattleOption option;
 
+    /** null 이면 일반 배틀, 값이 있으면 클래스 안에서만 노출 */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "class_id")
+    private Classroom classroom;
+
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
@@ -50,10 +56,11 @@ public class Perspective extends BaseEntity {
     private PerspectiveStatus status;
 
     @Builder
-    private Perspective(Battle battle, User user, BattleOption option, String content) {
+    private Perspective(Battle battle, User user, BattleOption option, Classroom classroom, String content) {
         this.battle = battle;
         this.user = user;
         this.option = option;
+        this.classroom = classroom;
         this.content = content;
         this.likeCount = 0;
         this.commentCount = 0;

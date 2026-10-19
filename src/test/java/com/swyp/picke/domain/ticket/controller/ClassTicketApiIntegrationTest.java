@@ -123,6 +123,23 @@ class ClassTicketApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("결제 후 1년이 지난 코드는 409 이고, 거절돼도 REGISTER_EXPIRED 상태는 DB 에 남는다")
+    void register_registerWindowClosed_persistsStatus() throws Exception {
+        String code = newCode();
+        issueTicket(code, RewardTier.SEAT_5, LocalDateTime.now().minusYears(1).minusDays(1));
+
+        mockMvc.perform(post("/api/v1/class-tickets/register")
+                        .header("Authorization", "Bearer " + userToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("code", code))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("TICKET_409_REG_EXP"));
+
+        ClassTicket saved = classTicketRepository.findByCodeHash(TicketCodeHasher.hash(code)).orElseThrow();
+        assertThat(saved.getStatus()).isEqualTo(TicketStatus.REGISTER_EXPIRED);
+    }
+
+    @Test
     @DisplayName("없는 코드는 404, 빈 코드는 400")
     void register_validation() throws Exception {
         String token = userToken();

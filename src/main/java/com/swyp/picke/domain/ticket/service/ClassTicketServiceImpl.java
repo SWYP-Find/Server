@@ -37,14 +37,18 @@ public class ClassTicketServiceImpl implements ClassTicketService {
     private final ClassTicketRepository classTicketRepository;
     private final UserRepository userRepository;
 
+    /**
+     * 거절(CustomException)하면서도 상태 변경은 남겨야 하는 경우가 있어 롤백 대상에서 뺀다.
+     * (등록 기한 경과 → REGISTER_EXPIRED 기록 후 409, 기간 끝난 ACTIVE → EXPIRED 기록)
+     */
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = CustomException.class)
     public ClassTicketResponse register(Long userId, ClassTicketRegisterRequest request) {
         LocalDateTime now = LocalDateTime.now(KST);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        ClassTicket ticket = classTicketRepository.findByCodeHash(TicketCodeHasher.hash(request.code()))
+        ClassTicket ticket = classTicketRepository.findByCodeHashForUpdate(TicketCodeHasher.hash(request.code()))
                 .orElseThrow(() -> new CustomException(ErrorCode.TICKET_CODE_INVALID));
 
         validateCodeRegistrable(ticket, now);

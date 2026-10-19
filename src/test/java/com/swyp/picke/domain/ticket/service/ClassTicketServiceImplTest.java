@@ -78,7 +78,7 @@ class ClassTicketServiceImplTest {
 
     private void givenUserAndCode(ClassTicket ticket) {
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-        when(classTicketRepository.findByCodeHash(HASH)).thenReturn(Optional.of(ticket));
+        when(classTicketRepository.findByCodeHashForUpdate(HASH)).thenReturn(Optional.of(ticket));
     }
 
     private static ErrorCode errorCodeOf(Throwable e) {
@@ -109,7 +109,7 @@ class ClassTicketServiceImplTest {
     @DisplayName("존재하지 않는 코드는 TICKET_404_CODE")
     void register_rejectsUnknownCode() {
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-        when(classTicketRepository.findByCodeHash(any())).thenReturn(Optional.empty());
+        when(classTicketRepository.findByCodeHashForUpdate(any())).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.register(USER_ID, new ClassTicketRegisterRequest("NOPE")))
                 .isInstanceOf(CustomException.class)

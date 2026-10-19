@@ -93,7 +93,7 @@ entity "funding_orders" as funding_orders {
 entity "class_tickets" as class_tickets {
   * id : BIGINT <<PK>>
   --
-  funding_order_id : BIGINT <<FK, UK>>
+  funding_order_id : BIGINT <<FK>>
   capacity : INTEGER
   code_hash : VARCHAR(64) <<UK>>
   code_status : VARCHAR(20)
@@ -194,7 +194,7 @@ entity "class_reports" as class_reports {
 
 ' ===== 관계 =====
 
-funding_orders ||--o| class_tickets : issues
+funding_orders ||--o{ class_tickets : issues
 users          |o--o{ class_tickets : registers
 class_tickets  ||--o{ ticket_delivery_attempts : delivered by
 
@@ -229,6 +229,13 @@ note bottom of funding_orders
   quantity != 1 인 행은 발급 보류 (PRD §30)
   같은 명단 재업로드 시 order_id 기준 멱등 (CF01)
   구매자(supporter_*)와 등록자(class_tickets.registered_user_id)는 다를 수 있다.
+  -- #543 구현 반영 --
+  어드민 CSV: POST /api/v1/admin/funding/imports (헤더 platform, campaign_id, order_id, reward_tier,
+    quantity, supporter_name, supporter_email, supporter_phone, payment_status, paid_at; reward_tier 는 SEAT_x 또는 5/15/30)
+  행 단위 오류는 응답 errors 로 모아 돌려주고 나머지 행은 반영, import_file_hash = 업로드 파일 SHA-256
+  REFUNDED/CANCELED 는 종착 상태: 재업로드로 PAID_CONFIRMED 등 비종착 상태로 되돌리지 않음 (CF07, 오류 행)
+  이용권이 살아 있는 주문의 reward_tier 변경은 거절 (환불 후 재업로드)
+  환불 = POST /refunds: payment_status REFUNDED (paid_at 유지) + 살아 있는 이용권 REVOKED
 end note
 
 note bottom of class_tickets
@@ -251,6 +258,15 @@ note bottom of class_tickets
     코드 확인(preview) 은 소비 없이 정원·등록기한만 반환 (PRD §17, #535)
     "이용권 추가등록하기" 버튼은 만료/유예 상태에서만 활성
   재발급 = 기존 행 REVOKED + 새 행, register_by 는 그대로 복사 (CF06)
+  -- #543 구현 반영 --
+  UK(funding_order_id) 는 제거하고 partial UK(funding_order_id) WHERE status <> 'REVOKED' 로 교체
+    → 재발급·환불 이력(REVOKED 행)은 그대로 남고, 살아 있는 행은 주문당 1개 (V20261019_02)
+  코드 = SecureRandom 130bit → Crockford Base32 26자, 표시 XXXXXX-XXXXX-XXXXX-XXXXX-XXXXX
+    발급(POST /admin/funding/tickets/issue)·재발급(POST /tickets/{id}/reissue) 응답에서만 1회 노출, 로그 금지
+  발급 대상 = PAID_CONFIRMED + quantity 1 + paid_at 있음 + 살아 있는 행 없음 (재실행 시 ALREADY_ISSUED 스킵, CF08)
+  재발급은 ISSUED/DELIVERED 만: CLAIMED 409 TICKET_409_CLAIMED, REVOKED 409 TICKET_409_REVOKED
+  전달 기록(POST /tickets/{id}/deliveries) → ticket_delivery_attempts 행, SUCCESS 면 code_status DELIVERED + delivered_at
+  자동 이메일/SMS 발송·코드 임시 보관·업로드 배치 테이블은 후속
 end note
 
 note bottom of classes

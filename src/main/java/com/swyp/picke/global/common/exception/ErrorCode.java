@@ -137,6 +137,11 @@ public enum ErrorCode {
     TICKET_REGISTER_EXPIRED(HttpStatus.CONFLICT, "TICKET_409_REG_EXP", "등록 기한이 지난 이용권 코드입니다."),
     TICKET_ALREADY_ACTIVE(HttpStatus.CONFLICT, "TICKET_409_ACTIVE", "이미 사용 중인 이용권이 있습니다. 만료 후 등록할 수 있습니다."),
     TICKET_NOT_FOUND(HttpStatus.NOT_FOUND, "TICKET_404", "등록된 이용권이 없습니다."),
+    TICKET_STATE_CONFLICT(HttpStatus.CONFLICT, "TICKET_409_STATE", "현재 상태에서는 처리할 수 없는 이용권입니다."),
+
+    // Funding (어드민 펀딩 명단·발급)
+    FUNDING_ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "FUNDING_404_ORDER", "존재하지 않는 펀딩 주문입니다."),
+    FUNDING_CSV_INVALID(HttpStatus.BAD_REQUEST, "FUNDING_400_CSV", "CSV 파일을 읽을 수 없습니다. 템플릿 헤더와 UTF-8 인코딩을 확인해 주세요."),
 
     // Classroom (클래스)
     CLASS_NOT_FOUND(HttpStatus.NOT_FOUND, "CLASS_404", "존재하지 않는 클래스입니다."),

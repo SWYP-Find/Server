@@ -11,7 +11,6 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
@@ -32,10 +31,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(
         name = "class_tickets",
-        uniqueConstraints = {
-                @UniqueConstraint(name = "uk_class_tickets_funding_order", columnNames = "funding_order_id"),
-                @UniqueConstraint(name = "uk_class_tickets_code_hash", columnNames = "code_hash")
-        }
+        uniqueConstraints = @UniqueConstraint(name = "uk_class_tickets_code_hash", columnNames = "code_hash")
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ClassTicket extends BaseEntity {
@@ -44,7 +40,8 @@ public class ClassTicket extends BaseEntity {
     public static final int REGISTER_WINDOW_YEARS = 1;
     public static final int READ_GRACE_DAYS = 30;
 
-    @OneToOne(fetch = FetchType.LAZY)
+    /** 주문당 살아 있는(REVOKED 아닌) 행은 1개 (partial unique index, SQL 로 관리). 재발급 이력은 REVOKED 행으로 남는다 */
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "funding_order_id", nullable = false)
     private FundingOrder fundingOrder;
 
@@ -98,6 +95,21 @@ public class ClassTicket extends BaseEntity {
                 .codeHash(codeHash)
                 .registerBy(order.getPaidAt().plusYears(REGISTER_WINDOW_YEARS))
                 .build();
+    }
+
+    /** 재발급: 같은 주문·정원·등록기한으로 새 코드 행을 만든다. 기존 행은 호출 측에서 revoke 한다 (CF06) */
+    public static ClassTicket reissueFrom(ClassTicket previous, String codeHash) {
+        return ClassTicket.builder()
+                .fundingOrder(previous.getFundingOrder())
+                .capacity(previous.getCapacity())
+                .codeHash(codeHash)
+                .registerBy(previous.getRegisterBy())
+                .build();
+    }
+
+    /** 미사용 코드(발급·전달 단계)인지. 재발급·전달 기록은 이 상태에서만 가능하다 */
+    public boolean isUnclaimed() {
+        return codeStatus == TicketCodeStatus.ISSUED || codeStatus == TicketCodeStatus.DELIVERED;
     }
 
     public void markDelivered(LocalDateTime deliveredAt) {

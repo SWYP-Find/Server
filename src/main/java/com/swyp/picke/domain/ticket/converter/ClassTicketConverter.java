@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.ticket.converter;
 
+import com.swyp.picke.domain.ticket.dto.response.ClassTicketPreviewResponse;
 import com.swyp.picke.domain.ticket.dto.response.ClassTicketResponse;
 import com.swyp.picke.domain.ticket.entity.ClassTicket;
 import java.time.LocalDateTime;
@@ -21,6 +22,15 @@ public class ClassTicketConverter {
                 ticket.getExpiresAt(),
                 remainingDays,
                 ticket.getReadGraceEndsAt()
+        );
+    }
+
+    public static ClassTicketPreviewResponse toPreview(ClassTicket ticket, boolean registeredByMe) {
+        return new ClassTicketPreviewResponse(
+                ticket.getCapacity(),
+                ticket.getRegisterBy(),
+                ClassTicket.USAGE_MONTHS,
+                registeredByMe
         );
     }
 }

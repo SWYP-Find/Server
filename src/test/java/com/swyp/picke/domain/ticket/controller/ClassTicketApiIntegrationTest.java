@@ -170,6 +170,98 @@ class ClassTicketApiIntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    // ---- #535
+
+    @Test
+    @DisplayName("내가 등록한 코드를 다시 등록하면 200 으로 기존 이용권을 돌려주고 기간은 그대로다")
+    void register_ownCodeAgain_returnsExistingResult() throws Exception {
+        String token = userToken();
+        String code = newCode();
+        issueTicket(code, RewardTier.SEAT_5, LocalDateTime.now().minusDays(3));
+        registerOk(token, code);
+        ClassTicket first = classTicketRepository.findByCodeHash(TicketCodeHasher.hash(code)).orElseThrow();
+
+        mockMvc.perform(post("/api/v1/class-tickets/register")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("code", code))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.ticketId").value(first.getId()))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+
+        ClassTicket again = classTicketRepository.findByCodeHash(TicketCodeHasher.hash(code)).orElseThrow();
+        assertThat(again.getActivatedAt()).isEqualTo(first.getActivatedAt());
+        assertThat(again.getExpiresAt()).isEqualTo(first.getExpiresAt());
+    }
+
+    @Test
+    @DisplayName("코드 미리보기는 정원·등록기한을 보여주고 코드를 소비하지 않는다. 등록 후엔 registeredByMe=true")
+    void preview_doesNotConsumeCode() throws Exception {
+        String token = userToken();
+        String code = newCode();
+        issueTicket(code, RewardTier.SEAT_15, LocalDateTime.now().minusDays(3));
+
+        mockMvc.perform(get("/api/v1/class-tickets/preview")
+                        .header("Authorization", "Bearer " + token)
+                        .param("code", code.toLowerCase()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.capacity").value(15))
+                .andExpect(jsonPath("$.data.registerBy").exists())
+                .andExpect(jsonPath("$.data.usageMonths").value(6))
+                .andExpect(jsonPath("$.data.registeredByMe").value(false));
+
+        ClassTicket saved = classTicketRepository.findByCodeHash(TicketCodeHasher.hash(code)).orElseThrow();
+        assertThat(saved.getStatus()).isEqualTo(TicketStatus.UNREGISTERED);
+        assertThat(saved.getRegisteredUser()).isNull();
+
+        registerOk(token, code);
+
+        mockMvc.perform(get("/api/v1/class-tickets/preview")
+                        .header("Authorization", "Bearer " + token)
+                        .param("code", code))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.registeredByMe").value(true));
+    }
+
+    @Test
+    @DisplayName("코드 미리보기 거절: 없는 코드 404, 빈 코드 400, 타인이 등록한 코드 409, 기한 지난 코드 409 (상태는 안 바뀜), 토큰 없음 401")
+    void preview_rejections() throws Exception {
+        String token = userToken();
+
+        mockMvc.perform(get("/api/v1/class-tickets/preview")
+                        .header("Authorization", "Bearer " + token)
+                        .param("code", "PICKE-NOPE-0000"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("TICKET_404_CODE"));
+
+        mockMvc.perform(get("/api/v1/class-tickets/preview")
+                        .header("Authorization", "Bearer " + token)
+                        .param("code", " "))
+                .andExpect(status().isBadRequest());
+
+        String claimed = newCode();
+        issueTicket(claimed, RewardTier.SEAT_5, LocalDateTime.now().minusDays(3));
+        registerOk(userToken(), claimed);
+        mockMvc.perform(get("/api/v1/class-tickets/preview")
+                        .header("Authorization", "Bearer " + token)
+                        .param("code", claimed))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("TICKET_409_CLAIMED"));
+
+        String old = newCode();
+        issueTicket(old, RewardTier.SEAT_5, LocalDateTime.now().minusYears(1).minusDays(1));
+        mockMvc.perform(get("/api/v1/class-tickets/preview")
+                        .header("Authorization", "Bearer " + token)
+                        .param("code", old))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("TICKET_409_REG_EXP"));
+        ClassTicket saved = classTicketRepository.findByCodeHash(TicketCodeHasher.hash(old)).orElseThrow();
+        assertThat(saved.getStatus()).isEqualTo(TicketStatus.UNREGISTERED);
+
+        mockMvc.perform(get("/api/v1/class-tickets/preview").param("code", old))
+                .andExpect(status().isUnauthorized());
+    }
+
     private void registerOk(String token, String code) throws Exception {
         mockMvc.perform(post("/api/v1/class-tickets/register")
                         .header("Authorization", "Bearer " + token)

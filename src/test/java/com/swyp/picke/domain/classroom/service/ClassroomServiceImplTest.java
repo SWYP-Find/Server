@@ -380,6 +380,22 @@ class ClassroomServiceImplTest {
 
     // ===== 픽스처 =====
 
+    @Test
+    @DisplayName("이용권이 환불(REVOKED)되면 기간이 남아 있어도 클래스는 마감이고 수정할 수 없다 (CLASS_409_CLOSED)")
+    void update_rejectsWhenTicketRevoked() {
+        LocalDateTime revokedAt = LocalDateTime.now().minusHours(1);
+        ticket.revoke(revokedAt);
+        Classroom classroom = classroom(LocalDateTime.now().plusDays(10));
+        when(classroomRepository.findByIdAndStatus(CLASS_ID, ClassStatus.ACTIVE)).thenReturn(Optional.of(classroom));
+
+        assertThat(classroom.isClosed(LocalDateTime.now())).isTrue();
+        assertThat(classroom.getEffectiveCloseAt()).isEqualTo(revokedAt);
+        assertThatThrownBy(() -> service.update(OWNER_ID, CLASS_ID, new ClassUpdateRequest("새 이름", null)))
+                .isInstanceOf(CustomException.class)
+                .extracting(ClassroomServiceImplTest::errorCodeOf)
+                .isEqualTo(ErrorCode.CLASS_CLOSED);
+    }
+
     private void givenOwnerTicketBattle() {
         when(userRepository.findById(OWNER_ID)).thenReturn(Optional.of(owner));
         when(classTicketRepository.findByRegisteredUserIdAndStatus(OWNER_ID, TicketStatus.ACTIVE))

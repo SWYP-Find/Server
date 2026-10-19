@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.ticket.controller;
 
 import com.swyp.picke.domain.ticket.dto.request.ClassTicketRegisterRequest;
+import com.swyp.picke.domain.ticket.dto.response.ClassTicketPreviewResponse;
 import com.swyp.picke.domain.ticket.dto.response.ClassTicketResponse;
 import com.swyp.picke.domain.ticket.service.ClassTicketService;
 import com.swyp.picke.global.common.response.ApiResponse;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "클래스 이용권 API", description = "펀딩으로 받은 이용권 코드 등록 및 내 이용권 조회")
@@ -22,6 +24,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class ClassTicketController {
 
     private final ClassTicketService classTicketService;
+
+    @Operation(summary = "이용권 코드 확인 (미리보기)",
+            description = "코드를 소비하지 않고 정원·등록 기한을 보여줍니다. 등록할 수 없는 코드면 등록 API 와 같은 에러 코드를 돌려줍니다.")
+    @GetMapping("/preview")
+    public ApiResponse<ClassTicketPreviewResponse> preview(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam String code
+    ) {
+        return ApiResponse.onSuccess(classTicketService.preview(userId, code));
+    }
 
     @Operation(summary = "이용권 코드 등록",
             description = "코드를 등록하면 즉시 ACTIVE 가 되고 6개월 뒤 만료됩니다. 계정당 사용 중인 이용권은 1개입니다.")

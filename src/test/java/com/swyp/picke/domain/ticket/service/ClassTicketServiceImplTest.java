@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.ticket.service;
 
 import com.swyp.picke.domain.ticket.dto.request.ClassTicketRegisterRequest;
+import com.swyp.picke.domain.ticket.dto.response.ClassTicketPreviewResponse;
 import com.swyp.picke.domain.ticket.dto.response.ClassTicketResponse;
 import com.swyp.picke.domain.ticket.entity.ClassTicket;
 import com.swyp.picke.domain.ticket.entity.FundingOrder;
@@ -27,6 +28,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -81,6 +83,13 @@ class ClassTicketServiceImplTest {
         when(classTicketRepository.findByCodeHashForUpdate(HASH)).thenReturn(Optional.of(ticket));
     }
 
+    private User otherUser() {
+        User other = User.builder().userTag("u-0002").nickname("other")
+                .role(UserRole.USER).status(UserStatus.ACTIVE).build();
+        ReflectionTestUtils.setField(other, "id", 2L);
+        return other;
+    }
+
     private static ErrorCode errorCodeOf(Throwable e) {
         return ((CustomException) e).getErrorCode();
     }
@@ -121,7 +130,7 @@ class ClassTicketServiceImplTest {
     @DisplayName("이미 다른 계정이 등록한 코드는 TICKET_409_CLAIMED")
     void register_rejectsClaimedCode() {
         ClassTicket ticket = issuedTicket(LocalDateTime.now().minusDays(10));
-        ticket.register(user, LocalDateTime.now().minusDays(1));
+        ticket.register(otherUser(), LocalDateTime.now().minusDays(1));
         givenUserAndCode(ticket);
 
         assertThatThrownBy(() -> service.register(USER_ID, new ClassTicketRegisterRequest(CODE)))
@@ -232,5 +241,142 @@ class ClassTicketServiceImplTest {
         assertThat(response.status()).isEqualTo(TicketStatus.ACTIVE);
         assertThat(response.capacity()).isEqualTo(5);
         assertThat(response.remainingDays()).isBetween(178L, 183L);
+    }
+
+    // ---- #535 본인 코드 재등록 = 기존 결과 반환 (PRD §4)
+
+    @Test
+    @DisplayName("내가 이미 등록한 코드를 다시 등록하면 거절 대신 기존 이용권을 그대로 돌려준다 (기간 불변)")
+    void register_ownCode_returnsExistingResult() {
+        ReflectionTestUtils.setField(user, "id", USER_ID);
+        ClassTicket ticket = issuedTicket(LocalDateTime.now().minusDays(10));
+        LocalDateTime activatedAt = LocalDateTime.now().minusDays(3);
+        ticket.register(user, activatedAt);
+        givenUserAndCode(ticket);
+
+        ClassTicketResponse response = service.register(USER_ID, new ClassTicketRegisterRequest(CODE));
+
+        assertThat(response.status()).isEqualTo(TicketStatus.ACTIVE);
+        assertThat(ticket.getActivatedAt()).isEqualTo(activatedAt);
+        assertThat(ticket.getExpiresAt()).isEqualTo(activatedAt.plusMonths(6));
+    }
+
+    @Test
+    @DisplayName("내 코드가 이미 만료됐으면 재등록해도 EXPIRED 결과를 돌려주고 기간을 되살리지 않는다")
+    void register_ownExpiredCode_returnsExpired() {
+        ReflectionTestUtils.setField(user, "id", USER_ID);
+        ClassTicket ticket = issuedTicket(LocalDateTime.now().minusMonths(8));
+        ticket.register(user, LocalDateTime.now().minusMonths(7));
+        givenUserAndCode(ticket);
+
+        ClassTicketResponse response = service.register(USER_ID, new ClassTicketRegisterRequest(CODE));
+
+        assertThat(ticket.getStatus()).isEqualTo(TicketStatus.EXPIRED);
+        assertThat(response.status()).isEqualTo(TicketStatus.EXPIRED);
+        assertThat(response.remainingDays()).isZero();
+    }
+
+    @Test
+    @DisplayName("내 코드라도 환불·재발급으로 REVOKED 됐으면 TICKET_409_REVOKED")
+    void register_ownRevokedCode_rejected() {
+        ReflectionTestUtils.setField(user, "id", USER_ID);
+        ClassTicket ticket = issuedTicket(LocalDateTime.now().minusDays(10));
+        ticket.register(user, LocalDateTime.now().minusDays(3));
+        ticket.revoke(LocalDateTime.now().minusDays(1));
+        givenUserAndCode(ticket);
+
+        assertThatThrownBy(() -> service.register(USER_ID, new ClassTicketRegisterRequest(CODE)))
+                .isInstanceOf(CustomException.class)
+                .extracting(ClassTicketServiceImplTest::errorCodeOf)
+                .isEqualTo(ErrorCode.TICKET_CODE_REVOKED);
+    }
+
+    // ---- #535 코드 미리보기 (소비 없음)
+
+    @Test
+    @DisplayName("미리보기는 정원·등록 기한을 돌려주고 코드 상태를 바꾸지 않는다")
+    void preview_returnsCapacityAndRegisterBy() {
+        LocalDateTime paidAt = LocalDateTime.now().minusDays(10);
+        ClassTicket ticket = issuedTicket(paidAt);
+        when(classTicketRepository.findByCodeHash(HASH)).thenReturn(Optional.of(ticket));
+        when(classTicketRepository.findByRegisteredUserIdAndStatus(USER_ID, TicketStatus.ACTIVE))
+                .thenReturn(Optional.empty());
+
+        ClassTicketPreviewResponse response = service.preview(USER_ID, " picke-ab12-cd34 ");
+
+        assertThat(response.capacity()).isEqualTo(5);
+        assertThat(response.registerBy()).isEqualTo(paidAt.plusYears(1));
+        assertThat(response.usageMonths()).isEqualTo(6);
+        assertThat(response.registeredByMe()).isFalse();
+        assertThat(ticket.getStatus()).isEqualTo(TicketStatus.UNREGISTERED);
+        assertThat(ticket.getCodeStatus()).isEqualTo(TicketCodeStatus.ISSUED);
+        assertThat(ticket.getRegisteredUser()).isNull();
+    }
+
+    @Test
+    @DisplayName("미리보기: 등록 기한이 지난 코드는 TICKET_409_REG_EXP 이지만 상태는 UNREGISTERED 그대로다 (등록 때만 기록)")
+    void preview_registerWindowClosed_doesNotMutate() {
+        ClassTicket ticket = issuedTicket(LocalDateTime.now().minusYears(1).minusDays(1));
+        when(classTicketRepository.findByCodeHash(HASH)).thenReturn(Optional.of(ticket));
+
+        assertThatThrownBy(() -> service.preview(USER_ID, CODE))
+                .isInstanceOf(CustomException.class)
+                .extracting(ClassTicketServiceImplTest::errorCodeOf)
+                .isEqualTo(ErrorCode.TICKET_REGISTER_EXPIRED);
+        assertThat(ticket.getStatus()).isEqualTo(TicketStatus.UNREGISTERED);
+    }
+
+    @Test
+    @DisplayName("미리보기: 다른 계정이 등록한 코드는 TICKET_409_CLAIMED, 없는 코드는 TICKET_404_CODE")
+    void preview_rejectsClaimedAndUnknown() {
+        ClassTicket claimed = issuedTicket(LocalDateTime.now().minusDays(10));
+        claimed.register(otherUser(), LocalDateTime.now().minusDays(1));
+        when(classTicketRepository.findByCodeHash(HASH)).thenReturn(Optional.of(claimed));
+
+        assertThatThrownBy(() -> service.preview(USER_ID, CODE))
+                .extracting(ClassTicketServiceImplTest::errorCodeOf)
+                .isEqualTo(ErrorCode.TICKET_CODE_ALREADY_CLAIMED);
+
+        when(classTicketRepository.findByCodeHash(TicketCodeHasher.hash("NOPE"))).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.preview(USER_ID, "NOPE"))
+                .extracting(ClassTicketServiceImplTest::errorCodeOf)
+                .isEqualTo(ErrorCode.TICKET_CODE_INVALID);
+    }
+
+    @Test
+    @DisplayName("미리보기: 사용 중인 이용권이 있으면 TICKET_409_ACTIVE 를 미리 알려준다")
+    void preview_rejectsWhenUserHasActiveTicket() {
+        ClassTicket active = issuedTicket(LocalDateTime.now().minusDays(30));
+        active.register(user, LocalDateTime.now().minusDays(20));
+        ClassTicket newTicket = issuedTicket(LocalDateTime.now().minusDays(1));
+        when(classTicketRepository.findByCodeHash(HASH)).thenReturn(Optional.of(newTicket));
+        when(classTicketRepository.findByRegisteredUserIdAndStatus(USER_ID, TicketStatus.ACTIVE))
+                .thenReturn(Optional.of(active));
+
+        assertThatThrownBy(() -> service.preview(USER_ID, CODE))
+                .extracting(ClassTicketServiceImplTest::errorCodeOf)
+                .isEqualTo(ErrorCode.TICKET_ALREADY_ACTIVE);
+    }
+
+    @Test
+    @DisplayName("미리보기: 내가 등록한 코드면 registeredByMe=true 로 돌려준다")
+    void preview_ownCode_registeredByMe() {
+        ReflectionTestUtils.setField(user, "id", USER_ID);
+        ClassTicket ticket = issuedTicket(LocalDateTime.now().minusDays(10));
+        ticket.register(user, LocalDateTime.now().minusDays(3));
+        when(classTicketRepository.findByCodeHash(HASH)).thenReturn(Optional.of(ticket));
+
+        ClassTicketPreviewResponse response = service.preview(USER_ID, CODE);
+
+        assertThat(response.registeredByMe()).isTrue();
+        assertThat(response.capacity()).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("미리보기: 빈 코드는 COMMON_400")
+    void preview_blankCode() {
+        assertThatThrownBy(() -> service.preview(USER_ID, " - "))
+                .extracting(ClassTicketServiceImplTest::errorCodeOf)
+                .isEqualTo(ErrorCode.COMMON_INVALID_PARAMETER);
     }
 }

@@ -4,6 +4,7 @@ import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.classroom.enums.ClassBattleType;
 import com.swyp.picke.domain.classroom.enums.ClassStatus;
 import com.swyp.picke.domain.ticket.entity.ClassTicket;
+import com.swyp.picke.domain.ticket.enums.TicketStatus;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.global.common.BaseEntity;
 import jakarta.persistence.Column;
@@ -113,7 +114,7 @@ public class Classroom extends BaseEntity {
     }
 
     public LocalDateTime getEffectiveCloseAt() {
-        LocalDateTime ticketEnd = ticket.getExpiresAt();
+        LocalDateTime ticketEnd = ticketEnd();
         if (deadline == null) {
             return ticketEnd;
         }
@@ -123,8 +124,24 @@ public class Classroom extends BaseEntity {
         return deadline.isBefore(ticketEnd) ? deadline : ticketEnd;
     }
 
+    /**
+     * 마감 판정. 이용권이 환불·재발급으로 REVOKED 되면 기간이 남아 있어도 즉시 마감이다 (PRD §18 ENTITLEMENT_REVOKED).
+     */
     public boolean isClosed(LocalDateTime now) {
+        if (ticket.getStatus() == TicketStatus.REVOKED) {
+            return true;
+        }
         LocalDateTime closeAt = getEffectiveCloseAt();
         return closeAt != null && !now.isBefore(closeAt);
+    }
+
+    /** 이용권 쪽 종료 시각. REVOKED 면 revokedAt 과 expiresAt 중 이른 쪽 */
+    private LocalDateTime ticketEnd() {
+        LocalDateTime expiresAt = ticket.getExpiresAt();
+        LocalDateTime revokedAt = ticket.getRevokedAt();
+        if (ticket.getStatus() == TicketStatus.REVOKED && revokedAt != null) {
+            return expiresAt == null || revokedAt.isBefore(expiresAt) ? revokedAt : expiresAt;
+        }
+        return expiresAt;
     }
 }

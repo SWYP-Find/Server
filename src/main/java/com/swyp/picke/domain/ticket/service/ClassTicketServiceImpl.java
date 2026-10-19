@@ -2,6 +2,7 @@ package com.swyp.picke.domain.ticket.service;
 
 import com.swyp.picke.domain.ticket.converter.ClassTicketConverter;
 import com.swyp.picke.domain.ticket.dto.request.ClassTicketRegisterRequest;
+import com.swyp.picke.domain.ticket.dto.response.ClassTicketPreviewResponse;
 import com.swyp.picke.domain.ticket.dto.response.ClassTicketResponse;
 import com.swyp.picke.domain.ticket.entity.ClassTicket;
 import com.swyp.picke.domain.ticket.enums.TicketCodeStatus;
@@ -37,6 +38,28 @@ public class ClassTicketServiceImpl implements ClassTicketService {
     private final ClassTicketRepository classTicketRepository;
     private final UserRepository userRepository;
 
+    @Override
+    public ClassTicketPreviewResponse preview(Long userId, String code) {
+        if (TicketCodeHasher.normalize(code).isEmpty()) {
+            throw new CustomException(ErrorCode.COMMON_INVALID_PARAMETER);
+        }
+        LocalDateTime now = LocalDateTime.now(KST);
+        ClassTicket ticket = classTicketRepository.findByCodeHash(TicketCodeHasher.hash(code))
+                .orElseThrow(() -> new CustomException(ErrorCode.TICKET_CODE_INVALID));
+
+        boolean registeredByMe = ticket.isRegisteredBy(userId);
+        if (!registeredByMe) {
+            // 읽기 전용: 등록 기한 경과여도 상태를 바꾸지 않고 사유만 알려준다 (상태 기록은 register 에서)
+            validateCodeRegistrable(ticket, now);
+            if (hasUsableTicket(userId, now)) {
+                throw new CustomException(ErrorCode.TICKET_ALREADY_ACTIVE);
+            }
+        } else if (ticket.isRevoked()) {
+            throw new CustomException(ErrorCode.TICKET_CODE_REVOKED);
+        }
+        return ClassTicketConverter.toPreview(ticket, registeredByMe);
+    }
+
     /**
      * 거절(CustomException)하면서도 상태 변경은 남겨야 하는 경우가 있어 롤백 대상에서 뺀다.
      * (등록 기한 경과 → REGISTER_EXPIRED 기록 후 409, 기간 끝난 ACTIVE → EXPIRED 기록)
@@ -51,6 +74,18 @@ public class ClassTicketServiceImpl implements ClassTicketService {
         ClassTicket ticket = classTicketRepository.findByCodeHashForUpdate(TicketCodeHasher.hash(request.code()))
                 .orElseThrow(() -> new CustomException(ErrorCode.TICKET_CODE_INVALID));
 
+        if (ticket.isRevoked()) {
+            throw new CustomException(ErrorCode.TICKET_CODE_REVOKED);
+        }
+        if (ticket.isRegisteredBy(userId)) {
+            // PRD §4: 본인 코드 반복 등록은 거절하지 않고 기존 결과(기간 불변)를 돌려준다
+            expireIfNeeded(ticket, now);
+            log.info("클래스 이용권 재등록 요청 - 기존 결과 반환 ticketId: {}, userId: {}", ticket.getId(), userId);
+            return ClassTicketConverter.toResponse(ticket, now);
+        }
+        if (ticket.getStatus() == TicketStatus.UNREGISTERED && !ticket.isRegisterWindowOpen(now)) {
+            ticket.expireRegisterWindow();
+        }
         validateCodeRegistrable(ticket, now);
         rejectIfUserHasActiveTicket(userId, now);
 
@@ -71,21 +106,26 @@ public class ClassTicketServiceImpl implements ClassTicketService {
         return ClassTicketConverter.toResponse(ticket, now);
     }
 
+    /** 상태를 바꾸지 않는 순수 검사. preview 와 register 가 같이 쓴다 */
     private void validateCodeRegistrable(ClassTicket ticket, LocalDateTime now) {
-        if (ticket.getCodeStatus() == TicketCodeStatus.REVOKED || ticket.getStatus() == TicketStatus.REVOKED) {
+        if (ticket.isRevoked()) {
             throw new CustomException(ErrorCode.TICKET_CODE_REVOKED);
         }
-        if (ticket.getCodeStatus() == TicketCodeStatus.CLAIMED || ticket.getStatus() != TicketStatus.UNREGISTERED) {
-            // UNREGISTERED 가 아니면 이미 등록됐거나(ACTIVE/EXPIRED) 등록 기한이 끝난(REGISTER_EXPIRED) 코드
-            if (ticket.getStatus() == TicketStatus.REGISTER_EXPIRED) {
-                throw new CustomException(ErrorCode.TICKET_REGISTER_EXPIRED);
-            }
-            throw new CustomException(ErrorCode.TICKET_CODE_ALREADY_CLAIMED);
-        }
-        if (!ticket.isRegisterWindowOpen(now)) {
-            ticket.expireRegisterWindow();
+        if (ticket.getStatus() == TicketStatus.REGISTER_EXPIRED
+                || (ticket.getStatus() == TicketStatus.UNREGISTERED && !ticket.isRegisterWindowOpen(now))) {
             throw new CustomException(ErrorCode.TICKET_REGISTER_EXPIRED);
         }
+        if (ticket.getCodeStatus() == TicketCodeStatus.CLAIMED || ticket.getStatus() != TicketStatus.UNREGISTERED) {
+            // 다른 계정이 이미 등록한(ACTIVE/EXPIRED) 코드
+            throw new CustomException(ErrorCode.TICKET_CODE_ALREADY_CLAIMED);
+        }
+    }
+
+    /** preview 용 읽기 전용 검사. 기간이 끝난 ACTIVE 는 만료로 취급만 하고 상태는 건드리지 않는다 */
+    private boolean hasUsableTicket(Long userId, LocalDateTime now) {
+        return classTicketRepository.findByRegisteredUserIdAndStatus(userId, TicketStatus.ACTIVE)
+                .filter(t -> t.isUsable(now))
+                .isPresent();
     }
 
     /** 계정당 ACTIVE 이용권 1개. 기간이 지난 ACTIVE 는 여기서 EXPIRED 로 내리고 통과시킨다. */

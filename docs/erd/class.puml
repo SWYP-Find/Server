@@ -282,6 +282,8 @@ note bottom of class_members
   같은 계정 재참여 요청 → 거절 대신 기존 상세 반환 (PRD §15 "멤버 수를 늘리지 않고 기존 상세로", #537)
   LEFT 재참여 → 같은 행 되살림 (UK 유지), seat_held 였으면 좌석 추가 소비 없음 (#537)
   운영자는 자기 코드로 참여 불가, 나가기·내보내기 대상 아님 → 클래스 삭제로 종료 (PRD §15, #537)
+  참여 거절은 이용권 종료(REVOKED·만료, CLASS_409_TICKET_ENDED) 와 마감일 경과(CLASS_409_CLOSED) 를 구분 (PRD §15 "이용 종료"/"입장 마감", #537)
+  초대코드 입력 정규화 = 공백·하이픈 제거 + 대문자(Locale.ROOT), 이용권 코드(TicketCodeHasher)와 동일 규칙
 end note
 
 note bottom of ai_jobs

@@ -20,6 +20,7 @@ import com.swyp.picke.global.common.exception.ErrorCode;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -67,6 +68,10 @@ public class ClassMemberServiceImpl implements ClassMemberService {
         }
         if (existing.isPresent() && existing.get().getStatus() == ClassMemberStatus.REMOVED) {
             throw new CustomException(ErrorCode.CLASS_MEMBER_REMOVED);
+        }
+        // PRD §15: "이용 종료"(이용권 만료·회수) 와 "입장 마감"(마감일 경과) 을 구분해 거절
+        if (classroom.isTicketEnded(now)) {
+            throw new CustomException(ErrorCode.CLASS_TICKET_ENDED);
         }
         if (classroom.isClosed(now)) {
             throw new CustomException(ErrorCode.CLASS_CLOSED);
@@ -156,9 +161,9 @@ public class ClassMemberServiceImpl implements ClassMemberService {
 
     // ===== 검증 =====
 
-    /** 공백 제거·대문자 변환 후 6자가 아니면 400 (PRD S08) */
+    /** 공백·하이픈 제거, 대문자 변환 후 6자가 아니면 400 (PRD S08). 이용권 코드(TicketCodeHasher)와 같은 규칙 */
     static String normalizeInviteCode(String raw) {
-        String code = raw == null ? "" : raw.replaceAll("\\s+", "").toUpperCase();
+        String code = raw == null ? "" : raw.replaceAll("[\\s-]", "").toUpperCase(Locale.ROOT);
         if (code.length() != Classroom.INVITE_CODE_LENGTH) {
             throw new CustomException(ErrorCode.COMMON_INVALID_PARAMETER);
         }

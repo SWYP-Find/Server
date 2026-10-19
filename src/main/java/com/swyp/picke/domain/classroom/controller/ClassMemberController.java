@@ -30,8 +30,8 @@ public class ClassMemberController {
     private final ClassMemberService classMemberService;
 
     @Operation(summary = "초대코드로 클래스 참여",
-            description = "코드는 공백 제거·대문자 변환 후 6자여야 합니다(아니면 400). "
-                    + "없는 코드 404 CLASS_404_CODE, 마감 409 CLASS_409_CLOSED, 정원 초과 409 CLASS_409_FULL, "
+            description = "코드는 공백·하이픈 제거·대문자 변환 후 6자여야 합니다(아니면 400). "
+                    + "없는 코드 404 CLASS_404_CODE, 이용권 종료 409 CLASS_409_TICKET_ENDED, 마감일 경과 409 CLASS_409_CLOSED, 정원 초과 409 CLASS_409_FULL, "
                     + "이름 중복 409 CLASS_409_NAME, 내 클래스 409 CLASS_409_OWNER, 내보내진 클래스 403 CLASS_403_REMOVED. "
                     + "이미 참여 중이면 거절하지 않고 기존 상세를 그대로 돌려줍니다.")
     @PostMapping("/join")

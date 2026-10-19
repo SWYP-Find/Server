@@ -90,7 +90,7 @@ class ClassMemberServiceImplTest {
         when(classMemberRepository.countByClassroomIdAndSeatHeldTrue(CLASS_ID)).thenReturn(4L, 5L);
         when(userRepository.findById(STUDENT_ID)).thenReturn(Optional.of(student));
 
-        ClassDetailResponse response = service.join(STUDENT_ID, new ClassJoinRequest(" abc 234 ", "  김학생 "));
+        ClassDetailResponse response = service.join(STUDENT_ID, new ClassJoinRequest(" abc-234 ", "  김학생 "));
 
         verify(classroomRepository).findByInviteCodeAndStatusForUpdate(CODE, ClassStatus.ACTIVE);
         ArgumentCaptor<ClassMember> captor = ArgumentCaptor.forClass(ClassMember.class);
@@ -181,6 +181,19 @@ class ClassMemberServiceImplTest {
 
         assertThatThrownBy(() -> service.join(STUDENT_ID, new ClassJoinRequest(CODE, "학생")))
                 .satisfies(e -> assertThat(errorCodeOf(e)).isEqualTo(ErrorCode.CLASS_CLOSED));
+        verify(classMemberRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("이용권이 회수(REVOKED)되면 마감일이 남아 있어도 409 CLASS_409_TICKET_ENDED (입장 마감과 구분)")
+    void join_ticketRevoked_409() {
+        classroom = classroom(owner, 5, LocalDateTime.now().plusDays(7));
+        classroom.getTicket().revoke(LocalDateTime.now().minusMinutes(1));
+        givenClassByCode();
+        when(classMemberRepository.findByClassroomIdAndUserId(CLASS_ID, STUDENT_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.join(STUDENT_ID, new ClassJoinRequest(CODE, "학생")))
+                .satisfies(e -> assertThat(errorCodeOf(e)).isEqualTo(ErrorCode.CLASS_TICKET_ENDED));
         verify(classMemberRepository, never()).save(any());
     }
 

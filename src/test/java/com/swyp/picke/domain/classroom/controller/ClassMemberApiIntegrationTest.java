@@ -243,6 +243,14 @@ class ClassMemberApiIntegrationTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("CLASS_409_CLOSED"));
 
+        // 이용권 회수: 마감일과 무관하게 "이용 종료" 로 구분 거절 (PRD §15)
+        var ticket = classTicketRepository.findById(classroom.getTicket().getId()).orElseThrow();
+        ticket.revoke(LocalDateTime.now().minusMinutes(1));
+        classTicketRepository.save(ticket);
+        join(tokenOf(newUser("h")), cls.inviteCode, "여덟")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_TICKET_ENDED"));
+
         mockMvc.perform(post("/api/v1/classes/join")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(Map.of("inviteCode", cls.inviteCode, "displayName", "익명"))))

@@ -11,6 +11,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -81,6 +82,40 @@ public class FundingOrder extends BaseEntity {
         this.paymentStatus = paymentStatus;
         this.paidAt = paidAt;
         this.importFileHash = importFileHash;
+    }
+
+    /** 환불·취소는 종착 상태. 오래된 결제 확정 명단을 다시 올려도 되살리지 않는다 (CF07) */
+    public boolean isTerminal() {
+        return paymentStatus == PaymentStatus.REFUNDED || paymentStatus == PaymentStatus.CANCELED;
+    }
+
+    /**
+     * 명단 재업로드 반영. 바뀐 값이 있으면 true. 상태 전이 검증(종착 상태·리워드 변경)은 호출 측에서 끝낸 뒤 부른다.
+     * import_file_hash 는 변경 여부와 무관하게 마지막 업로드 파일로 갱신한다.
+     */
+    public boolean applyImport(FundingPlatform platform, String campaignId, RewardTier rewardTier, int quantity,
+                               String supporterName, String supporterEmail, String supporterPhone,
+                               PaymentStatus paymentStatus, LocalDateTime paidAt, String importFileHash) {
+        boolean changed = this.platform != platform
+                || !Objects.equals(this.campaignId, campaignId)
+                || this.rewardTier != rewardTier
+                || this.quantity != quantity
+                || !Objects.equals(this.supporterName, supporterName)
+                || !Objects.equals(this.supporterEmail, supporterEmail)
+                || !Objects.equals(this.supporterPhone, supporterPhone)
+                || this.paymentStatus != paymentStatus
+                || !Objects.equals(this.paidAt, paidAt);
+        this.platform = platform;
+        this.campaignId = campaignId;
+        this.rewardTier = rewardTier;
+        this.quantity = quantity;
+        this.supporterName = supporterName;
+        this.supporterEmail = supporterEmail;
+        this.supporterPhone = supporterPhone;
+        this.paymentStatus = paymentStatus;
+        this.paidAt = paidAt;
+        this.importFileHash = importFileHash;
+        return changed;
     }
 
     public void updatePayment(PaymentStatus paymentStatus, LocalDateTime paidAt) {

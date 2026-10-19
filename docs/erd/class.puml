@@ -1,0 +1,199 @@
+@startuml class
+hide circle
+hide methods
+skinparam linetype ortho
+
+' ===== 기존 테이블 (클래스 관련 컬럼만 표시) =====
+
+entity "users" as users {
+  * id : BIGINT <<PK>>
+  --
+  nickname : VARCHAR(50)
+}
+
+entity "battles" as battles {
+  * id : BIGINT <<PK>>
+  --
+  title : VARCHAR(255)
+  difficulty : VARCHAR(20) <<NEW, nullable>>
+  category : VARCHAR(20) <<NEW, nullable>>
+  class_recommendable : BOOLEAN <<NEW>>
+}
+
+entity "battle_options" as battle_options {
+  * id : BIGINT <<PK>>
+  --
+  battle_id : BIGINT <<FK>>
+  title : VARCHAR(255)
+}
+
+entity "votes" as votes {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK>>
+  battle_id : BIGINT <<FK>>
+  class_id : BIGINT <<FK, NEW, nullable>>
+  pre_vote_option_id : BIGINT <<FK, nullable>>
+  post_vote_option_id : BIGINT <<FK, nullable>>
+  is_tts_listened : BOOLEAN
+}
+
+entity "perspectives" as perspectives {
+  * id : BIGINT <<PK>>
+  --
+  battle_id : BIGINT <<FK>>
+  user_id : BIGINT <<FK>>
+  option_id : BIGINT <<FK>>
+  class_id : BIGINT <<FK, NEW, nullable>>
+  content : TEXT
+  like_count : INTEGER
+  comment_count : INTEGER
+}
+
+entity "perspective_comments" as perspective_comments {
+  * id : BIGINT <<PK>>
+  --
+  perspective_id : BIGINT <<FK>>
+  user_id : BIGINT <<FK>>
+  class_id : BIGINT <<FK, NEW, nullable>>
+  content : TEXT
+}
+
+entity "user_battles" as user_battles {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK>>
+  battle_id : BIGINT <<FK>>
+  class_id : BIGINT <<FK, NEW, nullable>>
+  step : VARCHAR(20)
+}
+
+' ===== 신규 테이블 =====
+
+entity "class_tickets" as class_tickets {
+  * id : BIGINT <<PK>>
+  --
+  code : VARCHAR(20) <<UK>>
+  capacity : INTEGER
+  max_classes : INTEGER
+  purchaser_name : VARCHAR(50)
+  purchaser_email : VARCHAR(255) <<nullable>>
+  purchaser_phone : VARCHAR(20) <<nullable>>
+  funding_order_id : VARCHAR(50) <<nullable>>
+  delivery_status : VARCHAR(20)
+  registered_user_id : BIGINT <<FK, nullable>>
+  registered_at : TIMESTAMP <<nullable>>
+  valid_from : TIMESTAMP <<nullable>>
+  valid_to : TIMESTAMP <<nullable>>
+  status : VARCHAR(20)
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "classes" as classes {
+  * id : BIGINT <<PK>>
+  --
+  name : VARCHAR(50)
+  invite_code : VARCHAR(6) <<UK>>
+  owner_id : BIGINT <<FK>>
+  ticket_id : BIGINT <<FK>>
+  battle_id : BIGINT <<FK>>
+  battle_type : VARCHAR(10)
+  capacity : INTEGER
+  deadline : TIMESTAMP <<nullable>>
+  comment_required : BOOLEAN
+  owner_participates : BOOLEAN
+  status : VARCHAR(20)
+  deleted_at : TIMESTAMP <<nullable>>
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "class_members" as class_members {
+  * id : BIGINT <<PK>>
+  --
+  class_id : BIGINT <<FK>>
+  user_id : BIGINT <<FK>>
+  display_name : VARCHAR(12)
+  role : VARCHAR(10)
+  joined_at : TIMESTAMP
+  left_at : TIMESTAMP <<nullable>>
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "class_reports" as class_reports {
+  * id : BIGINT <<PK>>
+  --
+  class_id : BIGINT <<FK>>
+  member_id : BIGINT <<FK, nullable>>
+  type : VARCHAR(20)
+  content : JSONB
+  generated_at : TIMESTAMP
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+' ===== 관계 =====
+
+users          ||--o{ class_tickets : registers
+users          ||--o{ classes       : owns
+class_tickets  ||--o{ classes       : issued with
+battles        ||--o{ classes       : uses
+battles        ||--o{ battle_options : has
+
+classes        ||--o{ class_members : has
+users          ||--o{ class_members : joins
+
+classes        ||--o{ class_reports : summarized by
+class_members  |o--o{ class_reports : personal report
+
+classes        |o--o{ votes                : scoped
+classes        |o--o{ perspectives         : scoped
+classes        |o--o{ perspective_comments : scoped
+classes        |o--o{ user_battles         : scoped
+
+' ===== 노트 =====
+
+note bottom of class_tickets
+  펀딩(앱 외부 결제)으로 발급되는 이용권.
+  구매자(purchaser_*)와 등록자(registered_user_id)는 다를 수 있다.
+  등록 시 valid_from = now, valid_to = now + 6개월.
+  capacity : 5 | 15 | 30 (어드민 시안은 6/15/30, 기획 확인 필요)
+  delivery_status : PENDING | SENT
+  status : UNREGISTERED | ACTIVE | EXPIRED
+end note
+
+note bottom of classes
+  battle_type : TTS | CUSTOM
+  status : ACTIVE | DELETED  (CLOSED는 deadline 경과로 조회 시 판정)
+  capacity 는 생성 시점 ticket.capacity 를 복사 (이용권 변경에 영향 없도록)
+  deadline null = 마감 없음
+end note
+
+note bottom of class_members
+  display_name : 클래스 안에서만 보이는 별칭, 본인이 수정 가능
+  role : OWNER | MEMBER
+  UK(class_id, user_id)
+  UK(class_id, display_name) — left_at IS NULL 인 행만 (partial index)
+  운영자는 owner_participates=true 일 때만 행 생성
+end note
+
+note bottom of class_reports
+  GPT 생성 결과 캐시.
+  type : CLASS_SUMMARY (member_id null) | MEMBER_FEEDBACK
+  content : 요약은 insight 텍스트, 피드백은 4항목 JSON
+  UK(class_id, member_id, type)
+end note
+
+note bottom of votes
+  class_id 추가에 따라 유니크 변경:
+  votes          UK(user_id, battle_id) → UK(user_id, battle_id, class_id)
+  user_battles   UK(user_id, battle_id) → UK(user_id, battle_id, class_id)
+  일반 배틀 조회는 class_id IS NULL 조건 필요
+  PostgreSQL은 UK에서 NULL을 서로 다른 값으로 취급하므로
+  일반 배틀(class_id NULL)은 partial unique index 로 기존 1행 보장 유지
+  → UK(user_id, battle_id) WHERE class_id IS NULL 추가
+end note
+
+@enduml

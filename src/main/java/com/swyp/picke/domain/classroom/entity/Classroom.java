@@ -125,14 +125,23 @@ public class Classroom extends BaseEntity {
     }
 
     /**
-     * 마감 판정. 이용권이 환불·재발급으로 REVOKED 되면 기간이 남아 있어도 즉시 마감이다 (PRD §18 ENTITLEMENT_REVOKED).
+     * 마감 판정 = 이용권 종료 또는 클래스 마감일 경과.
+     * 이용권이 환불·재발급으로 REVOKED 되면 기간이 남아 있어도 즉시 마감이다 (PRD §18 ENTITLEMENT_REVOKED).
      */
     public boolean isClosed(LocalDateTime now) {
+        if (isTicketEnded(now)) {
+            return true;
+        }
+        return deadline != null && !now.isBefore(deadline);
+    }
+
+    /** 이용권 쪽 종료(REVOKED 또는 만료). 참여 거절 사유를 "입장 마감"과 구분하기 위해 분리 (PRD §15 "이용 종료") */
+    public boolean isTicketEnded(LocalDateTime now) {
         if (ticket.getStatus() == TicketStatus.REVOKED) {
             return true;
         }
-        LocalDateTime closeAt = getEffectiveCloseAt();
-        return closeAt != null && !now.isBefore(closeAt);
+        LocalDateTime ticketEnd = ticketEnd();
+        return ticketEnd != null && !now.isBefore(ticketEnd);
     }
 
     /** 이용권 쪽 종료 시각. REVOKED 면 revokedAt 과 expiresAt 중 이른 쪽 */

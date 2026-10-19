@@ -13,6 +13,25 @@ public interface ClassMemberRepository extends JpaRepository<ClassMember, Long> 
 
     Optional<ClassMember> findByClassroomIdAndUserIdAndStatus(Long classroomId, Long userId, ClassMemberStatus status);
 
+    /** 참여용: 상태와 무관하게 이 유저의 멤버 행 (UK(class_id, user_id) 라 최대 1건) */
+    Optional<ClassMember> findByClassroomIdAndUserId(Long classroomId, Long userId);
+
+    Optional<ClassMember> findByIdAndClassroomId(Long id, Long classroomId);
+
+    /** 동명이인 검사: ACTIVE 멤버끼리만 이름이 유일하면 된다 */
+    boolean existsByClassroomIdAndDisplayNameAndStatus(Long classroomId, String displayName, ClassMemberStatus status);
+
+    /** 명단용. 운영자 행이 먼저, 그다음 참여 순 */
+    @Query("""
+            select m from ClassMember m
+            join fetch m.user
+            where m.classroom.id = :classroomId
+              and m.status = com.swyp.picke.domain.classroom.enums.ClassMemberStatus.ACTIVE
+            order by case when m.role = com.swyp.picke.domain.classroom.enums.ClassMemberRole.OWNER then 0 else 1 end,
+                     m.joinedAt asc, m.id asc
+            """)
+    List<ClassMember> findActiveMembers(@Param("classroomId") Long classroomId);
+
     /** 정원 판정용. 좌석을 쥐고 있는 인원(seatHeld = true) 수 */
     long countByClassroomIdAndSeatHeldTrue(Long classroomId);
 

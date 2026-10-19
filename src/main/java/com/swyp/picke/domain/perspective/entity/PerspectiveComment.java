@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.perspective.entity;
 
+import com.swyp.picke.domain.classroom.entity.Classroom;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.global.common.BaseEntity;
 import jakarta.persistence.Column;
@@ -27,6 +28,11 @@ public class PerspectiveComment extends BaseEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    /** 부모 perspective 의 class_id 를 복사. 클래스 스코프 조회/정책(댓글 필수 등)용 비정규화 */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "class_id")
+    private Classroom classroom;
+
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
@@ -37,9 +43,10 @@ public class PerspectiveComment extends BaseEntity {
     private boolean hidden = false;
 
     @Builder
-    private PerspectiveComment(Perspective perspective, User user, String content) {
+    private PerspectiveComment(Perspective perspective, User user, Classroom classroom, String content) {
         this.perspective = perspective;
         this.user = user;
+        this.classroom = classroom;
         this.content = content;
         this.likeCount = 0;
         this.hidden = false;

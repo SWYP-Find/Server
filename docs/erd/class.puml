@@ -98,7 +98,7 @@ entity "class_tickets" as class_tickets {
   code_hash : VARCHAR(64) <<UK>>
   code_status : VARCHAR(20)
   delivered_at : TIMESTAMP <<nullable>>
-  register_by : TIMESTAMP <<nullable>>
+  register_by : TIMESTAMP
   registered_user_id : BIGINT <<FK, nullable>>
   activated_at : TIMESTAMP <<nullable>>
   expires_at : TIMESTAMP <<nullable>>
@@ -238,7 +238,7 @@ note bottom of class_tickets
          등록 확인 화면의 인원/기간은 해시로 찾은 행에서 읽어 보여줌
   code_status : ISSUED | DELIVERED | CLAIMED | REVOKED
   status      : UNREGISTERED | ACTIVE | EXPIRED | REGISTER_EXPIRED | REVOKED
-  register_by  = delivered_at + 1년 (지급일 기준 확정). 지급 전에는 null
+  register_by  = funding_orders.paid_at + 1년 (결제 확정일 기준 확정, 발급 시 계산, NOT NULL)
                경과 시 "등록기간이 만료되었습니다" (디자인 확인)
   activated_at = 등록 버튼 누른 시각 (D01, 디자인 "등록하는 순간 이용 기간이 시작")
   expires_at   = activated_at + 6개월 (디자인 예시 2026.10.09 ~ 2027.04.08)

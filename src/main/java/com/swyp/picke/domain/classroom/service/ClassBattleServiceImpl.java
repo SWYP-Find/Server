@@ -6,6 +6,7 @@ import com.swyp.picke.domain.battle.service.BattleService;
 import com.swyp.picke.domain.battle.util.BattleOptionDisplay;
 import com.swyp.picke.domain.classroom.dto.response.ClassBattleDetailResponse;
 import com.swyp.picke.domain.classroom.entity.Classroom;
+import com.swyp.picke.domain.classroom.enums.ClassBattleType;
 import com.swyp.picke.domain.classroom.service.ClassAccessService.ClassAccess;
 import com.swyp.picke.domain.perspective.dto.request.CreatePerspectiveRequest;
 import com.swyp.picke.domain.perspective.dto.response.CreatePerspectiveResponse;
@@ -101,6 +102,9 @@ public class ClassBattleServiceImpl implements ClassBattleService {
     @Transactional
     public void completeTts(Long userId, Long classId) {
         Classroom classroom = writable(classId, userId);
+        if (classroom.getBattleType() == ClassBattleType.CUSTOM) {
+            throw new CustomException(ErrorCode.CLASS_TTS_NOT_SUPPORTED);
+        }
         battleVoteService.completeTts(battleOf(classroom).getId(), userId, classroom);
     }
 

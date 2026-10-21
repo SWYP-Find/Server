@@ -35,7 +35,10 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(
         name = "classes",
-        uniqueConstraints = @UniqueConstraint(name = "uk_classes_invite_code", columnNames = "invite_code")
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_classes_invite_code", columnNames = "invite_code"),
+                @UniqueConstraint(name = "uk_classes_topic_draft", columnNames = "topic_draft_id")
+        }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Classroom extends BaseEntity {
@@ -65,6 +68,16 @@ public class Classroom extends BaseEntity {
     @Column(name = "battle_type", nullable = false, length = 10)
     private ClassBattleType battleType;
 
+    /** 커스텀 배틀 클래스의 주제 버전 (PRD §16 topic_version_id). TTS 클래스는 null */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "topic_version_id")
+    private ClassTopicVersion topicVersion;
+
+    /** 같은 초안으로는 클래스를 하나만 만든다 (PRD §16 draft_id 고유). TTS 클래스는 null */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "topic_draft_id")
+    private ClassTopicDraft topicDraft;
+
     @Column(nullable = false)
     private int capacity;
 
@@ -85,7 +98,7 @@ public class Classroom extends BaseEntity {
 
     @Builder
     private Classroom(String name, String inviteCode, User owner, ClassTicket ticket, Battle battle,
-                      ClassBattleType battleType, int capacity, LocalDateTime deadline,
+                      ClassBattleType battleType, ClassTopicVersion topicVersion, int capacity, LocalDateTime deadline,
                       boolean commentRequired, boolean ownerParticipates) {
         this.name = name;
         this.inviteCode = inviteCode;
@@ -93,6 +106,8 @@ public class Classroom extends BaseEntity {
         this.ticket = ticket;
         this.battle = battle;
         this.battleType = battleType;
+        this.topicVersion = topicVersion;
+        this.topicDraft = topicVersion == null ? null : topicVersion.getDraft();
         this.capacity = capacity;
         this.deadline = deadline;
         this.commentRequired = commentRequired;

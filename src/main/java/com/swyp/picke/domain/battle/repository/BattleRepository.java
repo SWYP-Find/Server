@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.battle.repository;
 
 import com.swyp.picke.domain.battle.entity.Battle;
+import com.swyp.picke.domain.battle.enums.BattleCreatorType;
 import com.swyp.picke.domain.battle.enums.BattleStatus;
 import com.swyp.picke.domain.battle.repository.projection.BattleParticipationStats;
 import java.time.LocalDate;
@@ -57,6 +58,11 @@ public interface BattleRepository extends JpaRepository<Battle, Long> {
     // 6. 전체 배틀 목록 조회
     Page<Battle> findByDeletedAtIsNullOrderByCreatedAtDesc(Pageable pageable);
     Page<Battle> findByStatusAndDeletedAtIsNullOrderByCreatedAtDesc(BattleStatus status, Pageable pageable);
+
+    /** 어드민 배틀 목록: 클래스 전용 커스텀 배틀(creator_type = USER)은 제외한다 (#547) */
+    Page<Battle> findByCreatorTypeNotAndDeletedAtIsNullOrderByCreatedAtDesc(BattleCreatorType creatorType, Pageable pageable);
+    Page<Battle> findByStatusAndCreatorTypeNotAndDeletedAtIsNullOrderByCreatedAtDesc(
+            BattleStatus status, BattleCreatorType creatorType, Pageable pageable);
     List<Battle> findByStatusAndDeletedAtIsNull(BattleStatus status);
     Page<Battle> findByStatusAndPublishAtLessThanEqualAndDeletedAtIsNull(
             BattleStatus status,

@@ -45,6 +45,7 @@ public final class ClassroomConverter {
                 new ClassDetailResponse.BattleInfo(
                         battle.getId(), battle.getTitle(), battle.getSummary(), battle.getThumbnailUrl()),
                 classroom.getBattleType(),
+                classroom.getTopicVersion() == null ? null : classroom.getTopicVersion().getId(),
                 memberCount,
                 classroom.getCapacity(),
                 classroom.getDeadline(),

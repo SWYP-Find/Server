@@ -11,6 +11,7 @@ import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.entity.BattleOptionTag;
 import com.swyp.picke.domain.battle.entity.BattleTag;
+import com.swyp.picke.domain.battle.enums.BattleCreatorType;
 import com.swyp.picke.domain.battle.enums.BattleStatus;
 import com.swyp.picke.domain.battle.util.BattleOptionDisplay;
 import com.swyp.picke.domain.user.dto.response.UserBattleStatusResponse;
@@ -184,11 +185,14 @@ public class BattleServiceImpl implements BattleService {
         BattleStatus battleStatusFilter = parseBattleStatus(status);
 
         Page<Battle> battlePage;
+        // 클래스 전용 커스텀 배틀(creator_type = USER)은 어드민 목록에서 뺀다
         if (battleStatusFilter == null) {
-            battlePage = battleRepository.findByDeletedAtIsNullOrderByCreatedAtDesc(pageRequest);
+            battlePage = battleRepository.findByCreatorTypeNotAndDeletedAtIsNullOrderByCreatedAtDesc(
+                    BattleCreatorType.USER, pageRequest);
         } else {
-            battlePage = battleRepository.findByStatusAndDeletedAtIsNullOrderByCreatedAtDesc(
+            battlePage = battleRepository.findByStatusAndCreatorTypeNotAndDeletedAtIsNullOrderByCreatedAtDesc(
                     battleStatusFilter,
+                    BattleCreatorType.USER,
                     pageRequest
             );
         }

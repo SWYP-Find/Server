@@ -198,7 +198,22 @@ public enum ErrorCode {
     CLASS_DEBATE_ROUND_CONFLICT(HttpStatus.CONFLICT, "CLASS_409_DEBATE_ROUND", "이 라운드의 반박은 이미 제출되었습니다."),
     CLASS_DEBATE_REPLY_INVALID(HttpStatus.BAD_REQUEST, "CLASS_400_DEBATE_REPLY", "반박은 50자 이상 1,000자 이하로 적어 주세요."),
     CLASS_DEBATE_NOT_RETRYABLE(HttpStatus.CONFLICT, "CLASS_409_DEBATE_RETRY", "지금은 다시 시도할 수 없어요."),
-    CLASS_DEBATE_NOT_COMPLETED(HttpStatus.CONFLICT, "CLASS_409_DEBATE_INCOMPLETE", "AI 철학자와의 토론을 마친 뒤 사후투표를 할 수 있어요.");
+    CLASS_DEBATE_NOT_COMPLETED(HttpStatus.CONFLICT, "CLASS_409_DEBATE_INCOMPLETE", "AI 철학자와의 토론을 마친 뒤 사후투표를 할 수 있어요."),
+
+    // Tumblbug XLSX extensions
+    COMMON_REQUEST_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "COMMON_413_SIZE", "요청 크기가 서버 허용 용량을 초과했습니다."),
+    FUNDING_CAMPAIGN_NOT_FOUND(HttpStatus.NOT_FOUND, "FUNDING_404_CAMPAIGN", "펀딩 캠페인을 찾을 수 없습니다."),
+    FUNDING_CAMPAIGN_DUPLICATE(HttpStatus.CONFLICT, "FUNDING_409_CAMPAIGN_DUPLICATE", "같은 플랫폼 캠페인이 이미 등록되어 있습니다."),
+    FUNDING_CAMPAIGN_INACTIVE(HttpStatus.CONFLICT, "FUNDING_409_CAMPAIGN", "현재 이용할 수 없는 펀딩 캠페인입니다."),
+    FUNDING_INVALID_REQUEST(HttpStatus.BAD_REQUEST, "FUNDING_400_REQUEST", "펀딩 요청의 필수 값이나 형식이 올바르지 않습니다."),
+    FUNDING_REWARD_UNSUPPORTED(HttpStatus.BAD_REQUEST, "FUNDING_400_REWARD", "지원하지 않는 리워드 상품입니다. 정원 5, 15, 30 중 하나를 선택해 주세요."),
+    FUNDING_INVALID_DELIVERY_STATUS(HttpStatus.BAD_REQUEST, "FUNDING_400_DELIVERY_STATUS", "전달 상태는 발송 완료 또는 실패만 기록할 수 있습니다."),
+    FUNDING_TUMBLBUG_IMPORT_INVALID(HttpStatus.BAD_REQUEST, "FUNDING_400_TUMBLBUG_IMPORT", "텀블벅 엑셀 형식이나 열 매핑을 확인해 주세요."),
+    FUNDING_TUMBLBUG_COLUMNS_MISSING(HttpStatus.UNPROCESSABLE_ENTITY, "FUNDING_422_TUMBLBUG_COLUMNS", "후원자 엑셀의 필수 열을 자동 판별하지 못했습니다. 시트의 열 제목을 확인해 주세요."),
+    FUNDING_TUMBLBUG_IMPORT_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "FUNDING_413_TUMBLBUG_IMPORT", "텀블벅 엑셀은 10MB 이하, 최대 5,000개 데이터 행까지 등록할 수 있습니다."),
+    FUNDING_TUMBLBUG_IMPORT_EMPTY(HttpStatus.UNPROCESSABLE_ENTITY, "FUNDING_422_TUMBLBUG_EMPTY", "결제 완료 상태의 유효한 후원자가 없습니다."),
+    FUNDING_TUMBLBUG_IMPORT_DUPLICATE(HttpStatus.CONFLICT, "FUNDING_409_TUMBLBUG_DUPLICATE", "이미 등록된 후원번호와 리워드 행이 포함되어 있습니다."),
+    FUNDING_TUMBLBUG_IMPORT_ROWS_INVALID(HttpStatus.UNPROCESSABLE_ENTITY, "FUNDING_422_TUMBLBUG_ROWS", "발급할 수 없는 행이 있습니다. 미리보기 오류를 수정한 뒤 다시 시도해 주세요.");
 
     private final HttpStatus httpStatus;
     private final String code;

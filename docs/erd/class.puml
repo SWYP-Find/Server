@@ -416,7 +416,7 @@ note bottom of class_topic_drafts
   운영자의 사용 중 이용권 아래 초안 1개 = 제안 3배치(최초+재추천, 조건 변경 포함) + 수정 검증 3회 제공
   조건: topic_seed 2~200자, difficulty, categories 1~3개(enum 이름)
   API: /api/v1/class-topic-drafts (생성·조회), /{id}/suggestions, /{id}/selection, /{id}/validations
-  제안: 후보 정확히 8개(question ≤60, description ≤80, options 2개: label ≤20, rationale ≤40, 철학자 = PhilosopherType 코드)
+  제안: 후보 정확히 3개 (S05 화면 기준, 기획 확정)(question ≤60, description ≤80, options 2개: label ≤20, rationale ≤40, 철학자 = PhilosopherType 코드)
     서버 검사(개수·길이·조건 일치·철학자 허용 목록·두 철학자 다름·질문 중복) 실패 → 문제 목록으로 1회 보정 → 계속 실패면 REJECTED
     실패·맥락 부족(NEEDS_CLARIFICATION)은 기존 후보 유지, batch_no 증가 없음
     분당 2회/계정 = ai_jobs(TOPIC_CANDIDATES, ticket_id, started_at) 1분 내 건수 (계정당 ACTIVE 이용권 1개)
@@ -431,7 +431,7 @@ note bottom of class_topic_versions
   EDITED = 직접 수정 → 서버 형식 검사(AI 없음, 횟수 미차감) → AI 의미 검증 통과 시에만 생성 (source_ref "v{바탕 version_no}")
     AI 는 valid / issues[{field, code, message}] 만 돌려주고 수정안을 고쳐 쓰지 않는다
     제공자 장애로 판정을 못 받으면 validation_count 환불
-  profile_version: 철학자 허용 목록 버전 (philosopher-type-v1), prompt_version: topic-v1
+  profile_version: 철학자 허용 목록 버전 (philosopher-type-v1), prompt_version: topic-v2
   후속: classes 에 topic_version_id 연결(커스텀 배틀 생성), AI-02 토론이 선택지별 철학자 매핑 사용
 end note
 

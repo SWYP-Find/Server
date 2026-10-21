@@ -57,7 +57,7 @@ public class ClassTopicController {
     }
 
     @Operation(summary = "AI 주제 제안 (최초·재추천)",
-            description = "후보 8개를 만들어 초안에 저장하고 초안을 돌려줍니다. 본문으로 조건을 바꿀 수 있고 같은 초안의 새 배치로 셉니다. "
+            description = "후보 3개를 만들어 초안에 저장하고 초안을 돌려줍니다. 본문으로 조건을 바꿀 수 있고 같은 초안의 새 배치로 셉니다. "
                     + "실패하면 suggestStatus=FAILED 로 응답하고 기존 후보와 횟수는 그대로입니다. "
                     + "맥락이 부족하면 NEEDS_CLARIFICATION + clarificationMessage. "
                     + "성공 배치 3회 소진 409 CLASS_409_TOPIC_SUGGEST_LIMIT, 생성 중 409 CLASS_409_TOPIC_GENERATING, 분당 2회 초과 429 CLASS_429_TOPIC.")

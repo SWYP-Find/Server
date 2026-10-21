@@ -10,7 +10,7 @@ public record ClassTopicSelectRequest(
         @NotNull
         Integer batchNo,
 
-        @Schema(description = "후보 ID (1~8)", example = "3")
+        @Schema(description = "후보 ID (1~3)", example = "3")
         @NotNull
         Integer candidateId
 ) {

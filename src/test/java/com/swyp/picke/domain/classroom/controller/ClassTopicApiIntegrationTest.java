@@ -116,9 +116,9 @@ class ClassTopicApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("초안 생성 → 제안: 후보 8개 저장, 남은 횟수 2, ai_jobs 성공·토큰 기록, 재조회는 AI 없이 같은 결과")
+    @DisplayName("초안 생성 → 제안: 후보 3개 저장, 남은 횟수 2, ai_jobs 성공·토큰 기록, 재조회는 AI 없이 같은 결과")
     void suggestSuccess() throws Exception {
-        stubSuggest(candidatesJson(8, "INTERMEDIATE", "PHILOSOPHY"));
+        stubSuggest(candidatesJson(3, "INTERMEDIATE", "PHILOSOPHY"));
         long draftId = createDraft();
 
         suggest(draftId, null)
@@ -126,7 +126,7 @@ class ClassTopicApiIntegrationTest {
                 .andExpect(jsonPath("$.data.suggestStatus").value("SUCCEEDED"))
                 .andExpect(jsonPath("$.data.batchNo").value(1))
                 .andExpect(jsonPath("$.data.remainingSuggestions").value(2))
-                .andExpect(jsonPath("$.data.candidates", hasSize(8)))
+                .andExpect(jsonPath("$.data.candidates", hasSize(3)))
                 .andExpect(jsonPath("$.data.candidates[0].candidateId").value(1))
                 .andExpect(jsonPath("$.data.candidates[0].category").value("철학"))
                 .andExpect(jsonPath("$.data.candidates[0].options[0].position").value("A"))
@@ -142,26 +142,26 @@ class ClassTopicApiIntegrationTest {
 
         mockMvc.perform(get(BASE + "/" + draftId).header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.candidates", hasSize(8)));
+                .andExpect(jsonPath("$.data.candidates", hasSize(3)));
         verify(aiClient, times(1)).chatJson(eq(ClassTopicPrompts.SUGGEST_SYSTEM), anyString(), anyInt());
     }
 
     @Test
-    @DisplayName("규칙 위반(7개·허용 목록 밖 철학자) → 문제 목록으로 1회 보정 → 성공, attempt 2")
+    @DisplayName("규칙 위반(2개·허용 목록 밖 철학자) → 문제 목록으로 1회 보정 → 성공, attempt 2")
     void suggestCorrectedOnce() throws Exception {
-        Map<String, Object> bad = candidatesJson(7, "INTERMEDIATE", "PHILOSOPHY");
+        Map<String, Object> bad = candidatesJson(2, "INTERMEDIATE", "PHILOSOPHY");
         firstOption(bad).put("profile_id", "HEGEL");
         when(aiClient.chatJson(eq(ClassTopicPrompts.SUGGEST_SYSTEM), anyString(), anyInt()))
                 .thenReturn(result(bad))
-                .thenReturn(result(candidatesJson(8, "INTERMEDIATE", "PHILOSOPHY")));
+                .thenReturn(result(candidatesJson(3, "INTERMEDIATE", "PHILOSOPHY")));
         long draftId = createDraft();
 
         suggest(draftId, null)
                 .andExpect(jsonPath("$.data.suggestStatus").value("SUCCEEDED"))
-                .andExpect(jsonPath("$.data.candidates", hasSize(8)));
+                .andExpect(jsonPath("$.data.candidates", hasSize(3)));
 
         verify(aiClient).chatJson(eq(ClassTopicPrompts.SUGGEST_SYSTEM),
-                argThat(prompt -> prompt.contains("[고칠 점]") && prompt.contains("정확히 8개")
+                argThat(prompt -> prompt.contains("[고칠 점]") && prompt.contains("정확히 3개")
                         && prompt.contains("profile_id 는 [철학자 목록]의 id")),
                 anyInt());
         AiJob job = onlyJob(AiJobType.TOPIC_CANDIDATES);
@@ -173,9 +173,9 @@ class ClassTopicApiIntegrationTest {
     @DisplayName("보정 후에도 위반 → FAILED, 기존 후보·횟수 유지, job REJECTED")
     void suggestRejectedKeepsPreviousCandidates() throws Exception {
         when(aiClient.chatJson(eq(ClassTopicPrompts.SUGGEST_SYSTEM), anyString(), anyInt()))
-                .thenReturn(result(candidatesJson(8, "INTERMEDIATE", "PHILOSOPHY")))
-                .thenReturn(result(candidatesJson(8, "BEGINNER", "PHILOSOPHY")))
-                .thenReturn(result(candidatesJson(8, "BEGINNER", "PHILOSOPHY")));
+                .thenReturn(result(candidatesJson(3, "INTERMEDIATE", "PHILOSOPHY")))
+                .thenReturn(result(candidatesJson(3, "BEGINNER", "PHILOSOPHY")))
+                .thenReturn(result(candidatesJson(3, "BEGINNER", "PHILOSOPHY")));
         long draftId = createDraft();
         suggest(draftId, null).andExpect(jsonPath("$.data.batchNo").value(1));
         String firstQuestion = candidateQuestion(draftId, 0);
@@ -230,9 +230,9 @@ class ClassTopicApiIntegrationTest {
     @DisplayName("조건 변경 재추천은 새 배치로 세고 조건을 바꾼다. 분당 2회 초과 429, 성공 3배치 후 409")
     void suggestQuotaAndRateLimit() throws Exception {
         when(aiClient.chatJson(eq(ClassTopicPrompts.SUGGEST_SYSTEM), anyString(), anyInt()))
-                .thenReturn(result(candidatesJson(8, "INTERMEDIATE", "PHILOSOPHY")))
-                .thenReturn(result(candidatesJson(8, "ADVANCED", "SOCIETY")))
-                .thenReturn(result(candidatesJson(8, "ADVANCED", "SOCIETY")));
+                .thenReturn(result(candidatesJson(3, "INTERMEDIATE", "PHILOSOPHY")))
+                .thenReturn(result(candidatesJson(3, "ADVANCED", "SOCIETY")))
+                .thenReturn(result(candidatesJson(3, "ADVANCED", "SOCIETY")));
         long draftId = createDraft();
         suggest(draftId, null).andExpect(jsonPath("$.data.batchNo").value(1));
         suggest(draftId, Map.of("difficulty", "ADVANCED", "categories", List.of("사회")))
@@ -256,14 +256,14 @@ class ClassTopicApiIntegrationTest {
     @Test
     @DisplayName("후보 선택: 다른 배치 번호 409, 선택하면 CANDIDATE 버전, 같은 후보 재선택은 같은 버전")
     void selectCandidate() throws Exception {
-        stubSuggest(candidatesJson(8, "INTERMEDIATE", "PHILOSOPHY"));
+        stubSuggest(candidatesJson(3, "INTERMEDIATE", "PHILOSOPHY"));
         long draftId = createDraft();
         suggest(draftId, null);
 
         select(draftId, 2, 3)
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("CLASS_409_TOPIC_CANDIDATE"));
-        select(draftId, 1, 9).andExpect(status().isNotFound());
+        select(draftId, 1, 4).andExpect(status().isNotFound());
 
         long versionId = data(select(draftId, 1, 3)
                 .andExpect(status().isOk())
@@ -282,7 +282,7 @@ class ClassTopicApiIntegrationTest {
     @Test
     @DisplayName("수정 검증: 형식 오류·변경 없음은 AI 없이 처리, 통과 시 EDITED 버전, 불통과는 issues 만, 장애는 503 + 횟수 환불")
     void validateEdits() throws Exception {
-        stubSuggest(candidatesJson(8, "INTERMEDIATE", "PHILOSOPHY"));
+        stubSuggest(candidatesJson(3, "INTERMEDIATE", "PHILOSOPHY"));
         long draftId = createDraft();
         suggest(draftId, null);
         long baseId = data(select(draftId, 1, 1)).get("topicVersionId").asLong();

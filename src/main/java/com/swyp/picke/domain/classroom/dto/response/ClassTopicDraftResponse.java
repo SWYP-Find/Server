@@ -19,12 +19,12 @@ public record ClassTopicDraftResponse(
         @Schema(description = "현재 후보의 배치 번호 (성공 배치 수, 0 이면 후보 없음)") int batchNo,
         @Schema(description = "남은 제안 횟수 (최초 + 재추천 최대 3회)") int remainingSuggestions,
         @Schema(description = "남은 직접 수정 검증 횟수 (최대 3회)") int remainingValidations,
-        @Schema(description = "현재 배치의 후보 8개") List<Candidate> candidates,
+        @Schema(description = "현재 배치의 후보 3개") List<Candidate> candidates,
         @Schema(description = "가장 최근에 만든 검증된 주제 버전", nullable = true) ClassTopicVersionResponse latestVersion
 ) {
 
     public record Candidate(
-            @Schema(description = "후보 ID (1~8)") int candidateId,
+            @Schema(description = "후보 ID (1~3)") int candidateId,
             String question,
             String description,
             BattleCategory category,

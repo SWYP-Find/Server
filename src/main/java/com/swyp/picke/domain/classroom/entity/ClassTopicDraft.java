@@ -27,7 +27,7 @@ import org.hibernate.type.SqlTypes;
  * 커스텀 배틀 주제 초안 (PRD §10 AI-01). 운영자의 사용 중 이용권 아래에 만들고, AI 제안 후보와 쿼터를 초안 단위로 관리한다.
  * <ul>
  *   <li>categories : 카테고리 enum 이름 목록 (1~3개)</li>
- *   <li>candidates : 마지막 성공 배치의 후보 8개. candidate_id(1~8)·question·description·category·difficulty·options[2]</li>
+ *   <li>candidates : 마지막 성공 배치의 후보 3개. candidate_id(1~3)·question·description·category·difficulty·options[2]</li>
  *   <li>batch_no : 성공한 제안 배치 수 = 현재 후보의 배치 번호. 최대 3 (최초 + 재추천)</li>
  *   <li>suggest_request_count : 제안 요청 수(실패 포함). ai_jobs 멱등키에 쓴다</li>
  *   <li>validation_count : AI 의미 검증을 호출한 수정 검증 수. 최대 3</li>

@@ -20,16 +20,16 @@ class ClassTopicContentValidatorTest {
             "감정 표현", BattleDifficulty.INTERMEDIATE, List.of(BattleCategory.PHILOSOPHY, BattleCategory.LITERATURE));
 
     @Test
-    @DisplayName("정상 8개는 그대로 받고, 카테고리·수준은 한글 값도 허용한다")
+    @DisplayName("정상 3개는 그대로 받고, 카테고리·수준은 한글 값도 허용한다")
     void acceptsEightCandidates() {
-        Map<String, Object> json = json(8);
+        Map<String, Object> json = json(3);
         candidate(json, 0).put("category", "문학");
         candidate(json, 0).put("difficulty", "중급");
 
         ClassTopicContentValidator.SuggestResult result = validator.parseSuggestion(json, conditions);
 
         assertThat(result.needsClarification()).isFalse();
-        assertThat(result.candidates()).hasSize(8);
+        assertThat(result.candidates()).hasSize(3);
         assertThat(result.candidates().get(0).category()).isEqualTo(BattleCategory.LITERATURE);
         assertThat(result.candidates().get(0).optionB().philosopher()).isEqualTo(PhilosopherType.SARTRE);
     }
@@ -37,19 +37,20 @@ class ClassTopicContentValidatorTest {
     @Test
     @DisplayName("조건 밖 카테고리·길이 초과·같은 철학자·중복 질문은 배치 전체를 거절하고 문제를 모두 모은다")
     void rejectsRuleViolations() {
-        Map<String, Object> json = json(8);
+        Map<String, Object> json = json(5);
         candidate(json, 1).put("category", "SCIENCE");
         candidate(json, 2).put("question", "가".repeat(61));
         option(json, 3, 1).put("profile_id", "KANT");
-        candidate(json, 5).put("question", "질문 0 은 무엇일까요?!");
+        candidate(json, 4).put("question", "질문 0 은 무엇일까요?!");
 
         assertThatThrownBy(() -> validator.parseSuggestion(json, conditions))
                 .isInstanceOfSatisfying(TopicValidationException.class, e -> {
                     assertThat(e.getCode()).isEqualTo("CANDIDATE_RULES");
+                    assertThat(e.getProblems()).anyMatch(p -> p.startsWith("candidates 는 정확히 3개"));
                     assertThat(e.getProblems()).anyMatch(p -> p.startsWith("candidates[1].category"));
                     assertThat(e.getProblems()).anyMatch(p -> p.startsWith("candidates[2].question") && p.contains("61자"));
                     assertThat(e.getProblems()).anyMatch(p -> p.startsWith("candidates[3].options 의 두 profile_id"));
-                    assertThat(e.getProblems()).anyMatch(p -> p.startsWith("candidates[5].question 이 다른 후보와 같습니다"));
+                    assertThat(e.getProblems()).anyMatch(p -> p.startsWith("candidates[4].question 이 다른 후보와 같습니다"));
                 });
     }
 

@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class ClassTopicContentValidator {
 
-    public static final int CANDIDATE_COUNT = 8;
+    public static final int CANDIDATE_COUNT = 3;
     static final int CLARIFICATION_MAX_LENGTH = 200;
     static final String DEFAULT_CLARIFICATION = "이 주제로 토론하려면 다루고 싶은 상황이나 맥락을 조금 더 적어 주세요.";
 

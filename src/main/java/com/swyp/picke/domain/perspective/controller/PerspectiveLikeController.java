@@ -23,13 +23,16 @@ public class PerspectiveLikeController {
 
     private final PerspectiveLikeService likeService;
 
-    @Operation(summary = "좋아요 수 조회", description = "특정 관점의 좋아요 수를 조회합니다.")
+    @Operation(summary = "좋아요 수 조회",
+            description = "특정 관점의 좋아요 수를 조회합니다. 클래스 의견이면 운영자·참여 중인 멤버만 조회할 수 있습니다(403 CLASS_403_MEMBER).")
     @GetMapping("/perspectives/{perspectiveId}/likes")
-    public ApiResponse<LikeCountResponse> getLikeCount(@PathVariable Long perspectiveId) {
-        return ApiResponse.onSuccess(likeService.getLikeCount(perspectiveId));
+    public ApiResponse<LikeCountResponse> getLikeCount(
+            @PathVariable Long perspectiveId,
+            @AuthenticationPrincipal Long userId) {
+        return ApiResponse.onSuccess(likeService.getLikeCount(perspectiveId, userId));
     }
 
-    @Operation(summary = "좋아요 등록", description = "특정 관점에 좋아요를 등록합니다.")
+    @Operation(summary = "좋아요 등록", description = "특정 관점에 좋아요를 등록합니다. 클래스 의견이면 참여 중인 멤버만, 마감 전에만 할 수 있습니다(403 CLASS_403_MEMBER, 409 CLASS_409_CLOSED / CLASS_409_TICKET_ENDED).")
     @PostMapping("/perspectives/{perspectiveId}/likes")
     public ApiResponse<LikeResponse> addLike(
             @PathVariable Long perspectiveId,
@@ -37,7 +40,7 @@ public class PerspectiveLikeController {
         return ApiResponse.onSuccess(likeService.addLike(perspectiveId, userId));
     }
 
-    @Operation(summary = "좋아요 취소", description = "특정 관점의 좋아요를 취소합니다.")
+    @Operation(summary = "좋아요 취소", description = "특정 관점의 좋아요를 취소합니다. 클래스 의견이면 참여 중인 멤버만, 마감 전에만 할 수 있습니다(403 CLASS_403_MEMBER, 409 CLASS_409_CLOSED / CLASS_409_TICKET_ENDED).")
     @DeleteMapping("/perspectives/{perspectiveId}/likes")
     public ApiResponse<LikeResponse> removeLike(
             @PathVariable Long perspectiveId,

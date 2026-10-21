@@ -14,7 +14,9 @@ import com.swyp.picke.domain.classroom.enums.ClassMemberStatus;
 import com.swyp.picke.domain.classroom.repository.ClassMemberRepository;
 import com.swyp.picke.domain.classroom.repository.ClassroomRepository;
 import com.swyp.picke.domain.oauth.jwt.JwtProvider;
+import com.swyp.picke.domain.perspective.repository.CommentLikeRepository;
 import com.swyp.picke.domain.perspective.repository.PerspectiveCommentRepository;
+import com.swyp.picke.domain.perspective.repository.PerspectiveLikeRepository;
 import com.swyp.picke.domain.perspective.repository.PerspectiveRepository;
 import com.swyp.picke.domain.ticket.entity.ClassTicket;
 import com.swyp.picke.domain.ticket.entity.FundingOrder;
@@ -101,6 +103,10 @@ class ClassBattleApiIntegrationTest {
     private PerspectiveRepository perspectiveRepository;
     @Autowired
     private PerspectiveCommentRepository perspectiveCommentRepository;
+    @Autowired
+    private PerspectiveLikeRepository perspectiveLikeRepository;
+    @Autowired
+    private CommentLikeRepository commentLikeRepository;
 
     private final List<Long> createdBattleIds = new ArrayList<>();
     private final List<Long> createdUserIds = new ArrayList<>();
@@ -138,6 +144,8 @@ class ClassBattleApiIntegrationTest {
     }
 
     private void cleanUp() {
+        commentLikeRepository.deleteAll();
+        perspectiveLikeRepository.deleteAll();
         perspectiveCommentRepository.deleteAll();
         perspectiveRepository.deleteAll();
         battleVoteRepository.deleteAll();
@@ -330,6 +338,79 @@ class ClassBattleApiIntegrationTest {
         mockMvc.perform(get(classBattle(cls) + "/perspectives").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items", hasSize(1)));
+    }
+
+    @Test
+    @DisplayName("클래스 의견·댓글 좋아요: 비멤버 403, 참여하지 않는 운영자는 조회만, 마감 후 등록·취소 409")
+    void likes_followClassAccess() throws Exception {
+        ClassInfo cls = createClass(false);
+        User writer = newUser("학생A");
+        String writerToken = tokenOf(writer);
+        User reader = newUser("학생B");
+        String readerToken = tokenOf(reader);
+        join(writerToken, cls.inviteCode, "학생A").andExpect(status().isOk());
+        join(readerToken, cls.inviteCode, "학생B").andExpect(status().isOk());
+
+        vote(writerToken, cls, "/votes/pre", optionA).andExpect(status().isOk());
+        vote(writerToken, cls, "/votes/post", optionA).andExpect(status().isOk());
+        long perspectiveId = dataOf(mockMvc.perform(post(classBattle(cls) + "/perspectives")
+                        .header("Authorization", "Bearer " + writerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("content", "좋아요 권한을 확인할 클래스 의견입니다."))))
+                .andExpect(status().isOk())
+                .andReturn()).get("perspectiveId").asLong();
+        long commentId = dataOf(mockMvc.perform(post("/api/v1/perspectives/" + perspectiveId + "/comments")
+                        .header("Authorization", "Bearer " + writerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("content", "좋아요 권한을 확인할 클래스 댓글입니다."))))
+                .andExpect(status().isOk())
+                .andReturn()).get("commentId").asLong();
+        String perspectiveLikes = "/api/v1/perspectives/" + perspectiveId + "/likes";
+        String commentLikes = "/api/v1/comments/" + commentId + "/likes";
+
+        // 클래스 밖 사용자는 조회·등록 모두 403
+        String strangerToken = tokenOf(newUser("외부인"));
+        mockMvc.perform(get(perspectiveLikes).header("Authorization", "Bearer " + strangerToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("CLASS_403_MEMBER"));
+        mockMvc.perform(post(perspectiveLikes).header("Authorization", "Bearer " + strangerToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("CLASS_403_MEMBER"));
+        mockMvc.perform(post(commentLikes).header("Authorization", "Bearer " + strangerToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("CLASS_403_MEMBER"));
+
+        // 참여하지 않는 운영자는 조회만
+        mockMvc.perform(get(perspectiveLikes).header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(post(perspectiveLikes).header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("CLASS_403_MEMBER"));
+
+        // 참여 중인 멤버는 마감 전 등록·취소 가능
+        mockMvc.perform(post(perspectiveLikes).header("Authorization", "Bearer " + readerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.likeCount").value(1));
+        mockMvc.perform(post(commentLikes).header("Authorization", "Bearer " + readerToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete(commentLikes).header("Authorization", "Bearer " + readerToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(post(commentLikes).header("Authorization", "Bearer " + readerToken))
+                .andExpect(status().isOk());
+
+        // 마감 후에는 조회만 되고 등록·취소는 409
+        closeClass(cls.classId);
+        mockMvc.perform(get(perspectiveLikes).header("Authorization", "Bearer " + readerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.likeCount").value(1));
+        mockMvc.perform(delete(perspectiveLikes).header("Authorization", "Bearer " + readerToken))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_CLOSED"));
+        mockMvc.perform(delete(commentLikes).header("Authorization", "Bearer " + readerToken))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_CLOSED"));
+        assertThat(perspectiveLikeRepository.count()).isEqualTo(1);
+        assertThat(commentLikeRepository.count()).isEqualTo(1);
     }
 
     @Test

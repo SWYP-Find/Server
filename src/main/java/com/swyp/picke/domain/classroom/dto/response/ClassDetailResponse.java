@@ -14,6 +14,7 @@ public record ClassDetailResponse(
         @Schema(description = "운영자 유저 ID") Long ownerId,
         @Schema(description = "배틀 정보") BattleInfo battle,
         @Schema(description = "배틀 종류 (TTS / CUSTOM)") ClassBattleType battleType,
+        @Schema(description = "커스텀 배틀의 주제 버전 ID. TTS 클래스는 null", nullable = true) Long topicVersionId,
         @Schema(description = "좌석을 차지한 인원 (운영자 참여 시 포함)") long memberCount,
         @Schema(description = "정원") int capacity,
         @Schema(description = "운영자가 설정한 마감일. null 이면 마감 없음") LocalDateTime deadline,

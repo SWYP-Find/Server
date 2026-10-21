@@ -131,6 +131,8 @@ entity "classes" as classes {
   ticket_id : BIGINT <<FK>>
   battle_id : BIGINT <<FK>>
   battle_type : VARCHAR(10)
+  topic_version_id : BIGINT <<FK, nullable>>
+  topic_draft_id : BIGINT <<FK, UK, nullable>>
   capacity : INTEGER
   deadline : TIMESTAMP <<nullable>>
   comment_required : BOOLEAN
@@ -257,6 +259,8 @@ ai_jobs        |o--o| class_reports : produced by
 users          ||--o{ class_topic_drafts   : drafts
 class_tickets  ||--o{ class_topic_drafts   : under
 class_topic_drafts ||--o{ class_topic_versions : validated as
+class_topic_versions |o--o{ classes : custom battle of
+class_topic_drafts |o--o| classes : one class per draft
 
 class_tickets  |o--o{ ai_jobs : cost of
 classes        |o--o{ ai_jobs : scoped
@@ -432,7 +436,15 @@ note bottom of class_topic_versions
     AI 는 valid / issues[{field, code, message}] 만 돌려주고 수정안을 고쳐 쓰지 않는다
     제공자 장애로 판정을 못 받으면 validation_count 환불
   profile_version: 철학자 허용 목록 버전 (philosopher-type-v1), prompt_version: topic-v2
-  후속: classes 에 topic_version_id 연결(커스텀 배틀 생성), AI-02 토론이 선택지별 철학자 매핑 사용
+  AI-02 토론이 선택지별 철학자 매핑을 사용한다
+  -- #547 커스텀 배틀 클래스 --
+  POST /api/v1/classes 는 battleId(TTS) 또는 topicVersionId(CUSTOM) 중 하나 (둘 다/둘 다 없음 400 CLASS_400_BATTLE_SOURCE)
+  본인 초안의 버전만, 같은 초안으로 클래스 1개 (classes.topic_draft_id UK, 초안 행 잠금 후 검사 → 409 CLASS_409_TOPIC_DRAFT_USED)
+  주제 버전 → 클래스 전용 battles 1행 + battle_options 2행 (title=질문, summary·description=설명, difficulty·category 복사,
+    option title=label, stance=rationale, representative=철학자 이름, image_url=철학자 이미지 키, display_order 1/2)
+    status PENDING + creator_type USER + creator_id 운영자 → 앱 목록·추천·검색(PUBLISHED 만)과 어드민 배틀 목록(USER 제외)에 안 나옴
+    썸네일 = picke.class.custom-battle-thumbnail-url (고정 1종, 비어 있으면 null)
+  CUSTOM 클래스는 TTS 완료 API 409 CLASS_409_TTS. 사후투표 연결은 #548 토론 완료 후
 end note
 
 @enduml

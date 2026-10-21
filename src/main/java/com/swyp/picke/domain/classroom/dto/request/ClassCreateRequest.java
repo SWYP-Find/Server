@@ -4,7 +4,6 @@ import com.swyp.picke.domain.classroom.entity.ClassMember;
 import com.swyp.picke.domain.classroom.entity.Classroom;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 
@@ -16,9 +15,12 @@ public record ClassCreateRequest(
         @Size(max = Classroom.NAME_MAX_LENGTH)
         String name,
 
-        @Schema(description = "클래스에서 진행할 배틀 ID (기존 TTS 배틀)", example = "12")
-        @NotNull
+        @Schema(description = "기존 콘텐츠(TTS) 배틀 ID. topicVersionId 와 둘 중 하나만 보낸다", example = "12", nullable = true)
         Long battleId,
+
+        @Schema(description = "커스텀 배틀로 만들 때 검증된 주제 버전 ID (주제 초안 API 의 topicVersionId). battleId 와 둘 중 하나만 보낸다",
+                example = "3", nullable = true)
+        Long topicVersionId,
 
         @Schema(description = "참여 마감일. null 이면 마감 없음(이용권 종료일까지). 현재 이후 ~ 이용권 종료일 범위만 허용",
                 example = "2026-12-31T23:59:59", nullable = true)

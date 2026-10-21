@@ -9,12 +9,16 @@ import com.swyp.picke.domain.classroom.dto.request.ClassUpdateRequest;
 import com.swyp.picke.domain.classroom.dto.response.ClassDetailResponse;
 import com.swyp.picke.domain.classroom.dto.response.ClassSummaryResponse;
 import com.swyp.picke.domain.classroom.entity.ClassMember;
+import com.swyp.picke.domain.classroom.entity.ClassTopicDraft;
+import com.swyp.picke.domain.classroom.entity.ClassTopicVersion;
 import com.swyp.picke.domain.classroom.entity.Classroom;
 import com.swyp.picke.domain.classroom.enums.ClassBattleType;
 import com.swyp.picke.domain.classroom.enums.ClassMemberRole;
 import com.swyp.picke.domain.classroom.enums.ClassMemberStatus;
 import com.swyp.picke.domain.classroom.enums.ClassStatus;
 import com.swyp.picke.domain.classroom.repository.ClassMemberRepository;
+import com.swyp.picke.domain.classroom.repository.ClassTopicDraftRepository;
+import com.swyp.picke.domain.classroom.repository.ClassTopicVersionRepository;
 import com.swyp.picke.domain.classroom.repository.ClassroomRepository;
 import com.swyp.picke.domain.classroom.util.InviteCodeGenerator;
 import com.swyp.picke.domain.ticket.entity.ClassTicket;
@@ -39,6 +43,7 @@ import org.springframework.transaction.annotation.Transactional;
  * 클래스 생성/조회/수정/삭제.
  * <ul>
  *   <li>생성은 사용 중(ACTIVE, 기간 내) 이용권이 있어야 하고, 이용권 1개로 만들 수 있는 클래스 수는 제한 없음</li>
+ *   <li>배틀은 기존 콘텐츠(battleId) 또는 검증된 커스텀 주제(topicVersionId) 중 하나. 커스텀이면 클래스 전용 배틀을 새로 만든다</li>
  *   <li>정원은 생성 시점 이용권 capacity 복사. 운영자가 참여하면 운영자도 1석 차지</li>
  *   <li>마감 여부는 상태가 아니라 min(deadline, 이용권 종료일) 로 조회 시 판정</li>
  *   <li>개설 후 수정은 이름 변경, 마감일 연장만</li>
@@ -57,6 +62,9 @@ public class ClassroomServiceImpl implements ClassroomService {
     private final ClassMemberRepository classMemberRepository;
     private final ClassTicketRepository classTicketRepository;
     private final BattleRepository battleRepository;
+    private final ClassTopicVersionRepository classTopicVersionRepository;
+    private final ClassTopicDraftRepository classTopicDraftRepository;
+    private final ClassCustomBattleFactory customBattleFactory;
     private final UserRepository userRepository;
 
     @Override
@@ -66,8 +74,13 @@ public class ClassroomServiceImpl implements ClassroomService {
         User owner = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         ClassTicket ticket = findUsableTicket(userId, now);
-        Battle battle = findClassBattle(request.battleId());
+        if ((request.battleId() == null) == (request.topicVersionId() == null)) {
+            throw new CustomException(ErrorCode.CLASS_BATTLE_SOURCE_INVALID);
+        }
+        ClassTopicVersion topicVersion = request.topicVersionId() == null ? null : findOwnTopicVersion(userId, request.topicVersionId());
+        Battle tts = topicVersion == null ? findClassBattle(request.battleId()) : null;
         validateDeadlineRange(request.deadline(), ticket, now);
+        Battle battle = tts != null ? tts : customBattleFactory.create(topicVersion, owner);
 
         Classroom classroom = classroomRepository.save(Classroom.builder()
                 .name(request.name().strip())
@@ -75,7 +88,8 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .owner(owner)
                 .ticket(ticket)
                 .battle(battle)
-                .battleType(ClassBattleType.TTS)
+                .battleType(topicVersion == null ? ClassBattleType.TTS : ClassBattleType.CUSTOM)
+                .topicVersion(topicVersion)
                 .capacity(ticket.getCapacity())
                 .deadline(request.deadline())
                 .commentRequired(request.commentRequired())
@@ -210,7 +224,23 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .orElseThrow(() -> new CustomException(ErrorCode.CLASS_TICKET_REQUIRED));
     }
 
-    /** 1차는 TTS(기존 콘텐츠) 만. 공개(PUBLISHED) 상태이고 삭제되지 않은 배틀만 붙일 수 있다. */
+    /**
+     * 커스텀 배틀용 주제 버전. 본인 초안의 버전만 쓸 수 있고, 같은 초안으로는 클래스를 하나만 만든다 (PRD §16 draft_id 고유).
+     * 동시 생성은 초안 행 잠금으로 직렬화하고, 마지막 방어선은 classes.topic_draft_id 유니크 제약이다.
+     */
+    private ClassTopicVersion findOwnTopicVersion(Long userId, Long topicVersionId) {
+        ClassTopicVersion version = classTopicVersionRepository.findById(topicVersionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.CLASS_TOPIC_VERSION_NOT_FOUND));
+        ClassTopicDraft draft = classTopicDraftRepository.findByIdForUpdate(version.getDraft().getId())
+                .filter(d -> d.isOwnedBy(userId))
+                .orElseThrow(() -> new CustomException(ErrorCode.CLASS_TOPIC_VERSION_NOT_FOUND));
+        if (classroomRepository.existsByTopicDraftId(draft.getId())) {
+            throw new CustomException(ErrorCode.CLASS_TOPIC_DRAFT_USED);
+        }
+        return version;
+    }
+
+    /** 기존 콘텐츠(TTS) 배틀. 공개(PUBLISHED) 상태이고 삭제되지 않은 배틀만 붙일 수 있다. */
     private Battle findClassBattle(Long battleId) {
         Battle battle = battleRepository.findById(battleId)
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_NOT_FOUND));

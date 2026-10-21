@@ -165,6 +165,9 @@ picke:
     # 클래스 마감 감지·AI 리포트 생성 스케줄러. 테스트에서는 끈다.
     scheduler-enabled: ${CLASS_REPORT_SCHEDULER_ENABLED:true}
     scheduler-delay-ms: ${CLASS_REPORT_SCHEDULER_DELAY_MS:60000}
+  class:
+    # 커스텀 배틀 클래스의 고정 썸네일 1종 (기획 Q&A). 비어 있으면 썸네일 없이 만든다.
+    custom-battle-thumbnail-url: ${CLASS_CUSTOM_BATTLE_THUMBNAIL_URL:}
 
 media:
   ffmpeg:

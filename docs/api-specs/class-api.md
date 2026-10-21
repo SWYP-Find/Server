@@ -807,6 +807,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 | 의견 좋아요 수 | `GET /api/v1/perspectives/{perspectiveId}/likes` | 읽기 규칙 |
 | 의견 좋아요 등록·취소 | `POST` / `DELETE /api/v1/perspectives/{perspectiveId}/likes` | 쓰기 규칙 |
 | 댓글 좋아요 등록·취소 | `POST` / `DELETE /api/v1/comments/{commentId}/likes` | 쓰기 규칙 |
+| 의견·댓글 신고 | `POST /api/v1/perspectives/{perspectiveId}/reports`, `POST /api/v1/perspectives/{perspectiveId}/comments/{commentId}/reports` | 읽기 규칙 (마감 후에도 신고 가능). 댓글이 경로의 관점에 속하지 않으면 404 `COMMENT_NOT_FOUND` |
 
 ---
 

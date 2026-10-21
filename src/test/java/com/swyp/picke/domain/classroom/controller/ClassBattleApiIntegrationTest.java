@@ -15,8 +15,10 @@ import com.swyp.picke.domain.classroom.repository.ClassMemberRepository;
 import com.swyp.picke.domain.classroom.repository.ClassroomRepository;
 import com.swyp.picke.domain.oauth.jwt.JwtProvider;
 import com.swyp.picke.domain.perspective.repository.CommentLikeRepository;
+import com.swyp.picke.domain.perspective.repository.CommentReportRepository;
 import com.swyp.picke.domain.perspective.repository.PerspectiveCommentRepository;
 import com.swyp.picke.domain.perspective.repository.PerspectiveLikeRepository;
+import com.swyp.picke.domain.perspective.repository.PerspectiveReportRepository;
 import com.swyp.picke.domain.perspective.repository.PerspectiveRepository;
 import com.swyp.picke.domain.ticket.entity.ClassTicket;
 import com.swyp.picke.domain.ticket.entity.FundingOrder;
@@ -107,6 +109,10 @@ class ClassBattleApiIntegrationTest {
     private PerspectiveLikeRepository perspectiveLikeRepository;
     @Autowired
     private CommentLikeRepository commentLikeRepository;
+    @Autowired
+    private PerspectiveReportRepository perspectiveReportRepository;
+    @Autowired
+    private CommentReportRepository commentReportRepository;
 
     private final List<Long> createdBattleIds = new ArrayList<>();
     private final List<Long> createdUserIds = new ArrayList<>();
@@ -144,6 +150,8 @@ class ClassBattleApiIntegrationTest {
     }
 
     private void cleanUp() {
+        commentReportRepository.deleteAll();
+        perspectiveReportRepository.deleteAll();
         commentLikeRepository.deleteAll();
         perspectiveLikeRepository.deleteAll();
         perspectiveCommentRepository.deleteAll();
@@ -411,6 +419,63 @@ class ClassBattleApiIntegrationTest {
                 .andExpect(jsonPath("$.error.code").value("CLASS_409_CLOSED"));
         assertThat(perspectiveLikeRepository.count()).isEqualTo(1);
         assertThat(commentLikeRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("클래스 의견·댓글 신고: 비멤버 403, 참여하지 않는 운영자·멤버는 마감 후에도 신고 가능, 다른 관점 경로의 댓글은 404")
+    void reports_requireClassReadAccess() throws Exception {
+        ClassInfo cls = createClass(false);
+        User writer = newUser("학생A");
+        String writerToken = tokenOf(writer);
+        User reader = newUser("학생B");
+        String readerToken = tokenOf(reader);
+        join(writerToken, cls.inviteCode, "학생A").andExpect(status().isOk());
+        join(readerToken, cls.inviteCode, "학생B").andExpect(status().isOk());
+
+        vote(writerToken, cls, "/votes/pre", optionA).andExpect(status().isOk());
+        vote(writerToken, cls, "/votes/post", optionA).andExpect(status().isOk());
+        long perspectiveId = dataOf(mockMvc.perform(post(classBattle(cls) + "/perspectives")
+                        .header("Authorization", "Bearer " + writerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("content", "신고 권한을 확인할 클래스 의견입니다."))))
+                .andExpect(status().isOk())
+                .andReturn()).get("perspectiveId").asLong();
+        long commentId = dataOf(mockMvc.perform(post("/api/v1/perspectives/" + perspectiveId + "/comments")
+                        .header("Authorization", "Bearer " + writerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("content", "신고 권한을 확인할 클래스 댓글입니다."))))
+                .andExpect(status().isOk())
+                .andReturn()).get("commentId").asLong();
+        String perspectiveReports = "/api/v1/perspectives/" + perspectiveId + "/reports";
+        String commentReports = "/api/v1/perspectives/" + perspectiveId + "/comments/" + commentId + "/reports";
+
+        // 클래스 밖 사용자는 403
+        String strangerToken = tokenOf(newUser("외부인"));
+        mockMvc.perform(post(perspectiveReports).header("Authorization", "Bearer " + strangerToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("CLASS_403_MEMBER"));
+        mockMvc.perform(post(commentReports).header("Authorization", "Bearer " + strangerToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("CLASS_403_MEMBER"));
+
+        // 댓글이 경로의 관점에 속하지 않으면 404
+        mockMvc.perform(post("/api/v1/perspectives/" + (perspectiveId + 1000) + "/comments/" + commentId + "/reports")
+                        .header("Authorization", "Bearer " + readerToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("COMMENT_NOT_FOUND"));
+
+        // 참여하지 않는 운영자도 볼 수 있는 글이라 신고 가능
+        mockMvc.perform(post(perspectiveReports).header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk());
+
+        // 마감 후에도 멤버는 신고 가능
+        closeClass(cls.classId);
+        mockMvc.perform(post(perspectiveReports).header("Authorization", "Bearer " + readerToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(post(commentReports).header("Authorization", "Bearer " + readerToken))
+                .andExpect(status().isOk());
+        assertThat(perspectiveReportRepository.count()).isEqualTo(2);
+        assertThat(commentReportRepository.count()).isEqualTo(1);
     }
 
     @Test

@@ -804,7 +804,9 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 | 의견 상세·수정·삭제 | `GET` / `PATCH` / `DELETE /api/v1/perspectives/{perspectiveId}` | 조회는 읽기 규칙, 수정·삭제는 쓰기 규칙 (0.3) |
 | 댓글 목록 | `GET /api/v1/perspectives/{perspectiveId}/comments` (`/labeled` 포함) | 읽기 규칙 |
 | 댓글 작성·수정·삭제 | `POST` / `PATCH` / `DELETE /api/v1/perspectives/{perspectiveId}/comments/...` | 쓰기 규칙 |
-| 좋아요 | `GET` / `POST` / `DELETE /api/v1/perspectives/{perspectiveId}/likes` | **없음** (클래스 밖 사용자도 호출할 수 있음) |
+| 의견 좋아요 수 | `GET /api/v1/perspectives/{perspectiveId}/likes` | 읽기 규칙 |
+| 의견 좋아요 등록·취소 | `POST` / `DELETE /api/v1/perspectives/{perspectiveId}/likes` | 쓰기 규칙 |
+| 댓글 좋아요 등록·취소 | `POST` / `DELETE /api/v1/comments/{commentId}/likes` | 쓰기 규칙 |
 
 ---
 

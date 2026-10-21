@@ -12,7 +12,8 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface ClassTicketRepository extends JpaRepository<ClassTicket, Long> {
+public interface ClassTicketRepository extends JpaRepository<ClassTicket, Long>,
+        org.springframework.data.jpa.repository.JpaSpecificationExecutor<ClassTicket> {
 
     Optional<ClassTicket> findByCodeHash(String codeHash);
 

@@ -4,6 +4,7 @@ import com.swyp.picke.global.common.response.ApiResponse;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException; // 추가
 import org.springframework.security.authorization.AuthorizationDeniedException; // 추가
@@ -12,6 +13,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @Slf4j
 @RestControllerAdvice
@@ -29,9 +31,21 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException e) {
         boolean isContentSizeViolation = e.getBindingResult().getFieldErrors().stream()
                 .anyMatch(fe -> "content".equals(fe.getField()) && "Size".equals(fe.getCode()));
-        ErrorCode code = isContentSizeViolation
-                ? ErrorCode.PERSPECTIVE_CONTENT_TOO_LONG
-                : ErrorCode.COMMON_INVALID_PARAMETER;
+        String requestType = e.getParameter().getParameterType().getName();
+        ErrorCode code;
+        if (isContentSizeViolation) {
+            code = ErrorCode.PERSPECTIVE_CONTENT_TOO_LONG;
+        } else if (requestType.startsWith("com.swyp.picke.domain.funding.")) {
+            String invalidField = e.getBindingResult().getFieldErrors().stream()
+                    .map(org.springframework.validation.FieldError::getField).findFirst().orElse("");
+            code = switch (invalidField) {
+                case "capacity" -> ErrorCode.FUNDING_REWARD_UNSUPPORTED;
+                case "status", "channel" -> ErrorCode.FUNDING_INVALID_DELIVERY_STATUS;
+                default -> ErrorCode.FUNDING_INVALID_REQUEST;
+            };
+        } else {
+            code = ErrorCode.COMMON_INVALID_PARAMETER;
+        }
         log.warn("Validation failed: {}", e.getMessage());
         return ResponseEntity
                 .status(code.getHttpStatus())
@@ -53,6 +67,13 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.onFailure(code.getHttpStatus().value(), code.getCode(), code.getMessage()));
     }
 
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException e) {
+        ErrorCode code = ErrorCode.COMMON_REQUEST_TOO_LARGE;
+        return ResponseEntity.status(code.getHttpStatus())
+                .body(ApiResponse.onFailure(code.getHttpStatus().value(), code.getCode(), code.getMessage()));
+    }
+
     @ExceptionHandler({
             AuthorizationDeniedException.class,
             AccessDeniedException.class
@@ -62,6 +83,25 @@ public class GlobalExceptionHandler {
         ErrorCode code = ErrorCode.AUTH_FORBIDDEN;
         return ResponseEntity
                 .status(code.getHttpStatus())
+                .body(ApiResponse.onFailure(code.getHttpStatus().value(), code.getCode(), code.getMessage()));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(DataIntegrityViolationException e) {
+        String detail = String.valueOf(e.getMostSpecificCause().getMessage());
+        ErrorCode code = detail.contains("uk_tumblbug_supporter_line")
+                || detail.contains("uk_tumblbug_funding_order")
+                || detail.contains("uk_funding_orders_order_id")
+                        ? ErrorCode.FUNDING_TUMBLBUG_IMPORT_DUPLICATE
+                        : detail.contains("uk_funding_campaign_platform_external")
+                                ? ErrorCode.FUNDING_CAMPAIGN_DUPLICATE
+                                : ErrorCode.INTERNAL_SERVER_ERROR;
+        if (code == ErrorCode.INTERNAL_SERVER_ERROR) {
+            log.error("Data integrity constraint violation", e);
+        } else {
+            log.warn("Data integrity constraint rejected a request: {}", detail);
+        }
+        return ResponseEntity.status(code.getHttpStatus())
                 .body(ApiResponse.onFailure(code.getHttpStatus().value(), code.getCode(), code.getMessage()));
     }
 

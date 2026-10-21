@@ -5,6 +5,7 @@ import com.swyp.picke.domain.ticket.enums.PaymentStatus;
 import com.swyp.picke.domain.ticket.enums.RewardTier;
 import com.swyp.picke.domain.ticket.enums.TicketCodeStatus;
 import com.swyp.picke.domain.ticket.enums.TicketStatus;
+import com.swyp.picke.domain.funding.dto.response.TumblbugOrderDetailResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 
@@ -22,7 +23,10 @@ public record FundingOrderSummaryResponse(
         PaymentStatus paymentStatus,
         @Schema(nullable = true) LocalDateTime paidAt,
         @Schema(description = "발급 가능 여부 (결제 확정·수량 1·결제일 있음·미발급)") boolean issuable,
-        @Schema(description = "살아 있는(REVOKED 아닌) 이용권. 없으면 null", nullable = true) Ticket ticket
+        @Schema(description = "살아 있는(REVOKED 아닌) 이용권. 없으면 null", nullable = true) Ticket ticket,
+        @Schema(description = "텀블벅 XLSX 원본 정보. CSV 주문은 null", nullable = true) TumblbugOrderDetailResponse tumblbug,
+        @Schema(description = "최근 전달 결과. 이력이 없으면 PENDING")
+        com.swyp.picke.domain.funding.enums.DeliveryStatus deliveryStatus
 ) {
     public record Ticket(
             Long ticketId,

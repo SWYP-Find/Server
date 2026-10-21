@@ -15,6 +15,11 @@ public interface ClassroomRepository extends JpaRepository<Classroom, Long> {
 
     boolean existsByInviteCode(String inviteCode);
 
+    boolean existsByInviteCodeAndStatus(String inviteCode, ClassStatus status);
+
+    /** 참여 코드 확인용(잠금 없음). 삭제된 클래스도 찾아서 "없는 코드"와 구분한다 */
+    Optional<Classroom> findByInviteCode(String inviteCode);
+
     /** 같은 주제 초안으로 만든 클래스가 있는지 (삭제된 클래스 포함, PRD §16 draft_id 고유) */
     boolean existsByTopicDraftId(Long topicDraftId);
 

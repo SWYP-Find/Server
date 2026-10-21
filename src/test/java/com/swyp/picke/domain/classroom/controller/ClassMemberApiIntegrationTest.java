@@ -310,6 +310,85 @@ class ClassMemberApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("참여 코드 확인: 참여 가능하면 클래스 요약(멤버는 만들지 않음), 이미 참여 중·내 클래스·정원 초과는 사유별 409")
+    void previewJoin_summaryAndRejections() throws Exception {
+        ClassInfo cls = createClass(true); // 5인권, 운영자 1석
+
+        preview(tokenOf(newUser("x")), " " + cls.inviteCode.toLowerCase() + " ")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.inviteCode").value(cls.inviteCode))
+                .andExpect(jsonPath("$.data.name").value("클래스"))
+                .andExpect(jsonPath("$.data.battleTitle").value(battle.getTitle()))
+                .andExpect(jsonPath("$.data.battleType").value("TTS"))
+                .andExpect(jsonPath("$.data.memberCount").value(1))
+                .andExpect(jsonPath("$.data.capacity").value(5));
+        assertThat(classMemberRepository.countByClassroomIdAndSeatHeldTrue(cls.classId)).isEqualTo(1);
+
+        preview(tokenOf(newUser("x")), "ABC")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_400"));
+        preview(tokenOf(newUser("x")), "ZZZZZZ")
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("CLASS_404_CODE"));
+        preview(ownerToken, cls.inviteCode)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_OWNER"));
+
+        String joinedToken = tokenOf(newUser("a"));
+        join(joinedToken, cls.inviteCode, "하나").andExpect(status().isOk());
+        preview(joinedToken, cls.inviteCode)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_JOINED"));
+
+        join(tokenOf(newUser("b")), cls.inviteCode, "둘").andExpect(status().isOk());
+        join(tokenOf(newUser("c")), cls.inviteCode, "셋").andExpect(status().isOk());
+        join(tokenOf(newUser("d")), cls.inviteCode, "넷").andExpect(status().isOk());
+        preview(tokenOf(newUser("e")), cls.inviteCode)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_FULL"));
+    }
+
+    @Test
+    @DisplayName("참여 코드 확인: 내보내진 클래스 403, 마감 409, 이용권 종료 409, 삭제된 클래스는 확인·참여 모두 409 CLASS_409_DELETED")
+    void previewJoin_removedClosedDeleted() throws Exception {
+        ClassInfo cls = createClass(true);
+        User student = newUser("학생");
+        String studentToken = tokenOf(student);
+        join(studentToken, cls.inviteCode, "학생").andExpect(status().isOk());
+        mockMvc.perform(delete("/api/v1/classes/" + cls.classId + "/members/" + memberIdOf(cls.classId, student))
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk());
+        preview(studentToken, cls.inviteCode)
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("CLASS_403_REMOVED"));
+
+        Classroom classroom = classroomRepository.findById(cls.classId).orElseThrow();
+        org.springframework.test.util.ReflectionTestUtils.setField(classroom, "deadline", LocalDateTime.now().minusMinutes(1));
+        classroomRepository.save(classroom);
+        preview(tokenOf(newUser("g")), cls.inviteCode)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_CLOSED"));
+
+        var ticket = classTicketRepository.findById(classroom.getTicket().getId()).orElseThrow();
+        ticket.revoke(LocalDateTime.now().minusMinutes(1));
+        classTicketRepository.save(ticket);
+        preview(tokenOf(newUser("h")), cls.inviteCode)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_TICKET_ENDED"));
+
+        mockMvc.perform(delete("/api/v1/classes/" + cls.classId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk());
+        String outsider = tokenOf(newUser("i"));
+        preview(outsider, cls.inviteCode)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_DELETED"));
+        join(outsider, cls.inviteCode, "아홉")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_DELETED"));
+    }
+
+    @Test
     @DisplayName("마지막 1석을 두 사람이 동시에 신청하면 한 명만 들어간다 (클래스 행 잠금)")
     void join_lastSeat_concurrent_onlyOneSucceeds() throws Exception {
         ClassInfo cls = createClass(true); // 운영자 1석
@@ -375,6 +454,12 @@ class ClassMemberApiIntegrationTest {
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json(Map.of("inviteCode", code, "displayName", name))));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions preview(String token, String code) throws Exception {
+        return mockMvc.perform(get("/api/v1/classes/join/preview")
+                .header("Authorization", "Bearer " + token)
+                .param("inviteCode", code));
     }
 
     private long memberIdOf(long classId, User user) {

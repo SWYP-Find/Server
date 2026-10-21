@@ -164,6 +164,8 @@ public enum ErrorCode {
     CLASS_INVITE_CODE_NOT_FOUND(HttpStatus.NOT_FOUND, "CLASS_404_CODE", "존재하지 않는 초대코드입니다."),
     CLASS_MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "CLASS_404_MEMBER", "존재하지 않는 멤버입니다."),
     CLASS_FULL(HttpStatus.CONFLICT, "CLASS_409_FULL", "정원이 가득 찬 클래스입니다."),
+    CLASS_DELETED(HttpStatus.CONFLICT, "CLASS_409_DELETED", "삭제되어 더 이상 이용할 수 없는 클래스입니다."),
+    CLASS_ALREADY_JOINED(HttpStatus.CONFLICT, "CLASS_409_JOINED", "이미 참여 중인 클래스입니다."),
     CLASS_DISPLAY_NAME_DUPLICATED(HttpStatus.CONFLICT, "CLASS_409_NAME", "이미 사용 중인 이름입니다. 다른 이름을 입력해 주세요."),
     CLASS_OWNER_CANNOT_JOIN(HttpStatus.CONFLICT, "CLASS_409_OWNER", "내가 운영하는 클래스에는 참여자로 들어갈 수 없습니다."),
     CLASS_MEMBER_REMOVED(HttpStatus.FORBIDDEN, "CLASS_403_REMOVED", "내보내진 클래스에는 다시 참여할 수 없습니다."),

@@ -202,6 +202,38 @@ entity "class_topic_versions" as class_topic_versions {
   updated_at : TIMESTAMP
 }
 
+' ===== 신규 테이블 : AI 철학자 토론 (#548) =====
+
+entity "class_debate_sessions" as class_debate_sessions {
+  * id : BIGINT <<PK>>
+  --
+  class_id : BIGINT <<FK>>
+  member_id : BIGINT <<FK>>
+  participant_option_id : BIGINT <<FK>>
+  opponent_option_id : BIGINT <<FK>>
+  philosopher : VARCHAR(20)
+  status : VARCHAR(20)
+  current_round : INTEGER
+  generating_started_at : TIMESTAMP <<nullable>>
+  completed_at : TIMESTAMP <<nullable>>
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "class_debate_messages" as class_debate_messages {
+  * id : BIGINT <<PK>>
+  --
+  session_id : BIGINT <<FK>>
+  round_index : INTEGER
+  speaker : VARCHAR(10)
+  content : TEXT
+  focus : VARCHAR(20) <<nullable>>
+  reply_to_message_id : BIGINT <<nullable>>
+  request_key : VARCHAR(64) <<nullable>>
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
 ' ===== 신규 테이블 : AI =====
 
 entity "ai_jobs" as ai_jobs {
@@ -261,6 +293,11 @@ class_tickets  ||--o{ class_topic_drafts   : under
 class_topic_drafts ||--o{ class_topic_versions : validated as
 class_topic_versions |o--o{ classes : custom battle of
 class_topic_drafts |o--o| classes : one class per draft
+
+classes        ||--o{ class_debate_sessions : debates
+class_members  ||--o| class_debate_sessions : one per member
+battle_options ||--o{ class_debate_sessions : participant / opponent
+class_debate_sessions ||--o{ class_debate_messages : turns
 
 class_tickets  |o--o{ ai_jobs : cost of
 classes        |o--o{ ai_jobs : scoped
@@ -361,7 +398,7 @@ note bottom of ai_jobs
   status : QUEUED | RUNNING | SUCCEEDED | FAILED | REJECTED
   idempotency_key 로 연속 탭 중복 생성 방지 (UX04)
   불완전 JSON·거절·한도 종료는 SUCCEEDED 로 저장하지 않음 (A13)
-  DEBATE_ARGUMENT(AI 철학자 반박) 길이 : 50~500자 (기획 Q&A 확정, 초과 시 재생성/절삭 필요)
+  DEBATE_ARGUMENT(AI 철학자 반박) 길이 : 50~500자 (기획 Q&A 확정). 위반 시 절삭하지 않고 1회 보정 호출 후 REJECTED
 end note
 
 note bottom of class_reports
@@ -445,6 +482,26 @@ note bottom of class_topic_versions
     status PENDING + creator_type USER + creator_id 운영자 → 앱 목록·추천·검색(PUBLISHED 만)과 어드민 배틀 목록(USER 제외)에 안 나옴
     썸네일 = picke.class.custom-battle-thumbnail-url (고정 1종, 비어 있으면 null)
   CUSTOM 클래스는 TTS 완료 API 409 CLASS_409_TTS. 사후투표 연결은 #548 토론 완료 후
+end note
+
+note bottom of class_debate_sessions
+  -- #548 AI 철학자 3라운드 토론 (PRD §8, §11 AI-02) --
+  API: /api/v1/classes/{classId}/battle/debate (GET 재접속, POST 시작, POST /replies, POST /retry)
+  CUSTOM 클래스 + 사전투표 후 시작. 참가자 선택지의 반대편 = opponent, 철학자 = 주제 버전의 그 선택지 매핑 (3라운드 고정)
+  시작하면 user_battles.step = TTS_LISTENING (사전투표 잠금, 커스텀에서는 "토론 중" 의미)
+  상태: GENERATING(n) → WAITING_USER(n) → ... → 3라운드 반박 저장 시 COMPLETED + step POST_VOTE. 실패 FAILED(n) → /retry
+    단계 이동은 저장된 턴과 상태만 믿는다(모델의 round·done 필드는 거절). 4라운드 없음
+  UK(class_id, member_id), 반박·재시도는 세션 행 잠금(FOR UPDATE)
+  커스텀 클래스 사후투표는 COMPLETED 세션이 있어야 함 (409 CLASS_409_DEBATE_INCOMPLETE)
+  ai_jobs: DEBATE_ARGUMENT:{session_id}:{round}, 라운드당 제공자 호출 최대 3회(재시도·보정 1회 포함), 재시도는 같은 행 attempt 누적
+end note
+
+note bottom of class_debate_messages
+  (session_id, round_index, speaker) UK → 라운드·화자당 1개, 저장 후 수정 없음
+  USER: 앞뒤 공백 제거 후 50~1,000자 (상한은 호출당 입력 5,000 토큰 예산용), request_key 로 중복 전송 방지
+    같은 키 재전송 = 기존 결과, 다른 키로 같은 라운드 = 409 CLASS_409_DEBATE_ROUND
+  AI: 검증 통과한 주장만 저장 (argument_text 50~500자, focus EVIDENCE/ASSUMPTION/COUNTEREXAMPLE/CONDITION/VALUE_CONFLICT),
+    reply_to_message_id = 직전 라운드 USER 메시지 (1라운드 null)
 end note
 
 @enduml

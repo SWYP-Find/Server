@@ -4,6 +4,7 @@ import com.swyp.picke.domain.classroom.dto.request.ClassTopicSuggestRequest;
 import com.swyp.picke.domain.classroom.dto.request.ClassTopicValidationRequest;
 import com.swyp.picke.domain.classroom.dto.response.ClassTopicDraftResponse;
 import com.swyp.picke.domain.classroom.dto.response.ClassTopicValidationResponse;
+import com.swyp.picke.domain.classroom.service.report.AiProviderErrors;
 import com.swyp.picke.domain.classroom.service.report.ClassReportAiClient;
 import com.swyp.picke.domain.classroom.service.report.ReportValidationException;
 import com.swyp.picke.global.common.exception.CustomException;
@@ -15,9 +16,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.HttpServerErrorException;
-import org.springframework.web.client.ResourceAccessException;
 
 /**
  * 주제 제안·수정 검증 오케스트레이터. 트랜잭션을 열지 않고 (1) 준비 → (2) AI 호출 → (3) 반영 을 잇는다.
@@ -139,10 +137,10 @@ public class ClassTopicAiService {
                 return null;
             } catch (Exception e) {
                 usage.addCall();
-                lastError = errorCodeOf(e);
+                lastError = AiProviderErrors.errorCodeOf(e);
                 rejected = false;
                 log.warn("[ClassTopic] provider call failed : {}", e.toString());
-                if (!retryable(e) || usage.calls() >= MAX_PROVIDER_CALLS) {
+                if (!AiProviderErrors.retryable(e) || usage.calls() >= MAX_PROVIDER_CALLS) {
                     stop = true;
                 } else {
                     backoff(usage.calls());
@@ -164,18 +162,6 @@ public class ClassTopicAiService {
         }
     }
 
-    /** 크레딧 소진(insufficient_quota)도 429 로 오지만 다시 호출해도 소용없으므로 재시도하지 않는다 */
-    private static boolean retryable(Exception e) {
-        if (e instanceof HttpClientErrorException.TooManyRequests tooMany) {
-            return !isQuotaExhausted(tooMany);
-        }
-        return e instanceof ResourceAccessException || e instanceof HttpServerErrorException;
-    }
-
-    private static boolean isQuotaExhausted(HttpClientErrorException e) {
-        return e.getResponseBodyAsString().contains("insufficient_quota");
-    }
-
     private void backoff(int calls) {
         if (retryBackoffMillis <= 0) {
             return;
@@ -186,17 +172,6 @@ public class ClassTopicAiService {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-    }
-
-    private static String errorCodeOf(Exception e) {
-        if (e instanceof HttpClientErrorException.TooManyRequests tooMany && isQuotaExhausted(tooMany)) {
-            return "INSUFFICIENT_QUOTA";
-        }
-        String name = e.getClass().getSimpleName();
-        if (name.contains("Timeout") || (e.getCause() != null && e.getCause().getClass().getSimpleName().contains("Timeout"))) {
-            return "TIMEOUT";
-        }
-        return name.length() > 50 ? name.substring(0, 50) : name;
     }
 
     private static LocalDateTime now() {

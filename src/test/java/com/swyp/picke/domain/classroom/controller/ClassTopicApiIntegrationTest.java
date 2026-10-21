@@ -42,6 +42,7 @@ import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.repository.UserProfileRepository;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -55,12 +56,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
 
 /**
@@ -224,6 +228,35 @@ class ClassTopicApiIntegrationTest {
         AiJob job = onlyJob(AiJobType.TOPIC_CANDIDATES);
         assertThat(job.getStatus()).isEqualTo(AiJobStatus.FAILED);
         assertThat(job.getAttempt()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("크레딧 소진 429(insufficient_quota)는 재시도 없이 바로 FAILED, 일시적 429 는 재시도해 성공")
+    void suggestQuotaExhaustedFailsFast() throws Exception {
+        when(aiClient.chatJson(eq(ClassTopicPrompts.SUGGEST_SYSTEM), anyString(), anyInt()))
+                .thenThrow(tooManyRequests("insufficient_quota"));
+        long draftId = createDraft();
+
+        suggest(draftId, null)
+                .andExpect(jsonPath("$.data.suggestStatus").value("FAILED"))
+                .andExpect(jsonPath("$.data.remainingSuggestions").value(3));
+        verify(aiClient, times(1)).chatJson(eq(ClassTopicPrompts.SUGGEST_SYSTEM), anyString(), anyInt());
+        AiJob job = onlyJob(AiJobType.TOPIC_CANDIDATES);
+        assertThat(job.getStatus()).isEqualTo(AiJobStatus.FAILED);
+        assertThat(job.getErrorCode()).isEqualTo("INSUFFICIENT_QUOTA");
+        assertThat(job.getAttempt()).isEqualTo(1);
+
+        ageJobs();
+        when(aiClient.chatJson(eq(ClassTopicPrompts.SUGGEST_SYSTEM), anyString(), anyInt()))
+                .thenThrow(tooManyRequests("rate_limit_exceeded"))
+                .thenReturn(result(candidatesJson(3, "INTERMEDIATE", "PHILOSOPHY")));
+        suggest(draftId, null).andExpect(jsonPath("$.data.suggestStatus").value("SUCCEEDED"));
+    }
+
+    private static HttpClientErrorException tooManyRequests(String code) {
+        String body = "{\"error\": {\"code\": \"" + code + "\", \"type\": \"" + code + "\"}}";
+        return HttpClientErrorException.create(HttpStatus.TOO_MANY_REQUESTS, "Too Many Requests", HttpHeaders.EMPTY,
+                body.getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8);
     }
 
     @Test

@@ -22,7 +22,8 @@ import org.springframework.web.client.ResourceAccessException;
 /**
  * 주제 제안·수정 검증 오케스트레이터. 트랜잭션을 열지 않고 (1) 준비 → (2) AI 호출 → (3) 반영 을 잇는다.
  * <ul>
- *   <li>업무 작업 1건당 제공자 호출은 최초 포함 최대 3회 (PRD §17). 연결 오류·429·5xx 만 지연 후 재시도한다</li>
+ *   <li>업무 작업 1건당 제공자 호출은 최초 포함 최대 3회 (PRD §17). 연결 오류·429·5xx 만 지연 후 재시도하고,
+ *       크레딧 소진 429(insufficient_quota)는 바로 실패시킨다</li>
  *   <li>규칙을 어긴 응답은 문제 목록을 넘겨 1회 보정하고, 그래도 어기면 게시하지 않는다 (PRD §10 "1회 보정")</li>
  *   <li>요청 스레드에서 끝까지 처리한다. 중간에 연결이 끊겨도 서버는 결과를 저장하므로 초안 조회로 이어 볼 수 있다</li>
  * </ul>
@@ -163,10 +164,16 @@ public class ClassTopicAiService {
         }
     }
 
+    /** 크레딧 소진(insufficient_quota)도 429 로 오지만 다시 호출해도 소용없으므로 재시도하지 않는다 */
     private static boolean retryable(Exception e) {
-        return e instanceof ResourceAccessException
-                || e instanceof HttpServerErrorException
-                || e instanceof HttpClientErrorException.TooManyRequests;
+        if (e instanceof HttpClientErrorException.TooManyRequests tooMany) {
+            return !isQuotaExhausted(tooMany);
+        }
+        return e instanceof ResourceAccessException || e instanceof HttpServerErrorException;
+    }
+
+    private static boolean isQuotaExhausted(HttpClientErrorException e) {
+        return e.getResponseBodyAsString().contains("insufficient_quota");
     }
 
     private void backoff(int calls) {
@@ -182,6 +189,9 @@ public class ClassTopicAiService {
     }
 
     private static String errorCodeOf(Exception e) {
+        if (e instanceof HttpClientErrorException.TooManyRequests tooMany && isQuotaExhausted(tooMany)) {
+            return "INSUFFICIENT_QUOTA";
+        }
         String name = e.getClass().getSimpleName();
         if (name.contains("Timeout") || (e.getCause() != null && e.getCause().getClass().getSimpleName().contains("Timeout"))) {
             return "TIMEOUT";

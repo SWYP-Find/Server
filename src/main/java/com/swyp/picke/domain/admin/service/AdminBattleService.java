@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.admin.service;
 
+import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleClassSettingsRequest;
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleCreateRequest;
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleUpdateRequest;
 import com.swyp.picke.domain.admin.dto.battle.response.AdminBattleDeleteResponse;
@@ -31,6 +32,10 @@ public class AdminBattleService {
 
     public AdminBattleDetailResponse updateBattle(Long battleId, AdminBattleUpdateRequest request) {
         return battleService.updateBattle(battleId, request);
+    }
+
+    public AdminBattleDetailResponse updateClassSettings(Long battleId, AdminBattleClassSettingsRequest request) {
+        return battleService.updateClassSettings(battleId, request);
     }
 
     public AdminBattleDeleteResponse deleteBattle(Long battleId) {

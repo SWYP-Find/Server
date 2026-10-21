@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.battle.service;
 
 import com.swyp.picke.domain.battle.converter.BattleConverter;
+import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleClassSettingsRequest;
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleCreateRequest;
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleOptionRequest;
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleUpdateRequest;
@@ -394,6 +395,25 @@ public class BattleServiceImpl implements BattleService {
                 ));
 
         return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), options, optionTagsMap);
+    }
+
+    /**
+     * 클래스 추천 필터용 수준·카테고리·추천 여부·중간투표 여부 설정. null 은 변경 없음.
+     * 사용자가 만든 커스텀 배틀은 클래스 전용이라 바꿀 수 없고, 추천을 켜면 수준·카테고리가 모두 있어야 한다.
+     */
+    @Override
+    @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
+    public AdminBattleDetailResponse updateClassSettings(Long battleId, AdminBattleClassSettingsRequest request) {
+        Battle battle = findById(battleId);
+        if (battle.getCreatorType() == BattleCreatorType.USER) {
+            throw new CustomException(ErrorCode.CLASS_BATTLE_NOT_AVAILABLE);
+        }
+        battle.updateClassSettings(request.difficulty(), request.category(), request.classRecommendable(), request.midVoteEnabled());
+        if (battle.isClassRecommendable() && (battle.getDifficulty() == null || battle.getCategory() == null)) {
+            throw new CustomException(ErrorCode.CLASS_RECOMMEND_SETTINGS_INCOMPLETE);
+        }
+        return getAdminBattleDetail(battleId);
     }
 
     @Override

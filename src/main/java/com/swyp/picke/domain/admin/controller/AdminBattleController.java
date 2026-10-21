@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.admin.controller;
 
+import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleClassSettingsRequest;
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleCreateRequest;
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleThumbnailCandidateRequest;
 import com.swyp.picke.domain.admin.dto.battle.response.AdminBattleThumbnailCandidatesResponse;
@@ -75,6 +76,17 @@ public class AdminBattleController {
             @RequestBody @Valid AdminBattleUpdateRequest request
     ) {
         return ApiResponse.onSuccess(adminBattleService.updateBattle(battleId, request));
+    }
+
+    @Operation(summary = "배틀 클래스 설정 수정",
+            description = "클래스 추천 필터용 수준·카테고리, 클래스 추천 노출, 중간투표 여부를 바꿉니다. null 필드는 변경하지 않습니다. "
+                    + "추천을 켤 때 수준·카테고리가 비어 있으면 400 CLASS_400_RECOMMEND_SETTINGS, 커스텀 배틀은 400 CLASS_400_BATTLE.")
+    @PatchMapping("/{battleId}/class-settings")
+    public ApiResponse<AdminBattleDetailResponse> updateClassSettings(
+            @PathVariable Long battleId,
+            @RequestBody AdminBattleClassSettingsRequest request
+    ) {
+        return ApiResponse.onSuccess(adminBattleService.updateClassSettings(battleId, request));
     }
 
     @Operation(summary = "배틀 삭제")

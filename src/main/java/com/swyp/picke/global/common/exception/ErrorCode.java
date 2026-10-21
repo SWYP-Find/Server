@@ -169,7 +169,19 @@ public enum ErrorCode {
 
     // Classroom result / AI report (클래스 결과·리포트)
     CLASS_RESULT_EXPIRED(HttpStatus.CONFLICT, "CLASS_409_RESULT_EXPIRED", "결과 열람 기간이 끝났습니다."),
-    CLASS_REPORT_NOT_RETRYABLE(HttpStatus.CONFLICT, "CLASS_409_REPORT_RETRY", "지금은 AI 요약을 다시 시도할 수 없습니다.");
+    CLASS_REPORT_NOT_RETRYABLE(HttpStatus.CONFLICT, "CLASS_409_REPORT_RETRY", "지금은 AI 요약을 다시 시도할 수 없습니다."),
+
+    // Classroom custom topic (커스텀 배틀 AI 주제 제안·검증)
+    CLASS_TOPIC_DRAFT_NOT_FOUND(HttpStatus.NOT_FOUND, "CLASS_404_TOPIC_DRAFT", "존재하지 않는 주제 초안입니다."),
+    CLASS_TOPIC_CANDIDATE_NOT_FOUND(HttpStatus.NOT_FOUND, "CLASS_404_TOPIC_CANDIDATE", "존재하지 않는 주제 후보입니다."),
+    CLASS_TOPIC_VERSION_NOT_FOUND(HttpStatus.NOT_FOUND, "CLASS_404_TOPIC_VERSION", "존재하지 않는 주제 버전입니다."),
+    CLASS_TOPIC_INVALID_CONDITION(HttpStatus.BAD_REQUEST, "CLASS_400_TOPIC_CONDITION", "주제는 2~200자, 카테고리는 1~3개로 입력해 주세요."),
+    CLASS_TOPIC_GENERATING(HttpStatus.CONFLICT, "CLASS_409_TOPIC_GENERATING", "주제를 만들고 있어요. 잠시 후 다시 확인해 주세요."),
+    CLASS_TOPIC_SUGGEST_LIMIT(HttpStatus.CONFLICT, "CLASS_409_TOPIC_SUGGEST_LIMIT", "이 초안의 주제 추천 횟수를 모두 사용했습니다."),
+    CLASS_TOPIC_VALIDATION_LIMIT(HttpStatus.CONFLICT, "CLASS_409_TOPIC_VALIDATION_LIMIT", "이 초안의 수정 검증 횟수를 모두 사용했습니다."),
+    CLASS_TOPIC_CANDIDATE_STALE(HttpStatus.CONFLICT, "CLASS_409_TOPIC_CANDIDATE", "후보가 새로 추천되었습니다. 최신 후보에서 다시 골라 주세요."),
+    CLASS_TOPIC_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "CLASS_429_TOPIC", "요청이 많아 잠시 기다리고 있어요. 잠시 후 다시 시도해 주세요."),
+    CLASS_TOPIC_AI_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "CLASS_503_TOPIC_AI", "응답을 준비하지 못했어요. 다시 시도해 주세요.");
 
     private final HttpStatus httpStatus;
     private final String code;

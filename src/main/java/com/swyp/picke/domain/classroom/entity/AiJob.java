@@ -94,6 +94,11 @@ public class AiJob extends BaseEntity {
         this.startedAt = now;
     }
 
+    /** 같은 작업 안의 재시도·보정 호출. 업무 작업 1건당 호출 예산을 attempt 로 센다 (PRD §17) */
+    public void addAttempt() {
+        this.attempt++;
+    }
+
     public void succeed(Integer inputTokens, Integer outputTokens, LocalDateTime now) {
         this.status = AiJobStatus.SUCCEEDED;
         this.inputTokens = inputTokens;

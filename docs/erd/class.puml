@@ -156,6 +156,50 @@ entity "class_members" as class_members {
   updated_at : TIMESTAMP
 }
 
+' ===== 신규 테이블 : 커스텀 주제 (#545) =====
+
+entity "class_topic_drafts" as class_topic_drafts {
+  * id : BIGINT <<PK>>
+  --
+  owner_id : BIGINT <<FK>>
+  ticket_id : BIGINT <<FK>>
+  topic_seed : VARCHAR(200)
+  difficulty : VARCHAR(20)
+  categories : JSONB
+  suggest_status : VARCHAR(30)
+  candidates : JSONB <<nullable>>
+  batch_no : INTEGER
+  suggest_request_count : INTEGER
+  suggest_started_at : TIMESTAMP <<nullable>>
+  clarification_message : VARCHAR(200) <<nullable>>
+  validation_count : INTEGER
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "class_topic_versions" as class_topic_versions {
+  * id : BIGINT <<PK>>
+  --
+  draft_id : BIGINT <<FK>>
+  version_no : INTEGER
+  source : VARCHAR(20)
+  source_ref : VARCHAR(20) <<nullable>>
+  question : VARCHAR(60)
+  description : VARCHAR(80)
+  category : VARCHAR(30)
+  difficulty : VARCHAR(20)
+  option_a_label : VARCHAR(20)
+  option_a_rationale : VARCHAR(40)
+  option_a_philosopher : VARCHAR(20)
+  option_b_label : VARCHAR(20)
+  option_b_rationale : VARCHAR(40)
+  option_b_philosopher : VARCHAR(20)
+  profile_version : VARCHAR(30)
+  prompt_version : VARCHAR(30) <<nullable>>
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
 ' ===== 신규 테이블 : AI =====
 
 entity "ai_jobs" as ai_jobs {
@@ -209,6 +253,10 @@ users          ||--o{ class_members : joins
 classes        ||--o{ class_reports : summarized by
 class_members  |o--o{ class_reports : personal report
 ai_jobs        |o--o| class_reports : produced by
+
+users          ||--o{ class_topic_drafts   : drafts
+class_tickets  ||--o{ class_topic_drafts   : under
+class_topic_drafts ||--o{ class_topic_versions : validated as
 
 class_tickets  |o--o{ ai_jobs : cost of
 classes        |o--o{ ai_jobs : scoped
@@ -361,6 +409,30 @@ note bottom of votes
   참여 완료(F10) = step COMPLETED + (classes.comment_required 면) 내 PUBLISHED perspective 1건 이상
   class_members.has_activity 판정 = user_battles(user_id, class_id) 존재 여부 (F15 좌석 유지)
   미구현: 중간투표(mid_vote_option_id), 좋아요/신고의 클래스 가드
+end note
+
+note bottom of class_topic_drafts
+  -- #545 커스텀 배틀 AI 주제 제안 (PRD §10 AI-01) --
+  운영자의 사용 중 이용권 아래 초안 1개 = 제안 3배치(최초+재추천, 조건 변경 포함) + 수정 검증 3회 제공
+  조건: topic_seed 2~200자, difficulty, categories 1~3개(enum 이름)
+  API: /api/v1/class-topic-drafts (생성·조회), /{id}/suggestions, /{id}/selection, /{id}/validations
+  제안: 후보 정확히 8개(question ≤60, description ≤80, options 2개: label ≤20, rationale ≤40, 철학자 = PhilosopherType 코드)
+    서버 검사(개수·길이·조건 일치·철학자 허용 목록·두 철학자 다름·질문 중복) 실패 → 문제 목록으로 1회 보정 → 계속 실패면 REJECTED
+    실패·맥락 부족(NEEDS_CLARIFICATION)은 기존 후보 유지, batch_no 증가 없음
+    분당 2회/계정 = ai_jobs(TOPIC_CANDIDATES, ticket_id, started_at) 1분 내 건수 (계정당 ACTIVE 이용권 1개)
+    GENERATING 3분 경과는 멈춘 작업으로 보고 새 요청 허용
+  ai_jobs 멱등키: TOPIC_CANDIDATES:{draft_id}:{suggest_request_count}, TOPIC_VALIDATION:{draft_id}:{validation_count}
+    제공자 호출은 작업당 최대 3회(연결 오류·429·5xx 재시도 + 보정 1회 포함), attempt 에 누적
+end note
+
+note bottom of class_topic_versions
+  클래스 개설에 쓸 수 있는 검증된 주제 (topic_version_id). 만든 뒤 수정하지 않는다
+  CANDIDATE = 후보 선택(AI 호출 없음, source_ref "b{batch}:c{candidate}", 같은 후보 재선택은 기존 행 반환)
+  EDITED = 직접 수정 → 서버 형식 검사(AI 없음, 횟수 미차감) → AI 의미 검증 통과 시에만 생성 (source_ref "v{바탕 version_no}")
+    AI 는 valid / issues[{field, code, message}] 만 돌려주고 수정안을 고쳐 쓰지 않는다
+    제공자 장애로 판정을 못 받으면 validation_count 환불
+  profile_version: 철학자 허용 목록 버전 (philosopher-type-v1), prompt_version: topic-v1
+  후속: classes 에 topic_version_id 연결(커스텀 배틀 생성), AI-02 토론이 선택지별 철학자 매핑 사용
 end note
 
 @enduml

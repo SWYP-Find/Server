@@ -149,6 +149,8 @@ public enum ErrorCode {
     CLASS_OWNER_ONLY(HttpStatus.FORBIDDEN, "CLASS_403_OWNER", "클래스 운영자만 할 수 있습니다."),
     CLASS_MEMBER_ONLY(HttpStatus.FORBIDDEN, "CLASS_403_MEMBER", "클래스 멤버만 볼 수 있습니다."),
     CLASS_BATTLE_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "CLASS_400_BATTLE", "클래스에 사용할 수 없는 배틀입니다."),
+    CLASS_RECOMMEND_INVALID_CONDITION(HttpStatus.BAD_REQUEST, "CLASS_400_RECOMMEND_CONDITION", "대상 수준과 카테고리 1~3개를 골라 주세요. 주제는 50자까지 입력할 수 있어요."),
+    CLASS_RECOMMEND_SETTINGS_INCOMPLETE(HttpStatus.BAD_REQUEST, "CLASS_400_RECOMMEND_SETTINGS", "클래스 추천을 켜려면 수준과 카테고리를 먼저 정해 주세요."),
     CLASS_BATTLE_SOURCE_INVALID(HttpStatus.BAD_REQUEST, "CLASS_400_BATTLE_SOURCE", "기존 배틀 ID 와 주제 버전 ID 중 하나만 보내 주세요."),
     CLASS_TOPIC_DRAFT_USED(HttpStatus.CONFLICT, "CLASS_409_TOPIC_DRAFT_USED", "이 주제 초안으로 이미 만든 클래스가 있습니다."),
     CLASS_TTS_NOT_SUPPORTED(HttpStatus.CONFLICT, "CLASS_409_TTS", "커스텀 배틀 클래스에는 음성(TTS) 단계가 없습니다."),

@@ -2,7 +2,9 @@ package com.swyp.picke.domain.admin.dto.battle.response;
 
 import com.swyp.picke.domain.battle.dto.response.BattleOptionResponse;
 import com.swyp.picke.domain.battle.dto.response.BattleTagResponse;
+import com.swyp.picke.domain.battle.enums.BattleCategory;
 import com.swyp.picke.domain.battle.enums.BattleCreatorType;
+import com.swyp.picke.domain.battle.enums.BattleDifficulty;
 import com.swyp.picke.domain.battle.enums.BattleStatus;
 
 import java.time.LocalDate;
@@ -26,5 +28,9 @@ public record AdminBattleDetailResponse(
         List<BattleTagResponse> tags,
         List<BattleOptionResponse> options,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        BattleDifficulty difficulty,
+        BattleCategory category,
+        boolean classRecommendable,
+        boolean midVoteEnabled
 ) {}

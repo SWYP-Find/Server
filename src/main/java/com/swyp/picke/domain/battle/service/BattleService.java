@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.battle.service;
 
+import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleClassSettingsRequest;
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleCreateRequest;
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleUpdateRequest;
 import com.swyp.picke.domain.admin.dto.battle.response.AdminBattleDeleteResponse;
@@ -56,6 +57,8 @@ public interface BattleService {
     AdminBattleDetailResponse getAdminBattleDetail(Long battleId);
 
     AdminBattleDetailResponse updateBattle(Long battleId, AdminBattleUpdateRequest request);
+
+    AdminBattleDetailResponse updateClassSettings(Long battleId, AdminBattleClassSettingsRequest request);
 
     AdminBattleDeleteResponse deleteBattle(Long battleId);
 

@@ -86,7 +86,11 @@ public class BattleConverter {
                 toTagResponses(tags, null),
                 toOptionResponses(options, optionTagsMap),
                 battle.getCreatedAt(),
-                battle.getUpdatedAt()
+                battle.getUpdatedAt(),
+                battle.getDifficulty(),
+                battle.getCategory(),
+                battle.isClassRecommendable(),
+                battle.isMidVoteEnabled()
         );
     }
 

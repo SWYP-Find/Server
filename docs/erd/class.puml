@@ -504,4 +504,14 @@ note bottom of class_debate_messages
     reply_to_message_id = 직전 라운드 USER 메시지 (1라운드 null)
 end note
 
+note bottom of battles
+  클래스 Picke 배틀 추천 (#551, GET /api/v1/class-battle-recommendations)
+  후보: status PUBLISHED + deleted_at NULL + class_recommendable = true
+        + difficulty 일치 + category IN (선택 1~3개)
+  주제 단어(쉼표·공백, 최대 5개)가 title·summary·description 에 많이 들어간 순
+  → 에디터픽 → 참여자 수 → 최신 id 순, 최대 3개 (모자라면 채우지 않음)
+  difficulty·category·class_recommendable 는 어드민 PATCH /admin/battles/{id}/class-settings 로 설정
+  추천을 켜려면 difficulty·category 필수, 커스텀 배틀(creator_type USER)은 설정 불가
+end note
+
 @enduml

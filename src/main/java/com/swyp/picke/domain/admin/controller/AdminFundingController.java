@@ -10,6 +10,7 @@ import com.swyp.picke.domain.admin.dto.funding.response.FundingSummaryResponse;
 import com.swyp.picke.domain.admin.dto.funding.response.TicketDeliveryResponse;
 import com.swyp.picke.domain.admin.dto.funding.response.TicketIssueResponse;
 import com.swyp.picke.domain.admin.service.AdminFundingService;
+import com.swyp.picke.domain.funding.enums.DeliveryStatus;
 import com.swyp.picke.domain.ticket.enums.PaymentStatus;
 import com.swyp.picke.domain.ticket.enums.TicketCodeStatus;
 import com.swyp.picke.domain.ticket.enums.TicketStatus;
@@ -90,18 +91,20 @@ public class AdminFundingController {
     }
 
     @Operation(summary = "펀딩 주문·이용권 목록",
-            description = "주문과 살아 있는 이용권 요약(코드 원문·해시 제외). keyword 는 order_id / 후원자명 / 이메일 부분 일치.")
+            description = "주문과 살아 있는 이용권 요약 및 텀블벅 원본 정보(코드 원문·해시 제외). 주문번호·후원자명·이메일·후원번호 검색과 정원·전달 결과 필터를 지원합니다.")
     @GetMapping("/orders")
     public ApiResponse<FundingOrderPageResponse> getOrders(
             @RequestParam(required = false) PaymentStatus paymentStatus,
             @RequestParam(required = false) TicketStatus ticketStatus,
             @RequestParam(required = false) TicketCodeStatus codeStatus,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer capacity,
+            @RequestParam(required = false) DeliveryStatus deliveryStatus,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
         return ApiResponse.onSuccess(
-                adminFundingService.getOrders(paymentStatus, ticketStatus, codeStatus, keyword, page, size));
+                adminFundingService.getOrders(paymentStatus, ticketStatus, codeStatus, keyword, capacity, deliveryStatus, page, size));
     }
 
     @Operation(summary = "펀딩·이용권 현황 요약", description = "결제 확정/발급 가능/보류/발급/미전달/전달/등록/환불/취소 카운트")

@@ -2,6 +2,8 @@ package com.swyp.picke.domain.ticket.repository;
 
 import com.swyp.picke.domain.ticket.entity.FundingOrder;
 import com.swyp.picke.domain.ticket.enums.PaymentStatus;
+import com.swyp.picke.domain.ticket.enums.RewardTier;
+import com.swyp.picke.domain.ticket.enums.DeliveryStatus;
 import com.swyp.picke.domain.ticket.enums.TicketCodeStatus;
 import com.swyp.picke.domain.ticket.enums.TicketStatus;
 import java.util.Collection;
@@ -67,10 +69,20 @@ public interface FundingOrderRepository extends JpaRepository<FundingOrder, Long
             where (:paymentStatus is null or o.paymentStatus = :paymentStatus)
               and (:ticketStatus is null or t.status = :ticketStatus)
               and (:codeStatus is null or t.codeStatus = :codeStatus)
+              and (:rewardTier is null or o.rewardTier = :rewardTier)
+              and (:deliveryPending = false or not exists (
+                   select a.id from TicketDeliveryAttempt a where a.ticket = t))
+              and (:deliveryStatus is null or exists (
+                   select a.id from TicketDeliveryAttempt a
+                   where a.ticket = t and a.status = :deliveryStatus
+                     and a.id = (select max(latest.id) from TicketDeliveryAttempt latest where latest.ticket = t)))
               and (:keyword is null
                    or lower(o.orderId) like lower(concat('%', :keyword, '%'))
                    or lower(o.supporterName) like lower(concat('%', :keyword, '%'))
-                   or lower(coalesce(o.supporterEmail, '')) like lower(concat('%', :keyword, '%')))
+                   or lower(coalesce(o.supporterEmail, '')) like lower(concat('%', :keyword, '%'))
+                   or o.supporterPhone = :keyword
+                   or exists (select r.id from TumblbugImportRecord r where r.fundingOrder = o
+                              and lower(r.supporterNumber) like lower(concat('%', :keyword, '%'))))
             order by o.id desc
             """,
             countQuery = """
@@ -80,14 +92,27 @@ public interface FundingOrderRepository extends JpaRepository<FundingOrder, Long
             where (:paymentStatus is null or o.paymentStatus = :paymentStatus)
               and (:ticketStatus is null or t.status = :ticketStatus)
               and (:codeStatus is null or t.codeStatus = :codeStatus)
+              and (:rewardTier is null or o.rewardTier = :rewardTier)
+              and (:deliveryPending = false or not exists (
+                   select a.id from TicketDeliveryAttempt a where a.ticket = t))
+              and (:deliveryStatus is null or exists (
+                   select a.id from TicketDeliveryAttempt a
+                   where a.ticket = t and a.status = :deliveryStatus
+                     and a.id = (select max(latest.id) from TicketDeliveryAttempt latest where latest.ticket = t)))
               and (:keyword is null
                    or lower(o.orderId) like lower(concat('%', :keyword, '%'))
                    or lower(o.supporterName) like lower(concat('%', :keyword, '%'))
-                   or lower(coalesce(o.supporterEmail, '')) like lower(concat('%', :keyword, '%')))
+                   or lower(coalesce(o.supporterEmail, '')) like lower(concat('%', :keyword, '%'))
+                   or o.supporterPhone = :keyword
+                   or exists (select r.id from TumblbugImportRecord r where r.fundingOrder = o
+                              and lower(r.supporterNumber) like lower(concat('%', :keyword, '%'))))
             """)
     Page<Object[]> searchWithLiveTicket(@Param("paymentStatus") PaymentStatus paymentStatus,
                                         @Param("ticketStatus") TicketStatus ticketStatus,
                                         @Param("codeStatus") TicketCodeStatus codeStatus,
                                         @Param("keyword") String keyword,
+                                        @Param("rewardTier") RewardTier rewardTier,
+                                        @Param("deliveryStatus") DeliveryStatus deliveryStatus,
+                                        @Param("deliveryPending") boolean deliveryPending,
                                         Pageable pageable);
 }

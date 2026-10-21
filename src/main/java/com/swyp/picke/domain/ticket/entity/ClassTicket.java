@@ -51,6 +51,14 @@ public class ClassTicket extends BaseEntity {
     @Column(name = "code_hash", nullable = false, length = 64)
     private String codeHash;
 
+    /** Optional display/search suffix. Raw codes remain unavailable after issuance. */
+    @Column(name = "code_suffix", length = 4)
+    private String codeSuffix;
+
+    public void recordCodeSuffix(String rawCode) {
+        this.codeSuffix = rawCode.substring(rawCode.length() - 4);
+    }
+
     @Enumerated(EnumType.STRING)
     @Column(name = "code_status", nullable = false, length = 20)
     private TicketCodeStatus codeStatus;

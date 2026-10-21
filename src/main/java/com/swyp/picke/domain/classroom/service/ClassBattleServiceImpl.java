@@ -8,6 +8,7 @@ import com.swyp.picke.domain.classroom.dto.response.ClassBattleDetailResponse;
 import com.swyp.picke.domain.classroom.entity.Classroom;
 import com.swyp.picke.domain.classroom.enums.ClassBattleType;
 import com.swyp.picke.domain.classroom.service.ClassAccessService.ClassAccess;
+import com.swyp.picke.domain.classroom.service.debate.ClassDebateSessionService;
 import com.swyp.picke.domain.perspective.dto.request.CreatePerspectiveRequest;
 import com.swyp.picke.domain.perspective.dto.response.CreatePerspectiveResponse;
 import com.swyp.picke.domain.perspective.dto.response.MyPerspectiveResponse;
@@ -58,6 +59,7 @@ public class ClassBattleServiceImpl implements ClassBattleService {
     private final BattleVoteRepository battleVoteRepository;
     private final PerspectiveRepository perspectiveRepository;
     private final UserRepository userRepository;
+    private final ClassDebateSessionService debateSessionService;
 
     @Override
     public ClassBattleDetailResponse getDetail(Long userId, Long classId) {
@@ -111,7 +113,13 @@ public class ClassBattleServiceImpl implements ClassBattleService {
     @Override
     @Transactional
     public VoteResultResponse postVote(Long userId, Long classId, VoteRequest request) {
-        Classroom classroom = writable(classId, userId);
+        ClassAccess access = classAccessService.requireWritable(classId, userId, LocalDateTime.now(KST));
+        Classroom classroom = access.classroom();
+        // 커스텀 배틀은 AI 철학자 토론을 마친 뒤에만 사후투표 (PRD §8 "종료 팝업 → 사후투표")
+        if (classroom.getBattleType() == ClassBattleType.CUSTOM
+                && !debateSessionService.isCompleted(classId, access.member().getId())) {
+            throw new CustomException(ErrorCode.CLASS_DEBATE_NOT_COMPLETED);
+        }
         return battleVoteService.postVote(battleOf(classroom).getId(), userId, classroom, request);
     }
 

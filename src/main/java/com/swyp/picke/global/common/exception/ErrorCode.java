@@ -184,7 +184,17 @@ public enum ErrorCode {
     CLASS_TOPIC_VALIDATION_LIMIT(HttpStatus.CONFLICT, "CLASS_409_TOPIC_VALIDATION_LIMIT", "이 초안의 수정 검증 횟수를 모두 사용했습니다."),
     CLASS_TOPIC_CANDIDATE_STALE(HttpStatus.CONFLICT, "CLASS_409_TOPIC_CANDIDATE", "후보가 새로 추천되었습니다. 최신 후보에서 다시 골라 주세요."),
     CLASS_TOPIC_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "CLASS_429_TOPIC", "요청이 많아 잠시 기다리고 있어요. 잠시 후 다시 시도해 주세요."),
-    CLASS_TOPIC_AI_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "CLASS_503_TOPIC_AI", "응답을 준비하지 못했어요. 다시 시도해 주세요.");
+    CLASS_TOPIC_AI_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "CLASS_503_TOPIC_AI", "응답을 준비하지 못했어요. 다시 시도해 주세요."),
+
+    // Classroom debate (커스텀 배틀 AI 철학자 토론)
+    CLASS_DEBATE_CUSTOM_ONLY(HttpStatus.CONFLICT, "CLASS_409_DEBATE_TYPE", "커스텀 배틀 클래스에서만 토론할 수 있습니다."),
+    CLASS_DEBATE_PRE_VOTE_REQUIRED(HttpStatus.CONFLICT, "CLASS_409_DEBATE_PRE_VOTE", "사전투표를 먼저 해 주세요."),
+    CLASS_DEBATE_NOT_FOUND(HttpStatus.NOT_FOUND, "CLASS_404_DEBATE", "시작한 토론이 없습니다."),
+    CLASS_DEBATE_NOT_WAITING(HttpStatus.CONFLICT, "CLASS_409_DEBATE_STATE", "지금은 반박을 보낼 수 없어요."),
+    CLASS_DEBATE_ROUND_CONFLICT(HttpStatus.CONFLICT, "CLASS_409_DEBATE_ROUND", "이 라운드의 반박은 이미 제출되었습니다."),
+    CLASS_DEBATE_REPLY_INVALID(HttpStatus.BAD_REQUEST, "CLASS_400_DEBATE_REPLY", "반박은 50자 이상 1,000자 이하로 적어 주세요."),
+    CLASS_DEBATE_NOT_RETRYABLE(HttpStatus.CONFLICT, "CLASS_409_DEBATE_RETRY", "지금은 다시 시도할 수 없어요."),
+    CLASS_DEBATE_NOT_COMPLETED(HttpStatus.CONFLICT, "CLASS_409_DEBATE_INCOMPLETE", "AI 철학자와의 토론을 마친 뒤 사후투표를 할 수 있어요.");
 
     private final HttpStatus httpStatus;
     private final String code;

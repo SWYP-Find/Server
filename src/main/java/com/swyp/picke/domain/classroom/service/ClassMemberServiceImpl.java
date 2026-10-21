@@ -5,6 +5,7 @@ import com.swyp.picke.domain.classroom.converter.ClassroomConverter;
 import com.swyp.picke.domain.classroom.dto.request.ClassJoinRequest;
 import com.swyp.picke.domain.classroom.dto.request.ClassMemberNameUpdateRequest;
 import com.swyp.picke.domain.classroom.dto.response.ClassDetailResponse;
+import com.swyp.picke.domain.classroom.dto.response.ClassJoinPreviewResponse;
 import com.swyp.picke.domain.classroom.dto.response.ClassMemberResponse;
 import com.swyp.picke.domain.classroom.entity.ClassMember;
 import com.swyp.picke.domain.classroom.entity.Classroom;
@@ -36,6 +37,7 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>정원 판정 = COUNT(seatHeld) &lt; capacity. 나가도 활동 이력이 있으면 좌석은 남는다</li>
  *   <li>같은 계정이 이미 참여 중이면 거절 대신 기존 상세를 돌려준다 (PRD "재시도하면 멤버 수를 늘리지 않고 기존 상세로")</li>
  *   <li>LEFT 는 같은 행을 되살려 재참여, REMOVED 는 영구 차단, 운영자는 나가기·내보내기 대상이 아니다</li>
+ *   <li>코드 확인(previewJoin)은 참여와 같은 순서로 거절 사유를 판정하되, 이미 참여 중이면 409 로 알려준다 (Figma 코드 입력 단계 팝업)</li>
  * </ul>
  */
 @Slf4j
@@ -59,7 +61,7 @@ public class ClassMemberServiceImpl implements ClassMemberService {
         String displayName = normalizeDisplayName(request.displayName());
 
         Classroom classroom = classroomRepository.findByInviteCodeAndStatusForUpdate(inviteCode, ClassStatus.ACTIVE)
-                .orElseThrow(() -> new CustomException(ErrorCode.CLASS_INVITE_CODE_NOT_FOUND));
+                .orElseThrow(() -> codeNotUsable(inviteCode));
         if (isOwner(classroom, userId)) {
             throw new CustomException(ErrorCode.CLASS_OWNER_CANNOT_JOIN);
         }
@@ -68,23 +70,9 @@ public class ClassMemberServiceImpl implements ClassMemberService {
         if (existing.isPresent() && existing.get().isActive()) {
             return ClassroomConverter.toDetail(classroom, ClassMemberRole.MEMBER, seatCountOf(classroom), now);
         }
-        if (existing.isPresent() && existing.get().getStatus() == ClassMemberStatus.REMOVED) {
-            throw new CustomException(ErrorCode.CLASS_MEMBER_REMOVED);
-        }
-        // PRD §15: "이용 종료"(이용권 만료·회수) 와 "입장 마감"(마감일 경과) 을 구분해 거절
-        if (classroom.isTicketEnded(now)) {
-            throw new CustomException(ErrorCode.CLASS_TICKET_ENDED);
-        }
-        if (classroom.isClosed(now)) {
-            throw new CustomException(ErrorCode.CLASS_CLOSED);
-        }
+        rejectRemovedOrClosed(classroom, existing, now);
         rejectDuplicateDisplayName(classroom.getId(), displayName);
-
-        // LEFT 상태로 좌석을 쥐고 있던 멤버의 재참여는 좌석을 새로 쓰지 않는다
-        boolean needsSeat = existing.map(m -> !m.isSeatHeld()).orElse(true);
-        if (needsSeat && seatCountOf(classroom) >= classroom.getCapacity()) {
-            throw new CustomException(ErrorCode.CLASS_FULL);
-        }
+        rejectFull(classroom, existing);
 
         if (existing.isPresent()) {
             existing.get().rejoin(displayName, now);
@@ -101,6 +89,36 @@ public class ClassMemberServiceImpl implements ClassMemberService {
         }
         log.info("클래스 참여 - classId: {}, userId: {}, rejoin: {}", classroom.getId(), userId, existing.isPresent());
         return ClassroomConverter.toDetail(classroom, ClassMemberRole.MEMBER, seatCountOf(classroom), now);
+    }
+
+    @Override
+    public ClassJoinPreviewResponse previewJoin(Long userId, String rawInviteCode) {
+        LocalDateTime now = LocalDateTime.now(KST);
+        String inviteCode = normalizeInviteCode(rawInviteCode);
+        Classroom classroom = classroomRepository.findByInviteCode(inviteCode)
+                .orElseThrow(() -> new CustomException(ErrorCode.CLASS_INVITE_CODE_NOT_FOUND));
+        if (classroom.getStatus() != ClassStatus.ACTIVE) {
+            throw new CustomException(ErrorCode.CLASS_DELETED);
+        }
+        if (isOwner(classroom, userId)) {
+            throw new CustomException(ErrorCode.CLASS_OWNER_CANNOT_JOIN);
+        }
+        Optional<ClassMember> existing = classMemberRepository.findByClassroomIdAndUserId(classroom.getId(), userId);
+        if (existing.isPresent() && existing.get().isActive()) {
+            throw new CustomException(ErrorCode.CLASS_ALREADY_JOINED);
+        }
+        rejectRemovedOrClosed(classroom, existing, now);
+        rejectFull(classroom, existing);
+
+        return new ClassJoinPreviewResponse(
+                inviteCode,
+                classroom.getName(),
+                classroom.getBattle().getTitle(),
+                classroom.getBattle().getThumbnailUrl(),
+                classroom.getBattleType(),
+                seatCountOf(classroom),
+                classroom.getCapacity(),
+                classroom.getEffectiveCloseAt());
     }
 
     @Override
@@ -179,6 +197,34 @@ public class ClassMemberServiceImpl implements ClassMemberService {
             throw new CustomException(ErrorCode.COMMON_INVALID_PARAMETER);
         }
         return name;
+    }
+
+    /** 삭제된 클래스의 코드는 "없는 코드"와 구분한다 (Figma 참여 에러 "삭제된 클래스") */
+    private CustomException codeNotUsable(String inviteCode) {
+        return classroomRepository.existsByInviteCodeAndStatus(inviteCode, ClassStatus.DELETED)
+                ? new CustomException(ErrorCode.CLASS_DELETED)
+                : new CustomException(ErrorCode.CLASS_INVITE_CODE_NOT_FOUND);
+    }
+
+    /** 내보내진 멤버, 이용 종료(이용권 만료·회수), 입장 마감(마감일 경과)을 이 순서로 구분해 거절 (PRD §15) */
+    private static void rejectRemovedOrClosed(Classroom classroom, Optional<ClassMember> existing, LocalDateTime now) {
+        if (existing.isPresent() && existing.get().getStatus() == ClassMemberStatus.REMOVED) {
+            throw new CustomException(ErrorCode.CLASS_MEMBER_REMOVED);
+        }
+        if (classroom.isTicketEnded(now)) {
+            throw new CustomException(ErrorCode.CLASS_TICKET_ENDED);
+        }
+        if (classroom.isClosed(now)) {
+            throw new CustomException(ErrorCode.CLASS_CLOSED);
+        }
+    }
+
+    /** LEFT 상태로 좌석을 쥐고 있던 멤버의 재참여는 좌석을 새로 쓰지 않는다 */
+    private void rejectFull(Classroom classroom, Optional<ClassMember> existing) {
+        boolean needsSeat = existing.map(m -> !m.isSeatHeld()).orElse(true);
+        if (needsSeat && seatCountOf(classroom) >= classroom.getCapacity()) {
+            throw new CustomException(ErrorCode.CLASS_FULL);
+        }
     }
 
     private void rejectDuplicateDisplayName(Long classId, String displayName) {

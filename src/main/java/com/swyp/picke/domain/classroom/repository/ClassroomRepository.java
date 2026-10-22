@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -69,4 +70,17 @@ public interface ClassroomRepository extends JpaRepository<Classroom, Long> {
             order by c.id asc
             """)
     List<Classroom> findClosedWithoutReports(@Param("now") LocalDateTime now);
+
+    /**
+     * 파기 대상: 이용권 종료 + 읽기 유예(30일)가 지났고 아직 파기하지 않은 클래스. 삭제된 클래스도 포함한다 (PRD §18).
+     * cutoff = now - 30일 이므로 expires_at <= cutoff 이면 유예가 끝난 것이다.
+     */
+    @Query("""
+            select c.id from Classroom c
+            where c.purgedAt is null
+              and c.ticket.expiresAt is not null
+              and c.ticket.expiresAt <= :cutoff
+            order by c.id
+            """)
+    List<Long> findPurgeTargetIds(@Param("cutoff") LocalDateTime cutoff, Pageable pageable);
 }

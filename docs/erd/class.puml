@@ -139,6 +139,7 @@ entity "classes" as classes {
   owner_participates : BOOLEAN
   status : VARCHAR(20)
   deleted_at : TIMESTAMP <<nullable>>
+  purged_at : TIMESTAMP <<nullable>>
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
@@ -512,6 +513,13 @@ note bottom of battles
   → 에디터픽 → 참여자 수 → 최신 id 순, 최대 3개 (모자라면 채우지 않음)
   difficulty·category·class_recommendable 는 어드민 PATCH /admin/battles/{id}/class-settings 로 설정
   추천을 켜려면 difficulty·category 필수, 커스텀 배틀(creator_type USER)은 설정 불가
+end note
+
+note bottom of classes
+  데이터 파기 (#565, PRD §18): 이용권 expires_at + 30일(읽기 유예)이 지난 클래스 (삭제된 클래스 포함)
+  파기: perspectives·perspective_comments(class_id) 와 그 좋아요·신고, class_debate_sessions·messages, class_reports
+  유지: votes·user_battles·class_members·classes 행, ai_jobs (원문 없음)
+  클래스 단위 트랜잭션, 끝나면 purged_at 기록. 스케줄러 매일 04:00 KST, picke.class-retention.purge-enabled=true 일 때만
 end note
 
 @enduml

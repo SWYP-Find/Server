@@ -168,6 +168,10 @@ picke:
     # 클래스 마감 감지·AI 리포트 생성 스케줄러. 테스트에서는 끈다.
     scheduler-enabled: ${CLASS_REPORT_SCHEDULER_ENABLED:true}
     scheduler-delay-ms: ${CLASS_REPORT_SCHEDULER_DELAY_MS:60000}
+  class-retention:
+    # 이용권 종료 + 30일 지난 클래스의 의견·댓글·AI 토론·리포트 파기 (PRD §18). 데이터를 지우므로 명시적으로 켜야 한다.
+    purge-enabled: ${CLASS_PURGE_ENABLED:false}
+    purge-cron: ${CLASS_PURGE_CRON:0 0 4 * * *}
   class:
     # 커스텀 배틀 클래스의 고정 썸네일 1종 (기획 Q&A). 비어 있으면 썸네일 없이 만든다.
     custom-battle-thumbnail-url: ${CLASS_CUSTOM_BATTLE_THUMBNAIL_URL:}

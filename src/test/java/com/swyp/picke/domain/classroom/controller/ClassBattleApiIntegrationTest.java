@@ -12,7 +12,12 @@ import com.swyp.picke.domain.classroom.entity.ClassMember;
 import com.swyp.picke.domain.classroom.entity.Classroom;
 import com.swyp.picke.domain.classroom.enums.ClassMemberStatus;
 import com.swyp.picke.domain.classroom.repository.ClassMemberRepository;
+import com.swyp.picke.domain.classroom.repository.ClassReportRepository;
 import com.swyp.picke.domain.classroom.repository.ClassroomRepository;
+import com.swyp.picke.domain.classroom.entity.ClassReport;
+import com.swyp.picke.domain.classroom.enums.ClassReportType;
+import com.swyp.picke.domain.classroom.service.retention.ClassDataPurgeService;
+import com.swyp.picke.domain.ticket.entity.ClassTicket;
 import com.swyp.picke.domain.oauth.jwt.JwtProvider;
 import com.swyp.picke.domain.perspective.repository.CommentLikeRepository;
 import com.swyp.picke.domain.perspective.repository.CommentReportRepository;
@@ -113,6 +118,10 @@ class ClassBattleApiIntegrationTest {
     private PerspectiveReportRepository perspectiveReportRepository;
     @Autowired
     private CommentReportRepository commentReportRepository;
+    @Autowired
+    private ClassReportRepository classReportRepository;
+    @Autowired
+    private ClassDataPurgeService purgeService;
 
     private final List<Long> createdBattleIds = new ArrayList<>();
     private final List<Long> createdUserIds = new ArrayList<>();
@@ -150,6 +159,7 @@ class ClassBattleApiIntegrationTest {
     }
 
     private void cleanUp() {
+        classReportRepository.deleteAll();
         commentReportRepository.deleteAll();
         perspectiveReportRepository.deleteAll();
         commentLikeRepository.deleteAll();
@@ -476,6 +486,69 @@ class ClassBattleApiIntegrationTest {
                 .andExpect(status().isOk());
         assertThat(perspectiveReportRepository.count()).isEqualTo(2);
         assertThat(commentReportRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("데이터 파기: 읽기 유예 중에는 그대로, 이용권 종료 + 30일이 지나면 의견·댓글·좋아요·신고·리포트를 지우고 투표·멤버는 남긴다")
+    void purge_afterReadGrace() throws Exception {
+        ClassInfo cls = createClass(false);
+        User writer = newUser("학생A");
+        String writerToken = tokenOf(writer);
+        User reader = newUser("학생B");
+        String readerToken = tokenOf(reader);
+        join(writerToken, cls.inviteCode, "학생A").andExpect(status().isOk());
+        join(readerToken, cls.inviteCode, "학생B").andExpect(status().isOk());
+
+        vote(writerToken, cls, "/votes/pre", optionA).andExpect(status().isOk());
+        vote(writerToken, cls, "/votes/post", optionA).andExpect(status().isOk());
+        long perspectiveId = dataOf(mockMvc.perform(post(classBattle(cls) + "/perspectives")
+                        .header("Authorization", "Bearer " + writerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("content", "파기될 클래스 의견입니다."))))
+                .andExpect(status().isOk())
+                .andReturn()).get("perspectiveId").asLong();
+        long commentId = dataOf(mockMvc.perform(post("/api/v1/perspectives/" + perspectiveId + "/comments")
+                        .header("Authorization", "Bearer " + readerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("content", "파기될 클래스 댓글입니다."))))
+                .andExpect(status().isOk())
+                .andReturn()).get("commentId").asLong();
+        mockMvc.perform(post("/api/v1/perspectives/" + perspectiveId + "/likes").header("Authorization", "Bearer " + readerToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/comments/" + commentId + "/likes").header("Authorization", "Bearer " + writerToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/perspectives/" + perspectiveId + "/reports").header("Authorization", "Bearer " + readerToken))
+                .andExpect(status().isOk());
+        Classroom classroom = classroomRepository.findById(cls.classId).orElseThrow();
+        classReportRepository.save(ClassReport.builder().classroom(classroom).type(ClassReportType.CLASS_SUMMARY).build());
+
+        // 이용권 사용 중: 대상 아님
+        LocalDateTime now = LocalDateTime.now();
+        assertThat(purgeService.findTargets(now, 10)).doesNotContain(cls.classId);
+        assertThat(purgeService.purge(cls.classId, now)).isFalse();
+        assertThat(perspectiveRepository.count()).isEqualTo(1);
+
+        // 이용권 종료 + 30일 경과
+        ClassTicket ticket = classTicketRepository.findById(classroom.getTicket().getId()).orElseThrow();
+        ReflectionTestUtils.setField(ticket, "expiresAt", now.minusDays(ClassTicket.READ_GRACE_DAYS).minusMinutes(1));
+        classTicketRepository.save(ticket);
+
+        assertThat(purgeService.findTargets(now, 10)).contains(cls.classId);
+        assertThat(purgeService.purge(cls.classId, now)).isTrue();
+
+        assertThat(perspectiveRepository.count()).isZero();
+        assertThat(perspectiveCommentRepository.count()).isZero();
+        assertThat(perspectiveLikeRepository.count()).isZero();
+        assertThat(commentLikeRepository.count()).isZero();
+        assertThat(perspectiveReportRepository.count()).isZero();
+        assertThat(classReportRepository.count()).isZero();
+        assertThat(battleVoteRepository.count()).isEqualTo(1);
+        assertThat(classMemberRepository.findByClassroomIdAndUserId(cls.classId, writer.getId())).isPresent();
+        assertThat(classroomRepository.findById(cls.classId).orElseThrow().getPurgedAt()).isNotNull();
+
+        // 이미 파기한 클래스는 다시 대상이 되지 않는다
+        assertThat(purgeService.findTargets(now, 10)).doesNotContain(cls.classId);
+        assertThat(purgeService.purge(cls.classId, now)).isFalse();
     }
 
     @Test

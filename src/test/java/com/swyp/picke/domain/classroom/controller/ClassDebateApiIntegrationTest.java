@@ -198,7 +198,7 @@ class ClassDebateApiIntegrationTest {
                 .andExpect(jsonPath("$.data.messages[0].focus").value("EVIDENCE"))
                 .andExpect(jsonPath("$.data.messages[0].focusLabel").value("근거"));
         verify(aiClient).chatJson(eq(ClassDebatePrompts.SYSTEM),
-                argThat(p -> p.contains("[라운드] 1 / 3") && p.contains("(아직 없음)")
+                argThat(p -> p.contains("[라운드] 1 / 3") && p.contains("(아직 없음)") && p.contains("[수준] 중급")
                         && p.contains("[상대 입장 - 당신이 대변] B. 반대 2") && p.contains("[철학자] 아리스토텔레스")),
                 anyInt());
 

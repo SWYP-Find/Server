@@ -2,6 +2,7 @@ package com.swyp.picke.domain.classroom.service.debate;
 
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
+import com.swyp.picke.domain.battle.enums.BattleDifficulty;
 import com.swyp.picke.domain.classroom.dto.request.ClassDebateReplyRequest;
 import com.swyp.picke.domain.classroom.dto.response.ClassDebateResponse;
 import com.swyp.picke.domain.classroom.entity.AiJob;
@@ -279,8 +280,15 @@ public class ClassDebateSessionService {
                 promptSide(session.getParticipantOption()),
                 promptSide(session.getOpponentOption()),
                 session.getPhilosopher(),
+                difficultyOf(session.getClassroom()),
                 session.getRound(),
                 history);
+    }
+
+    /** 커스텀 배틀의 대상 수준 = 주제 버전의 수준 (기획 Q&A: 커스텀은 AI 철학자 반론 수준). 없으면 중급으로 본다 */
+    private static BattleDifficulty difficultyOf(Classroom classroom) {
+        ClassTopicVersion version = classroom.getTopicVersion();
+        return version == null || version.getDifficulty() == null ? BattleDifficulty.INTERMEDIATE : version.getDifficulty();
     }
 
     private static DebatePromptInput.Side promptSide(BattleOption option) {

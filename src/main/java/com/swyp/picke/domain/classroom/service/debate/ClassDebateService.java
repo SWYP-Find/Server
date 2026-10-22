@@ -33,6 +33,7 @@ public class ClassDebateService {
     private final ClassDebateSessionService sessionService;
     private final ClassReportAiClient aiClient;
     private final ClassDebateContentValidator validator;
+    private final ClassDebateInputGuard inputGuard;
 
     /** 재시도 지연의 기준값. 1회차 뒤 base, 2회차 뒤 base×2 에 jitter 를 더한다 */
     long retryBackoffMillis = 500;
@@ -56,6 +57,8 @@ public class ClassDebateService {
     }
 
     public ClassDebateResponse reply(Long userId, Long classId, ClassDebateReplyRequest request) {
+        // 외부 검사는 세션 잠금 밖에서 한다. 차단되면 저장·라운드 소비 없이 끝난다
+        inputGuard.check(request.content());
         ClassDebateSessionService.PreparedTurn turn = sessionService.reply(userId, classId, request, aiClient.getModel(), now());
         if (turn != null) {
             generate(turn);

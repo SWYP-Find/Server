@@ -88,6 +88,9 @@ openai:
   api-key: ${OPENAI_API_KEY}
   url: https://api.openai.com/v1/chat/completions
   model: gpt-4o-mini
+  moderation:
+    url: https://api.openai.com/v1/moderations
+    model: omni-moderation-latest
   tts:
     url: https://api.openai.com/v1/audio/speech
     model: gpt-4o-mini-tts

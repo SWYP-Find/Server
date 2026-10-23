@@ -44,6 +44,7 @@ import com.swyp.picke.domain.vote.repository.BattleVoteRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -698,7 +699,8 @@ class ClassBattleApiIntegrationTest {
                 .summary("요약")
                 .description("설명")
                 .thumbnailUrl("https://img/class.png")
-                .targetDate(LocalDate.now())
+                // 서버는 KST 기준으로 오늘 배틀인지 본다. 시스템 시간대(CI 는 UTC)를 쓰면 KST 오전에 날짜가 어긋난다
+                .targetDate(LocalDate.now(ZoneId.of("Asia/Seoul")))
                 .status(BattleStatus.PUBLISHED)
                 .creatorType(BattleCreatorType.ADMIN)
                 .build());

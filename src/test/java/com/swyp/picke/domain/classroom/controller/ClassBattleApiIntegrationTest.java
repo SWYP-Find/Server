@@ -67,6 +67,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -203,6 +204,10 @@ class ClassBattleApiIntegrationTest {
                 .andExpect(jsonPath("$.data.preVote.optionId").value(optionB.getId()))
                 .andExpect(jsonPath("$.data.status").value("PRE_VOTE"));
 
+        // TTS 를 끝까지 듣기 전에는 사후투표 불가
+        vote(token, cls, "/votes/post", optionA).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_TTS_INCOMPLETE"));
+
         // TTS 청취 완료 → 이후 사전투표 변경은 잠김
         mockMvc.perform(post(classBattle(cls) + "/votes/tts-complete").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
@@ -223,12 +228,23 @@ class ClassBattleApiIntegrationTest {
                 .andExpect(jsonPath("$.data.participationCompleted").value(false));
 
         // 의견 등록 → 참여 완료
-        mockMvc.perform(post(classBattle(cls) + "/perspectives")
+        long perspectiveId = dataOf(mockMvc.perform(post(classBattle(cls) + "/perspectives")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(Map.of("content", "클래스 안에서 쓴 의견입니다. 충분히 긴 내용으로 작성합니다."))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("PUBLISHED"));
+                .andExpect(jsonPath("$.data.status").value("PUBLISHED"))
+                .andReturn()).get("perspectiveId").asLong();
+
+        // 의견 필수 클래스의 의견은 삭제 대신 수정만
+        mockMvc.perform(delete("/api/v1/perspectives/" + perspectiveId).header("Authorization", "Bearer " + token))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_PERSPECTIVE_REQUIRED"));
+        mockMvc.perform(patch("/api/v1/perspectives/" + perspectiveId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("content", "수정한 클래스 의견입니다. 충분히 긴 내용으로 다시 작성합니다."))))
+                .andExpect(status().isOk());
 
         mockMvc.perform(get(classBattle(cls)).header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
@@ -258,6 +274,7 @@ class ClassBattleApiIntegrationTest {
         join(token, cls.inviteCode, "학생A").andExpect(status().isOk());
 
         vote(token, cls, "/votes/pre", optionA).andExpect(status().isOk());
+        listen(token, cls);
         vote(token, cls, "/votes/post", optionA).andExpect(status().isOk());
         mockMvc.perform(post(classBattle(cls) + "/perspectives")
                         .header("Authorization", "Bearer " + token)
@@ -323,6 +340,7 @@ class ClassBattleApiIntegrationTest {
 
         // 운영자(참여)가 먼저 의견까지 남겨 둔다
         vote(ownerToken, cls, "/votes/pre", optionA).andExpect(status().isOk());
+        listen(ownerToken, cls);
         vote(ownerToken, cls, "/votes/post", optionA).andExpect(status().isOk());
         MvcResult created = mockMvc.perform(post(classBattle(cls) + "/perspectives")
                         .header("Authorization", "Bearer " + ownerToken)
@@ -370,6 +388,7 @@ class ClassBattleApiIntegrationTest {
         join(readerToken, cls.inviteCode, "학생B").andExpect(status().isOk());
 
         vote(writerToken, cls, "/votes/pre", optionA).andExpect(status().isOk());
+        listen(writerToken, cls);
         vote(writerToken, cls, "/votes/post", optionA).andExpect(status().isOk());
         long perspectiveId = dataOf(mockMvc.perform(post(classBattle(cls) + "/perspectives")
                         .header("Authorization", "Bearer " + writerToken)
@@ -443,6 +462,7 @@ class ClassBattleApiIntegrationTest {
         join(readerToken, cls.inviteCode, "학생B").andExpect(status().isOk());
 
         vote(writerToken, cls, "/votes/pre", optionA).andExpect(status().isOk());
+        listen(writerToken, cls);
         vote(writerToken, cls, "/votes/post", optionA).andExpect(status().isOk());
         long perspectiveId = dataOf(mockMvc.perform(post(classBattle(cls) + "/perspectives")
                         .header("Authorization", "Bearer " + writerToken)
@@ -500,6 +520,7 @@ class ClassBattleApiIntegrationTest {
         join(readerToken, cls.inviteCode, "학생B").andExpect(status().isOk());
 
         vote(writerToken, cls, "/votes/pre", optionA).andExpect(status().isOk());
+        listen(writerToken, cls);
         vote(writerToken, cls, "/votes/post", optionA).andExpect(status().isOk());
         long perspectiveId = dataOf(mockMvc.perform(post(classBattle(cls) + "/perspectives")
                         .header("Authorization", "Bearer " + writerToken)
@@ -590,6 +611,11 @@ class ClassBattleApiIntegrationTest {
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json(Map.of("optionId", option.getId()))));
+    }
+
+    private void listen(String token, ClassInfo cls) throws Exception {
+        mockMvc.perform(post(classBattle(cls) + "/votes/tts-complete").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
     }
 
     private void closeClass(long classId) {

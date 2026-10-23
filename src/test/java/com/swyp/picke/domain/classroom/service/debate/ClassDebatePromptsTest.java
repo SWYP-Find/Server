@@ -22,12 +22,12 @@ class ClassDebatePromptsTest {
     }
 
     @Test
-    @DisplayName("시스템 프롬프트에 수준별 반론 방식이 모두 있고, 권장 길이는 출력 검증 범위(50~500자) 안이다")
+    @DisplayName("시스템 프롬프트에 수준별 반론 방식이 모두 있고, 권장 길이는 출력 검증 범위(200~500자) 안이다")
     void systemPromptDescribesEveryDifficulty() {
         assertThat(ClassDebatePrompts.SYSTEM)
                 .contains("- 초급:", "- 중급:", "- 고급:")
-                .contains("권장 120~250자", "권장 200~350자", "권장 300~500자");
-        assertThat(ClassDebatePrompts.PROMPT_VERSION).isEqualTo("debate-v2");
+                .contains("권장 200~300자", "권장 250~400자", "권장 350~500자");
+        assertThat(ClassDebatePrompts.PROMPT_VERSION).isEqualTo("debate-v3");
     }
 
     private static DebatePromptInput input(BattleDifficulty difficulty) {

@@ -172,6 +172,8 @@ public enum ErrorCode {
     CLASS_OWNER_CANNOT_LEAVE(HttpStatus.FORBIDDEN, "CLASS_403_OWNER_LEAVE", "운영자는 클래스를 나가거나 내보내질 수 없습니다. 클래스를 삭제해 주세요."),
 
     // Classroom battle (클래스 내 배틀 진행)
+    CLASS_TTS_INCOMPLETE(HttpStatus.CONFLICT, "CLASS_409_TTS_INCOMPLETE", "오디오를 끝까지 들은 뒤 사후투표를 할 수 있어요."),
+    CLASS_REQUIRED_PERSPECTIVE_UNDELETABLE(HttpStatus.CONFLICT, "CLASS_409_PERSPECTIVE_REQUIRED", "의견 작성이 필수인 클래스의 의견은 삭제할 수 없어요. 내용을 수정해 주세요."),
     CLASS_PRE_VOTE_LOCKED(HttpStatus.CONFLICT, "CLASS_409_PRE_VOTE_LOCKED", "배틀이 시작된 뒤에는 사전투표를 변경할 수 없습니다."),
 
     // Classroom result / AI report (클래스 결과·리포트)

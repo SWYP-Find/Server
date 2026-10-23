@@ -198,7 +198,7 @@ public enum ErrorCode {
     CLASS_DEBATE_NOT_FOUND(HttpStatus.NOT_FOUND, "CLASS_404_DEBATE", "시작한 토론이 없습니다."),
     CLASS_DEBATE_NOT_WAITING(HttpStatus.CONFLICT, "CLASS_409_DEBATE_STATE", "지금은 반박을 보낼 수 없어요."),
     CLASS_DEBATE_ROUND_CONFLICT(HttpStatus.CONFLICT, "CLASS_409_DEBATE_ROUND", "이 라운드의 반박은 이미 제출되었습니다."),
-    CLASS_DEBATE_REPLY_INVALID(HttpStatus.BAD_REQUEST, "CLASS_400_DEBATE_REPLY", "반박은 50자 이상 1,000자 이하로 적어 주세요."),
+    CLASS_DEBATE_REPLY_INVALID(HttpStatus.BAD_REQUEST, "CLASS_400_DEBATE_REPLY", "반박은 50자 이상 500자 이하로 적어 주세요."),
     CLASS_DEBATE_REPLY_PERSONAL_INFO(HttpStatus.BAD_REQUEST, "CLASS_400_DEBATE_PERSONAL_INFO", "전화번호·이메일 같은 개인정보는 지우고 보내 주세요."),
     CLASS_DEBATE_REPLY_BLOCKED(HttpStatus.BAD_REQUEST, "CLASS_400_DEBATE_BLOCKED", "다른 사람을 위협하거나 해칠 수 있는 표현은 보낼 수 없어요. 내용을 고쳐 주세요."),
     CLASS_DEBATE_NOT_RETRYABLE(HttpStatus.CONFLICT, "CLASS_409_DEBATE_RETRY", "지금은 다시 시도할 수 없어요."),

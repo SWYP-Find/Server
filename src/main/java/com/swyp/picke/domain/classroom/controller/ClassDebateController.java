@@ -48,7 +48,7 @@ public class ClassDebateController {
     }
 
     @Operation(summary = "반박 제출",
-            description = "현재 라운드의 반박(50~1,000자)을 저장하고 다음 라운드 AI 주장을 생성합니다. 3라운드 반박이면 토론이 끝나고(COMPLETED) 사후투표를 할 수 있습니다. "
+            description = "현재 라운드의 반박(50~500자)을 저장하고 다음 라운드 AI 주장을 생성합니다. 3라운드 반박이면 토론이 끝나고(COMPLETED) 사후투표를 할 수 있습니다. "
                     + "같은 requestKey 재전송은 저장된 결과를 그대로 돌려주고, 다른 키로 같은 라운드를 다시 내면 409 CLASS_409_DEBATE_ROUND. "
                     + "반박을 받을 수 없는 상태면 409 CLASS_409_DEBATE_STATE, 길이 위반 400 CLASS_400_DEBATE_REPLY. "
                     + "개인정보(전화번호·이메일·주민등록번호·카드번호)가 있으면 400 CLASS_400_DEBATE_PERSONAL_INFO, "

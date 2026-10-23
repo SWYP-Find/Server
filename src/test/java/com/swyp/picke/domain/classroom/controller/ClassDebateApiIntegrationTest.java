@@ -236,12 +236,15 @@ class ClassDebateApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("반박 중복·검사: 같은 키 재전송은 그대로, 다른 키 409, 다음 라운드 미리 제출 409, 50자 미만 400")
+    @DisplayName("반박 중복·검사: 같은 키 재전송은 그대로, 다른 키 409, 다음 라운드 미리 제출 409, 50자 미만·500자 초과 400")
     void replyIdempotency() throws Exception {
         preVote(optionB);
         start().andExpect(jsonPath("$.data.philosopher.code").value("PLATO"));
 
         reply(1, "너무 짧아요", "key-short")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("CLASS_400_DEBATE_REPLY"));
+        reply(1, "가".repeat(501), "key-long")
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("CLASS_400_DEBATE_REPLY"));
         reply(2, longText("미리 쓴 반박"), "key-x")

@@ -236,12 +236,15 @@ class ClassDebateApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("반박 중복·검사: 같은 키 재전송은 그대로, 다른 키 409, 다음 라운드 미리 제출 409, 50자 미만 400")
+    @DisplayName("반박 중복·검사: 같은 키 재전송은 그대로, 다른 키 409, 다음 라운드 미리 제출 409, 50자 미만·500자 초과 400")
     void replyIdempotency() throws Exception {
         preVote(optionB);
         start().andExpect(jsonPath("$.data.philosopher.code").value("PLATO"));
 
         reply(1, "너무 짧아요", "key-short")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("CLASS_400_DEBATE_REPLY"));
+        reply(1, "가".repeat(501), "key-long")
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("CLASS_400_DEBATE_REPLY"));
         reply(2, longText("미리 쓴 반박"), "key-x")
@@ -368,7 +371,10 @@ class ClassDebateApiIntegrationTest {
 
     private static Map<String, Object> argument(int round) {
         return Map.of(
-                "argument_text", round + "라운드 주장이에요. 감정과 표현이 다를 수 있다는 점은 인정하지만, 관계 속에서는 상대가 확인할 수 있는 표현도 중요하지 않을까요?",
+                "argument_text", round + "라운드 주장이에요. 감정과 표현이 다를 수 있다는 점은 인정해요. 다만 관계 속에서는 상대가 확인할 수 있는 표현도 중요하지 않을까요? "
+                        + "내면의 슬픔을 의심하지 않더라도, 아무 표현이 없어서 다른 사람이 느끼는 상처는 남을 수 있어요. "
+                        + "표현의 자유와 관계에 대한 책임이 부딪칠 때 우리는 무엇을 기준으로 판단해야 할까요? 슬픔을 드러내는 방식이 문화와 사람마다 다르다면, "
+                        + "겉으로 드러난 모습만으로 누군가를 비난하는 일은 어디까지 정당할 수 있을지 함께 따져 보고 싶어요.",
                 "focus", "EVIDENCE");
     }
 

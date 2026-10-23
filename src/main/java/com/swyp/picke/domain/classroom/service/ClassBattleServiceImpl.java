@@ -120,6 +120,10 @@ public class ClassBattleServiceImpl implements ClassBattleService {
                 && !debateSessionService.isCompleted(classId, access.member().getId())) {
             throw new CustomException(ErrorCode.CLASS_DEBATE_NOT_COMPLETED);
         }
+        // 기존 콘텐츠는 오디오를 끝까지 들어야 사후투표 (PRD §7, 기획 확인 10/23). 사전투표가 없으면 아래에서 404
+        if (classroom.getBattleType() == ClassBattleType.TTS && !ttsListened(classroom, access.member().getUser())) {
+            throw new CustomException(ErrorCode.CLASS_TTS_INCOMPLETE);
+        }
         return battleVoteService.postVote(battleOf(classroom).getId(), userId, classroom, request);
     }
 
@@ -167,6 +171,12 @@ public class ClassBattleServiceImpl implements ClassBattleService {
     private boolean hasPublishedPerspective(Battle battle, Long userId, Classroom classroom) {
         return perspectiveRepository.existsByBattleIdAndUserIdAndClassroomIdAndStatus(
                 battle.getId(), userId, classroom.getId(), PerspectiveStatus.PUBLISHED);
+    }
+
+    private boolean ttsListened(Classroom classroom, User user) {
+        return battleVoteRepository.findByBattleAndUserAndClassroom(battleOf(classroom), user, classroom)
+                .map(vote -> !Boolean.FALSE.equals(vote.getIsTtsListened()))
+                .orElse(true);
     }
 
     private static Battle battleOf(Classroom classroom) {

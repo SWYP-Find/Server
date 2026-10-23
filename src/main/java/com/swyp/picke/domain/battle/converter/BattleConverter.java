@@ -67,7 +67,8 @@ public class BattleConverter {
                 urlProvider.getImageUrl(FileCategory.BATTLE, battle.getThumbnailUrl()),
                 battle.getStatus() != null ? battle.getStatus().name() : "PENDING",
                 battle.getPublishAt(),
-                battle.getCreatedAt()
+                battle.getCreatedAt(),
+                battle.getDifficulty()
         );
     }
 

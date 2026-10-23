@@ -13,6 +13,7 @@ import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.entity.BattleOptionTag;
 import com.swyp.picke.domain.battle.entity.BattleTag;
 import com.swyp.picke.domain.battle.enums.BattleCreatorType;
+import com.swyp.picke.domain.battle.enums.BattleDifficulty;
 import com.swyp.picke.domain.battle.enums.BattleStatus;
 import com.swyp.picke.domain.battle.util.BattleOptionDisplay;
 import com.swyp.picke.domain.user.dto.response.UserBattleStatusResponse;
@@ -337,6 +338,8 @@ public class BattleServiceImpl implements BattleService {
                 request.audioDuration(),
                 request.status()
         );
+        // 수준은 기획 확정 전까지 초급으로 두고, 어드민 상세에서 바꾼다 (#571)
+        battle.updateClassSettings(BattleDifficulty.BEGINNER, null, null, null);
         battle = battleRepository.save(battle);
 
         if (request.tagIds() != null) {

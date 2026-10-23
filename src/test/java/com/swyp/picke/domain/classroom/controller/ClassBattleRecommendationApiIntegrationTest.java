@@ -157,6 +157,18 @@ class ClassBattleRecommendationApiIntegrationTest {
 
         JsonNode items = data(recommend(Map.of("difficulty", "ADVANCED", "categories", "역사"))).get("items");
         assertThat(ids(items)).containsExactly(battle.getId());
+
+        JsonNode adminItems = data(mockMvc.perform(get("/api/v1/admin/battles")
+                .header("Authorization", "Bearer " + adminToken)
+                .param("size", "100"))).get("items");
+        JsonNode listed = null;
+        for (JsonNode item : adminItems) {
+            if (item.get("battleId").asLong() == battle.getId()) {
+                listed = item;
+            }
+        }
+        assertThat(listed).isNotNull();
+        assertThat(listed.get("difficulty").asText()).isEqualTo("ADVANCED");
     }
 
     @Test

@@ -513,6 +513,7 @@ note bottom of battles
   → 에디터픽 → 참여자 수 → 최신 id 순, 최대 3개 (모자라면 채우지 않음)
   difficulty·category·class_recommendable 는 어드민 PATCH /admin/battles/{id}/class-settings 로 설정
   추천을 켜려면 difficulty·category 필수, 커스텀 배틀(creator_type USER)은 설정 불가
+  difficulty 는 임시로 초급 기본값 (#571: 기존 NULL → BEGINNER, 어드민 신규 생성도 BEGINNER)
 end note
 
 note bottom of classes

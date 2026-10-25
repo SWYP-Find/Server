@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
 public class ClassDebateContentValidator {
 
     /** 기획 Q&A 확정 길이 (ERD ai_jobs 노트) */
-    public static final int ARGUMENT_MIN_LENGTH = 50;
+    public static final int ARGUMENT_MIN_LENGTH = 200;
     public static final int ARGUMENT_MAX_LENGTH = 500;
 
     private static final Set<String> FORBIDDEN_FIELDS = Set.of("round", "round_index", "done", "finished", "next_round", "winner", "score");

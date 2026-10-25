@@ -96,6 +96,10 @@ public class Classroom extends BaseEntity {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    /** 읽기 유예가 끝나 참여 원문·AI 대화·리포트를 파기한 시각 (PRD §18). null 이면 아직 파기 전 */
+    @Column(name = "purged_at")
+    private LocalDateTime purgedAt;
+
     @Builder
     private Classroom(String name, String inviteCode, User owner, ClassTicket ticket, Battle battle,
                       ClassBattleType battleType, ClassTopicVersion topicVersion, int capacity, LocalDateTime deadline,
@@ -126,6 +130,10 @@ public class Classroom extends BaseEntity {
     public void delete(LocalDateTime now) {
         this.status = ClassStatus.DELETED;
         this.deletedAt = now;
+    }
+
+    public void markPurged(LocalDateTime now) {
+        this.purgedAt = now;
     }
 
     public LocalDateTime getEffectiveCloseAt() {

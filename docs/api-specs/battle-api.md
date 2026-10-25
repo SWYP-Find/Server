@@ -86,6 +86,8 @@
   - `page` (기본값: `1`)
   - `size` (기본값: `10`)
   - `status` (선택)
+- 항목(`BattleSimpleResponse`): `battleId`, `title`, `thumbnailUrl`, `status`, `publishAt`, `createdAt`, `difficulty`
+  - `difficulty`: 대상 수준 (`BEGINNER` 초급 / `INTERMEDIATE` 중급 / `ADVANCED` 고급). 새로 만든 배틀은 초급으로 저장되고, [클래스 설정 수정](./class-api.md#91-배틀-클래스-설정-수정)으로 바꾼다.
 
 ### 2.4 배틀 상세
 - `GET /api/v1/admin/battles/{battleId}`

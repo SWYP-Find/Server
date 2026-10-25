@@ -2,6 +2,7 @@ package com.swyp.picke.domain.classroom.service.debate;
 
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
+import com.swyp.picke.domain.battle.enums.BattleDifficulty;
 import com.swyp.picke.domain.classroom.dto.request.ClassDebateReplyRequest;
 import com.swyp.picke.domain.classroom.dto.response.ClassDebateResponse;
 import com.swyp.picke.domain.classroom.entity.AiJob;
@@ -52,8 +53,8 @@ public class ClassDebateSessionService {
     /** 이 시간보다 오래 GENERATING 이면 멈춘 작업으로 보고 재시도를 허용한다 (호출 45초 × 최대 3회 + 여유) */
     static final long GENERATING_STALE_MINUTES = 3;
     public static final int REPLY_MIN_LENGTH = 50;
-    /** PRD 는 반박 길이 제한이 없지만, 호출당 입력 5,000 토큰 예산(§11) 안에 3라운드 이력이 들어가도록 상한을 둔다 */
-    public static final int REPLY_MAX_LENGTH = 1_000;
+    /** PRD §8 반박 50~500자 (기획 확인 10/23) */
+    public static final int REPLY_MAX_LENGTH = 500;
     static final String AI_NOTICE = "철학자의 관점을 응용한 AI의 주장이에요. 실제 인물이 한 말이 아니에요.";
 
     private final ClassAccessService classAccessService;
@@ -279,8 +280,15 @@ public class ClassDebateSessionService {
                 promptSide(session.getParticipantOption()),
                 promptSide(session.getOpponentOption()),
                 session.getPhilosopher(),
+                difficultyOf(session.getClassroom()),
                 session.getRound(),
                 history);
+    }
+
+    /** 커스텀 배틀의 대상 수준 = 주제 버전의 수준 (기획 Q&A: 커스텀은 AI 철학자 반론 수준). 없으면 중급으로 본다 */
+    private static BattleDifficulty difficultyOf(Classroom classroom) {
+        ClassTopicVersion version = classroom.getTopicVersion();
+        return version == null || version.getDifficulty() == null ? BattleDifficulty.INTERMEDIATE : version.getDifficulty();
     }
 
     private static DebatePromptInput.Side promptSide(BattleOption option) {

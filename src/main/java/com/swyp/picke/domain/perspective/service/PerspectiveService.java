@@ -183,6 +183,10 @@ public class PerspectiveService {
         Perspective perspective = findPerspectiveById(perspectiveId);
         validateOwnership(perspective, userId);
         requireClassWritable(perspective, userId);
+        // 의견 필수 클래스의 의견은 리포트 자료라 삭제 대신 수정만 허용 (PRD §7, 기획 확인 10/23)
+        if (perspective.getClassroom() != null && perspective.getClassroom().isCommentRequired()) {
+            throw new CustomException(ErrorCode.CLASS_REQUIRED_PERSPECTIVE_UNDELETABLE);
+        }
 
         List<PerspectiveComment> comments = perspectiveCommentRepository.findByPerspective(perspective);
         if (!comments.isEmpty()) {

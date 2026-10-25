@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.classroom.service.debate;
 
+import com.swyp.picke.domain.battle.enums.BattleDifficulty;
 import com.swyp.picke.domain.classroom.enums.ClassDebateSpeaker;
 import com.swyp.picke.domain.user.enums.PhilosopherType;
 import java.util.List;
@@ -13,6 +14,7 @@ public record DebatePromptInput(
         Side participant,
         Side opponent,
         PhilosopherType philosopher,
+        BattleDifficulty difficulty,
         int round,
         List<Turn> history
 ) {

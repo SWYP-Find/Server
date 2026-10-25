@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.battle.dto.response;
 
+import com.swyp.picke.domain.battle.enums.BattleDifficulty;
 import java.time.LocalDateTime;
 
 public record BattleSimpleResponse(
@@ -8,5 +9,6 @@ public record BattleSimpleResponse(
         String thumbnailUrl,
         String status,
         LocalDateTime publishAt,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        BattleDifficulty difficulty
 ) {}

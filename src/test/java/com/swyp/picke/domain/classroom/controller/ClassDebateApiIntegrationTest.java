@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -32,6 +33,7 @@ import com.swyp.picke.domain.classroom.repository.ClassTopicVersionRepository;
 import com.swyp.picke.domain.classroom.repository.ClassroomRepository;
 import com.swyp.picke.domain.classroom.service.debate.ClassDebatePrompts;
 import com.swyp.picke.domain.classroom.service.debate.ClassDebateService;
+import com.swyp.picke.domain.classroom.service.report.ClassModerationClient;
 import com.swyp.picke.domain.classroom.service.report.ClassReportAiClient;
 import com.swyp.picke.domain.classroom.service.topic.ClassTopicPrompts;
 import com.swyp.picke.domain.oauth.jwt.JwtProvider;
@@ -57,6 +59,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -107,6 +110,8 @@ class ClassDebateApiIntegrationTest {
 
     @MockitoBean
     private ClassReportAiClient aiClient;
+    @MockitoBean
+    private ClassModerationClient moderationClient;
 
     private String ownerToken;
     private String memberToken;
@@ -122,6 +127,7 @@ class ClassDebateApiIntegrationTest {
         ownerToken = tokenOf(owner);
         issueAndRegister(owner);
         when(aiClient.getModel()).thenReturn("test-model");
+        when(moderationClient.flaggedCategories(anyString())).thenReturn(Set.of());
         when(aiClient.chatJson(eq(ClassTopicPrompts.SUGGEST_SYSTEM), anyString(), anyInt()))
                 .thenReturn(result(candidatesJson()));
         stubDebate();
@@ -192,7 +198,7 @@ class ClassDebateApiIntegrationTest {
                 .andExpect(jsonPath("$.data.messages[0].focus").value("EVIDENCE"))
                 .andExpect(jsonPath("$.data.messages[0].focusLabel").value("근거"));
         verify(aiClient).chatJson(eq(ClassDebatePrompts.SYSTEM),
-                argThat(p -> p.contains("[라운드] 1 / 3") && p.contains("(아직 없음)")
+                argThat(p -> p.contains("[라운드] 1 / 3") && p.contains("(아직 없음)") && p.contains("[수준] 중급")
                         && p.contains("[상대 입장 - 당신이 대변] B. 반대 2") && p.contains("[철학자] 아리스토텔레스")),
                 anyInt());
 
@@ -230,12 +236,15 @@ class ClassDebateApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("반박 중복·검사: 같은 키 재전송은 그대로, 다른 키 409, 다음 라운드 미리 제출 409, 50자 미만 400")
+    @DisplayName("반박 중복·검사: 같은 키 재전송은 그대로, 다른 키 409, 다음 라운드 미리 제출 409, 50자 미만·500자 초과 400")
     void replyIdempotency() throws Exception {
         preVote(optionB);
         start().andExpect(jsonPath("$.data.philosopher.code").value("PLATO"));
 
         reply(1, "너무 짧아요", "key-short")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("CLASS_400_DEBATE_REPLY"));
+        reply(1, "가".repeat(501), "key-long")
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("CLASS_400_DEBATE_REPLY"));
         reply(2, longText("미리 쓴 반박"), "key-x")
@@ -250,6 +259,44 @@ class ClassDebateApiIntegrationTest {
         reply(1, longText("다른 내용"), "key-other")
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("CLASS_409_DEBATE_ROUND"));
+    }
+
+    @Test
+    @DisplayName("반박 차단: 개인정보·위협 표현은 저장하지 않고 400, 라운드를 쓰지 않아 고친 반박은 그대로 1라운드로 제출된다")
+    void replyBlocked() throws Exception {
+        preVote(optionB);
+        start();
+
+        reply(1, longText("제 번호는 010-1234-5678 이에요"), "key-phone")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("CLASS_400_DEBATE_PERSONAL_INFO"));
+        verify(moderationClient, never()).flaggedCategories(anyString());
+
+        String threat = longText("위협");
+        when(moderationClient.flaggedCategories(threat)).thenReturn(Set.of("harassment", "harassment/threatening"));
+        reply(1, threat, "key-threat")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("CLASS_400_DEBATE_BLOCKED"));
+
+        // 폭력을 다루는 정상 논증(violence 만 걸림)은 막지 않는다
+        String violence = longText("폭력 논증");
+        when(moderationClient.flaggedCategories(violence)).thenReturn(Set.of("violence"));
+        assertThat(messageRepository.findAll()).hasSize(1);
+        reply(1, violence, "key-violence")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.round").value(2));
+    }
+
+    @Test
+    @DisplayName("Moderation 장애면 반박을 막지 않는다")
+    void replyAllowedWhenModerationFails() throws Exception {
+        preVote(optionB);
+        start();
+        when(moderationClient.flaggedCategories(anyString())).thenThrow(new IllegalStateException("down"));
+
+        reply(1, longText("첫 번째 반박"), "key-1")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.round").value(2));
     }
 
     @Test
@@ -324,7 +371,10 @@ class ClassDebateApiIntegrationTest {
 
     private static Map<String, Object> argument(int round) {
         return Map.of(
-                "argument_text", round + "라운드 주장이에요. 감정과 표현이 다를 수 있다는 점은 인정하지만, 관계 속에서는 상대가 확인할 수 있는 표현도 중요하지 않을까요?",
+                "argument_text", round + "라운드 주장이에요. 감정과 표현이 다를 수 있다는 점은 인정해요. 다만 관계 속에서는 상대가 확인할 수 있는 표현도 중요하지 않을까요? "
+                        + "내면의 슬픔을 의심하지 않더라도, 아무 표현이 없어서 다른 사람이 느끼는 상처는 남을 수 있어요. "
+                        + "표현의 자유와 관계에 대한 책임이 부딪칠 때 우리는 무엇을 기준으로 판단해야 할까요? 슬픔을 드러내는 방식이 문화와 사람마다 다르다면, "
+                        + "겉으로 드러난 모습만으로 누군가를 비난하는 일은 어디까지 정당할 수 있을지 함께 따져 보고 싶어요.",
                 "focus", "EVIDENCE");
     }
 

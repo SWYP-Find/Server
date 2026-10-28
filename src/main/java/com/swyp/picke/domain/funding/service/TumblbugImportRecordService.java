@@ -27,8 +27,9 @@ public class TumblbugImportRecordService {
             try {
                 JsonNode row = objectMapper.readTree(record.getSourceSnapshot());
                 result.put(record.getFundingOrder().getId(), new TumblbugOrderDetailResponse(
-                        record.getCampaign().getName(), record.getSupporterNumber(), record.getRewardLineId(),
-                        text(row, "rewardName"), text(row, "giftText"), number(row, "rewardAmount"),
+                        record.getCampaign().getName(), record.getCampaign().getTumblbugPlan(),
+                        record.getSupporterNumber(), record.getRewardLineId(),
+                        date(row, "paidAt"), text(row, "rewardName"), text(row, "giftText"), number(row, "rewardAmount"),
                         number(row, "additionalSupportAmount"), number(row, "totalSupportAmount"),
                         row.hasNonNull("notificationRequested") ? row.get("notificationRequested").asBoolean() : null,
                         text(row, "notificationRequest"), text(row, "rawPaymentStatus"), text(row, "giftDeliveryStatus")));
@@ -45,5 +46,14 @@ public class TumblbugImportRecordService {
 
     private Long number(JsonNode row, String field) {
         return row.hasNonNull(field) ? row.get(field).asLong() : null;
+    }
+
+    private java.time.LocalDateTime date(JsonNode row, String field) {
+        if (!row.hasNonNull(field)) return null;
+        try {
+            return java.time.LocalDateTime.parse(row.get(field).asText());
+        } catch (java.time.format.DateTimeParseException ignored) {
+            return null;
+        }
     }
 }

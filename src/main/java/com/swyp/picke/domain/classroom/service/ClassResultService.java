@@ -2,6 +2,7 @@ package com.swyp.picke.domain.classroom.service;
 
 import com.swyp.picke.domain.classroom.dto.response.ClassInsightResponse;
 import com.swyp.picke.domain.classroom.dto.response.ClassMyReportResponse;
+import com.swyp.picke.domain.classroom.dto.response.ClassMyActivityResponse;
 import com.swyp.picke.domain.classroom.dto.response.ClassResultResponse;
 
 /**
@@ -13,6 +14,8 @@ public interface ClassResultService {
     ClassResultResponse getResult(Long userId, Long classId);
 
     ClassMyReportResponse getMyReport(Long userId, Long classId);
+
+    ClassMyActivityResponse getMyActivity(Long userId, Long classId, String cursor, Integer size);
 
     ClassInsightResponse getInsight(Long userId, Long classId);
 

@@ -25,6 +25,7 @@ import com.swyp.picke.domain.ticket.entity.ClassTicket;
 import com.swyp.picke.domain.ticket.enums.TicketStatus;
 import com.swyp.picke.domain.ticket.repository.ClassTicketRepository;
 import com.swyp.picke.domain.user.entity.User;
+import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
@@ -77,8 +78,11 @@ public class ClassroomServiceImpl implements ClassroomService {
     @Transactional
     public ClassDetailResponse create(Long userId, ClassCreateRequest request) {
         LocalDateTime now = LocalDateTime.now(KST);
-        User owner = userRepository.findById(userId)
+        User owner = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        if (owner.getStatus() != UserStatus.ACTIVE) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
         ClassTicket ticket = findUsableTicket(userId, now);
         if ((request.battleId() == null) == (request.topicVersionId() == null)) {
             throw new CustomException(ErrorCode.CLASS_BATTLE_SOURCE_INVALID);

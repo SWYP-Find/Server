@@ -17,6 +17,7 @@ import com.swyp.picke.domain.classroom.repository.ClassroomRepository;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.repository.UserBattleRepository;
 import com.swyp.picke.domain.user.repository.UserRepository;
+import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import java.time.LocalDateTime;
@@ -59,6 +60,9 @@ public class ClassMemberServiceImpl implements ClassMemberService {
         LocalDateTime now = LocalDateTime.now(KST);
         String inviteCode = normalizeInviteCode(request.inviteCode());
         String displayName = normalizeDisplayName(request.displayName());
+        User user = userRepository.findByIdForUpdate(userId)
+                .filter(candidate -> candidate.getStatus() == UserStatus.ACTIVE)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         Classroom classroom = classroomRepository.findByInviteCodeAndStatusForUpdate(inviteCode, ClassStatus.ACTIVE)
                 .orElseThrow(() -> codeNotUsable(inviteCode));
@@ -77,8 +81,6 @@ public class ClassMemberServiceImpl implements ClassMemberService {
         if (existing.isPresent()) {
             existing.get().rejoin(displayName, now);
         } else {
-            User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
             classMemberRepository.save(ClassMember.builder()
                     .classroom(classroom)
                     .user(user)

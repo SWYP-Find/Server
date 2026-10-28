@@ -33,6 +33,7 @@ import com.swyp.picke.domain.user.repository.UserSettingsRepository;
 import com.swyp.picke.domain.user.repository.UserTendencyScoreRepository;
 import com.swyp.picke.domain.user.repository.UserWithdrawalRepository;
 import com.swyp.picke.domain.user.service.CreditService;
+import com.swyp.picke.domain.classroom.service.UserClassWithdrawalService;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -99,6 +100,7 @@ public class AuthService {
     private final UserDailyActivityRepository userDailyActivityRepository;
     private final JwtProvider jwtProvider;
     private final CreditService creditService;
+    private final UserClassWithdrawalService userClassWithdrawalService;
     private final PasswordEncoder passwordEncoder;
 
     public LoginResponse login(String provider, LoginRequest request) {
@@ -272,13 +274,15 @@ public class AuthService {
     }
 
     public void withdraw(Long userId, WithdrawRequest request) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         refreshTokenRepository.deleteByUser(user);
 
         if (user.getStatus() == UserStatus.DELETED) {
             throw new CustomException(ErrorCode.USER_ALREADY_WITHDRAWN);
         }
+
+        userClassWithdrawalService.apply(user, LocalDateTime.now(java.time.ZoneId.of("Asia/Seoul")));
 
         if (!userWithdrawalRepository.existsByUser_Id(userId)) {
             userWithdrawalRepository.save(UserWithdrawal.builder()

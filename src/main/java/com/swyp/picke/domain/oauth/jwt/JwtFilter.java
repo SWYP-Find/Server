@@ -2,13 +2,13 @@ package com.swyp.picke.domain.oauth.jwt;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.swyp.picke.domain.user.repository.UserDailyActivityRepository;
+import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import com.swyp.picke.global.common.response.ApiResponse;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -22,12 +22,24 @@ import java.util.List;
 import java.util.Set;
 
 @Slf4j
-@RequiredArgsConstructor
 public class JwtFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
     private final UserDailyActivityRepository userDailyActivityRepository;
+    private final UserRepository userRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public JwtFilter(JwtProvider jwtProvider, UserDailyActivityRepository userDailyActivityRepository,
+                     UserRepository userRepository) {
+        this.jwtProvider = jwtProvider;
+        this.userDailyActivityRepository = userDailyActivityRepository;
+        this.userRepository = userRepository;
+    }
+
+    /** Compatibility constructor for isolated filter tests; production wiring always supplies UserRepository. */
+    public JwtFilter(JwtProvider jwtProvider, UserDailyActivityRepository userDailyActivityRepository) {
+        this(jwtProvider, userDailyActivityRepository, null);
+    }
 
     // 1. 화이트리스트 상수 관리
     private static final List<String> WHITELIST = List.of(
@@ -96,6 +108,11 @@ public class JwtFilter extends OncePerRequestFilter {
                 }
 
                 Long userId = jwtProvider.getUserId(token);
+                ErrorCode inactiveAccountError = accountError(userId);
+                if (inactiveAccountError != null) {
+                    setErrorResponse(response, inactiveAccountError);
+                    return;
+                }
                 String role = jwtProvider.getRole(token);
                 String authorityName = (role != null && role.startsWith("ROLE_")) ? role : "ROLE_" + role;
 
@@ -122,6 +139,20 @@ public class JwtFilter extends OncePerRequestFilter {
             log.error("[JwtFilter] Filter Error: {}", e.getMessage());
             setErrorResponse(response, ErrorCode.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    private ErrorCode accountError(Long userId) {
+        if (userRepository == null) {
+            return null;
+        }
+        return userRepository.findById(userId)
+                .map(user -> switch (user.getStatus()) {
+                    case ACTIVE, PENDING -> null;
+                    case SUSPENDED -> ErrorCode.USER_SUSPENDED;
+                    case BANNED -> ErrorCode.USER_BANNED;
+                    case DELETED -> ErrorCode.AUTH_UNAUTHORIZED;
+                })
+                .orElse(ErrorCode.AUTH_UNAUTHORIZED);
     }
 
     /**

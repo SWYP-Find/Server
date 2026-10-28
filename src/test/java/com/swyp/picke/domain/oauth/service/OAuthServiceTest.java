@@ -31,6 +31,7 @@ import com.swyp.picke.domain.user.repository.UserSettingsRepository;
 import com.swyp.picke.domain.user.repository.UserTendencyScoreRepository;
 import com.swyp.picke.domain.user.repository.UserWithdrawalRepository;
 import com.swyp.picke.domain.user.service.CreditService;
+import com.swyp.picke.domain.classroom.service.UserClassWithdrawalService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -64,6 +65,7 @@ class OAuthServiceTest {
     @Mock private UserDailyActivityRepository userDailyActivityRepository;
     @Mock private JwtProvider jwtProvider;
     @Mock private CreditService creditService;
+    @Mock private UserClassWithdrawalService userClassWithdrawalService;
     @Mock private PasswordEncoder passwordEncoder;
 
     private AuthService authService;
@@ -76,7 +78,7 @@ class OAuthServiceTest {
                 socialAccountRepository, localAccountRepository, refreshTokenRepository,
                 userProfileRepository, userSettingsRepository, userTendencyScoreRepository,
                 userWithdrawalRepository, userDailyActivityRepository,
-                jwtProvider, creditService, passwordEncoder
+                jwtProvider, creditService, userClassWithdrawalService, passwordEncoder
         );
     }
 
@@ -98,7 +100,7 @@ class OAuthServiceTest {
         when(kakaoOAuthClient.getAccessToken(anyString(), anyString())).thenReturn("mock-access-token");
         when(kakaoOAuthClient.getUserInfo(anyString())).thenReturn(userInfo); // 여기서 null이 안 들어가게 고정
 
-        var socialAccount = mock(com.swyp.picke.domain.oauth.entity.UserSocialAccount.class);
+        var socialAccount = mock(UserSocialAccount.class);
         when(socialAccount.getUser()).thenReturn(user);
         when(socialAccountRepository.findByProviderAndProviderUserId(anyString(), anyString()))
                 .thenReturn(Optional.of(socialAccount));

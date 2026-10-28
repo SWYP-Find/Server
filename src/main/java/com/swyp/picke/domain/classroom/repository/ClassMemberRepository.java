@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -15,6 +16,9 @@ public interface ClassMemberRepository extends JpaRepository<ClassMember, Long> 
 
     /** 참여용: 상태와 무관하게 이 유저의 멤버 행 (UK(class_id, user_id) 라 최대 1건) */
     Optional<ClassMember> findByClassroomIdAndUserId(Long classroomId, Long userId);
+
+    @EntityGraph(attributePaths = "classroom")
+    List<ClassMember> findByUserIdAndStatus(Long userId, ClassMemberStatus status);
 
     Optional<ClassMember> findByIdAndClassroomId(Long id, Long classroomId);
 

@@ -1,5 +1,7 @@
 package com.swyp.picke.domain.funding.dto.request;
 
+import com.swyp.picke.domain.funding.enums.TumblbugPlan;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -14,6 +16,15 @@ public record TumblbugSupporterImportRequest(
         @NotBlank @Size(max = 31) @Schema(description = "처리할 리워드 시트 이름. 열 제목은 자동 판별") String sheetName,
         @Size(max = 120) @Schema(description = "픽케 내부 중복 방지용 리워드 키. 생략하면 시트명을 사용", example = "class-ticket-15") String rewardLineId,
         @NotNull @Min(5) @Max(30) @Schema(description = "리워드에 대응하는 이용권 정원. 5, 15, 30", allowableValues = {"5", "15", "30"}, example = "15") Integer capacity,
-        @Size(max = 50) @Schema(description = "원본 파일명 또는 내보내기 버전. 미입력 시 서버가 생성") String sourceVersion
+        @Size(max = 50) @Schema(description = "원본 파일명 또는 내보내기 버전. 미입력 시 서버가 생성") String sourceVersion,
+        @Schema(description = "텀블벅 요금제. 생략하면 기존 호환을 위해 RUN", example = "START") TumblbugPlan plan
 ) {
+    public TumblbugSupporterImportRequest(String campaignId, String campaignName, String sheetName,
+                                         String rewardLineId, Integer capacity, String sourceVersion) {
+        this(campaignId, campaignName, sheetName, rewardLineId, capacity, sourceVersion, null);
+    }
+
+    public TumblbugPlan effectivePlan() {
+        return plan == null ? TumblbugPlan.RUN : plan;
+    }
 }

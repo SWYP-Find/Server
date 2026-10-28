@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.funding.entity;
 
 import com.swyp.picke.domain.funding.enums.FundingCampaignStatus;
+import com.swyp.picke.domain.funding.enums.TumblbugPlan;
 import com.swyp.picke.domain.ticket.enums.FundingPlatform;
 import com.swyp.picke.global.common.BaseEntity;
 import jakarta.persistence.Column;
@@ -46,9 +47,18 @@ public class FundingCampaign extends BaseEntity {
     @Column(name = "register_policy_version", nullable = false, length = 30)
     private String registerPolicyVersion = "1";
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tumblbug_plan", nullable = false, length = 20)
+    private TumblbugPlan tumblbugPlan = TumblbugPlan.RUN;
+
     public FundingCampaign(FundingPlatform platform, String externalCampaignId, String name) {
+        this(platform, externalCampaignId, name, TumblbugPlan.RUN);
+    }
+
+    public FundingCampaign(FundingPlatform platform, String externalCampaignId, String name, TumblbugPlan tumblbugPlan) {
         this.platform = platform;
         this.externalCampaignId = externalCampaignId;
         this.name = name;
+        this.tumblbugPlan = tumblbugPlan;
     }
 }

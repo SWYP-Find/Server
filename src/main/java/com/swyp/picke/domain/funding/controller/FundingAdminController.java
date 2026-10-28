@@ -1,5 +1,7 @@
 package com.swyp.picke.domain.funding.controller;
 
+import com.swyp.picke.domain.admin.dto.funding.request.ManualTumblbugBuyerRequest;
+import com.swyp.picke.domain.admin.dto.funding.response.ManualTumblbugBuyerResponse;
 import com.swyp.picke.domain.funding.dto.request.*;
 import com.swyp.picke.domain.funding.dto.response.*;
 import com.swyp.picke.domain.funding.service.FundingAdminService;
@@ -75,6 +77,27 @@ public class FundingAdminController {
             @RequestPart("file") MultipartFile file
     ) {
         return ApiResponse.onSuccess(fundingAdminService.inspectTumblbugWorkbook(readXlsx(file)));
+    }
+
+    @Operation(summary = "텀블벅 구매자 공통 등록", description = "Start·Run 공통 엑셀 등록입니다. 컬럼 검증·중복 방지 후 결제 완료 건은 수량만큼 코드를 발급하고 결과를 돌려줍니다.")
+    @PostMapping(value = "/funding-orders/tumblbug/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<TumblbugSupporterImportResponse>> importTumblbugSupporters(
+            @Valid @RequestPart("options") TumblbugSupporterImportRequest options,
+            @RequestPart("file") MultipartFile file,
+            @AuthenticationPrincipal Long adminUserId
+    ) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(ApiResponse.onSuccess(fundingAdminService.importTumblbugSupporters(options, readXlsx(file), adminUserId)));
+    }
+
+    @Operation(summary = "텀블벅 구매자 수동 등록", description = "Start·Run 공통 8개 화면 필드를 수동 저장합니다. 결제 예약은 코드 미발급, 결제 완료는 구매 수량만큼 코드 발급입니다.")
+    @PostMapping("/funding-orders/tumblbug/manual")
+    public ResponseEntity<ApiResponse<ManualTumblbugBuyerResponse>> createManualTumblbugBuyer(
+            @Valid @RequestBody ManualTumblbugBuyerRequest request,
+            @AuthenticationPrincipal Long adminUserId
+    ) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(ApiResponse.onSuccess(fundingAdminService.createManualTumblbugBuyer(request, adminUserId)));
     }
 
     @Operation(summary = "텀블벅 후원자 저장 및 코드 엑셀 생성", description = "자동 판별한 후원자 표 데이터를 DB에 저장하고 결제 완료 행의 이용권 코드를 텀블벅 업로드용 엑셀로 반환합니다. 원문 코드는 이 파일에만 포함됩니다.")

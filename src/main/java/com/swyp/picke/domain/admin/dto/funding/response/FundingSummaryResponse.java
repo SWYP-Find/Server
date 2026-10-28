@@ -13,5 +13,7 @@ public record FundingSummaryResponse(
         @Schema(description = "전달 완료 (codeStatus=DELIVERED, 아직 미등록)") long delivered,
         @Schema(description = "등록 완료 (ACTIVE + EXPIRED)") long registered,
         @Schema(description = "환불 주문 수") long refunded,
-        @Schema(description = "취소 주문 수") long canceled
+        @Schema(description = "취소 주문 수") long canceled,
+        @Schema(description = "등록기한 30일 전 알림 대상 수") long registerReminderD30,
+        @Schema(description = "등록기한 7일 전 알림 대상 수") long registerReminderD7
 ) {}

@@ -18,6 +18,7 @@ import com.swyp.picke.domain.ticket.enums.TicketStatus;
 import com.swyp.picke.domain.ticket.repository.ClassTicketRepository;
 import com.swyp.picke.domain.ticket.repository.FundingOrderRepository;
 import com.swyp.picke.domain.ticket.repository.TicketDeliveryAttemptRepository;
+import com.swyp.picke.domain.ticket.repository.TicketRegisterReminderRepository;
 import com.swyp.picke.domain.ticket.util.TicketCodeHasher;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.enums.UserRole;
@@ -25,6 +26,8 @@ import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -68,6 +71,8 @@ class AdminFundingApiIntegrationTest {
     private ClassTicketRepository classTicketRepository;
     @Autowired
     private TicketDeliveryAttemptRepository ticketDeliveryAttemptRepository;
+    @Autowired
+    private TicketRegisterReminderRepository ticketRegisterReminderRepository;
 
     private String prefix;
 
@@ -84,6 +89,7 @@ class AdminFundingApiIntegrationTest {
     }
 
     private void cleanTickets() {
+        ticketRegisterReminderRepository.deleteAll();
         ticketDeliveryAttemptRepository.deleteAll();
         classTicketRepository.deleteAll();
         fundingOrderRepository.deleteAll();
@@ -298,7 +304,83 @@ class AdminFundingApiIntegrationTest {
                 .andExpect(jsonPath("$.error.code").value("FUNDING_400_CSV"));
     }
 
+    @Test
+    @DisplayName("등록기한 알림: 전달 완료·미등록 이용권만 D30/D7 구간별 대상이 되고, 해당 단계 SUCCESS 기록 후 빠진다")
+    void registerReminders() throws Exception {
+        DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
+        // 등록기한 = 결제 확정일 + 1년 → 20일 남음(D30), 3일 남음(D7), 60일 남음(대상 아님)
+        String in20Days = now.minusYears(1).plusDays(20).format(format);
+        String in3Days = now.minusYears(1).plusDays(3).format(format);
+        String in60Days = now.minusYears(1).plusDays(60).format(format);
+        upload(HEADER
+                + "TUMBLBUG,camp,ORD-30,SEAT_15,1,후원30,a@test.com,010-1,PAID_CONFIRMED," + in20Days + "\n"
+                + "TUMBLBUG,camp,ORD-7,SEAT_15,1,후원7,b@test.com,,PAID_CONFIRMED," + in3Days + "\n"
+                + "TUMBLBUG,camp,ORD-FAR,SEAT_15,1,후원F,,,PAID_CONFIRMED," + in60Days + "\n"
+                + "TUMBLBUG,camp,ORD-UND,SEAT_15,1,후원U,,,PAID_CONFIRMED," + in20Days + "\n");
+        Map<String, Long> ticketByOrder = new java.util.HashMap<>();
+        for (JsonNode issued : postJson("/api/v1/admin/funding/tickets/issue", null, adminToken()).get("issued")) {
+            ticketByOrder.put(issued.get("orderId").asText().substring(prefix.length()), issued.get("ticketId").asLong());
+        }
+        for (String order : java.util.List.of("ORD-30", "ORD-7", "ORD-FAR")) {   // ORD-UND 는 미전달
+            postJson("/api/v1/admin/funding/tickets/" + ticketByOrder.get(order) + "/deliveries",
+                    Map.of("channel", "EMAIL", "status", "SUCCESS"), adminToken());
+        }
+        long d30Ticket = ticketByOrder.get("ORD-30");
+        long d7Ticket = ticketByOrder.get("ORD-7");
+
+        JsonNode d30 = getJson("/api/v1/admin/funding/register-reminders?stage=D30");
+        assertThat(d30.get("count").asInt()).isEqualTo(1);
+        assertThat(d30.get("items").get(0).get("ticketId").asLong()).isEqualTo(d30Ticket);
+        assertThat(d30.get("items").get(0).get("daysLeft").asLong()).isEqualTo(20);
+        assertThat(d30.get("items").get(0).get("supporterEmail").asText()).isEqualTo("a@test.com");
+        JsonNode d7 = getJson("/api/v1/admin/funding/register-reminders?stage=D7");
+        assertThat(d7.get("count").asInt()).isEqualTo(1);
+        assertThat(d7.get("items").get(0).get("ticketId").asLong()).isEqualTo(d7Ticket);
+        assertThat(d7.get("items").get(0).get("daysLeft").asLong()).isEqualTo(3);
+
+        JsonNode summary = getJson("/api/v1/admin/funding/summary");
+        assertThat(summary.get("registerReminderD30").asLong()).isEqualTo(1);
+        assertThat(summary.get("registerReminderD7").asLong()).isEqualTo(1);
+
+        // 실패 기록은 대상에 남고, 성공 기록하면 그 단계에서만 빠진다
+        JsonNode failed = postJson("/api/v1/admin/funding/tickets/" + d30Ticket + "/register-reminders",
+                Map.of("stage", "D30", "channel", "EMAIL", "status", "FAILED", "failureReason", "반송"), adminToken());
+        assertThat(failed.get("failureReason").asText()).isEqualTo("반송");
+        assertThat(getJson("/api/v1/admin/funding/register-reminders?stage=D30").get("count").asInt()).isEqualTo(1);
+        postJson("/api/v1/admin/funding/tickets/" + d30Ticket + "/register-reminders",
+                Map.of("stage", "D30", "channel", "SMS", "status", "SUCCESS"), adminToken());
+        assertThat(getJson("/api/v1/admin/funding/register-reminders?stage=D30").get("count").asInt()).isZero();
+        postJson("/api/v1/admin/funding/tickets/" + d7Ticket + "/register-reminders",
+                Map.of("stage", "D30", "channel", "EMAIL", "status", "SUCCESS"), adminToken());
+        assertThat(getJson("/api/v1/admin/funding/register-reminders?stage=D7").get("count").asInt()).isEqualTo(1);
+        assertThat(ticketRegisterReminderRepository.findByTicketIdOrderByAttemptedAtDesc(d30Ticket)).hasSize(2);
+
+        // 미전달 이용권은 기록 불가, 단계 누락은 400
+        mockMvc.perform(post("/api/v1/admin/funding/tickets/" + ticketByOrder.get("ORD-UND") + "/register-reminders")
+                        .header("Authorization", "Bearer " + adminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("stage", "D30", "channel", "EMAIL", "status", "SUCCESS"))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("TICKET_409_STATE"));
+        mockMvc.perform(post("/api/v1/admin/funding/tickets/" + d7Ticket + "/register-reminders")
+                        .header("Authorization", "Bearer " + adminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("channel", "EMAIL", "status", "SUCCESS"))))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/v1/admin/funding/register-reminders").param("stage", "D30")
+                        .header("Authorization", "Bearer " + userToken()))
+                .andExpect(status().isForbidden());
+    }
+
     // ───────────── helpers ─────────────
+
+    private JsonNode getJson(String url) throws Exception {
+        MvcResult result = mockMvc.perform(get(url).header("Authorization", "Bearer " + adminToken()))
+                .andExpect(status().isOk())
+                .andReturn();
+        return data(result);
+    }
 
     /** order_id 에 테스트별 prefix 를 붙여 같은 DB 를 쓰는 다른 테스트와 겹치지 않게 한다 */
     private JsonNode upload(String csv) throws Exception {

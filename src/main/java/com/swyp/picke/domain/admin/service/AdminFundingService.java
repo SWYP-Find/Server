@@ -2,24 +2,30 @@ package com.swyp.picke.domain.admin.service;
 
 import com.swyp.picke.domain.admin.dto.funding.request.FundingRefundRequest;
 import com.swyp.picke.domain.admin.dto.funding.request.TicketDeliveryRequest;
+import com.swyp.picke.domain.admin.dto.funding.request.RegisterReminderRequest;
 import com.swyp.picke.domain.admin.dto.funding.request.TicketIssueRequest;
 import com.swyp.picke.domain.admin.dto.funding.response.FundingImportResponse;
 import com.swyp.picke.domain.admin.dto.funding.response.FundingOrderPageResponse;
 import com.swyp.picke.domain.admin.dto.funding.response.FundingOrderSummaryResponse;
 import com.swyp.picke.domain.admin.dto.funding.response.FundingRefundResponse;
 import com.swyp.picke.domain.admin.dto.funding.response.FundingSummaryResponse;
+import com.swyp.picke.domain.admin.dto.funding.response.RegisterReminderResponse;
+import com.swyp.picke.domain.admin.dto.funding.response.RegisterReminderTargetResponse;
 import com.swyp.picke.domain.admin.dto.funding.response.TicketDeliveryResponse;
 import com.swyp.picke.domain.admin.dto.funding.response.TicketIssueResponse;
 import com.swyp.picke.domain.ticket.entity.ClassTicket;
 import com.swyp.picke.domain.ticket.entity.FundingOrder;
 import com.swyp.picke.domain.ticket.entity.TicketDeliveryAttempt;
+import com.swyp.picke.domain.ticket.entity.TicketRegisterReminder;
 import com.swyp.picke.domain.ticket.enums.DeliveryStatus;
 import com.swyp.picke.domain.ticket.enums.PaymentStatus;
+import com.swyp.picke.domain.ticket.enums.RegisterReminderStage;
 import com.swyp.picke.domain.ticket.enums.TicketCodeStatus;
 import com.swyp.picke.domain.ticket.enums.TicketStatus;
 import com.swyp.picke.domain.ticket.repository.ClassTicketRepository;
 import com.swyp.picke.domain.ticket.repository.FundingOrderRepository;
 import com.swyp.picke.domain.ticket.repository.TicketDeliveryAttemptRepository;
+import com.swyp.picke.domain.ticket.repository.TicketRegisterReminderRepository;
 import com.swyp.picke.domain.ticket.util.FundingCsvParser;
 import com.swyp.picke.domain.ticket.util.TicketCodeGenerator;
 import com.swyp.picke.domain.ticket.util.TicketCodeHasher;
@@ -32,6 +38,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HexFormat;
@@ -69,6 +76,7 @@ public class AdminFundingService {
     private final FundingOrderRepository fundingOrderRepository;
     private final ClassTicketRepository classTicketRepository;
     private final TicketDeliveryAttemptRepository ticketDeliveryAttemptRepository;
+    private final TicketRegisterReminderRepository ticketRegisterReminderRepository;
 
     // ───────────── 1. 명단 가져오기 ─────────────
 
@@ -283,6 +291,55 @@ public class AdminFundingService {
         return new FundingRefundResponse(refunded, revokedTickets, alreadyRefunded);
     }
 
+    // ───────────── 5-1. 등록기한 임박 알림 ─────────────
+
+    /**
+     * 미등록 이용권은 앱 계정에 연결되지 않아 푸시를 보낼 수 없다. 코드 전달과 같이 운영자가 허용된 연락 수단으로 보내고 결과를 기록한다.
+     * 대상은 조회 시점 기준으로 계산하므로 별도 배치가 없다.
+     */
+    public RegisterReminderTargetResponse getRegisterReminderTargets(RegisterReminderStage stage) {
+        LocalDateTime now = LocalDateTime.now(KST);
+        List<RegisterReminderTargetResponse.Item> items = classTicketRepository
+                .findRegisterReminderTargets(stage.windowStart(now), stage.windowEnd(now), stage).stream()
+                .map(ticket -> toReminderTarget(ticket, now))
+                .toList();
+        return new RegisterReminderTargetResponse(stage, items.size(), items);
+    }
+
+    @Transactional
+    public RegisterReminderResponse recordRegisterReminder(Long ticketId, RegisterReminderRequest request) {
+        ClassTicket ticket = getTicket(ticketId);
+        if (ticket.getStatus() != TicketStatus.UNREGISTERED || ticket.getCodeStatus() != TicketCodeStatus.DELIVERED) {
+            throw new CustomException(ErrorCode.TICKET_STATE_CONFLICT);
+        }
+        LocalDateTime now = LocalDateTime.now(KST);
+        if (!ticket.isRegisterWindowOpen(now)) {
+            throw new CustomException(ErrorCode.TICKET_REGISTER_EXPIRED);
+        }
+        TicketRegisterReminder reminder = ticketRegisterReminderRepository.save(TicketRegisterReminder.builder()
+                .ticket(ticket)
+                .stage(request.stage())
+                .channel(request.channel())
+                .status(request.status())
+                .failureReason(request.status() == DeliveryStatus.FAILED ? request.failureReason() : null)
+                .attemptedAt(now)
+                .build());
+        return new RegisterReminderResponse(reminder.getId(), ticket.getId(), reminder.getStage(), reminder.getChannel(),
+                reminder.getStatus(), reminder.getFailureReason(), reminder.getAttemptedAt());
+    }
+
+    private static RegisterReminderTargetResponse.Item toReminderTarget(ClassTicket ticket, LocalDateTime now) {
+        FundingOrder order = ticket.getFundingOrder();
+        return new RegisterReminderTargetResponse.Item(ticket.getId(), order.getId(), order.getPlatform(),
+                order.getOrderId(), order.getSupporterName(), order.getSupporterEmail(), order.getSupporterPhone(),
+                ticket.getCapacity(), ticket.getRegisterBy(),
+                ChronoUnit.DAYS.between(now.toLocalDate(), ticket.getRegisterBy().toLocalDate()));
+    }
+
+    private long countRegisterReminderTargets(RegisterReminderStage stage, LocalDateTime now) {
+        return classTicketRepository.countRegisterReminderTargets(stage.windowStart(now), stage.windowEnd(now), stage);
+    }
+
     // ───────────── 6. 조회 ─────────────
 
     public FundingOrderPageResponse getOrders(PaymentStatus paymentStatus, TicketStatus ticketStatus,
@@ -300,6 +357,7 @@ public class AdminFundingService {
     }
 
     public FundingSummaryResponse getSummary() {
+        LocalDateTime now = LocalDateTime.now(KST);
         return new FundingSummaryResponse(
                 fundingOrderRepository.count(),
                 fundingOrderRepository.countByPaymentStatus(PaymentStatus.PAID_CONFIRMED),
@@ -310,7 +368,9 @@ public class AdminFundingService {
                 classTicketRepository.countByCodeStatus(TicketCodeStatus.DELIVERED),
                 classTicketRepository.countByStatusIn(List.of(TicketStatus.ACTIVE, TicketStatus.EXPIRED)),
                 fundingOrderRepository.countByPaymentStatus(PaymentStatus.REFUNDED),
-                fundingOrderRepository.countByPaymentStatus(PaymentStatus.CANCELED));
+                fundingOrderRepository.countByPaymentStatus(PaymentStatus.CANCELED),
+                countRegisterReminderTargets(RegisterReminderStage.D30, now),
+                countRegisterReminderTargets(RegisterReminderStage.D7, now));
     }
 
     private static FundingOrderSummaryResponse toSummary(FundingOrder order, ClassTicket ticket) {

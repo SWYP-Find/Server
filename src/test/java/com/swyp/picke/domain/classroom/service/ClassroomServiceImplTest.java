@@ -95,7 +95,7 @@ class ClassroomServiceImplTest {
         when(classroomRepository.save(any(Classroom.class))).thenAnswer(inv -> withId(inv.getArgument(0), CLASS_ID));
 
         ClassDetailResponse response = service.create(OWNER_ID,
-                new ClassCreateRequest(" 3학년 2반 ", BATTLE_ID, null, null, true, true, null));
+                new ClassCreateRequest(" 3학년 2반 ", BATTLE_ID, null, null, true, true, null, null));
 
         ArgumentCaptor<Classroom> captor = ArgumentCaptor.forClass(Classroom.class);
         verify(classroomRepository).save(captor.capture());
@@ -134,7 +134,7 @@ class ClassroomServiceImplTest {
         when(classMemberRepository.countByClassroomIdAndSeatHeldTrue(CLASS_ID)).thenReturn(1L);
 
         ClassDetailResponse response = service.create(OWNER_ID,
-                new ClassCreateRequest(" 3학년 2반 ", BATTLE_ID, null, null, true, true, null));
+                new ClassCreateRequest(" 3학년 2반 ", BATTLE_ID, null, null, true, true, null, null));
 
         assertThat(response.classId()).isEqualTo(CLASS_ID);
         assertThat(response.memberCount()).isEqualTo(1);
@@ -151,7 +151,7 @@ class ClassroomServiceImplTest {
         when(classroomRepository.save(any(Classroom.class))).thenAnswer(inv -> withId(inv.getArgument(0), CLASS_ID));
 
         ClassDetailResponse response = service.create(OWNER_ID,
-                new ClassCreateRequest("클래스", BATTLE_ID, null, null, false, false, null));
+                new ClassCreateRequest("클래스", BATTLE_ID, null, null, false, false, null, null));
 
         verify(classMemberRepository, never()).save(any());
         assertThat(response.memberCount()).isZero();
@@ -165,7 +165,7 @@ class ClassroomServiceImplTest {
         when(classroomRepository.existsByInviteCode(anyString())).thenReturn(false);
         when(classroomRepository.save(any(Classroom.class))).thenAnswer(inv -> withId(inv.getArgument(0), CLASS_ID));
 
-        service.create(OWNER_ID, new ClassCreateRequest("클래스", BATTLE_ID, null, null, false, true, " 김선생 "));
+        service.create(OWNER_ID, new ClassCreateRequest("클래스", BATTLE_ID, null, null, false, true, " 김선생 ", null));
 
         ArgumentCaptor<ClassMember> captor = ArgumentCaptor.forClass(ClassMember.class);
         verify(classMemberRepository).save(captor.capture());
@@ -179,7 +179,7 @@ class ClassroomServiceImplTest {
         when(classroomRepository.existsByInviteCode(anyString())).thenReturn(true, true, false);
         when(classroomRepository.save(any(Classroom.class))).thenAnswer(inv -> withId(inv.getArgument(0), CLASS_ID));
 
-        service.create(OWNER_ID, new ClassCreateRequest("클래스", BATTLE_ID, null, null, false, false, null));
+        service.create(OWNER_ID, new ClassCreateRequest("클래스", BATTLE_ID, null, null, false, false, null, null));
 
         verify(classroomRepository, times(3)).existsByInviteCode(anyString());
     }
@@ -192,7 +192,7 @@ class ClassroomServiceImplTest {
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.create(OWNER_ID,
-                new ClassCreateRequest("클래스", BATTLE_ID, null, null, false, false, null)))
+                new ClassCreateRequest("클래스", BATTLE_ID, null, null, false, false, null, null)))
                 .isInstanceOf(CustomException.class)
                 .extracting(ClassroomServiceImplTest::errorCodeOf)
                 .isEqualTo(ErrorCode.CLASS_TICKET_REQUIRED);
@@ -208,7 +208,7 @@ class ClassroomServiceImplTest {
                 .thenReturn(Optional.of(stale));
 
         assertThatThrownBy(() -> service.create(OWNER_ID,
-                new ClassCreateRequest("클래스", BATTLE_ID, null, null, false, false, null)))
+                new ClassCreateRequest("클래스", BATTLE_ID, null, null, false, false, null, null)))
                 .isInstanceOf(CustomException.class)
                 .extracting(ClassroomServiceImplTest::errorCodeOf)
                 .isEqualTo(ErrorCode.CLASS_TICKET_REQUIRED);
@@ -224,7 +224,7 @@ class ClassroomServiceImplTest {
         when(battleRepository.findById(BATTLE_ID)).thenReturn(Optional.of(battle(BattleStatus.PENDING)));
 
         assertThatThrownBy(() -> service.create(OWNER_ID,
-                new ClassCreateRequest("클래스", BATTLE_ID, null, null, false, false, null)))
+                new ClassCreateRequest("클래스", BATTLE_ID, null, null, false, false, null, null)))
                 .isInstanceOf(CustomException.class)
                 .extracting(ClassroomServiceImplTest::errorCodeOf)
                 .isEqualTo(ErrorCode.CLASS_BATTLE_NOT_AVAILABLE);
@@ -239,7 +239,7 @@ class ClassroomServiceImplTest {
 
         for (LocalDateTime bad : new LocalDateTime[]{afterTicket, past}) {
             assertThatThrownBy(() -> service.create(OWNER_ID,
-                    new ClassCreateRequest("클래스", BATTLE_ID, null, bad, false, false, null)))
+                    new ClassCreateRequest("클래스", BATTLE_ID, null, bad, false, false, null, null)))
                     .isInstanceOf(CustomException.class)
                     .extracting(ClassroomServiceImplTest::errorCodeOf)
                     .isEqualTo(ErrorCode.CLASS_INVALID_DEADLINE);
@@ -256,7 +256,7 @@ class ClassroomServiceImplTest {
         LocalDateTime deadline = LocalDateTime.now().plusDays(30);
 
         ClassDetailResponse response = service.create(OWNER_ID,
-                new ClassCreateRequest("클래스", BATTLE_ID, null, deadline, false, false, null));
+                new ClassCreateRequest("클래스", BATTLE_ID, null, deadline, false, false, null, null));
 
         assertThat(response.deadline()).isEqualTo(deadline);
         assertThat(response.closeAt()).isEqualTo(deadline);

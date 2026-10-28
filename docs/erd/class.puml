@@ -140,6 +140,8 @@ entity "classes" as classes {
   status : VARCHAR(20)
   deleted_at : TIMESTAMP <<nullable>>
   purged_at : TIMESTAMP <<nullable>>
+  create_request_key : VARCHAR(64) <<nullable, NEW #576, UK(owner_id, create_request_key)>>
+  create_request_hash : VARCHAR(64) <<nullable, NEW #576, 요청 본문 SHA-256>>
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }

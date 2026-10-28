@@ -28,9 +28,13 @@ import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -79,9 +83,13 @@ public class ClassroomServiceImpl implements ClassroomService {
         if ((request.battleId() == null) == (request.topicVersionId() == null)) {
             throw new CustomException(ErrorCode.CLASS_BATTLE_SOURCE_INVALID);
         }
-        // 같은 이용권의 생성 요청은 행 잠금으로 한 번에 하나씩 처리한 뒤, 직전에 만든 같은 클래스가 있으면 그것을 돌려준다
+        String requestKey = request.requestKey() == null || request.requestKey().isBlank() ? null : request.requestKey();
+        String requestHash = requestKey == null ? null : requestHashOf(request);
+        // 같은 이용권의 생성 요청은 행 잠금으로 한 번에 하나씩 처리한 뒤, 이미 만든 같은 요청의 클래스가 있으면 그것을 돌려준다
         ticket = classTicketRepository.findByIdForUpdate(ticket.getId()).orElse(ticket);
-        Classroom duplicate = findRecentDuplicate(userId, request, now);
+        Classroom duplicate = requestKey != null
+                ? findByRequestKey(userId, requestKey, requestHash)
+                : findRecentDuplicate(userId, request, now);
         if (duplicate != null) {
             log.info("클래스 중복 생성 요청 - 기존 클래스 반환 classId: {}, ownerId: {}", duplicate.getId(), userId);
             return ClassroomConverter.toDetail(duplicate, ClassMemberRole.OWNER, seatCountOf(duplicate), now);
@@ -103,6 +111,8 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .deadline(request.deadline())
                 .commentRequired(request.commentRequired())
                 .ownerParticipates(request.ownerParticipates())
+                .createRequestKey(requestKey)
+                .createRequestHash(requestHash)
                 .build());
 
         long memberCount = 0;
@@ -223,7 +233,43 @@ public class ClassroomServiceImpl implements ClassroomService {
     // ===== 생성 검증 =====
 
     /**
-     * 연속 탭·재전송으로 들어온 같은 생성 요청인지 판정한다.
+     * 요청 키로 이미 만든 클래스를 찾는다. 키가 같은데 내용이 다르면 클라이언트가 키를 재사용한 것이라 409.
+     * 키는 운영자 단위로 유일해서 다른 운영자의 키와는 겹쳐도 상관없다.
+     */
+    private Classroom findByRequestKey(Long userId, String requestKey, String requestHash) {
+        Classroom existing = classroomRepository.findByOwnerIdAndCreateRequestKey(userId, requestKey).orElse(null);
+        if (existing == null) {
+            return null;
+        }
+        if (!requestHash.equals(existing.getCreateRequestHash())) {
+            throw new CustomException(ErrorCode.CLASS_REQUEST_KEY_CONFLICT);
+        }
+        if (existing.getStatus() != ClassStatus.ACTIVE) {
+            throw new CustomException(ErrorCode.CLASS_DELETED);
+        }
+        return existing;
+    }
+
+    /** 같은 요청인지 비교할 본문 해시. 서버가 정규화하는 값(이름·운영자 표시 이름 앞뒤 공백)은 정규화한 뒤 비교한다 */
+    static String requestHashOf(ClassCreateRequest request) {
+        String canonical = String.join("\n",
+                request.name().strip(),
+                String.valueOf(request.battleId()),
+                String.valueOf(request.topicVersionId()),
+                String.valueOf(request.deadline()),
+                String.valueOf(request.commentRequired()),
+                String.valueOf(request.ownerParticipates()),
+                request.ownerDisplayName() == null ? "" : request.ownerDisplayName().strip());
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 not available", e);
+        }
+    }
+
+    /**
+     * 요청 키 없이 연속 탭·재전송으로 들어온 같은 생성 요청인지 판정한다.
      * 같은 운영자·같은 이름·같은 배틀(또는 주제 버전)으로 {@link #DUPLICATE_WINDOW_SECONDS}초 안에 만든 클래스가 있으면 그 클래스.
      * 이용권 기간 안에서 클래스 생성 수는 무제한이라, 이름이나 배틀이 다르면 새로 만든다.
      */

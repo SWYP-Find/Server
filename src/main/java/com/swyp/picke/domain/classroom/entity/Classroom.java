@@ -37,13 +37,15 @@ import lombok.NoArgsConstructor;
         name = "classes",
         uniqueConstraints = {
                 @UniqueConstraint(name = "uk_classes_invite_code", columnNames = "invite_code"),
-                @UniqueConstraint(name = "uk_classes_topic_draft", columnNames = "topic_draft_id")
+                @UniqueConstraint(name = "uk_classes_topic_draft", columnNames = "topic_draft_id"),
+                @UniqueConstraint(name = "uk_classes_owner_request_key", columnNames = {"owner_id", "create_request_key"})
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Classroom extends BaseEntity {
 
     public static final int NAME_MAX_LENGTH = 20;
+    public static final int CREATE_REQUEST_KEY_MAX_LENGTH = 64;
     public static final int INVITE_CODE_LENGTH = 6;
 
     @Column(nullable = false, length = NAME_MAX_LENGTH)
@@ -100,10 +102,18 @@ public class Classroom extends BaseEntity {
     @Column(name = "purged_at")
     private LocalDateTime purgedAt;
 
+    /** 생성 요청 키(클라이언트 발급). 같은 운영자 안에서 유일하며, 재전송 시 기존 클래스를 찾는 데 쓴다. null 이면 키 없이 만든 클래스 */
+    @Column(name = "create_request_key", length = CREATE_REQUEST_KEY_MAX_LENGTH)
+    private String createRequestKey;
+
+    /** 생성 요청 본문의 SHA-256. 같은 키로 다른 내용을 보냈는지 가려낸다 */
+    @Column(name = "create_request_hash", length = 64)
+    private String createRequestHash;
+
     @Builder
     private Classroom(String name, String inviteCode, User owner, ClassTicket ticket, Battle battle,
                       ClassBattleType battleType, ClassTopicVersion topicVersion, int capacity, LocalDateTime deadline,
-                      boolean commentRequired, boolean ownerParticipates) {
+                      boolean commentRequired, boolean ownerParticipates, String createRequestKey, String createRequestHash) {
         this.name = name;
         this.inviteCode = inviteCode;
         this.owner = owner;
@@ -116,6 +126,8 @@ public class Classroom extends BaseEntity {
         this.deadline = deadline;
         this.commentRequired = commentRequired;
         this.ownerParticipates = ownerParticipates;
+        this.createRequestKey = createRequestKey;
+        this.createRequestHash = createRequestHash;
         this.status = ClassStatus.ACTIVE;
     }
 

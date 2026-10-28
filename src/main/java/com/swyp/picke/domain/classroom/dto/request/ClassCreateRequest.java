@@ -4,6 +4,7 @@ import com.swyp.picke.domain.classroom.entity.ClassMember;
 import com.swyp.picke.domain.classroom.entity.Classroom;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 
@@ -35,6 +36,13 @@ public record ClassCreateRequest(
         @Schema(description = "운영자가 참여할 때 클래스 안에서 쓸 이름 (1~20자). 비우면 닉네임 사용",
                 example = "김선생", nullable = true)
         @Size(max = ClassMember.DISPLAY_NAME_MAX_LENGTH)
-        String ownerDisplayName
+        String ownerDisplayName,
+
+        @Schema(description = "중복 생성 방지용 요청 키 (1~64자, 영문·숫자·-·_). 생성 화면을 열 때 UUID 하나를 만들어 재전송에도 같은 값을 보낸다. "
+                + "같은 키로 같은 내용을 다시 보내면 기존 클래스를 돌려주고, 다른 내용이면 409",
+                example = "3f2b8c1e-7d4a-4f6b-9a0e-2c5d8e1f4a7b", nullable = true)
+        @Size(max = Classroom.CREATE_REQUEST_KEY_MAX_LENGTH)
+        @Pattern(regexp = "^[A-Za-z0-9_-]+$")
+        String requestKey
 ) {
 }

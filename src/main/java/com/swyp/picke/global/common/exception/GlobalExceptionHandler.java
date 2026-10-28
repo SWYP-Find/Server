@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import java.sql.SQLException;
 
 @Slf4j
 @RestControllerAdvice
@@ -89,20 +90,37 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(DataIntegrityViolationException e) {
         String detail = String.valueOf(e.getMostSpecificCause().getMessage());
-        ErrorCode code = detail.contains("uk_tumblbug_supporter_line")
-                || detail.contains("uk_tumblbug_funding_order")
-                || detail.contains("uk_funding_orders_order_id")
+        String normalizedDetail = detail.toLowerCase(java.util.Locale.ROOT);
+        String sqlState = findSqlState(e);
+        ErrorCode code = normalizedDetail.contains("uk_tumblbug_supporter_line")
+                || normalizedDetail.contains("uk_tumblbug_funding_order")
+                || normalizedDetail.contains("uk_funding_orders_order_id")
                         ? ErrorCode.FUNDING_TUMBLBUG_IMPORT_DUPLICATE
-                        : detail.contains("uk_funding_campaign_platform_external")
+                        : normalizedDetail.contains("uk_funding_campaign_platform_external")
                                 ? ErrorCode.FUNDING_CAMPAIGN_DUPLICATE
-                                : ErrorCode.INTERNAL_SERVER_ERROR;
-        if (code == ErrorCode.INTERNAL_SERVER_ERROR) {
-            log.error("Data integrity constraint violation", e);
-        } else {
-            log.warn("Data integrity constraint rejected a request: {}", detail);
-        }
+                                : isBadRequestConstraint(sqlState)
+                                        ? ErrorCode.COMMON_INVALID_PARAMETER
+                                        : ErrorCode.COMMON_CONFLICT;
+        log.warn("Data integrity constraint rejected a request: sqlState={}", sqlState);
         return ResponseEntity.status(code.getHttpStatus())
                 .body(ApiResponse.onFailure(code.getHttpStatus().value(), code.getCode(), code.getMessage()));
+    }
+
+    private String findSqlState(Throwable exception) {
+        Throwable current = exception;
+        while (current != null) {
+            if (current instanceof SQLException sqlException && sqlException.getSQLState() != null) {
+                return sqlException.getSQLState();
+            }
+            current = current.getCause();
+        }
+        return null;
+    }
+
+    private boolean isBadRequestConstraint(String sqlState) {
+        return "23502".equals(sqlState) // not-null
+                || "23514".equals(sqlState) // check
+                || "22001".equals(sqlState); // value too long
     }
 
     @ExceptionHandler(Exception.class)

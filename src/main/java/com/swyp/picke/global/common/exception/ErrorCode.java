@@ -204,7 +204,9 @@ public enum ErrorCode {
     CLASS_DEBATE_NOT_RETRYABLE(HttpStatus.CONFLICT, "CLASS_409_DEBATE_RETRY", "지금은 다시 시도할 수 없어요."),
     CLASS_DEBATE_NOT_COMPLETED(HttpStatus.CONFLICT, "CLASS_409_DEBATE_INCOMPLETE", "AI 철학자와의 토론을 마친 뒤 사후투표를 할 수 있어요."),
     CLASS_MID_VOTE_NOT_SUPPORTED(HttpStatus.CONFLICT, "CLASS_409_MID_VOTE", "중간투표가 없는 배틀입니다."),
-    CLASS_MID_VOTE_LOCKED(HttpStatus.CONFLICT, "CLASS_409_MID_VOTE_LOCKED", "사후투표를 마친 뒤에는 중간투표를 바꿀 수 없어요.");
+    CLASS_MID_VOTE_LOCKED(HttpStatus.CONFLICT, "CLASS_409_MID_VOTE_LOCKED", "사후투표를 마친 뒤에는 중간투표를 바꿀 수 없어요."),
+    CLASS_MID_VOTE_REQUIRED(HttpStatus.CONFLICT, "CLASS_409_MID_VOTE_REQUIRED", "콘텐츠 중간의 선택을 마친 뒤 사후투표를 할 수 있어요."),
+    CLASS_MID_VOTE_OPTION_NOT_FOUND(HttpStatus.NOT_FOUND, "CLASS_404_MID_VOTE_OPTION", "존재하지 않는 중간투표 선택지입니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

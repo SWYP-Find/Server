@@ -4,7 +4,9 @@ import com.swyp.picke.domain.battle.dto.response.BattleUserDetailResponse;
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.service.BattleService;
 import com.swyp.picke.domain.battle.util.BattleOptionDisplay;
+import com.swyp.picke.domain.classroom.dto.request.ClassMidVoteRequest;
 import com.swyp.picke.domain.classroom.dto.response.ClassBattleDetailResponse;
+import com.swyp.picke.domain.classroom.dto.response.ClassMyVoteResponse;
 import com.swyp.picke.domain.classroom.entity.Classroom;
 import com.swyp.picke.domain.classroom.enums.ClassBattleType;
 import com.swyp.picke.domain.classroom.service.ClassAccessService.ClassAccess;
@@ -22,9 +24,9 @@ import com.swyp.picke.domain.user.enums.VoteSide;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.domain.user.service.UserBattleService;
 import com.swyp.picke.domain.vote.dto.request.VoteRequest;
-import com.swyp.picke.domain.vote.dto.response.MyVoteResponse;
 import com.swyp.picke.domain.vote.dto.response.VoteResultResponse;
 import com.swyp.picke.domain.vote.dto.response.VoteStatsResponse;
+import com.swyp.picke.domain.vote.entity.BattleVote;
 import com.swyp.picke.domain.vote.repository.BattleVoteRepository;
 import com.swyp.picke.domain.vote.service.BattleVoteService;
 import com.swyp.picke.global.common.exception.CustomException;
@@ -60,6 +62,7 @@ public class ClassBattleServiceImpl implements ClassBattleService {
     private final PerspectiveRepository perspectiveRepository;
     private final UserRepository userRepository;
     private final ClassDebateSessionService debateSessionService;
+    private final ClassMidVoteService classMidVoteService;
 
     @Override
     public ClassBattleDetailResponse getDetail(Long userId, Long classId) {
@@ -89,7 +92,7 @@ public class ClassBattleServiceImpl implements ClassBattleService {
                 classroom.isCommentRequired(),
                 canParticipate,
                 completed,
-                hasMidVote(classroom),
+                classMidVoteService.enabled(classroom),
                 detail
         );
     }
@@ -113,13 +116,10 @@ public class ClassBattleServiceImpl implements ClassBattleService {
 
     @Override
     @Transactional
-    public VoteResultResponse midVote(Long userId, Long classId, VoteRequest request) {
+    public VoteResultResponse midVote(Long userId, Long classId, ClassMidVoteRequest request) {
+        // 커스텀 배틀은 중간값을 만들지 않는다 (PRD §12 입력표). 대상 판정은 ClassMidVoteService
         Classroom classroom = writable(classId, userId);
-        // 중간투표는 기존 콘텐츠(TTS) 중 중간투표가 있는 배틀만. 커스텀 배틀은 중간값을 만들지 않는다 (PRD §12 입력표)
-        if (!hasMidVote(classroom)) {
-            throw new CustomException(ErrorCode.CLASS_MID_VOTE_NOT_SUPPORTED);
-        }
-        return battleVoteService.midVote(battleOf(classroom).getId(), userId, classroom, request);
+        return classMidVoteService.record(classroom, findUser(userId), request);
     }
 
     @Override
@@ -133,16 +133,25 @@ public class ClassBattleServiceImpl implements ClassBattleService {
             throw new CustomException(ErrorCode.CLASS_DEBATE_NOT_COMPLETED);
         }
         // 기존 콘텐츠는 오디오를 끝까지 들어야 사후투표 (PRD §7, 기획 확인 10/23). 사전투표가 없으면 아래에서 404
-        if (classroom.getBattleType() == ClassBattleType.TTS && !ttsListened(classroom, access.member().getUser())) {
-            throw new CustomException(ErrorCode.CLASS_TTS_INCOMPLETE);
+        if (classroom.getBattleType() == ClassBattleType.TTS) {
+            BattleVote vote = battleVoteRepository.findByBattleAndUserAndClassroom(battleOf(classroom), access.member().getUser(), classroom)
+                    .orElse(null);
+            if (vote != null && Boolean.FALSE.equals(vote.getIsTtsListened())) {
+                throw new CustomException(ErrorCode.CLASS_TTS_INCOMPLETE);
+            }
+            // 필수 중간투표가 있는 콘텐츠는 그 응답까지 저장돼야 사후투표 (PRD §7)
+            classMidVoteService.requireCompleted(classroom, vote);
         }
         return battleVoteService.postVote(battleOf(classroom).getId(), userId, classroom, request);
     }
 
     @Override
-    public MyVoteResponse getMyVote(Long userId, Long classId) {
+    public ClassMyVoteResponse getMyVote(Long userId, Long classId) {
         Classroom classroom = readable(classId, userId);
-        return battleVoteService.getMyVote(battleOf(classroom).getId(), userId, classroom);
+        Battle battle = battleOf(classroom);
+        BattleVote vote = battleVoteRepository.findByBattleAndUserAndClassroom(battle, findUser(userId), classroom).orElse(null);
+        return ClassMyVoteResponse.of(battleVoteService.getMyVote(battle.getId(), userId, classroom),
+                classMidVoteService.choicesOf(classroom, vote));
     }
 
     @Override
@@ -183,18 +192,6 @@ public class ClassBattleServiceImpl implements ClassBattleService {
     private boolean hasPublishedPerspective(Battle battle, Long userId, Classroom classroom) {
         return perspectiveRepository.existsByBattleIdAndUserIdAndClassroomIdAndStatus(
                 battle.getId(), userId, classroom.getId(), PerspectiveStatus.PUBLISHED);
-    }
-
-    private boolean ttsListened(Classroom classroom, User user) {
-        return battleVoteRepository.findByBattleAndUserAndClassroom(battleOf(classroom), user, classroom)
-                .map(vote -> !Boolean.FALSE.equals(vote.getIsTtsListened()))
-                .orElse(true);
-    }
-
-    private static boolean hasMidVote(Classroom classroom) {
-        return classroom.getBattleType() == ClassBattleType.TTS
-                && classroom.getBattle() != null
-                && classroom.getBattle().isMidVoteEnabled();
     }
 
     private static Battle battleOf(Classroom classroom) {

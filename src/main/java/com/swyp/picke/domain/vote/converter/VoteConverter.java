@@ -24,7 +24,6 @@ public class VoteConverter {
         return new MyVoteResponse(
                 vote.getBattle().getTitle(),
                 toOptionInfo(vote.getPreVoteOption()),
-                toOptionInfo(vote.getMidVoteOption()),
                 toOptionInfo(vote.getPostVoteOption()),
                 step,
                 opinionChanged

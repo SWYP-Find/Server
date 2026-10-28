@@ -12,7 +12,7 @@ public record ClassMyReportResponse(
                 + "PENDING/GENERATING = 생성 중, SUCCEEDED = AI 피드백, LIMITED = 글이 없어 템플릿, FAILED = 생성 실패") ClassReportViewState state,
         @Schema(description = "실제 마감 시각") LocalDateTime closeAt,
         @Schema(description = "사전투표 선택지") Option preOption,
-        @Schema(description = "중간투표 선택지. 중간투표가 없는 배틀이거나 고르지 않았으면 null") Option midOption,
+        @Schema(description = "선택 지점별 중간투표. 중간투표가 없는 배틀이거나 고르지 않았으면 빈 배열") List<ClassMidVoteInfo> midVotes,
         @Schema(description = "사후투표 선택지") Option postOption,
         @Schema(description = "이 클래스에서 내가 쓴 의견 수") int perspectiveCount,
         @Schema(description = "이 클래스에서 내가 쓴 댓글 수") int commentCount,

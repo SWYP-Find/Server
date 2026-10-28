@@ -8,12 +8,13 @@ import com.swyp.picke.domain.classroom.entity.ClassMember;
 import com.swyp.picke.domain.classroom.entity.ClassReport;
 import com.swyp.picke.domain.classroom.entity.Classroom;
 import com.swyp.picke.domain.classroom.enums.AiJobType;
-import com.swyp.picke.domain.classroom.enums.ClassBattleType;
 import com.swyp.picke.domain.classroom.enums.ClassReportStatus;
 import com.swyp.picke.domain.classroom.enums.ClassReportType;
 import com.swyp.picke.domain.classroom.repository.AiJobRepository;
 import com.swyp.picke.domain.classroom.repository.ClassReportRepository;
 import com.swyp.picke.domain.classroom.repository.ClassroomRepository;
+import com.swyp.picke.domain.classroom.service.ClassMidVoteService;
+import com.swyp.picke.domain.classroom.dto.response.ClassMidVoteInfo;
 import com.swyp.picke.domain.perspective.entity.Perspective;
 import com.swyp.picke.domain.perspective.entity.PerspectiveComment;
 import com.swyp.picke.domain.perspective.enums.PerspectiveStatus;
@@ -76,6 +77,7 @@ public class ClassReportSnapshotService {
     private final PerspectiveRepository perspectiveRepository;
     private final PerspectiveCommentRepository perspectiveCommentRepository;
     private final ClassReportAiClient aiClient;
+    private final ClassMidVoteService classMidVoteService;
 
     /** prepare 결과. needsAi=false 면 이미 템플릿으로 끝난 것 */
     public record Prepared(Long reportId, Long jobId, ClassReportType type, boolean needsAi,
@@ -122,7 +124,7 @@ public class ClassReportSnapshotService {
         if (report.getType() == ClassReportType.MEMBER_FEEDBACK) {
             MemberFeedbackInput input = buildMemberInput(classroom, report.getMember());
             if (input.statements().isEmpty()) {
-                report.limit(ClassReportContentValidator.limitedMemberFeedback(input.preOption(), input.midOption(), input.postOption()), now);
+                report.limit(ClassReportContentValidator.limitedMemberFeedback(input.preOption(), input.midChoices(), input.postOption()), now);
                 return new Prepared(reportId, null, report.getType(), false, input, null);
             }
             AiJob job = startJob(report, AiJobType.MEMBER_REPORT, now);
@@ -215,17 +217,15 @@ public class ClassReportSnapshotService {
             optionById.put(option.getId(), new MemberFeedbackInput.OptionInfo(option.getId(), option.getTitle(), option.getStance()));
         }
         MemberFeedbackInput.OptionInfo pre = null;
-        MemberFeedbackInput.OptionInfo mid = null;
         MemberFeedbackInput.OptionInfo post = null;
         BattleVote vote = battleVoteRepository.findByBattleAndUserAndClassroom(battle, member.getUser(), classroom).orElse(null);
         if (vote != null) {
             pre = vote.getPreVoteOption() == null ? null : optionById.get(vote.getPreVoteOption().getId());
-            // 중간투표는 중간투표가 있는 기존 콘텐츠만 분석 소스로 쓴다 (PRD §12 "사전·checkpoint별 중간·사후")
-            if (classroom.getBattleType() == ClassBattleType.TTS && battle.isMidVoteEnabled() && vote.getMidVoteOption() != null) {
-                mid = optionById.get(vote.getMidVoteOption().getId());
-            }
             post = vote.getPostVoteOption() == null ? null : optionById.get(vote.getPostVoteOption().getId());
         }
+
+        // 중간투표는 중간투표가 있는 기존 콘텐츠만 분석 소스로 쓴다 (PRD §12 "사전·checkpoint별 중간·사후")
+        List<ClassMidVoteInfo> mid = classMidVoteService.choicesOf(classroom, vote);
 
         List<MemberFeedbackInput.Statement> perspectives = new ArrayList<>();
         for (Perspective p : perspectiveRepository.findByClassroomIdAndUserIdAndStatusOrderByCreatedAtAsc(classId, userId, PerspectiveStatus.PUBLISHED)) {

@@ -1,13 +1,14 @@
 package com.swyp.picke.domain.classroom.controller;
 
+import com.swyp.picke.domain.classroom.dto.request.ClassMidVoteRequest;
 import com.swyp.picke.domain.classroom.dto.response.ClassBattleDetailResponse;
+import com.swyp.picke.domain.classroom.dto.response.ClassMyVoteResponse;
 import com.swyp.picke.domain.classroom.service.ClassBattleService;
 import com.swyp.picke.domain.perspective.dto.request.CreatePerspectiveRequest;
 import com.swyp.picke.domain.perspective.dto.response.CreatePerspectiveResponse;
 import com.swyp.picke.domain.perspective.dto.response.MyPerspectiveResponse;
 import com.swyp.picke.domain.perspective.dto.response.PerspectiveListResponse;
 import com.swyp.picke.domain.vote.dto.request.VoteRequest;
-import com.swyp.picke.domain.vote.dto.response.MyVoteResponse;
 import com.swyp.picke.domain.vote.dto.response.VoteResultResponse;
 import com.swyp.picke.domain.vote.dto.response.VoteStatsResponse;
 import com.swyp.picke.global.common.response.ApiResponse;
@@ -72,14 +73,16 @@ public class ClassBattleController {
     }
 
     @Operation(summary = "클래스 중간투표",
-            description = "중간투표가 있는 기존 콘텐츠(상세의 midVoteEnabled=true)에서 콘텐츠 중 선택 화면에서 고른 선택지를 기록합니다. "
-                    + "optionId 는 배틀 선택지 ID(A/B). 사후투표 전까지 다시 보낼 수 있고, 보내면 사전투표는 잠깁니다. "
-                    + "중간투표가 없는 배틀이면 409 CLASS_409_MID_VOTE, 사전투표 전이면 404 VOTE_NOT_FOUND, 사후투표 후면 409 CLASS_409_MID_VOTE_LOCKED.")
+            description = "중간투표가 있는 기존 콘텐츠(상세의 midVoteEnabled=true)에서 선택 지점(선택지가 있는 시나리오 노드)마다 고른 선택지를 기록합니다. "
+                    + "checkpointId = 시나리오 nodeId, optionId = 시나리오 interactiveOptions[].optionId. 사후투표 전까지 다시 보낼 수 있고, 처음 보내면 사전투표는 잠깁니다. "
+                    + "고른 경로의 선택 지점에 모두 답해야 사후투표할 수 있습니다(아니면 사후투표가 409 CLASS_409_MID_VOTE_REQUIRED). "
+                    + "중간투표가 없는 배틀이면 409 CLASS_409_MID_VOTE, 없는 지점·선택지면 404 CLASS_404_MID_VOTE_OPTION, 사전투표 전이면 404 VOTE_NOT_FOUND, "
+                    + "사후투표 후면 409 CLASS_409_MID_VOTE_LOCKED.")
     @PostMapping("/votes/mid")
     public ApiResponse<VoteResultResponse> midVote(
             @AuthenticationPrincipal Long userId,
             @PathVariable Long classId,
-            @RequestBody VoteRequest request
+            @RequestBody ClassMidVoteRequest request
     ) {
         return ApiResponse.onSuccess(classBattleService.midVote(userId, classId, request));
     }
@@ -97,7 +100,7 @@ public class ClassBattleController {
 
     @Operation(summary = "클래스 내 투표 내역", description = "이 클래스 안에서의 내 사전/중간/사후 투표와 진행 단계. 투표 전이면 404 VOTE_NOT_FOUND.")
     @GetMapping("/votes/me")
-    public ApiResponse<MyVoteResponse> getMyVote(
+    public ApiResponse<ClassMyVoteResponse> getMyVote(
             @AuthenticationPrincipal Long userId,
             @PathVariable Long classId
     ) {

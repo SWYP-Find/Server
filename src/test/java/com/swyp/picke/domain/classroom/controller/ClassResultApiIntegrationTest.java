@@ -1,5 +1,12 @@
 package com.swyp.picke.domain.classroom.controller;
 
+import com.swyp.picke.domain.scenario.repository.ScenarioRepository;
+import com.swyp.picke.domain.scenario.enums.ScenarioStatus;
+import com.swyp.picke.domain.scenario.enums.CreatorType;
+import com.swyp.picke.domain.scenario.entity.ScenarioNode;
+import com.swyp.picke.domain.scenario.entity.Scenario;
+import com.swyp.picke.domain.scenario.entity.InteractiveOption;
+import com.swyp.picke.domain.classroom.repository.ClassMidVoteRepository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -107,6 +114,8 @@ class ClassResultApiIntegrationTest {
     @Autowired private ClassroomRepository classroomRepository;
     @Autowired private ClassMemberRepository classMemberRepository;
     @Autowired private BattleVoteRepository battleVoteRepository;
+    @Autowired private ClassMidVoteRepository classMidVoteRepository;
+    @Autowired private ScenarioRepository scenarioRepository;
     @Autowired private UserBattleRepository userBattleRepository;
     @Autowired private PerspectiveRepository perspectiveRepository;
     @Autowired private PerspectiveCommentRepository perspectiveCommentRepository;
@@ -143,6 +152,7 @@ class ClassResultApiIntegrationTest {
     void tearDown() {
         cleanUp();
         for (Long battleId : createdBattleIds) {
+            scenarioRepository.findByBattleId(battleId).ifPresent(scenarioRepository::delete);
             battleRepository.findById(battleId).ifPresent(b -> {
                 battleOptionRepository.deleteAll(battleOptionRepository.findByBattle(b));
                 battleRepository.delete(b);
@@ -160,6 +170,7 @@ class ClassResultApiIntegrationTest {
         aiJobRepository.deleteAll();
         perspectiveCommentRepository.deleteAll();
         perspectiveRepository.deleteAll();
+        classMidVoteRepository.deleteAll();
         battleVoteRepository.deleteAll();
         userBattleRepository.deleteAll();
         classMemberRepository.deleteAll();
@@ -468,17 +479,18 @@ class ClassResultApiIntegrationTest {
 
     /** 프롬프트의 첫 발언(source_id, 원문)을 그대로 인용하는 정상 응답. next_focus 는 원문에 없는 인용이라 null 이 돼야 한다 */
     @Test
-    @DisplayName("중간투표가 있는 기존 콘텐츠: 통계에 선택지별 중간투표 수, 내 리포트에 중간 선택, AI 입력·템플릿에 사전→중간→사후 흐름")
+    @DisplayName("중간투표가 있는 기존 콘텐츠: 통계에 선택 지점별 분포, 내 리포트에 지점별 선택, AI 입력·템플릿에 중간 선택")
     void midVote_reflectedInStatsAndReports() throws Exception {
-        battle.updateClassSettings(null, null, null, true);
-        battleRepository.save(battle);
+        ScenarioNode checkpoint = midVoteScenario(battle);
+        Long guilty = checkpoint.getOptions().get(0).getId();
+        Long innocent = checkpoint.getOptions().get(1).getId();
         ClassInfo cls = createClass(false, false);
 
         User writer = newUser("학생A");
         String writerToken = tokenOf(writer);
         join(writerToken, cls.inviteCode, "학생A");
         vote(writerToken, cls, "/votes/pre", optionA).andExpect(status().isOk());
-        vote(writerToken, cls, "/votes/mid", optionB).andExpect(status().isOk());
+        midVote(writerToken, cls, checkpoint, 1).andExpect(status().isOk());
         votePreAndPostAfterMid(writerToken, cls, optionB);
         mockMvc.perform(post(classBattle(cls) + "/perspectives")
                         .header("Authorization", "Bearer " + writerToken)
@@ -486,29 +498,42 @@ class ClassResultApiIntegrationTest {
                         .content(json(Map.of("content", "중간에 생각이 바뀌었습니다. 표본이 너무 작아요."))))
                 .andExpect(status().isOk());
 
-        User wavering = newUser("학생B");          // 중간에만 B 를 골랐다가 A 로 돌아옴, 의견 없음
+        User wavering = newUser("학생B");          // 중간에 '무죄'를 골랐지만 사후는 A, 의견 없음
         String waveringToken = tokenOf(wavering);
         join(waveringToken, cls.inviteCode, "학생B");
         vote(waveringToken, cls, "/votes/pre", optionA).andExpect(status().isOk());
-        vote(waveringToken, cls, "/votes/mid", optionB).andExpect(status().isOk());
+        midVote(waveringToken, cls, checkpoint, 1).andExpect(status().isOk());
         votePreAndPostAfterMid(waveringToken, cls, optionA);
 
-        User noMid = newUser("학생C");             // 중간투표를 건너뛴 사람도 사후투표는 할 수 있다
-        String noMidToken = tokenOf(noMid);
-        join(noMidToken, cls.inviteCode, "학생C");
-        votePreAndPost(noMidToken, cls, optionB, optionB);
+        User late = newUser("학생C");              // 중간투표를 건너뛰면 사후투표가 막히고, 답한 뒤에 할 수 있다
+        String lateToken = tokenOf(late);
+        join(lateToken, cls.inviteCode, "학생C");
+        vote(lateToken, cls, "/votes/pre", optionB).andExpect(status().isOk());
+        mockMvc.perform(post(classBattle(cls) + "/votes/tts-complete").header("Authorization", "Bearer " + lateToken))
+                .andExpect(status().isOk());
+        vote(lateToken, cls, "/votes/post", optionB).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_MID_VOTE_REQUIRED"));
+        midVote(lateToken, cls, checkpoint, 0).andExpect(status().isOk());
+        vote(lateToken, cls, "/votes/post", optionB).andExpect(status().isOk());
 
         // 마감 전 LIVE 통계
         mockMvc.perform(get(result(cls)).header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.stats.midVoteEnabled").value(true))
-                .andExpect(jsonPath("$.data.stats.midVoteCount").value(2))
+                .andExpect(jsonPath("$.data.stats.midVoteCount").value(3))
                 .andExpect(jsonPath("$.data.stats.options[0].optionId").value(optionA.getId()))
                 .andExpect(jsonPath("$.data.stats.options[0].preVoteCount").value(2))
-                .andExpect(jsonPath("$.data.stats.options[0].midVoteCount").value(0))
                 .andExpect(jsonPath("$.data.stats.options[0].postVoteCount").value(1))
-                .andExpect(jsonPath("$.data.stats.options[1].midVoteCount").value(2))
-                .andExpect(jsonPath("$.data.stats.options[1].postVoteCount").value(2));
+                .andExpect(jsonPath("$.data.stats.options[1].postVoteCount").value(2))
+                .andExpect(jsonPath("$.data.stats.midVoteCheckpoints.length()").value(1))
+                .andExpect(jsonPath("$.data.stats.midVoteCheckpoints[0].checkpointId").value(checkpoint.getId()))
+                .andExpect(jsonPath("$.data.stats.midVoteCheckpoints[0].voteCount").value(3))
+                .andExpect(jsonPath("$.data.stats.midVoteCheckpoints[0].options[0].optionId").value(guilty))
+                .andExpect(jsonPath("$.data.stats.midVoteCheckpoints[0].options[0].label").value("유죄"))
+                .andExpect(jsonPath("$.data.stats.midVoteCheckpoints[0].options[0].voteCount").value(1))
+                .andExpect(jsonPath("$.data.stats.midVoteCheckpoints[0].options[1].optionId").value(innocent))
+                .andExpect(jsonPath("$.data.stats.midVoteCheckpoints[0].options[1].voteCount").value(2))
+                .andExpect(jsonPath("$.data.stats.midVoteCheckpoints[0].options[1].ratio").value(66.7));
 
         closeClass(cls.classId);
         generationService.runOnce(LocalDateTime.now());
@@ -518,29 +543,32 @@ class ClassResultApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.statsBasis").value("SNAPSHOT"))
                 .andExpect(jsonPath("$.data.stats.midVoteEnabled").value(true))
-                .andExpect(jsonPath("$.data.stats.midVoteCount").value(2))
-                .andExpect(jsonPath("$.data.stats.options[1].midVoteCount").value(2));
+                .andExpect(jsonPath("$.data.stats.midVoteCount").value(3))
+                .andExpect(jsonPath("$.data.stats.midVoteCheckpoints[0].options[1].label").value("무죄"))
+                .andExpect(jsonPath("$.data.stats.midVoteCheckpoints[0].options[1].voteCount").value(2));
 
         // AI 개인 피드백 입력에 중간 선택이 실린다
         verify(aiClient).chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM),
-                argThat(prompt -> prompt.contains("중간투표(콘텐츠 중 선택): ")), anyInt());
+                argThat(prompt -> prompt.contains("중간투표(콘텐츠 중 선택, 지점 " + checkpoint.getId() + "): 무죄")), anyInt());
         mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + writerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.state").value("SUCCEEDED"))
-                .andExpect(jsonPath("$.data.midOption.optionId").value(optionB.getId()));
+                .andExpect(jsonPath("$.data.midVotes[0].checkpointId").value(checkpoint.getId()))
+                .andExpect(jsonPath("$.data.midVotes[0].optionId").value(innocent));
 
-        // 투표만 한 사람: 템플릿이 중간 흐름을 말한다
+        // 투표만 한 사람: 템플릿이 중간 선택을 덧붙인다
         mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + waveringToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.state").value("LIMITED"))
-                .andExpect(jsonPath("$.data.midOption.optionId").value(optionB.getId()))
+                .andExpect(jsonPath("$.data.midVotes[0].label").value("무죄"))
                 .andExpect(jsonPath("$.data.feedback.judgmentBasis")
-                        .value("선택이 선택지 1에서 중간에 선택지 2, 마지막에 선택지 1로 이어졌어요."));
+                        .value("처음부터 끝까지 선택지 1를 선택했어요. 콘텐츠 중간에는 '무죄' 쪽을 골랐어요."));
 
-        mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + noMidToken))
+        mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + lateToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.midOption").doesNotExist())
-                .andExpect(jsonPath("$.data.feedback.judgmentBasis").value("처음부터 끝까지 선택지 2를 선택했어요."));
+                .andExpect(jsonPath("$.data.midVotes[0].label").value("유죄"))
+                .andExpect(jsonPath("$.data.feedback.judgmentBasis")
+                        .value("처음부터 끝까지 선택지 2를 선택했어요. 콘텐츠 중간에는 '유죄' 쪽을 골랐어요."));
     }
 
     private void stubMemberFeedback() {
@@ -631,6 +659,35 @@ class ClassResultApiIntegrationTest {
                         .content(json(Map.of("content", content))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("PUBLISHED"));
+    }
+
+    /** 선택 지점 1개(선택지 2개)짜리 시나리오. 반환값은 그 지점 노드 */
+    private ScenarioNode midVoteScenario(Battle target) {
+        target.updateClassSettings(null, null, null, true);
+        battleRepository.save(target);
+        Scenario scenario = Scenario.builder()
+                .battle(target)
+                .isInteractive(true)
+                .status(ScenarioStatus.PUBLISHED)
+                .creatorType(CreatorType.ADMIN)
+                .build();
+        ScenarioNode node = ScenarioNode.builder().nodeName("선택의 시간").isStartNode(true).build();
+        node.addOption(InteractiveOption.builder().label("유죄").title("유죄 설명").build());
+        node.addOption(InteractiveOption.builder().label("무죄").title("무죄 설명").build());
+        scenario.addNode(node);
+        scenarioRepository.save(scenario);
+        return node;
+    }
+
+    private ResultActions midVote(String token, ClassInfo cls, ScenarioNode checkpoint, int optionIndex) throws Exception {
+        return midVote(token, cls, checkpoint.getId(), checkpoint.getOptions().get(optionIndex).getId());
+    }
+
+    private ResultActions midVote(String token, ClassInfo cls, Long checkpointId, Long optionId) throws Exception {
+        return mockMvc.perform(post(classBattle(cls) + "/votes/mid")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("checkpointId", checkpointId, "optionId", optionId))));
     }
 
     private ResultActions vote(String token, ClassInfo cls, String path, BattleOption option) throws Exception {

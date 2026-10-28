@@ -28,9 +28,10 @@ public record ClassResultResponse(
             @Schema(description = "의견 작성자 수") int commentWriterCount,
             @Schema(description = "댓글 작성률 % = 작성자 / 활성") double commentRate,
             @Schema(description = "사후투표 인원") int postVoteCount,
-            @Schema(description = "중간투표가 있는 기존 콘텐츠인지. false 면 중간투표 값은 모두 0 이고 화면에서 숨긴다") boolean midVoteEnabled,
-            @Schema(description = "중간투표 인원") int midVoteCount,
-            @Schema(description = "선택지별 사전/중간/사후 분포") List<OptionStat> options
+            @Schema(description = "중간투표가 있는 기존 콘텐츠인지. false 면 중간투표 값은 0·빈 목록이고 화면에서 숨긴다") boolean midVoteEnabled,
+            @Schema(description = "중간투표 인원 (한 지점이라도 답한 활성 참여자)") int midVoteCount,
+            @Schema(description = "배틀 선택지별 사전/사후 분포") List<OptionStat> options,
+            @Schema(description = "선택 지점(시나리오 노드)별 중간투표 분포. midVoteEnabled 가 false 면 빈 목록") List<CheckpointStat> midVoteCheckpoints
     ) {
     }
 
@@ -40,9 +41,24 @@ public record ClassResultResponse(
             String title,
             String stance,
             int preVoteCount,
-            @Schema(description = "중간투표 수. midVoteEnabled 가 false 면 0") int midVoteCount,
             int postVoteCount,
             double postVoteRatio
+    ) {
+    }
+
+    @Schema(description = "선택 지점별 중간투표")
+    public record CheckpointStat(
+            @Schema(description = "선택 지점 ID = 시나리오 nodeId") Long checkpointId,
+            @Schema(description = "이 지점에 답한 인원") int voteCount,
+            @Schema(description = "선택지별 분포. ratio 는 이 지점 응답자 중 비율") List<ChoiceStat> options
+    ) {
+    }
+
+    public record ChoiceStat(
+            @Schema(description = "시나리오 선택지 ID") Long optionId,
+            @Schema(description = "선택지 문구") String label,
+            int voteCount,
+            double ratio
     ) {
     }
 }

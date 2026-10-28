@@ -1,5 +1,8 @@
 package com.swyp.picke.domain.classroom.service.report;
 
+import java.util.List;
+import java.util.ArrayList;
+import com.swyp.picke.domain.classroom.dto.response.ClassMidVoteInfo;
 import java.time.format.DateTimeFormatter;
 
 /**
@@ -63,8 +66,8 @@ public final class ClassReportPrompts {
         }
         sb.append("\n[내 선택]\n");
         sb.append("사전투표: ").append(label(input.preOption())).append('\n');
-        if (input.midOption() != null) {
-            sb.append("중간투표(콘텐츠 중 선택): ").append(label(input.midOption())).append('\n');
+        for (ClassMidVoteInfo choice : input.midChoices()) {
+            sb.append("중간투표(콘텐츠 중 선택, 지점 ").append(choice.checkpointId()).append("): ").append(choice.label()).append('\n');
         }
         sb.append("사후투표: ").append(label(input.postOption())).append('\n');
         sb.append("\n[내 발언] (시간순, 총 ").append(input.statements().size()).append("건");
@@ -103,11 +106,16 @@ public final class ClassReportPrompts {
         for (ClassResultStats.OptionStat option : stats.options()) {
             sb.append("- ").append(option.title()).append(" (입장: ").append(option.stance()).append("): 사전 ")
                     .append(option.preVoteCount()).append("명 → ");
-            if (stats.midVoteEnabled()) {
-                sb.append("중간 ").append(option.midVoteCount()).append("명 → ");
-            }
             sb.append("사후 ").append(option.postVoteCount()).append("명 (")
                     .append(option.postVoteRatio()).append("%)\n");
+        }
+        for (ClassResultStats.CheckpointStat checkpoint : stats.midVoteCheckpoints()) {
+            sb.append("- 콘텐츠 중 선택 (지점 ").append(checkpoint.checkpointId()).append(", ").append(checkpoint.voteCount()).append("명): ");
+            List<String> parts = new ArrayList<>();
+            for (ClassResultStats.ChoiceStat choice : checkpoint.options()) {
+                parts.add(choice.label() + " " + choice.voteCount() + "명 (" + choice.ratio() + "%)");
+            }
+            sb.append(String.join(", ", parts)).append('\n');
         }
         sb.append("\n[공개 의견] (작성자는 익명 번호, 총 ").append(input.posts().size()).append("건");
         if (input.isPartial()) {

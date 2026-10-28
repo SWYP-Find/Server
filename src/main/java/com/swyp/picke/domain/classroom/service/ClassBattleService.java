@@ -1,12 +1,13 @@
 package com.swyp.picke.domain.classroom.service;
 
+import com.swyp.picke.domain.classroom.dto.request.ClassMidVoteRequest;
 import com.swyp.picke.domain.classroom.dto.response.ClassBattleDetailResponse;
+import com.swyp.picke.domain.classroom.dto.response.ClassMyVoteResponse;
 import com.swyp.picke.domain.perspective.dto.request.CreatePerspectiveRequest;
 import com.swyp.picke.domain.perspective.dto.response.CreatePerspectiveResponse;
 import com.swyp.picke.domain.perspective.dto.response.MyPerspectiveResponse;
 import com.swyp.picke.domain.perspective.dto.response.PerspectiveListResponse;
 import com.swyp.picke.domain.vote.dto.request.VoteRequest;
-import com.swyp.picke.domain.vote.dto.response.MyVoteResponse;
 import com.swyp.picke.domain.vote.dto.response.VoteResultResponse;
 import com.swyp.picke.domain.vote.dto.response.VoteStatsResponse;
 import java.util.List;
@@ -23,11 +24,11 @@ public interface ClassBattleService {
 
     void completeTts(Long userId, Long classId);
 
-    VoteResultResponse midVote(Long userId, Long classId, VoteRequest request);
+    VoteResultResponse midVote(Long userId, Long classId, ClassMidVoteRequest request);
 
     VoteResultResponse postVote(Long userId, Long classId, VoteRequest request);
 
-    MyVoteResponse getMyVote(Long userId, Long classId);
+    ClassMyVoteResponse getMyVote(Long userId, Long classId);
 
     VoteStatsResponse getVoteStats(Long userId, Long classId);
 

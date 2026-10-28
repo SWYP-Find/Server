@@ -35,7 +35,7 @@ entity "votes" as votes {
   battle_id : BIGINT <<FK>>
   class_id : BIGINT <<FK, NEW, nullable>>
   pre_vote_option_id : BIGINT <<FK, nullable>>
-  mid_vote_option_id : BIGINT <<FK, NEW, nullable>>
+  mid_vote_option_id : BIGINT <<FK, nullable, 클래스 미사용>>
   post_vote_option_id : BIGINT <<FK, nullable>>
   is_tts_listened : BOOLEAN
 }
@@ -429,8 +429,8 @@ note bottom of class_reports
 end note
 
 note bottom of votes
-  mid_vote_option_id : 기존 콘텐츠 중 중간투표가 있는 것만 사용
-    (battles.mid_vote_enabled = true, 예: 뒤샹의 변기). 컬럼은 기존 votes 에 있음 (스키마 변경 없음)
+  클래스 중간투표는 votes.mid_vote_option_id 대신 class_mid_votes 에 선택 지점별로 저장 (#577)
+    기존 콘텐츠 중 중간투표가 있는 것만 (battles.mid_vote_enabled = true, 예: 뒤샹의 변기)
     클래스용 별도 중간투표 UI 없음, 기존 콘텐츠 결과 수집 용도만 (기획 Q&A 확정)
   클래스 내 배틀 화면은 일반 배틀과 동일 (사전투표·채팅방·최종투표·의견 목록, 좋아요/정렬)
   → votes / perspectives / perspective_comments 를 class_id 로 스코프만 분리해 재사용
@@ -450,14 +450,35 @@ note bottom of votes
   클래스 투표는 크레딧 차감·성향 점수·battles.total_participants_count·SSE·새 댓글 알림 없음
   참여 완료(F10) = step COMPLETED + (classes.comment_required 면) 내 PUBLISHED perspective 1건 이상
   class_members.has_activity 판정 = user_battles(user_id, class_id) 존재 여부 (F15 좌석 유지)
-  -- 중간투표 구현 반영 --
-  POST /api/v1/classes/{classId}/battle/votes/mid : classes.battle_type=TTS AND battles.mid_vote_enabled 일 때만
-    (아니면 409 CLASS_409_MID_VOTE). 사전투표 행 필요(404 VOTE_404), step COMPLETED 후 409 CLASS_409_MID_VOTE_LOCKED
-    사후투표 전까지 변경 가능, 첫 기록 시 step NONE/PRE_VOTE → TTS_LISTENING (사전투표 잠금)
-    사후투표는 중간투표 없이도 가능 (수집 용도, 필수 아님)
-  결과·리포트: 통계 스냅샷에 mid_vote_enabled·mid_vote_count·선택지별 mid_vote_count,
-    개인 리포트 입력·content 에 mid_option_id, LIMITED 템플릿은 사전→중간→사후 흐름 문구
-    PRD 의 checkpoint 별 다중 중간투표는 컬럼 1개 구조상 미지원 (콘텐츠 선택 노드 1개 기준)
+  -- 중간투표 구현 반영 (#577, PRD §7 checkpoint_id 별 기록) --
+  POST /api/v1/classes/{classId}/battle/votes/mid {checkpointId, optionId}
+    대상: classes.battle_type=TTS AND battles.mid_vote_enabled AND 시나리오에 선택지 있는 노드 존재 (아니면 409 CLASS_409_MID_VOTE)
+    checkpointId = scenario_nodes.id, optionId = scenario_options.id (없으면 404 CLASS_404_MID_VOTE_OPTION)
+    사전투표 행 필요(404 VOTE_404), 사후투표 후 409 CLASS_409_MID_VOTE_LOCKED
+    지점별 1건, 사후투표 전까지 변경 가능, 첫 기록 시 step NONE/PRE_VOTE → TTS_LISTENING (사전투표 잠금)
+    필수: 시작 노드부터 고른 선택지를 따라 만나는 지점에 모두 답해야 사후투표 (아니면 409 CLASS_409_MID_VOTE_REQUIRED)
+  결과·리포트: 통계 스냅샷에 mid_vote_enabled·mid_vote_count·mid_vote_checkpoints(지점별 선택지 분포, 활성 멤버만),
+    개인 리포트 입력·content 에 mid_choices, LIMITED 템플릿은 중간 선택 문구를 덧붙임
+end note
+
+entity "class_mid_votes" as class_mid_votes {
+  * id : BIGINT <<PK>>
+  --
+  vote_id : BIGINT <<FK, ON DELETE CASCADE>>
+  checkpoint_id : BIGINT
+  option_id : BIGINT
+  option_label : VARCHAR(255)
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+votes ||--o{ class_mid_votes
+
+note bottom of class_mid_votes
+  UK(vote_id, checkpoint_id) : 선택 지점별 1건 (PRD "투표는 phase+checkpoint_id 고유")
+  checkpoint_id = scenario_nodes.id, option_id = scenario_options.id
+    시나리오 재저장 시 id 가 바뀔 수 있어 FK 없음, 선택 당시 문구(option_label)를 함께 저장
+  중간투표 저장은 votes 행을 비관적 락으로 잡아 연속 요청을 직렬화
 end note
 
 note bottom of class_topic_drafts

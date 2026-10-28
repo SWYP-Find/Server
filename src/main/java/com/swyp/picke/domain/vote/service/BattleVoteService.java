@@ -33,7 +33,4 @@ public interface BattleVoteService {
 
     void completeTts(Long battleId, Long userId);
     void completeTts(Long battleId, Long userId, Classroom classroom);
-
-    /** 클래스 중간투표. battles.mid_vote_enabled 인 기존 콘텐츠의 "선택의 시간" 선택을 기록한다 */
-    VoteResultResponse midVote(Long battleId, Long userId, Classroom classroom, VoteRequest request);
 }

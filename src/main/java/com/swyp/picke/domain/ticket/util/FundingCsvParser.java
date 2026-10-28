@@ -170,8 +170,8 @@ public final class FundingCsvParser {
         } catch (NumberFormatException e) {
             throw new RowException("quantity 가 숫자가 아닙니다: " + raw);
         }
-        if (q < 1) {
-            throw new RowException("quantity 는 1 이상이어야 합니다.");
+        if (q < 1 || q > 7) {
+            throw new RowException("quantity 는 1~7이어야 합니다.");
         }
         return q;
     }

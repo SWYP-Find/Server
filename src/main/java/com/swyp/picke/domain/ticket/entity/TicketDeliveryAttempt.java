@@ -29,7 +29,7 @@ public class TicketDeliveryAttempt extends BaseEntity {
     private ClassTicket ticket;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 32)
     private DeliveryChannel channel;
 
     @Enumerated(EnumType.STRING)

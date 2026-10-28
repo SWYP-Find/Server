@@ -20,6 +20,9 @@ import com.swyp.picke.domain.ticket.entity.TicketRegisterReminder;
 import com.swyp.picke.domain.ticket.enums.DeliveryStatus;
 import com.swyp.picke.domain.ticket.enums.PaymentStatus;
 import com.swyp.picke.domain.ticket.enums.RegisterReminderStage;
+import com.swyp.picke.domain.ticket.enums.RewardTier;
+import com.swyp.picke.domain.funding.dto.response.TumblbugOrderDetailResponse;
+import com.swyp.picke.domain.funding.service.TumblbugImportRecordService;
 import com.swyp.picke.domain.ticket.enums.TicketCodeStatus;
 import com.swyp.picke.domain.ticket.enums.TicketStatus;
 import com.swyp.picke.domain.ticket.repository.ClassTicketRepository;
@@ -77,6 +80,7 @@ public class AdminFundingService {
     private final ClassTicketRepository classTicketRepository;
     private final TicketDeliveryAttemptRepository ticketDeliveryAttemptRepository;
     private final TicketRegisterReminderRepository ticketRegisterReminderRepository;
+    private final TumblbugImportRecordService tumblbugImportRecordService;
 
     // ───────────── 1. 명단 가져오기 ─────────────
 
@@ -190,6 +194,7 @@ public class AdminFundingService {
         for (FundingOrder order : targets) {
             String rawCode = generateUniqueCode();
             ClassTicket ticket = classTicketRepository.save(ClassTicket.issue(order, TicketCodeHasher.hash(rawCode)));
+            ticket.recordCodeSuffix(rawCode);
             issued.add(toIssued(ticket, rawCode));
         }
         return new TicketIssueResponse(issued, skipped);
@@ -258,6 +263,7 @@ public class AdminFundingService {
         String rawCode = generateUniqueCode();
         ClassTicket reissued = classTicketRepository.save(
                 ClassTicket.reissueFrom(previous, TicketCodeHasher.hash(rawCode)));
+        reissued.recordCodeSuffix(rawCode);
         return toIssued(reissued, rawCode);
     }
 
@@ -343,15 +349,40 @@ public class AdminFundingService {
     // ───────────── 6. 조회 ─────────────
 
     public FundingOrderPageResponse getOrders(PaymentStatus paymentStatus, TicketStatus ticketStatus,
-                                              TicketCodeStatus codeStatus, String keyword, int page, int size) {
+                                              TicketCodeStatus codeStatus, String keyword, Integer capacity,
+                                              com.swyp.picke.domain.funding.enums.DeliveryStatus deliveryStatus,
+                                              int page, int size) {
         int pageNumber = Math.max(page, 0);
         int pageSize = size <= 0 ? DEFAULT_PAGE_SIZE : Math.min(size, MAX_PAGE_SIZE);
         String normalizedKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
+        RewardTier rewardTier = null;
+        if (capacity != null) {
+            try {
+                rewardTier = RewardTier.valueOf("SEAT_" + capacity);
+            } catch (IllegalArgumentException e) {
+                throw new CustomException(ErrorCode.FUNDING_REWARD_UNSUPPORTED);
+            }
+        }
+        boolean pending = deliveryStatus == com.swyp.picke.domain.funding.enums.DeliveryStatus.PENDING;
+        DeliveryStatus recordedStatus = deliveryStatus == null || pending ? null
+                : deliveryStatus == com.swyp.picke.domain.funding.enums.DeliveryStatus.SENT
+                        ? DeliveryStatus.SUCCESS : DeliveryStatus.FAILED;
 
         Page<Object[]> result = fundingOrderRepository.searchWithLiveTicket(
-                paymentStatus, ticketStatus, codeStatus, normalizedKeyword, PageRequest.of(pageNumber, pageSize));
+                paymentStatus, ticketStatus, codeStatus, normalizedKeyword, rewardTier, recordedStatus, pending,
+                PageRequest.of(pageNumber, pageSize));
+        List<Long> orderIds = result.getContent().stream().map(row -> ((FundingOrder) row[0]).getId()).toList();
+        Map<Long, TumblbugOrderDetailResponse> tumblbugDetails = tumblbugImportRecordService.getDetails(orderIds);
+        List<Long> ticketIds = result.getContent().stream().map(row -> (ClassTicket) row[1])
+                .filter(java.util.Objects::nonNull).map(ClassTicket::getId).toList();
+        Map<Long, DeliveryStatus> deliveries = ticketIds.isEmpty() ? Map.of()
+                : ticketDeliveryAttemptRepository.findByTicketIdInOrderByIdDesc(ticketIds).stream()
+                        .collect(Collectors.toMap(a -> a.getTicket().getId(), TicketDeliveryAttempt::getStatus,
+                                (latest, ignored) -> latest));
         List<FundingOrderSummaryResponse> items = result.getContent().stream()
-                .map(row -> toSummary((FundingOrder) row[0], (ClassTicket) row[1]))
+                .map(row -> toSummary((FundingOrder) row[0], (ClassTicket) row[1],
+                        tumblbugDetails.get(((FundingOrder) row[0]).getId()),
+                        row[1] == null ? null : deliveries.get(((ClassTicket) row[1]).getId())))
                 .toList();
         return new FundingOrderPageResponse(items, pageNumber, pageSize, result.getTotalElements(), result.hasNext());
     }
@@ -373,7 +404,8 @@ public class AdminFundingService {
                 countRegisterReminderTargets(RegisterReminderStage.D7, now));
     }
 
-    private static FundingOrderSummaryResponse toSummary(FundingOrder order, ClassTicket ticket) {
+    private static FundingOrderSummaryResponse toSummary(FundingOrder order, ClassTicket ticket,
+                                                         TumblbugOrderDetailResponse tumblbug, DeliveryStatus deliveryStatus) {
         FundingOrderSummaryResponse.Ticket ticketView = null;
         if (ticket != null) {
             User registrant = ticket.getRegisteredUser();
@@ -387,7 +419,11 @@ public class AdminFundingService {
         return new FundingOrderSummaryResponse(order.getId(), order.getPlatform(), order.getCampaignId(),
                 order.getOrderId(), order.getRewardTier(), order.getQuantity(), order.getSupporterName(),
                 order.getSupporterEmail(), order.getSupporterPhone(), order.getPaymentStatus(), order.getPaidAt(),
-                issuable, ticketView);
+                issuable, ticketView, tumblbug,
+                deliveryStatus == null ? com.swyp.picke.domain.funding.enums.DeliveryStatus.PENDING
+                        : deliveryStatus == DeliveryStatus.SUCCESS
+                                ? com.swyp.picke.domain.funding.enums.DeliveryStatus.SENT
+                                : com.swyp.picke.domain.funding.enums.DeliveryStatus.FAILED);
     }
 
     // ───────────── 공통 ─────────────

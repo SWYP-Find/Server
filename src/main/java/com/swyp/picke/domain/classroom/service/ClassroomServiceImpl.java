@@ -89,7 +89,7 @@ public class ClassroomServiceImpl implements ClassroomService {
         ticket = classTicketRepository.findByIdForUpdate(ticket.getId()).orElse(ticket);
         Classroom duplicate = requestKey != null
                 ? findByRequestKey(userId, requestKey, requestHash)
-                : findRecentDuplicate(userId, request, now);
+                : findRecentDuplicate(userId, request);
         if (duplicate != null) {
             log.info("클래스 중복 생성 요청 - 기존 클래스 반환 classId: {}, ownerId: {}", duplicate.getId(), userId);
             return ClassroomConverter.toDetail(duplicate, ClassMemberRole.OWNER, seatCountOf(duplicate), now);
@@ -272,9 +272,11 @@ public class ClassroomServiceImpl implements ClassroomService {
      * 요청 키 없이 연속 탭·재전송으로 들어온 같은 생성 요청인지 판정한다.
      * 같은 운영자·같은 이름·같은 배틀(또는 주제 버전)으로 {@link #DUPLICATE_WINDOW_SECONDS}초 안에 만든 클래스가 있으면 그 클래스.
      * 이용권 기간 안에서 클래스 생성 수는 무제한이라, 이름이나 배틀이 다르면 새로 만든다.
+     * createdAt 은 JPA Auditing 이 서버 기본 시간대로 채우므로, 비교 기준도 KST 가 아닌 서버 기본 시간대로 잡는다.
      */
-    private Classroom findRecentDuplicate(Long userId, ClassCreateRequest request, LocalDateTime now) {
+    private Classroom findRecentDuplicate(Long userId, ClassCreateRequest request) {
         String name = request.name().strip();
+        LocalDateTime now = LocalDateTime.now();
         return classroomRepository.findByOwnerIdAndNameAndStatusAndCreatedAtAfterOrderByIdDesc(
                         userId, name, ClassStatus.ACTIVE, now.minusSeconds(DUPLICATE_WINDOW_SECONDS))
                 .stream()

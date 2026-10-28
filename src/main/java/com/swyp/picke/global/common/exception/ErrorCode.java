@@ -12,6 +12,7 @@ public enum ErrorCode {
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_500", "서버 오류가 발생했습니다. 관리자에게 문의해 주세요."),
     BAD_REQUEST(HttpStatus.BAD_REQUEST, "COMMON_400", "잘못된 요청입니다."),
     COMMON_INVALID_PARAMETER(HttpStatus.BAD_REQUEST, "COMMON_400", "요청 파라미터가 잘못되었습니다."),
+    COMMON_CONFLICT(HttpStatus.CONFLICT, "COMMON_409", "요청이 현재 데이터 상태와 충돌합니다."),
 
     // File & S3
     FILE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "FILE_500", "파일 업로드 중 오류가 발생했습니다."),
@@ -89,7 +90,7 @@ public enum ErrorCode {
     PERSPECTIVE_FORBIDDEN(HttpStatus.FORBIDDEN, "PERSPECTIVE_403", "본인 관점만 수정/삭제할 수 있습니다."),
     PERSPECTIVE_POST_VOTE_REQUIRED(HttpStatus.CONFLICT, "PERSPECTIVE_VOTE_409", "사후 투표가 완료되지 않았습니다."),
     PERSPECTIVE_MODERATION_NOT_FAILED(HttpStatus.BAD_REQUEST, "PERSPECTIVE_400", "검수 실패 상태의 관점이 아닙니다."),
-    PERSPECTIVE_CONTENT_TOO_LONG(HttpStatus.BAD_REQUEST, "PERSPECTIVE_400_LEN", "관점 내용은 200자를 초과할 수 없습니다."),
+    PERSPECTIVE_CONTENT_TOO_LONG(HttpStatus.BAD_REQUEST, "PERSPECTIVE_400_LEN", "의견·댓글은 200자를 초과할 수 없습니다."),
 
     // Comment
     COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMENT_NOT_FOUND", "존재하지 않는 댓글입니다."),
@@ -138,6 +139,11 @@ public enum ErrorCode {
     TICKET_ALREADY_ACTIVE(HttpStatus.CONFLICT, "TICKET_409_ACTIVE", "이미 사용 중인 이용권이 있습니다. 만료 후 등록할 수 있습니다."),
     TICKET_NOT_FOUND(HttpStatus.NOT_FOUND, "TICKET_404", "등록된 이용권이 없습니다."),
     TICKET_STATE_CONFLICT(HttpStatus.CONFLICT, "TICKET_409_STATE", "현재 상태에서는 처리할 수 없는 이용권입니다."),
+    TICKET_CODE_NOT_RETRIEVABLE(HttpStatus.CONFLICT, "TICKET_409_CODE_NOT_RETRIEVABLE", "이용권 코드 보관 기능 도입 전에 발급된 코드라 다시 조회할 수 없습니다. 미등록 코드만 재발급할 수 있습니다."),
+    TICKET_CODE_STORAGE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "TICKET_503_CODE_STORAGE", "이용권 코드 암호화 설정이 없거나 올바르지 않습니다."),
+    FUNDING_DUPLICATE_SUPPORTER(HttpStatus.CONFLICT, "FUNDING_409_DUPLICATE", "이미 등록된 캠페인 후원번호와 리워드입니다."),
+    TUMBLBUG_PLAN_CONFLICT(HttpStatus.CONFLICT, "FUNDING_409_PLAN", "캠페인에 저장된 텀블벅 요금제와 요청 요금제가 다릅니다."),
+    TUMBLBUG_PLAN_FEATURE_UNAVAILABLE(HttpStatus.CONFLICT, "FUNDING_409_PLAN_FEATURE", "이 요금제에서는 텀블벅 디지털 선물 XLSX 기능을 사용할 수 없습니다."),
 
     // Funding (어드민 펀딩 명단·발급)
     FUNDING_ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "FUNDING_404_ORDER", "존재하지 않는 펀딩 주문입니다."),

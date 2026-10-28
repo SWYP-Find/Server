@@ -11,7 +11,7 @@ public record FundingImportResponse(
         @Schema(description = "값이 바뀌어 갱신된 주문 수") int updated,
         @Schema(description = "값 변화가 없던 주문 수") int unchanged,
         @Schema(description = "반영하지 못한 행 수 (= errors.size())") int errorCount,
-        @Schema(description = "업로드 후 기준, 지금 발급 가능한 주문 수 (결제 확정·수량 1·미발급)") long issuableCount,
+        @Schema(description = "업로드 후 기준, 지금 발급 가능한 주문 수 (결제 완료·남은 수량 있음)") long issuableCount,
         @Schema(description = "보류 주문 수 (결제 확정이지만 수량이 1이 아니거나 결제일 없음, 결제 대기·예약)") long heldCount,
         List<RowError> errors
 ) {

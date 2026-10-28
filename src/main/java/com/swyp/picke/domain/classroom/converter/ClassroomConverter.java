@@ -31,15 +31,14 @@ public final class ClassroomConverter {
         );
     }
 
-    /** 초대코드는 운영자에게만 내려간다. */
+    /** 초대코드는 공유하기 버튼용으로 운영자·멤버 모두에게 내려간다. */
     public static ClassDetailResponse toDetail(Classroom classroom, ClassMemberRole myRole, long memberCount,
                                                LocalDateTime now) {
         Battle battle = classroom.getBattle();
-        boolean owner = myRole == ClassMemberRole.OWNER;
         return new ClassDetailResponse(
                 classroom.getId(),
                 classroom.getName(),
-                owner ? classroom.getInviteCode() : null,
+                classroom.getInviteCode(),
                 myRole,
                 classroom.getOwner().getId(),
                 new ClassDetailResponse.BattleInfo(

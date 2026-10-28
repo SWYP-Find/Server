@@ -18,6 +18,9 @@ public interface ClassMemberRepository extends JpaRepository<ClassMember, Long> 
 
     Optional<ClassMember> findByIdAndClassroomId(Long id, Long classroomId);
 
+    /** 의견·댓글 작성자 표시 이름 일괄 조회용. 나간·내보낸 멤버의 글은 숨기므로 ACTIVE 만 조회한다 */
+    List<ClassMember> findByClassroomIdAndUserIdInAndStatus(Long classroomId, Collection<Long> userIds, ClassMemberStatus status);
+
     /** 동명이인 검사: ACTIVE 멤버끼리만 이름이 유일하면 된다 */
     boolean existsByClassroomIdAndDisplayNameAndStatus(Long classroomId, String displayName, ClassMemberStatus status);
 

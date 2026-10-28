@@ -28,10 +28,13 @@ import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.enums.VoteSide;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.domain.user.service.UserBattleService;
+import com.swyp.picke.domain.classroom.dto.request.ClassMidVoteRequest;
 import com.swyp.picke.domain.vote.dto.request.VoteRequest;
 import com.swyp.picke.domain.vote.entity.BattleVote;
 import com.swyp.picke.domain.vote.repository.BattleVoteRepository;
 import com.swyp.picke.domain.vote.service.BattleVoteService;
+import com.swyp.picke.global.common.exception.CustomException;
+import com.swyp.picke.global.common.exception.ErrorCode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -45,6 +48,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -75,6 +79,8 @@ class ClassBattleServiceImplTest {
     private PerspectiveRepository perspectiveRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private ClassMidVoteService classMidVoteService;
 
     @InjectMocks
     private ClassBattleServiceImpl service;
@@ -190,6 +196,20 @@ class ClassBattleServiceImplTest {
         verify(battleVoteService).preVote(BATTLE_ID, STUDENT_ID, classroom, request);
         verify(battleVoteService).completeTts(BATTLE_ID, STUDENT_ID, classroom);
         verify(battleVoteService).postVote(BATTLE_ID, STUDENT_ID, classroom, request);
+    }
+
+    @Test
+    @DisplayName("중간투표: 쓰기 권한 확인 후 ClassMidVoteService 로 위임한다")
+    void midVote_delegatesToMidVoteService() {
+        ClassMember member = member(student, ClassMemberRole.MEMBER);
+        when(classAccessService.requireWritable(eq(CLASS_ID), eq(STUDENT_ID), any(LocalDateTime.class)))
+                .thenReturn(new ClassAccess(classroom, ClassMemberRole.MEMBER, member));
+        when(userRepository.findById(STUDENT_ID)).thenReturn(Optional.of(student));
+        ClassMidVoteRequest request = new ClassMidVoteRequest(31L, 41L);
+
+        service.midVote(STUDENT_ID, CLASS_ID, request);
+
+        verify(classMidVoteService).record(classroom, student, request);
     }
 
     @Test

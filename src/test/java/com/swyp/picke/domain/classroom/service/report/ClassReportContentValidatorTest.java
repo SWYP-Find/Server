@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.classroom.service.report;
 
+import com.swyp.picke.domain.classroom.dto.response.ClassMidVoteInfo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -21,7 +22,7 @@ class ClassReportContentValidatorTest {
     private static final MemberFeedbackInput.OptionInfo B = new MemberFeedbackInput.OptionInfo(2L, "선택지 2", "반대");
 
     private static MemberFeedbackInput input(int excluded) {
-        return new MemberFeedbackInput("제목", "요약", List.of(A, B), A, B, List.of(
+        return new MemberFeedbackInput("제목", "요약", List.of(A, B), A, List.of(), B, List.of(
                 new MemberFeedbackInput.Statement("p:10", MemberFeedbackInput.SOURCE_PERSPECTIVE, 10L, LocalDateTime.now(),
                         "반대", "비용 대비 효과가 불분명해서 반대합니다. 데이터가 더 필요해요.", null),
                 new MemberFeedbackInput.Statement("c:20", MemberFeedbackInput.SOURCE_COMMENT, 20L, LocalDateTime.now(),
@@ -135,7 +136,7 @@ class ClassReportContentValidatorTest {
     @Test
     @DisplayName("투표만 한 사람의 템플릿은 선택 변화만 말하고 강점·보완점은 null 이다")
     void limitedTemplate() {
-        Map<String, Object> changed = ClassReportContentValidator.limitedMemberFeedback(A, B);
+        Map<String, Object> changed = ClassReportContentValidator.limitedMemberFeedback(A, null, B);
         assertThat(changed).containsEntry("judgment_basis", "선택이 선택지 1에서 선택지 2로 바뀌었어요.")
                 .containsEntry("headline", "선택의 이유를 확인할 글이 아직 없어요")
                 .containsEntry("next_question", "지금의 선택을 한 가장 중요한 이유는 무엇인가요?")
@@ -143,7 +144,23 @@ class ClassReportContentValidatorTest {
         assertThat(changed.get("strength")).isNull();
         assertThat(changed.get("next_focus")).isNull();
 
-        Map<String, Object> same = ClassReportContentValidator.limitedMemberFeedback(A, A);
-        assertThat(same).containsEntry("judgment_basis", "처음부터 끝까지 선택지 1를 선택했어요.");
+        Map<String, Object> same = ClassReportContentValidator.limitedMemberFeedback(A, List.of(), A);
+        assertThat(same).containsEntry("judgment_basis", "처음부터 끝까지 선택지 1를 선택했어요.")
+                .containsEntry("mid_choices", List.of());
+    }
+
+    @Test
+    @DisplayName("중간투표가 있으면 템플릿이 콘텐츠 중 고른 문구를 덧붙이고 지점별로 저장한다")
+    void limitedTemplate_withMidVote() {
+        List<ClassMidVoteInfo> mid = List.of(new ClassMidVoteInfo(31L, 41L, "유죄"), new ClassMidVoteInfo(32L, 43L, "무죄"));
+        Map<String, Object> wavered = ClassReportContentValidator.limitedMemberFeedback(A, mid, A);
+        assertThat(wavered).containsEntry("judgment_basis", "처음부터 끝까지 선택지 1를 선택했어요. 콘텐츠 중간에는 '유죄', '무죄' 쪽을 골랐어요.")
+                .containsEntry("pre_option_id", 1L)
+                .containsEntry("post_option_id", 1L);
+        assertThat((List<?>) wavered.get("mid_choices")).hasSize(2);
+
+        Map<String, Object> noMid = ClassReportContentValidator.limitedMemberFeedback(A, null, B);
+        assertThat(noMid).containsEntry("judgment_basis", "선택이 선택지 1에서 선택지 2로 바뀌었어요.");
+        assertThat((List<?>) noMid.get("mid_choices")).isEmpty();
     }
 }

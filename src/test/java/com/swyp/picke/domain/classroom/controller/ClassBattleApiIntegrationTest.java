@@ -1,5 +1,12 @@
 package com.swyp.picke.domain.classroom.controller;
 
+import com.swyp.picke.domain.scenario.repository.ScenarioRepository;
+import com.swyp.picke.domain.scenario.enums.ScenarioStatus;
+import com.swyp.picke.domain.scenario.enums.CreatorType;
+import com.swyp.picke.domain.scenario.entity.ScenarioNode;
+import com.swyp.picke.domain.scenario.entity.Scenario;
+import com.swyp.picke.domain.scenario.entity.InteractiveOption;
+import com.swyp.picke.domain.classroom.repository.ClassMidVoteRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.swyp.picke.domain.battle.entity.Battle;
@@ -107,6 +114,10 @@ class ClassBattleApiIntegrationTest {
     @Autowired
     private BattleVoteRepository battleVoteRepository;
     @Autowired
+    private ClassMidVoteRepository classMidVoteRepository;
+    @Autowired
+    private ScenarioRepository scenarioRepository;
+    @Autowired
     private UserBattleRepository userBattleRepository;
     @Autowired
     private PerspectiveRepository perspectiveRepository;
@@ -148,6 +159,7 @@ class ClassBattleApiIntegrationTest {
     void tearDown() {
         cleanUp();
         for (Long battleId : createdBattleIds) {
+            scenarioRepository.findByBattleId(battleId).ifPresent(scenarioRepository::delete);
             battleRepository.findById(battleId).ifPresent(b -> {
                 battleOptionRepository.deleteAll(battleOptionRepository.findByBattle(b));
                 battleRepository.delete(b);
@@ -168,6 +180,7 @@ class ClassBattleApiIntegrationTest {
         perspectiveLikeRepository.deleteAll();
         perspectiveCommentRepository.deleteAll();
         perspectiveRepository.deleteAll();
+        classMidVoteRepository.deleteAll();
         battleVoteRepository.deleteAll();
         userBattleRepository.deleteAll();
         classMemberRepository.deleteAll();
@@ -702,6 +715,125 @@ class ClassBattleApiIntegrationTest {
                 .andExpect(jsonPath("$.data.status").value("PRE_VOTE"));
     }
 
+    @Test
+    @DisplayName("중간투표: 사전투표 전 404 → 사전투표 → 선택 지점 응답(사전투표 잠김·변경 가능) → TTS → 사후투표 → 이후 중간투표 409")
+    void midVote_flow() throws Exception {
+        ScenarioNode checkpoint = midVoteScenario(battle);
+        ClassInfo cls = createClass(false);
+        User student = newUser("학생M");
+        String token = tokenOf(student);
+        join(token, cls.inviteCode, "학생M").andExpect(status().isOk());
+
+        mockMvc.perform(get(classBattle(cls)).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.midVoteEnabled").value(true));
+
+        // 사전투표 전에는 중간투표 불가
+        midVote(token, cls, checkpoint, 0).andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("VOTE_404"));
+
+        vote(token, cls, "/votes/pre", optionA).andExpect(status().isOk());
+        // 콘텐츠 중 선택 → 진행 단계가 재생 중으로 올라가고 사전투표는 잠긴다
+        midVote(token, cls, checkpoint, 1).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("TTS_LISTENING"));
+        vote(token, cls, "/votes/pre", optionB).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_PRE_VOTE_LOCKED"));
+
+        // 사후투표 전에는 다시 고를 수 있다 (같은 지점은 1건으로 덮어쓴다)
+        midVote(token, cls, checkpoint, 0).andExpect(status().isOk());
+        listen(token, cls);
+        midVote(token, cls, checkpoint, 1).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("POST_VOTE"));
+        mockMvc.perform(get(classBattle(cls) + "/votes/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.preVote.optionId").value(optionA.getId()))
+                .andExpect(jsonPath("$.data.midVotes.length()").value(1))
+                .andExpect(jsonPath("$.data.midVotes[0].checkpointId").value(checkpoint.getId()))
+                .andExpect(jsonPath("$.data.midVotes[0].optionId").value(checkpoint.getOptions().get(1).getId()))
+                .andExpect(jsonPath("$.data.midVotes[0].label").value("무죄"))
+                .andExpect(jsonPath("$.data.postVote").doesNotExist());
+
+        vote(token, cls, "/votes/post", optionA).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
+        midVote(token, cls, checkpoint, 0).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_MID_VOTE_LOCKED"));
+        mockMvc.perform(get(classBattle(cls) + "/votes/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.midVotes[0].label").value("무죄"))
+                .andExpect(jsonPath("$.data.postVote.optionId").value(optionA.getId()));
+    }
+
+    @Test
+    @DisplayName("필수 중간투표: 선택 지점에 답하지 않으면 사후투표 409 CLASS_409_MID_VOTE_REQUIRED, 답하면 사후투표 가능")
+    void midVote_requiredBeforePostVote() throws Exception {
+        ScenarioNode checkpoint = midVoteScenario(battle);
+        ClassInfo cls = createClass(false);
+        String token = tokenOf(newUser("학생R"));
+        join(token, cls.inviteCode, "학생R").andExpect(status().isOk());
+
+        vote(token, cls, "/votes/pre", optionA).andExpect(status().isOk());
+        listen(token, cls);
+        vote(token, cls, "/votes/post", optionB).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_MID_VOTE_REQUIRED"));
+
+        midVote(token, cls, checkpoint, 0).andExpect(status().isOk());
+        vote(token, cls, "/votes/post", optionB).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
+    }
+
+    @Test
+    @DisplayName("중간투표가 없는 배틀(설정 꺼짐 또는 선택 지점 없음)이면 상세 midVoteEnabled=false, 중간투표 요청은 409 CLASS_409_MID_VOTE")
+    void midVote_notEnabled() throws Exception {
+        ClassInfo cls = createClass(false);
+        User student = newUser("학생N");
+        String token = tokenOf(student);
+        join(token, cls.inviteCode, "학생N").andExpect(status().isOk());
+
+        mockMvc.perform(get(classBattle(cls)).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.midVoteEnabled").value(false));
+        vote(token, cls, "/votes/pre", optionA).andExpect(status().isOk());
+        midVote(token, cls, 1L, 1L).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_MID_VOTE"));
+        // 거절된 요청은 단계를 바꾸지 않는다 → 사전투표 변경 가능
+        vote(token, cls, "/votes/pre", optionB).andExpect(status().isOk());
+
+        // 설정만 켜져 있고 시나리오에 선택 지점이 없으면 여전히 대상이 아니다. 사후투표도 막지 않는다
+        battle.updateClassSettings(null, null, null, true);
+        battleRepository.save(battle);
+        mockMvc.perform(get(classBattle(cls)).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.midVoteEnabled").value(false));
+        midVote(token, cls, 1L, 1L).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_MID_VOTE"));
+        listen(token, cls);
+        vote(token, cls, "/votes/post", optionA).andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("중간투표: 없는 지점·다른 지점의 선택지 404, 비멤버 403, 마감 후 409 CLASS_409_CLOSED")
+    void midVote_rejectsInvalidRequests() throws Exception {
+        ScenarioNode checkpoint = midVoteScenario(battle);
+        ClassInfo cls = createClass(false);
+        User student = newUser("학생O");
+        String token = tokenOf(student);
+        join(token, cls.inviteCode, "학생O").andExpect(status().isOk());
+        vote(token, cls, "/votes/pre", optionA).andExpect(status().isOk());
+
+        Long optionId = checkpoint.getOptions().get(0).getId();
+        midVote(token, cls, checkpoint.getId() + 999, optionId).andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("CLASS_404_MID_VOTE_OPTION"));
+        midVote(token, cls, checkpoint.getId(), optionId + 999).andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("CLASS_404_MID_VOTE_OPTION"));
+
+        String outsiderToken = tokenOf(newUser("외부인"));
+        midVote(outsiderToken, cls, checkpoint, 0).andExpect(status().isForbidden());
+
+        closeClass(cls.classId);
+        midVote(token, cls, checkpoint, 1).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_CLOSED"));
+    }
+
     // ===== 헬퍼 =====
 
     private record ClassInfo(long classId, String inviteCode) {
@@ -810,6 +942,35 @@ class ClassBattleApiIntegrationTest {
                 .build());
         createdBattleIds.add(saved.getId());
         return saved;
+    }
+
+    /** 선택 지점 1개(선택지 2개)짜리 시나리오. 반환값은 그 지점 노드 */
+    private ScenarioNode midVoteScenario(Battle target) {
+        target.updateClassSettings(null, null, null, true);
+        battleRepository.save(target);
+        Scenario scenario = Scenario.builder()
+                .battle(target)
+                .isInteractive(true)
+                .status(ScenarioStatus.PUBLISHED)
+                .creatorType(CreatorType.ADMIN)
+                .build();
+        ScenarioNode node = ScenarioNode.builder().nodeName("선택의 시간").isStartNode(true).build();
+        node.addOption(InteractiveOption.builder().label("유죄").title("유죄 설명").build());
+        node.addOption(InteractiveOption.builder().label("무죄").title("무죄 설명").build());
+        scenario.addNode(node);
+        scenarioRepository.save(scenario);
+        return node;
+    }
+
+    private ResultActions midVote(String token, ClassInfo cls, ScenarioNode checkpoint, int optionIndex) throws Exception {
+        return midVote(token, cls, checkpoint.getId(), checkpoint.getOptions().get(optionIndex).getId());
+    }
+
+    private ResultActions midVote(String token, ClassInfo cls, Long checkpointId, Long optionId) throws Exception {
+        return mockMvc.perform(post(classBattle(cls) + "/votes/mid")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("checkpointId", checkpointId, "optionId", optionId))));
     }
 
     private BattleOption newOption(Battle battle, int order) {

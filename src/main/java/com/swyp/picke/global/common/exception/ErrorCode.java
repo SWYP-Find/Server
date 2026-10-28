@@ -203,7 +203,11 @@ public enum ErrorCode {
     CLASS_DEBATE_REPLY_PERSONAL_INFO(HttpStatus.BAD_REQUEST, "CLASS_400_DEBATE_PERSONAL_INFO", "전화번호·이메일 같은 개인정보는 지우고 보내 주세요."),
     CLASS_DEBATE_REPLY_BLOCKED(HttpStatus.BAD_REQUEST, "CLASS_400_DEBATE_BLOCKED", "다른 사람을 위협하거나 해칠 수 있는 표현은 보낼 수 없어요. 내용을 고쳐 주세요."),
     CLASS_DEBATE_NOT_RETRYABLE(HttpStatus.CONFLICT, "CLASS_409_DEBATE_RETRY", "지금은 다시 시도할 수 없어요."),
-    CLASS_DEBATE_NOT_COMPLETED(HttpStatus.CONFLICT, "CLASS_409_DEBATE_INCOMPLETE", "AI 철학자와의 토론을 마친 뒤 사후투표를 할 수 있어요.");
+    CLASS_DEBATE_NOT_COMPLETED(HttpStatus.CONFLICT, "CLASS_409_DEBATE_INCOMPLETE", "AI 철학자와의 토론을 마친 뒤 사후투표를 할 수 있어요."),
+    CLASS_MID_VOTE_NOT_SUPPORTED(HttpStatus.CONFLICT, "CLASS_409_MID_VOTE", "중간투표가 없는 배틀입니다."),
+    CLASS_MID_VOTE_LOCKED(HttpStatus.CONFLICT, "CLASS_409_MID_VOTE_LOCKED", "사후투표를 마친 뒤에는 중간투표를 바꿀 수 없어요."),
+    CLASS_MID_VOTE_REQUIRED(HttpStatus.CONFLICT, "CLASS_409_MID_VOTE_REQUIRED", "콘텐츠 중간의 선택을 마친 뒤 사후투표를 할 수 있어요."),
+    CLASS_MID_VOTE_OPTION_NOT_FOUND(HttpStatus.NOT_FOUND, "CLASS_404_MID_VOTE_OPTION", "존재하지 않는 중간투표 선택지입니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

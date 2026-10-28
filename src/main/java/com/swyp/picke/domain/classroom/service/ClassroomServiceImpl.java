@@ -57,6 +57,8 @@ public class ClassroomServiceImpl implements ClassroomService {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final int INVITE_CODE_MAX_ATTEMPTS = 10;
+    /** 같은 생성 요청으로 보는 시간 범위. 연속 탭·네트워크 재전송을 잡을 만큼만 짧게 둔다. */
+    private static final long DUPLICATE_WINDOW_SECONDS = 10;
 
     private final ClassroomRepository classroomRepository;
     private final ClassMemberRepository classMemberRepository;
@@ -76,6 +78,13 @@ public class ClassroomServiceImpl implements ClassroomService {
         ClassTicket ticket = findUsableTicket(userId, now);
         if ((request.battleId() == null) == (request.topicVersionId() == null)) {
             throw new CustomException(ErrorCode.CLASS_BATTLE_SOURCE_INVALID);
+        }
+        // 같은 이용권의 생성 요청은 행 잠금으로 한 번에 하나씩 처리한 뒤, 직전에 만든 같은 클래스가 있으면 그것을 돌려준다
+        ticket = classTicketRepository.findByIdForUpdate(ticket.getId()).orElse(ticket);
+        Classroom duplicate = findRecentDuplicate(userId, request, now);
+        if (duplicate != null) {
+            log.info("클래스 중복 생성 요청 - 기존 클래스 반환 classId: {}, ownerId: {}", duplicate.getId(), userId);
+            return ClassroomConverter.toDetail(duplicate, ClassMemberRole.OWNER, seatCountOf(duplicate), now);
         }
         ClassTopicVersion topicVersion = request.topicVersionId() == null ? null : findOwnTopicVersion(userId, request.topicVersionId());
         Battle tts = topicVersion == null ? findClassBattle(request.battleId()) : null;
@@ -212,6 +221,28 @@ public class ClassroomServiceImpl implements ClassroomService {
     }
 
     // ===== 생성 검증 =====
+
+    /**
+     * 연속 탭·재전송으로 들어온 같은 생성 요청인지 판정한다.
+     * 같은 운영자·같은 이름·같은 배틀(또는 주제 버전)으로 {@link #DUPLICATE_WINDOW_SECONDS}초 안에 만든 클래스가 있으면 그 클래스.
+     * 이용권 기간 안에서 클래스 생성 수는 무제한이라, 이름이나 배틀이 다르면 새로 만든다.
+     */
+    private Classroom findRecentDuplicate(Long userId, ClassCreateRequest request, LocalDateTime now) {
+        String name = request.name().strip();
+        return classroomRepository.findByOwnerIdAndNameAndStatusAndCreatedAtAfterOrderByIdDesc(
+                        userId, name, ClassStatus.ACTIVE, now.minusSeconds(DUPLICATE_WINDOW_SECONDS))
+                .stream()
+                .filter(c -> isSameBattleSource(c, request))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private static boolean isSameBattleSource(Classroom classroom, ClassCreateRequest request) {
+        if (request.topicVersionId() != null) {
+            return classroom.getTopicVersion() != null && request.topicVersionId().equals(classroom.getTopicVersion().getId());
+        }
+        return classroom.getTopicVersion() == null && request.battleId().equals(classroom.getBattle().getId());
+    }
 
     /**
      * 사용 중(ACTIVE) 이용권이 없거나 기간이 끝났으면 생성 불가.

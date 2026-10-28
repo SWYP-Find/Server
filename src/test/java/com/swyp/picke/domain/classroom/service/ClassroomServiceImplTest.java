@@ -30,6 +30,7 @@ import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -45,6 +46,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -116,6 +118,29 @@ class ClassroomServiceImplTest {
         assertThat(response.memberCount()).isEqualTo(1);
         assertThat(response.closeAt()).isEqualTo(ticket.getExpiresAt());
         assertThat(response.closed()).isFalse();
+    }
+
+    @Test
+    @DisplayName("직전에 같은 이름·배틀로 만든 클래스가 있으면 새로 만들지 않고 그 클래스를 돌려준다")
+    void create_duplicateRequest_returnsExisting() {
+        when(userRepository.findById(OWNER_ID)).thenReturn(Optional.of(owner));
+        when(classTicketRepository.findByRegisteredUserIdAndStatus(OWNER_ID, TicketStatus.ACTIVE))
+                .thenReturn(Optional.of(ticket));
+        Classroom existing = classroom(null);
+        ReflectionTestUtils.setField(existing, "name", "3학년 2반");
+        when(classroomRepository.findByOwnerIdAndNameAndStatusAndCreatedAtAfterOrderByIdDesc(
+                eq(OWNER_ID), eq("3학년 2반"), eq(ClassStatus.ACTIVE), any(LocalDateTime.class)))
+                .thenReturn(List.of(existing));
+        when(classMemberRepository.countByClassroomIdAndSeatHeldTrue(CLASS_ID)).thenReturn(1L);
+
+        ClassDetailResponse response = service.create(OWNER_ID,
+                new ClassCreateRequest(" 3학년 2반 ", BATTLE_ID, null, null, true, true, null));
+
+        assertThat(response.classId()).isEqualTo(CLASS_ID);
+        assertThat(response.memberCount()).isEqualTo(1);
+        verify(classTicketRepository).findByIdForUpdate(ticket.getId());
+        verify(classroomRepository, never()).save(any(Classroom.class));
+        verify(classMemberRepository, never()).save(any(ClassMember.class));
     }
 
     @Test

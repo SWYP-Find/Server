@@ -33,6 +33,13 @@ import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -147,6 +154,63 @@ class ClassroomApiIntegrationTest {
         Classroom saved = classroomRepository.findById(classId).orElseThrow();
         assertThat(saved.getTicket().getId()).isEqualTo(ownerTicket.getId());
         assertThat(classMemberRepository.countByClassroomIdAndSeatHeldTrue(classId)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("같은 생성 요청을 연속으로 보내면 클래스는 하나만 생기고 같은 클래스를 돌려준다")
+    void create_duplicateRequest_returnsSameClass() throws Exception {
+        String body = objectMapper.writeValueAsString(createBody("3학년 2반", battle.getId(), null, true));
+        long first = dataOf(mockMvc.perform(post("/api/v1/classes")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk()).andReturn()).get("classId").asLong();
+        long second = dataOf(mockMvc.perform(post("/api/v1/classes")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.memberCount").value(1))
+                .andReturn()).get("classId").asLong();
+
+        assertThat(second).isEqualTo(first);
+        assertThat(classroomRepository.count()).isEqualTo(1);
+        assertThat(classMemberRepository.count()).isEqualTo(1);
+
+        // 이름이 다르면 별개 요청이라 새로 만든다
+        mockMvc.perform(post("/api/v1/classes")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createBody("3학년 3반", battle.getId(), null, true))))
+                .andExpect(status().isOk());
+        assertThat(classroomRepository.count()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("같은 생성 요청이 동시에 들어와도 클래스는 하나만 생긴다")
+    void create_concurrentDuplicateRequests_createOnlyOne() throws Exception {
+        String body = objectMapper.writeValueAsString(createBody("3학년 2반", battle.getId(), null, true));
+        int threads = 4;
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<Long>> results = new ArrayList<>();
+        for (int i = 0; i < threads; i++) {
+            results.add(pool.submit(() -> {
+                start.await();
+                return dataOf(mockMvc.perform(post("/api/v1/classes")
+                                .header("Authorization", "Bearer " + ownerToken)
+                                .contentType(MediaType.APPLICATION_JSON).content(body))
+                        .andExpect(status().isOk()).andReturn()).get("classId").asLong();
+            }));
+        }
+        start.countDown();
+        Set<Long> classIds = new HashSet<>();
+        for (Future<Long> result : results) {
+            classIds.add(result.get(30, TimeUnit.SECONDS));
+        }
+        pool.shutdown();
+
+        assertThat(classIds).hasSize(1);
+        assertThat(classroomRepository.count()).isEqualTo(1);
+        assertThat(classMemberRepository.count()).isEqualTo(1);
     }
 
     @Test

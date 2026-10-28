@@ -5,6 +5,7 @@ import com.swyp.picke.domain.perspective.entity.PerspectiveLike;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
@@ -22,6 +23,15 @@ public interface PerspectiveLikeRepository extends JpaRepository<PerspectiveLike
     List<PerspectiveLike> findByUserIdOrderByCreatedAtDesc(@Param("userId") Long userId, Pageable pageable);
 
     long countByUserId(Long userId);
+
+    @Query("""
+            select count(l) from PerspectiveLike l
+            where l.perspective.classroom.id = :classId
+              and l.perspective.user.id = :userId
+              and l.perspective.status = com.swyp.picke.domain.perspective.enums.PerspectiveStatus.PUBLISHED
+            """)
+    long countReceivedByUserInClass(@org.springframework.data.repository.query.Param("classId") Long classId,
+                                    @org.springframework.data.repository.query.Param("userId") Long userId);
 
     void deleteAllByPerspective(Perspective perspective);
 }

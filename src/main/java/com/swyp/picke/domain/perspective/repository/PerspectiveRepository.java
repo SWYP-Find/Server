@@ -5,6 +5,9 @@ import com.swyp.picke.domain.perspective.entity.Perspective;
 import com.swyp.picke.domain.perspective.enums.PerspectiveStatus;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -24,6 +27,10 @@ public interface PerspectiveRepository extends JpaRepository<Perspective, Long> 
     List<Perspective> findByClassroomIdAndStatusOrderByCreatedAtAsc(Long classroomId, PerspectiveStatus status);
 
     List<Perspective> findByClassroomIdAndUserIdAndStatusOrderByCreatedAtAsc(Long classroomId, Long userId, PerspectiveStatus status);
+
+    @Modifying(flushAutomatically = true)
+    @Query("update Perspective p set p.status = :hidden where p.user.id = :userId and p.status <> :hidden")
+    int hideAllByUserId(@Param("userId") Long userId, @Param("hidden") PerspectiveStatus hidden);
 
     // 마이페이지: 일반 배틀 의견만
     List<Perspective> findByUserIdAndClassroomIsNullOrderByCreatedAtDesc(Long userId, Pageable pageable);

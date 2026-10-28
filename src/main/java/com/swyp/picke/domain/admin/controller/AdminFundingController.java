@@ -11,8 +11,10 @@ import com.swyp.picke.domain.admin.dto.funding.response.FundingImportResponse;
 import com.swyp.picke.domain.admin.dto.funding.response.FundingOrderPageResponse;
 import com.swyp.picke.domain.admin.dto.funding.response.FundingRefundResponse;
 import com.swyp.picke.domain.admin.dto.funding.response.FundingSummaryResponse;
+import com.swyp.picke.domain.admin.dto.funding.response.AdminTicketCodeResponse;
 import com.swyp.picke.domain.admin.dto.funding.response.TicketDeliveryResponse;
 import com.swyp.picke.domain.admin.dto.funding.response.TicketIssueResponse;
+import com.swyp.picke.domain.admin.dto.funding.response.TumblbugCampaignDashboardResponse;
 import com.swyp.picke.domain.admin.service.AdminFundingService;
 import com.swyp.picke.domain.funding.enums.DeliveryStatus;
 import com.swyp.picke.domain.ticket.enums.PaymentStatus;
@@ -25,6 +27,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,7 +39,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 어드민 펀딩 명단·이용권 운영. 모든 API 는 ROLE_ADMIN.
- * 이용권 코드 원문은 발급·재발급 응답에서만 1회 노출되며 조회 API 에는 절대 포함되지 않는다.
+ * 이용권 코드 원문은 발급 응답 또는 별도 관리자 코드 조회 API 로만 노출됩니다.
  */
 @Tag(name = "관리자 펀딩·이용권 API", description = "펀딩 명단 CSV 가져오기, 이용권 코드 발급·전달 기록·재발급·환불, 주문/이용권 현황")
 @RestController
@@ -58,12 +61,23 @@ public class AdminFundingController {
     }
 
     @Operation(summary = "이용권 코드 발급",
-            description = "fundingOrderIds 를 비우면 발급 가능한 전체 주문(결제 확정·수량 1·미발급)에 발급합니다. "
-                    + "이미 살아 있는 이용권이 있는 주문은 건너뛰므로(ALREADY_ISSUED) 재실행해도 중복 발급되지 않습니다. "
-                    + "응답의 code 는 이 응답에서만 볼 수 있습니다 (서버는 해시만 저장).")
+            description = "fundingOrderIds 를 비우면 발급 가능한 전체 주문(결제 완료·미발급 수량 있음)에 발급합니다. "
+                    + "주문 수량만큼 발급하며 이미 수량을 모두 발급한 주문은 건너뛰므로 재실행해도 중복 발급되지 않습니다. "
+                    + "응답의 code 를 반환하고 서버는 해시와 암호문을 저장합니다.")
     @PostMapping("/tickets/issue")
     public ApiResponse<TicketIssueResponse> issueTickets(@RequestBody(required = false) TicketIssueRequest request) {
         return ApiResponse.onSuccess(adminFundingService.issueTickets(request));
+    }
+
+    @Operation(summary = "관리자 이용권 코드 조회", description = "대시보드에서 코드 전체 보기·복사할 때 호출합니다. ROLE_ADMIN 전용이며 조회 이력을 남깁니다.")
+    @GetMapping("/tickets/{ticketId}/code")
+    public org.springframework.http.ResponseEntity<ApiResponse<AdminTicketCodeResponse>> getTicketCode(
+            @PathVariable Long ticketId,
+            @AuthenticationPrincipal Long adminUserId
+    ) {
+        return org.springframework.http.ResponseEntity.ok()
+                .cacheControl(org.springframework.http.CacheControl.noStore())
+                .body(ApiResponse.onSuccess(adminFundingService.getTicketCode(ticketId, adminUserId)));
     }
 
     @Operation(summary = "이용권 전달 기록",
@@ -98,6 +112,7 @@ public class AdminFundingController {
             description = "주문과 살아 있는 이용권 요약 및 텀블벅 원본 정보(코드 원문·해시 제외). 주문번호·후원자명·이메일·후원번호 검색과 정원·전달 결과 필터를 지원합니다.")
     @GetMapping("/orders")
     public ApiResponse<FundingOrderPageResponse> getOrders(
+            @RequestParam(required = false) String campaignId,
             @RequestParam(required = false) PaymentStatus paymentStatus,
             @RequestParam(required = false) TicketStatus ticketStatus,
             @RequestParam(required = false) TicketCodeStatus codeStatus,
@@ -108,7 +123,16 @@ public class AdminFundingController {
             @RequestParam(defaultValue = "20") int size
     ) {
         return ApiResponse.onSuccess(
-                adminFundingService.getOrders(paymentStatus, ticketStatus, codeStatus, keyword, capacity, deliveryStatus, page, size));
+                adminFundingService.getOrders(campaignId, paymentStatus, ticketStatus, codeStatus, keyword, capacity, deliveryStatus, page, size));
+    }
+
+    @Operation(summary = "텀블벅 캠페인 대시보드 통계",
+            description = "캠페인의 후원 건수, 결제 완료, 전달 완료, 미전달 수를 조회합니다. 전달 완료는 최근 전달 기록이 성공인 주문 기준입니다.")
+    @GetMapping("/orders/tumblbug/dashboard")
+    public ApiResponse<TumblbugCampaignDashboardResponse> getTumblbugCampaignDashboard(
+            @RequestParam String campaignId
+    ) {
+        return ApiResponse.onSuccess(adminFundingService.getTumblbugCampaignDashboard(campaignId));
     }
 
     @Operation(summary = "등록기한 임박 알림 대상",

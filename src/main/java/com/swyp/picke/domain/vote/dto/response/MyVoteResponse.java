@@ -5,6 +5,7 @@ import com.swyp.picke.domain.user.enums.UserBattleStep;
 public record MyVoteResponse(
         String battleTitle,
         OptionInfo preVote,
+        OptionInfo midVote,
         OptionInfo postVote,
         UserBattleStep status,
         boolean opinionChanged

@@ -63,6 +63,9 @@ public final class ClassReportPrompts {
         }
         sb.append("\n[내 선택]\n");
         sb.append("사전투표: ").append(label(input.preOption())).append('\n');
+        if (input.midOption() != null) {
+            sb.append("중간투표(콘텐츠 중 선택): ").append(label(input.midOption())).append('\n');
+        }
         sb.append("사후투표: ").append(label(input.postOption())).append('\n');
         sb.append("\n[내 발언] (시간순, 총 ").append(input.statements().size()).append("건");
         if (input.isPartial()) {
@@ -92,10 +95,18 @@ public final class ClassReportPrompts {
         sb.append("\n[집계] (서버 계산값, 그대로만 사용)\n");
         sb.append("활성 참여자 ").append(stats.activeMemberCount()).append("명, 참여 완료 ").append(stats.completedCount())
                 .append("명 (참여율 ").append(stats.participationRate()).append("%), 의견 작성자 ").append(stats.commentWriterCount())
-                .append("명 (댓글 작성률 ").append(stats.commentRate()).append("%), 사후투표 ").append(stats.postVoteCount()).append("명\n");
+                .append("명 (댓글 작성률 ").append(stats.commentRate()).append("%), ");
+        if (stats.midVoteEnabled()) {
+            sb.append("중간투표 ").append(stats.midVoteCount()).append("명, ");
+        }
+        sb.append("사후투표 ").append(stats.postVoteCount()).append("명\n");
         for (ClassResultStats.OptionStat option : stats.options()) {
             sb.append("- ").append(option.title()).append(" (입장: ").append(option.stance()).append("): 사전 ")
-                    .append(option.preVoteCount()).append("명 → 사후 ").append(option.postVoteCount()).append("명 (")
+                    .append(option.preVoteCount()).append("명 → ");
+            if (stats.midVoteEnabled()) {
+                sb.append("중간 ").append(option.midVoteCount()).append("명 → ");
+            }
+            sb.append("사후 ").append(option.postVoteCount()).append("명 (")
                     .append(option.postVoteRatio()).append("%)\n");
         }
         sb.append("\n[공개 의견] (작성자는 익명 번호, 총 ").append(input.posts().size()).append("건");

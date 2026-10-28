@@ -32,6 +32,8 @@ import com.swyp.picke.domain.vote.dto.request.VoteRequest;
 import com.swyp.picke.domain.vote.entity.BattleVote;
 import com.swyp.picke.domain.vote.repository.BattleVoteRepository;
 import com.swyp.picke.domain.vote.service.BattleVoteService;
+import com.swyp.picke.global.common.exception.CustomException;
+import com.swyp.picke.global.common.exception.ErrorCode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -45,6 +47,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -190,6 +193,31 @@ class ClassBattleServiceImplTest {
         verify(battleVoteService).preVote(BATTLE_ID, STUDENT_ID, classroom, request);
         verify(battleVoteService).completeTts(BATTLE_ID, STUDENT_ID, classroom);
         verify(battleVoteService).postVote(BATTLE_ID, STUDENT_ID, classroom, request);
+    }
+
+    @Test
+    @DisplayName("중간투표: 중간투표가 있는 기존 콘텐츠(TTS)만 위임하고, 중간투표 없는 배틀·커스텀 배틀은 409 CLASS_409_MID_VOTE")
+    void midVote_onlyForTtsBattleWithMidVote() {
+        ClassMember member = member(student, ClassMemberRole.MEMBER);
+        when(classAccessService.requireWritable(eq(CLASS_ID), eq(STUDENT_ID), any(LocalDateTime.class)))
+                .thenReturn(new ClassAccess(classroom, ClassMemberRole.MEMBER, member));
+        VoteRequest request = new VoteRequest(201L);
+
+        // 중간투표 없는 배틀
+        assertThatThrownBy(() -> service.midVote(STUDENT_ID, CLASS_ID, request))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.CLASS_MID_VOTE_NOT_SUPPORTED);
+
+        battle.updateClassSettings(null, null, null, true);
+        service.midVote(STUDENT_ID, CLASS_ID, request);
+        verify(battleVoteService).midVote(BATTLE_ID, STUDENT_ID, classroom, request);
+
+        // 커스텀 배틀은 배틀 설정과 관계없이 중간투표를 받지 않는다
+        ReflectionTestUtils.setField(classroom, "battleType", ClassBattleType.CUSTOM);
+        assertThatThrownBy(() -> service.midVote(STUDENT_ID, CLASS_ID, request))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.CLASS_MID_VOTE_NOT_SUPPORTED);
+        verify(battleVoteService, org.mockito.Mockito.times(1)).midVote(any(), any(), any(), any());
     }
 
     @Test

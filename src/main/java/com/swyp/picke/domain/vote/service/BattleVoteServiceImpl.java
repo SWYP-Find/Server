@@ -281,6 +281,38 @@ public class BattleVoteServiceImpl implements BattleVoteService {
         userBattleService.upsertStep(user, battle, classroom, UserBattleStep.POST_VOTE);
     }
 
+    /**
+     * 클래스 중간투표 (PRD §7 "기존 콘텐츠에 해당 단계가 있으면 수집"). 일반 배틀에는 쓰지 않는다.
+     * <ul>
+     *   <li>mid_vote_enabled 가 아닌 배틀이면 409 CLASS_409_MID_VOTE</li>
+     *   <li>사전투표 행이 있어야 하고(없으면 404), 사후투표 전까지는 다시 고를 수 있다. 사후투표 후에는 409 CLASS_409_MID_VOTE_LOCKED</li>
+     *   <li>중간투표는 콘텐츠 재생 중에 나오므로 진행 단계를 TTS_LISTENING 으로 올려 사전투표를 잠근다</li>
+     * </ul>
+     */
+    @Override
+    @Transactional
+    public VoteResultResponse midVote(Long battleId, Long userId, Classroom classroom, VoteRequest request) {
+        Battle battle = battleService.findById(battleId);
+        if (!battle.isMidVoteEnabled()) {
+            throw new CustomException(ErrorCode.CLASS_MID_VOTE_NOT_SUPPORTED);
+        }
+        User user = findUser(userId);
+        BattleOption option = findOptionOf(battle, request.optionId());
+
+        BattleVote vote = battleVoteRepository.findByBattleAndUserAndClassroom(battle, user, classroom)
+                .orElseThrow(() -> new CustomException(ErrorCode.VOTE_NOT_FOUND));
+        UserBattleStep step = userBattleService.getUserBattleStatus(user, battle, classroom).step();
+        if (step == UserBattleStep.COMPLETED) {
+            throw new CustomException(ErrorCode.CLASS_MID_VOTE_LOCKED);
+        }
+        vote.doMidVote(option);
+        if (step == UserBattleStep.NONE || step == UserBattleStep.PRE_VOTE) {
+            userBattleService.upsertStep(user, battle, classroom, UserBattleStep.TTS_LISTENING);
+            step = UserBattleStep.TTS_LISTENING;
+        }
+        return new VoteResultResponse(vote.getId(), step);
+    }
+
     // 사전투표 잠금: 콘텐츠 시작(사전투표 단계 통과) 이후
     private static boolean isPreVoteLocked(UserBattleStep step) {
         return step != UserBattleStep.NONE && step != UserBattleStep.PRE_VOTE;
@@ -303,6 +335,9 @@ public class BattleVoteServiceImpl implements BattleVoteService {
 
     // 다른 배틀의 옵션 id 로 투표하는 것을 막는다
     private BattleOption findOptionOf(Battle battle, Long optionId) {
+        if (optionId == null) {
+            throw new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND);
+        }
         BattleOption option = battleOptionRepository.findById(optionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.BATTLE_OPTION_NOT_FOUND));
         if (option.getBattle() == null || !battle.getId().equals(option.getBattle().getId())) {

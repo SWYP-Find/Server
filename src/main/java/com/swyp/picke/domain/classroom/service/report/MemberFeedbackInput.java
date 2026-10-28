@@ -12,6 +12,7 @@ public record MemberFeedbackInput(
         String battleSummary,
         List<OptionInfo> options,
         OptionInfo preOption,
+        OptionInfo midOption,
         OptionInfo postOption,
         List<Statement> statements,
         int excludedCount

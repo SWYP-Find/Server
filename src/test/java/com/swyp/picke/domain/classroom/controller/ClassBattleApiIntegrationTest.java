@@ -598,6 +598,92 @@ class ClassBattleApiIntegrationTest {
                 .andExpect(jsonPath("$.data.status").value("PRE_VOTE"));
     }
 
+    @Test
+    @DisplayName("중간투표: 사전투표 전 404 → 사전투표 → 중간투표(사전투표 잠김·변경 가능) → TTS → 사후투표 → 이후 중간투표 409")
+    void midVote_flow() throws Exception {
+        enableMidVote(battle);
+        ClassInfo cls = createClass(false);
+        User student = newUser("학생M");
+        String token = tokenOf(student);
+        join(token, cls.inviteCode, "학생M").andExpect(status().isOk());
+
+        mockMvc.perform(get(classBattle(cls)).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.midVoteEnabled").value(true));
+
+        // 사전투표 전에는 중간투표 불가
+        vote(token, cls, "/votes/mid", optionA).andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("VOTE_404"));
+
+        vote(token, cls, "/votes/pre", optionA).andExpect(status().isOk());
+        // 콘텐츠 중 선택 → 진행 단계가 재생 중으로 올라가고 사전투표는 잠긴다
+        vote(token, cls, "/votes/mid", optionB).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("TTS_LISTENING"));
+        vote(token, cls, "/votes/pre", optionB).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_PRE_VOTE_LOCKED"));
+
+        // 사후투표 전에는 다시 고를 수 있다 (콘텐츠를 다시 재생하는 경우)
+        vote(token, cls, "/votes/mid", optionA).andExpect(status().isOk());
+        listen(token, cls);
+        vote(token, cls, "/votes/mid", optionB).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("POST_VOTE"));
+        mockMvc.perform(get(classBattle(cls) + "/votes/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.preVote.optionId").value(optionA.getId()))
+                .andExpect(jsonPath("$.data.midVote.optionId").value(optionB.getId()))
+                .andExpect(jsonPath("$.data.postVote").doesNotExist());
+
+        vote(token, cls, "/votes/post", optionA).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
+        vote(token, cls, "/votes/mid", optionA).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_MID_VOTE_LOCKED"));
+        mockMvc.perform(get(classBattle(cls) + "/votes/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.midVote.optionId").value(optionB.getId()))
+                .andExpect(jsonPath("$.data.postVote.optionId").value(optionA.getId()));
+    }
+
+    @Test
+    @DisplayName("중간투표가 없는 배틀이면 상세 midVoteEnabled=false, 중간투표 요청은 409 CLASS_409_MID_VOTE")
+    void midVote_notEnabled() throws Exception {
+        ClassInfo cls = createClass(false);
+        User student = newUser("학생N");
+        String token = tokenOf(student);
+        join(token, cls.inviteCode, "학생N").andExpect(status().isOk());
+
+        mockMvc.perform(get(classBattle(cls)).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.midVoteEnabled").value(false));
+        vote(token, cls, "/votes/pre", optionA).andExpect(status().isOk());
+        vote(token, cls, "/votes/mid", optionB).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_MID_VOTE"));
+        // 거절된 요청은 단계를 바꾸지 않는다 → 사전투표 변경 가능
+        vote(token, cls, "/votes/pre", optionB).andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("중간투표: 다른 배틀의 선택지 404, 비멤버 403, 마감 후 409 CLASS_409_CLOSED")
+    void midVote_rejectsInvalidRequests() throws Exception {
+        enableMidVote(battle);
+        ClassInfo cls = createClass(false);
+        User student = newUser("학생O");
+        String token = tokenOf(student);
+        join(token, cls.inviteCode, "학생O").andExpect(status().isOk());
+        vote(token, cls, "/votes/pre", optionA).andExpect(status().isOk());
+
+        Battle other = newBattle();
+        BattleOption otherOption = newOption(other, 1);
+        vote(token, cls, "/votes/mid", otherOption).andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("BATTLE_OPT_404"));
+
+        String outsiderToken = tokenOf(newUser("외부인"));
+        vote(outsiderToken, cls, "/votes/mid", optionA).andExpect(status().isForbidden());
+
+        closeClass(cls.classId);
+        vote(token, cls, "/votes/mid", optionB).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_CLOSED"));
+    }
+
     // ===== 헬퍼 =====
 
     private record ClassInfo(long classId, String inviteCode) {
@@ -706,6 +792,11 @@ class ClassBattleApiIntegrationTest {
                 .build());
         createdBattleIds.add(saved.getId());
         return saved;
+    }
+
+    private void enableMidVote(Battle target) {
+        target.updateClassSettings(null, null, null, true);
+        battleRepository.save(target);
     }
 
     private BattleOption newOption(Battle battle, int order) {

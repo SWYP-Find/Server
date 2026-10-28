@@ -23,6 +23,8 @@ public interface ClassBattleService {
 
     void completeTts(Long userId, Long classId);
 
+    VoteResultResponse midVote(Long userId, Long classId, VoteRequest request);
+
     VoteResultResponse postVote(Long userId, Long classId, VoteRequest request);
 
     MyVoteResponse getMyVote(Long userId, Long classId);

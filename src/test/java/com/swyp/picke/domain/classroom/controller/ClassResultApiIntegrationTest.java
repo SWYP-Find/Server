@@ -3,6 +3,7 @@ package com.swyp.picke.domain.classroom.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -251,6 +252,8 @@ class ClassResultApiIntegrationTest {
                 .andExpect(jsonPath("$.data.stats.completedCount").value(1))
                 .andExpect(jsonPath("$.data.stats.participationRate").value(33.3))
                 .andExpect(jsonPath("$.data.stats.postVoteCount").value(2))
+                .andExpect(jsonPath("$.data.stats.midVoteEnabled").value(false))
+                .andExpect(jsonPath("$.data.stats.midVoteCount").value(0))
                 .andExpect(jsonPath("$.data.stats.options[0].postVoteRatio").value(50.0))
                 .andExpect(jsonPath("$.data.myReportState").value("SUCCEEDED"));
 
@@ -464,6 +467,82 @@ class ClassResultApiIntegrationTest {
     // ===== AI 모킹 =====
 
     /** 프롬프트의 첫 발언(source_id, 원문)을 그대로 인용하는 정상 응답. next_focus 는 원문에 없는 인용이라 null 이 돼야 한다 */
+    @Test
+    @DisplayName("중간투표가 있는 기존 콘텐츠: 통계에 선택지별 중간투표 수, 내 리포트에 중간 선택, AI 입력·템플릿에 사전→중간→사후 흐름")
+    void midVote_reflectedInStatsAndReports() throws Exception {
+        battle.updateClassSettings(null, null, null, true);
+        battleRepository.save(battle);
+        ClassInfo cls = createClass(false, false);
+
+        User writer = newUser("학생A");
+        String writerToken = tokenOf(writer);
+        join(writerToken, cls.inviteCode, "학생A");
+        vote(writerToken, cls, "/votes/pre", optionA).andExpect(status().isOk());
+        vote(writerToken, cls, "/votes/mid", optionB).andExpect(status().isOk());
+        votePreAndPostAfterMid(writerToken, cls, optionB);
+        mockMvc.perform(post(classBattle(cls) + "/perspectives")
+                        .header("Authorization", "Bearer " + writerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("content", "중간에 생각이 바뀌었습니다. 표본이 너무 작아요."))))
+                .andExpect(status().isOk());
+
+        User wavering = newUser("학생B");          // 중간에만 B 를 골랐다가 A 로 돌아옴, 의견 없음
+        String waveringToken = tokenOf(wavering);
+        join(waveringToken, cls.inviteCode, "학생B");
+        vote(waveringToken, cls, "/votes/pre", optionA).andExpect(status().isOk());
+        vote(waveringToken, cls, "/votes/mid", optionB).andExpect(status().isOk());
+        votePreAndPostAfterMid(waveringToken, cls, optionA);
+
+        User noMid = newUser("학생C");             // 중간투표를 건너뛴 사람도 사후투표는 할 수 있다
+        String noMidToken = tokenOf(noMid);
+        join(noMidToken, cls.inviteCode, "학생C");
+        votePreAndPost(noMidToken, cls, optionB, optionB);
+
+        // 마감 전 LIVE 통계
+        mockMvc.perform(get(result(cls)).header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.stats.midVoteEnabled").value(true))
+                .andExpect(jsonPath("$.data.stats.midVoteCount").value(2))
+                .andExpect(jsonPath("$.data.stats.options[0].optionId").value(optionA.getId()))
+                .andExpect(jsonPath("$.data.stats.options[0].preVoteCount").value(2))
+                .andExpect(jsonPath("$.data.stats.options[0].midVoteCount").value(0))
+                .andExpect(jsonPath("$.data.stats.options[0].postVoteCount").value(1))
+                .andExpect(jsonPath("$.data.stats.options[1].midVoteCount").value(2))
+                .andExpect(jsonPath("$.data.stats.options[1].postVoteCount").value(2));
+
+        closeClass(cls.classId);
+        generationService.runOnce(LocalDateTime.now());
+
+        // 마감 스냅샷에도 중간투표 값이 그대로 남는다
+        mockMvc.perform(get(result(cls)).header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.statsBasis").value("SNAPSHOT"))
+                .andExpect(jsonPath("$.data.stats.midVoteEnabled").value(true))
+                .andExpect(jsonPath("$.data.stats.midVoteCount").value(2))
+                .andExpect(jsonPath("$.data.stats.options[1].midVoteCount").value(2));
+
+        // AI 개인 피드백 입력에 중간 선택이 실린다
+        verify(aiClient).chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM),
+                argThat(prompt -> prompt.contains("중간투표(콘텐츠 중 선택): ")), anyInt());
+        mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + writerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("SUCCEEDED"))
+                .andExpect(jsonPath("$.data.midOption.optionId").value(optionB.getId()));
+
+        // 투표만 한 사람: 템플릿이 중간 흐름을 말한다
+        mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + waveringToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("LIMITED"))
+                .andExpect(jsonPath("$.data.midOption.optionId").value(optionB.getId()))
+                .andExpect(jsonPath("$.data.feedback.judgmentBasis")
+                        .value("선택이 선택지 1에서 중간에 선택지 2, 마지막에 선택지 1로 이어졌어요."));
+
+        mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + noMidToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.midOption").doesNotExist())
+                .andExpect(jsonPath("$.data.feedback.judgmentBasis").value("처음부터 끝까지 선택지 2를 선택했어요."));
+    }
+
     private void stubMemberFeedback() {
         when(aiClient.chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
                 .thenAnswer(inv -> memberFeedbackAnswer(inv.getArgument(1)));
@@ -532,6 +611,13 @@ class ClassResultApiIntegrationTest {
 
     private void votePreAndPost(String token, ClassInfo cls, BattleOption pre, BattleOption post) throws Exception {
         vote(token, cls, "/votes/pre", pre).andExpect(status().isOk());
+        mockMvc.perform(post(classBattle(cls) + "/votes/tts-complete").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        vote(token, cls, "/votes/post", post).andExpect(status().isOk());
+    }
+
+    /** 사전·중간투표를 이미 한 상태에서 TTS 완료 → 사후투표 */
+    private void votePreAndPostAfterMid(String token, ClassInfo cls, BattleOption post) throws Exception {
         mockMvc.perform(post(classBattle(cls) + "/votes/tts-complete").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
         vote(token, cls, "/votes/post", post).andExpect(status().isOk());

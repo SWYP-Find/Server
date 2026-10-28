@@ -92,9 +92,10 @@
 
 **참여자: TTS 배틀 진행**
 1. 사전투표: `POST /classes/{id}/battle/votes/pre`
-2. TTS 청취 완료: `POST /classes/{id}/battle/votes/tts-complete`
-3. 사후투표: `POST /classes/{id}/battle/votes/post`
-4. 의견 작성: `POST /classes/{id}/battle/perspectives`
+2. (중간투표가 있는 콘텐츠만) 콘텐츠 중 선택: `POST /classes/{id}/battle/votes/mid`
+3. TTS 청취 완료: `POST /classes/{id}/battle/votes/tts-complete`
+4. 사후투표: `POST /classes/{id}/battle/votes/post`
+5. 의견 작성: `POST /classes/{id}/battle/perspectives`
 
 **참여자: 커스텀 배틀 진행**
 1. 사전투표: `POST /classes/{id}/battle/votes/pre`
@@ -653,6 +654,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
     "commentRequired": true,
     "canParticipate": true,
     "participationCompleted": false,
+    "midVoteEnabled": false,
     "battle": { }
   }
 }
@@ -660,6 +662,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 
 - `canParticipate`: 지금 투표·의견을 쓸 수 있는지다. 참여 중인 멤버이고 마감 전일 때 true다. 참여하지 않는 운영자는 false다. false면 투표·의견 버튼을 막는다.
 - `participationCompleted`: 참여 완료 여부다. 사후투표를 마쳤고, 의견이 필수면 공개된 내 의견이 1건 이상일 때 true다.
+- `midVoteEnabled`: 중간투표가 있는 기존 콘텐츠(TTS)인지다. true면 콘텐츠의 선택 화면에서 고른 값을 6.3.1로 보낸다. 커스텀 배틀은 항상 false다.
 - `battle`: 일반 배틀 상세(`BattleUserDetailResponse`)와 같은 구조다. 단 `userVoteStatus`, `currentStep`, `participantsCount`는 이 클래스 기준이다. 구조는 `battle-api.md`를 참고한다.
 
 ### 6.2 사전투표
@@ -691,6 +694,26 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 | 커스텀 배틀 클래스 | 409 `CLASS_409_TTS` |
 | 사전투표 전 | 404 `VOTE_404` |
 
+### 6.3.1 중간투표 (중간투표가 있는 TTS 콘텐츠만)
+- `POST /api/v1/classes/{classId}/battle/votes/mid`
+- 콘텐츠 재생 중 "선택의 시간"에서 고른 값을 기록한다. 클래스용 별도 화면은 없고, 기존 콘텐츠 선택 결과를 수집하는 용도다.
+- 요청은 6.2와 같다. `optionId`는 배틀 선택지 ID다. 콘텐츠 선택지 A는 `displayOrder` 1, B는 2인 선택지다.
+
+```json
+{ "statusCode": 200, "data": { "voteId": 100, "status": "TTS_LISTENING" } }
+```
+
+- 처음 보내면 단계가 `TTS_LISTENING`으로 바뀌고, 이후 사전투표가 잠긴다.
+- 사후투표 전까지는 다시 보내서 바꿀 수 있다. 콘텐츠를 다시 재생한 경우를 위해서다. 이미 `POST_VOTE`면 단계는 그대로 둔다.
+- 사후투표는 중간투표 없이도 할 수 있다.
+
+| 상황 | 응답 |
+|---|---|
+| 중간투표가 없는 배틀이거나 커스텀 배틀 클래스 | 409 `CLASS_409_MID_VOTE` |
+| 사전투표 전 | 404 `VOTE_404` |
+| 사후투표 완료 후 | 409 `CLASS_409_MID_VOTE_LOCKED` |
+| 이 배틀의 선택지가 아님 | 404 `BATTLE_OPT_404` |
+
 ### 6.4 사후투표
 - `POST /api/v1/classes/{classId}/battle/votes/post`
 - 요청은 6.2와 같고, 응답의 `status`는 `COMPLETED`다.
@@ -714,6 +737,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
   "data": {
     "battleTitle": "AI가 쓴 글도 창작일까?",
     "preVote": { "optionId": 31, "label": "A", "title": "창작이다" },
+    "midVote": { "optionId": 32, "label": "B", "title": "창작이 아니다" },
     "postVote": { "optionId": 32, "label": "B", "title": "창작이 아니다" },
     "status": "COMPLETED",
     "opinionChanged": true
@@ -722,6 +746,8 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 ```
 
 - 투표 전이면 404 `VOTE_404`다.
+- `midVote`는 중간투표(6.3.1)를 하지 않았으면 null이다.
+- `opinionChanged`는 사전·사후만 비교한다.
 
 ### 6.6 투표 통계
 - `GET /api/v1/classes/{classId}/battle/vote-stats`
@@ -956,8 +982,10 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
       "commentWriterCount": 9,
       "commentRate": 75.0,
       "postVoteCount": 11,
+      "midVoteEnabled": true,
+      "midVoteCount": 10,
       "options": [
-        { "optionId": 31, "title": "창작이다", "stance": "...", "preVoteCount": 8, "postVoteCount": 6, "postVoteRatio": 54.5 }
+        { "optionId": 31, "title": "창작이다", "stance": "...", "preVoteCount": 8, "midVoteCount": 4, "postVoteCount": 6, "postVoteRatio": 54.5 }
       ]
     },
     "myReportState": "SUCCEEDED",
@@ -968,6 +996,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 
 - `statsBasis`: `LIVE`(현재 데이터) / `SNAPSHOT`(마감 스냅샷). `LIVE`이면 `cutoffAt`은 null이다.
 - 비율은 소수 첫째 자리 %이고, 분모가 0이면 0이다.
+- `midVoteEnabled`가 false면 `midVoteCount`와 선택지별 `midVoteCount`는 0이다. 화면에서 중간투표 칸을 숨긴다. 중간투표 도입 전에 만든 스냅샷도 false로 내려간다.
 - `myReportState`: 참여 멤버만 있다. 참여하지 않는 운영자는 null이다.
 - `insightState`: 운영자에게만 있다. 그 외에는 null이다.
 - 이 두 값으로 리포트 탭을 보여줄지 정한다.
@@ -985,6 +1014,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
     "state": "SUCCEEDED",
     "closeAt": "2026-12-31T23:59:59",
     "preOption": { "optionId": 31, "title": "창작이다", "stance": "..." },
+    "midOption": null,
     "postOption": { "optionId": 32, "title": "창작이 아니다", "stance": "..." },
     "perspectiveCount": 1,
     "commentCount": 2,
@@ -1008,6 +1038,8 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 
 - `feedback`은 `state`가 `SUCCEEDED`나 `LIMITED`일 때만 있다. 그 외에는 null이다.
 - `strength`, `nextFocus`는 기록으로 확인되지 않으면 null이다.
+- `midOption`은 중간투표가 있는 콘텐츠에서 중간에 고른 선택지다. 없으면 null이다. 중간 선택은 AI 피드백 입력에도 들어간다.
+- 글 없이 투표만 한 `LIMITED` 템플릿은 중간에만 다른 선택을 했다면 "선택이 A에서 중간에 B, 마지막에 A로 이어졌어요."처럼 흐름을 말한다.
 - `evidence[].content`는 현재 기준 원문이다. 삭제·숨김된 글은 목록에서 빠진다.
 - `coverage=partial`은 분량 제한으로 일부 글을 빼고 분석했다는 뜻이다. 뺀 글 수는 `excludedCount`에 있다.
 - 참여하지 않는 운영자는 403 `CLASS_403_MEMBER`다.
@@ -1242,6 +1274,8 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 | `CLASS_409_PRE_VOTE_LOCKED` | 409 | 배틀이 시작된 뒤에는 사전투표를 변경할 수 없습니다. |
 | `CLASS_409_TTS` | 409 | 커스텀 배틀 클래스에는 음성(TTS) 단계가 없습니다. |
 | `CLASS_409_TTS_INCOMPLETE` | 409 | 오디오를 끝까지 들은 뒤 사후투표를 할 수 있어요. |
+| `CLASS_409_MID_VOTE` | 409 | 중간투표가 없는 배틀입니다. |
+| `CLASS_409_MID_VOTE_LOCKED` | 409 | 사후투표를 마친 뒤에는 중간투표를 바꿀 수 없어요. |
 | `CLASS_409_PERSPECTIVE_REQUIRED` | 409 | 의견 작성이 필수인 클래스의 의견은 삭제할 수 없어요. 내용을 수정해 주세요. |
 | `CLASS_409_RESULT_EXPIRED` | 409 | 결과 열람 기간이 끝났습니다. |
 | `CLASS_409_REPORT_RETRY` | 409 | 지금은 AI 요약을 다시 시도할 수 없습니다. |

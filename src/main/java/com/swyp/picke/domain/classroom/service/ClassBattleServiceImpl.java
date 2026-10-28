@@ -89,6 +89,7 @@ public class ClassBattleServiceImpl implements ClassBattleService {
                 classroom.isCommentRequired(),
                 canParticipate,
                 completed,
+                hasMidVote(classroom),
                 detail
         );
     }
@@ -108,6 +109,17 @@ public class ClassBattleServiceImpl implements ClassBattleService {
             throw new CustomException(ErrorCode.CLASS_TTS_NOT_SUPPORTED);
         }
         battleVoteService.completeTts(battleOf(classroom).getId(), userId, classroom);
+    }
+
+    @Override
+    @Transactional
+    public VoteResultResponse midVote(Long userId, Long classId, VoteRequest request) {
+        Classroom classroom = writable(classId, userId);
+        // 중간투표는 기존 콘텐츠(TTS) 중 중간투표가 있는 배틀만. 커스텀 배틀은 중간값을 만들지 않는다 (PRD §12 입력표)
+        if (!hasMidVote(classroom)) {
+            throw new CustomException(ErrorCode.CLASS_MID_VOTE_NOT_SUPPORTED);
+        }
+        return battleVoteService.midVote(battleOf(classroom).getId(), userId, classroom, request);
     }
 
     @Override
@@ -177,6 +189,12 @@ public class ClassBattleServiceImpl implements ClassBattleService {
         return battleVoteRepository.findByBattleAndUserAndClassroom(battleOf(classroom), user, classroom)
                 .map(vote -> !Boolean.FALSE.equals(vote.getIsTtsListened()))
                 .orElse(true);
+    }
+
+    private static boolean hasMidVote(Classroom classroom) {
+        return classroom.getBattleType() == ClassBattleType.TTS
+                && classroom.getBattle() != null
+                && classroom.getBattle().isMidVoteEnabled();
     }
 
     private static Battle battleOf(Classroom classroom) {

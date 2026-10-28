@@ -4,6 +4,7 @@ import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.repository.BattleOptionRepository;
 import com.swyp.picke.domain.classroom.entity.ClassMember;
 import com.swyp.picke.domain.classroom.entity.Classroom;
+import com.swyp.picke.domain.classroom.enums.ClassBattleType;
 import com.swyp.picke.domain.classroom.repository.ClassMemberRepository;
 import com.swyp.picke.domain.perspective.entity.Perspective;
 import com.swyp.picke.domain.perspective.enums.PerspectiveStatus;
@@ -76,11 +77,13 @@ public class ClassResultStatsCalculator {
 
         List<BattleOption> options = battleOptionRepository.findByBattle(classroom.getBattle());
         options.sort(Comparator.comparing(BattleOption::getDisplayOrder, Comparator.nullsLast(Comparator.naturalOrder())));
-        Map<Long, int[]> countsByOption = new HashMap<>(); // [pre, post]
+        boolean midVoteEnabled = classroom.getBattleType() == ClassBattleType.TTS && classroom.getBattle().isMidVoteEnabled();
+        Map<Long, int[]> countsByOption = new HashMap<>(); // [pre, mid, post]
         for (BattleOption option : options) {
-            countsByOption.put(option.getId(), new int[2]);
+            countsByOption.put(option.getId(), new int[3]);
         }
         int postVoteCount = 0;
+        int midVoteCount = 0;
         for (BattleVote vote : battleVoteRepository.findByClassroomId(classId)) {
             if (!activeByUserId.containsKey(vote.getUser().getId())) {
                 continue;
@@ -89,9 +92,14 @@ public class ClassResultStatsCalculator {
                 int[] counts = countsByOption.get(vote.getPreVoteOption().getId());
                 if (counts != null) counts[0]++;
             }
+            if (midVoteEnabled && vote.getMidVoteOption() != null) {
+                int[] counts = countsByOption.get(vote.getMidVoteOption().getId());
+                if (counts != null) counts[1]++;
+                midVoteCount++;
+            }
             if (vote.getPostVoteOption() != null) {
                 int[] counts = countsByOption.get(vote.getPostVoteOption().getId());
-                if (counts != null) counts[1]++;
+                if (counts != null) counts[2]++;
                 postVoteCount++;
             }
         }
@@ -101,7 +109,7 @@ public class ClassResultStatsCalculator {
             int[] counts = countsByOption.get(option.getId());
             optionStats.add(new ClassResultStats.OptionStat(
                     option.getId(), option.getTitle(), option.getStance(),
-                    counts[0], counts[1], ClassResultStats.rate(counts[1], postVoteCount)));
+                    counts[0], counts[1], counts[2], ClassResultStats.rate(counts[2], postVoteCount)));
         }
 
         int active = activeMembers.size();
@@ -112,6 +120,8 @@ public class ClassResultStatsCalculator {
                 writerUserIds.size(),
                 ClassResultStats.rate(writerUserIds.size(), active),
                 postVoteCount,
+                midVoteEnabled,
+                midVoteCount,
                 optionStats
         );
         return new Result(stats, completedMembers);

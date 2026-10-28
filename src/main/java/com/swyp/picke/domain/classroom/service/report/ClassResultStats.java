@@ -11,6 +11,7 @@ import java.util.Map;
  *   <li>참여율 = 참여 완료 / 활성 멤버, 댓글 작성률 = 의견 작성자 / 활성 멤버</li>
  *   <li>입장 분포 = 사후투표 완료자 기준. 필수 댓글을 안 쓴 사람도 분포에는 포함된다</li>
  *   <li>분모 0 이면 0% (PRD S14 "분모 0은 참여 없음")</li>
+ *   <li>중간투표는 중간투표가 있는 기존 콘텐츠(midVoteEnabled)만 집계한다. 아니면 0 이고 화면·AI 입력에서 숨긴다</li>
  * </ul>
  * 마감 후에는 CLASS_SUMMARY 리포트 content.stats 에 스냅샷으로 저장되어 {@link #toMap()} / {@link #fromMap(Map)} 으로 오간다.
  */
@@ -21,10 +22,13 @@ public record ClassResultStats(
         int commentWriterCount,
         double commentRate,
         int postVoteCount,
+        boolean midVoteEnabled,
+        int midVoteCount,
         List<OptionStat> options
 ) {
 
-    public record OptionStat(Long optionId, String title, String stance, int preVoteCount, int postVoteCount, double postVoteRatio) {
+    public record OptionStat(Long optionId, String title, String stance, int preVoteCount, int midVoteCount,
+                             int postVoteCount, double postVoteRatio) {
     }
 
     public static double rate(int numerator, int denominator) {
@@ -42,6 +46,8 @@ public record ClassResultStats(
         map.put("comment_writer_count", commentWriterCount);
         map.put("comment_rate", commentRate);
         map.put("post_vote_count", postVoteCount);
+        map.put("mid_vote_enabled", midVoteEnabled);
+        map.put("mid_vote_count", midVoteCount);
         List<Map<String, Object>> optionMaps = new ArrayList<>();
         for (OptionStat option : options) {
             Map<String, Object> o = new LinkedHashMap<>();
@@ -49,6 +55,7 @@ public record ClassResultStats(
             o.put("title", option.title());
             o.put("stance", option.stance());
             o.put("pre_vote_count", option.preVoteCount());
+            o.put("mid_vote_count", option.midVoteCount());
             o.put("post_vote_count", option.postVoteCount());
             o.put("post_vote_ratio", option.postVoteRatio());
             optionMaps.add(o);
@@ -65,6 +72,7 @@ public record ClassResultStats(
                     ReportContent.str(o, "title"),
                     ReportContent.str(o, "stance"),
                     ReportContent.asInt(o, "pre_vote_count"),
+                    ReportContent.asInt(o, "mid_vote_count"),
                     ReportContent.asInt(o, "post_vote_count"),
                     ReportContent.asDouble(o, "post_vote_ratio")
             ));
@@ -76,6 +84,8 @@ public record ClassResultStats(
                 ReportContent.asInt(map, "comment_writer_count"),
                 ReportContent.asDouble(map, "comment_rate"),
                 ReportContent.asInt(map, "post_vote_count"),
+                Boolean.TRUE.equals(map.get("mid_vote_enabled")), // 중간투표 도입 전 스냅샷은 키가 없어 false
+                ReportContent.asInt(map, "mid_vote_count"),
                 options
         );
     }

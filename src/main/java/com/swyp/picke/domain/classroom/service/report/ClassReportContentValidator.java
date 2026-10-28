@@ -93,6 +93,7 @@ public class ClassReportContentValidator {
         content.put("coverage", input.coverage());
         content.put("excluded_count", input.excludedCount());
         content.put("pre_option_id", input.preOption() == null ? null : input.preOption().optionId());
+        content.put("mid_option_id", input.midOption() == null ? null : input.midOption().optionId());
         content.put("post_option_id", input.postOption() == null ? null : input.postOption().optionId());
         return content;
     }
@@ -131,9 +132,15 @@ public class ClassReportContentValidator {
     // ===== 템플릿 (AI 호출 없음) =====
 
     /** 투표만 있을 때의 서버 템플릿 (PRD §13 자료 부족 처리) */
-    public static Map<String, Object> limitedMemberFeedback(MemberFeedbackInput.OptionInfo pre, MemberFeedbackInput.OptionInfo post) {
+    public static Map<String, Object> limitedMemberFeedback(MemberFeedbackInput.OptionInfo pre, MemberFeedbackInput.OptionInfo mid,
+                                                            MemberFeedbackInput.OptionInfo post) {
         String judgmentBasis;
-        if (pre != null && post != null && !pre.optionId().equals(post.optionId())) {
+        // 중간에만 다른 선택을 했다가 돌아온 경우만 흐름을 말한다. 사전=중간 또는 중간=사후면 일반 변화 문구와 같다
+        boolean midDiffers = pre != null && mid != null && post != null
+                && !mid.optionId().equals(pre.optionId()) && !mid.optionId().equals(post.optionId());
+        if (midDiffers) {
+            judgmentBasis = "선택이 " + pre.title() + "에서 중간에 " + mid.title() + ", 마지막에 " + post.title() + "로 이어졌어요.";
+        } else if (pre != null && post != null && !pre.optionId().equals(post.optionId())) {
             judgmentBasis = "선택이 " + pre.title() + "에서 " + post.title() + "로 바뀌었어요.";
         } else if (post != null) {
             judgmentBasis = "처음부터 끝까지 " + post.title() + "를 선택했어요.";
@@ -151,6 +158,7 @@ public class ClassReportContentValidator {
         content.put("coverage", "full");
         content.put("excluded_count", 0);
         content.put("pre_option_id", pre == null ? null : pre.optionId());
+        content.put("mid_option_id", mid == null ? null : mid.optionId());
         content.put("post_option_id", post == null ? null : post.optionId());
         return content;
     }

@@ -12,5 +12,6 @@ public record HomeEditorPickResponse(
         String title,
         String summary,
         List<BattleTagResponse> tags,
-        Integer viewCount
+        Integer viewCount,
+        Integer audioDuration
 ) {}

@@ -5,6 +5,7 @@ import com.swyp.picke.domain.battle.dto.response.BattleTagResponse;
 import java.util.List;
 
 public record HomeTrendingResponse(
+        String badgeLabel,
         Long battleId,
         String thumbnailUrl,
         String title,

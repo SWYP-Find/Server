@@ -68,6 +68,7 @@ public class BattleServiceImpl implements BattleService {
     private static final int HOME_EDITOR_PICK_LIMIT = 10;
     private static final int HOME_TRENDING_LIMIT = 4;
     private static final int HOME_BEST_LIMIT = 3;
+    private static final int HOME_MOST_DISCUSSION_LIMIT = 3;
     private static final int HOME_TODAY_PICK_LIMIT = 1;
     private static final int HOME_NEW_LIMIT = 3;
     private static final int PUBLISH_BATCH_SIZE = 100;
@@ -120,6 +121,15 @@ public class BattleServiceImpl implements BattleService {
     @Override
     public List<TodayBattleResponse> getBestBattles() {
         return loadBestBattles(HOME_BEST_LIMIT);
+    }
+
+    @Override
+    public List<TodayBattleResponse> getMostDiscussedBattles() {
+        List<Object[]> rows = battleRepository.findMostDiscussedBattles(PageRequest.of(0, HOME_MOST_DISCUSSION_LIMIT));
+        List<Battle> battles = rows.stream().map(row -> (Battle) row[0]).toList();
+        Map<Long, Long> commentCounts = rows.stream().collect(Collectors.toMap(
+                row -> ((Battle) row[0]).getId(), row -> ((Number) row[1]).longValue()));
+        return convertToTodayResponses(battles, commentCounts);
     }
 
     @Override
@@ -640,6 +650,10 @@ public class BattleServiceImpl implements BattleService {
     }
 
     private List<TodayBattleResponse> convertToTodayResponses(List<Battle> battles) {
+        return convertToTodayResponses(battles, Map.of());
+    }
+
+    private List<TodayBattleResponse> convertToTodayResponses(List<Battle> battles, Map<Long, Long> commentCountOverrides) {
         if (battles == null || battles.isEmpty()) return Collections.emptyList();
 
         Map<Long, List<BattleOption>> optionsMap = battleOptionRepository.findByBattleIn(battles)
@@ -654,7 +668,10 @@ public class BattleServiceImpl implements BattleService {
         return battles.stream().map(battle -> {
             List<Tag> tags = tagsMap.getOrDefault(battle.getId(), Collections.emptyList());
             List<BattleOption> options = optionsMap.getOrDefault(battle.getId(), Collections.emptyList());
-            return battleConverter.toTodayResponse(battle, tags, options);
+            Long commentCount = commentCountOverrides.get(battle.getId());
+            return commentCount == null
+                    ? battleConverter.toTodayResponse(battle, tags, options)
+                    : battleConverter.toTodayResponse(battle, tags, options, commentCount);
         }).toList();
     }
 

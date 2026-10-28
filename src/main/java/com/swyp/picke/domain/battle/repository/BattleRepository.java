@@ -38,6 +38,18 @@ public interface BattleRepository extends JpaRepository<Battle, Long> {
             "ORDER BY (battle.totalParticipantsCount + (battle.commentCount * 5)) DESC")
     List<Battle> findBestBattles(Pageable pageable);
 
+    @Query("""
+            SELECT battle, COUNT(comment) FROM Battle battle
+            LEFT JOIN Perspective perspective ON perspective.battle = battle
+                AND perspective.status = com.swyp.picke.domain.perspective.enums.PerspectiveStatus.PUBLISHED
+            LEFT JOIN PerspectiveComment comment ON comment.perspective = perspective AND comment.hidden = false
+            WHERE battle.status = 'PUBLISHED' AND battle.deletedAt IS NULL
+            GROUP BY battle
+            HAVING COUNT(comment) > 0
+            ORDER BY COUNT(comment) DESC, battle.totalParticipantsCount DESC, battle.createdAt DESC
+            """)
+    List<Object[]> findMostDiscussedBattles(Pageable pageable);
+
     // 4. 오늘의 Pické
     @Query("SELECT battle FROM Battle battle " +
             "WHERE battle.targetDate = :today " +

@@ -623,6 +623,8 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 - 나간 뒤에도 같은 코드로 다시 참여할 수 있다.
 - 투표·의견 등 활동 이력이 있으면 좌석은 반환되지 않는다.
 
+계정 탈퇴 시에도 같은 좌석 규칙을 적용한다. 탈퇴자가 운영자인 ACTIVE 클래스는 소프트 삭제하고, 참여 중인 멤버십은 `LEFT`로 바꾼다. 탈퇴자가 쓴 의견·댓글은 숨김 처리하며 이력 참조를 위해 DB 행은 보존한다.
+
 | 상황 | 응답 |
 |---|---|
 | 운영자 (나갈 수 없고 클래스를 삭제해야 함) | 403 `CLASS_403_OWNER_LEAVE` |
@@ -1074,6 +1076,28 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 - `evidence[].content`는 현재 기준 원문이다. 삭제·숨김된 글은 목록에서 빠진다.
 - `coverage=partial`은 분량 제한으로 일부 글을 빼고 분석했다는 뜻이다. 뺀 글 수는 `excludedCount`에 있다.
 - 참여하지 않는 운영자는 403 `CLASS_403_MEMBER`다.
+
+### 8.2.1 내 활동 (리포트 화면)
+- `GET /api/v1/classes/{classId}/result/my-activity?cursor={createdAt}&size=20`
+- 참여 중인 멤버만 조회할 수 있다. 기본 페이지 크기는 20, 최대 100이다.
+- `receivedLikeCount`는 공개된 내 의견·댓글에 받은 좋아요 수 합계다. `comments`는 공개 상태인 내 댓글 목록이며, 최신순 커서 페이지네이션을 사용한다.
+- 잘못된 `cursor`는 400 `COMMON_400`이다.
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "classId": 5,
+    "receivedLikeCount": 12,
+    "commentCount": 2,
+    "comments": [
+      { "commentId": 61, "perspectiveId": 50, "perspectiveTitle": "창작이다", "stance": "...", "content": "...", "likeCount": 2, "createdAt": "2026-10-21T12:00:00" }
+    ],
+    "nextCursor": null,
+    "hasNext": false
+  }
+}
+```
 
 ### 8.3 클래스 인사이트 (운영자)
 - `GET /api/v1/classes/{classId}/result/insight`

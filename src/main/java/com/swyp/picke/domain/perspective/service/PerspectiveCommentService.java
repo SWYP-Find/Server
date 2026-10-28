@@ -22,11 +22,13 @@ import com.swyp.picke.domain.user.dto.response.UserSummary;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.domain.user.enums.CharacterType;
+import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.service.UserService;
 import com.swyp.picke.domain.vote.service.BattleVoteService;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import com.swyp.picke.global.infra.s3.service.S3PresignedUrlService;
+import com.swyp.picke.global.common.util.CursorParser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -71,8 +73,11 @@ public class PerspectiveCommentService {
         Classroom classroom = perspective.getClassroom();
         requireClassWritable(classroom, userId);
         requireVisibleAuthor(perspective, classroom);
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
 
         PerspectiveComment comment = PerspectiveComment.builder()
                 .perspective(perspective)
@@ -147,7 +152,7 @@ public class PerspectiveCommentService {
         List<PerspectiveComment> comments = cursor == null
                 ? commentRepository.findByPerspectiveOrderByCreatedAtDesc(perspective, pageable)
                 : commentRepository.findByPerspectiveAndCreatedAtBeforeOrderByCreatedAtDesc(
-                        perspective, LocalDateTime.parse(cursor), pageable);
+                        perspective, CursorParser.parseDateTime(cursor), pageable);
 
         Long battleId = perspective.getBattle().getId();
         // 클래스 댓글이면 작성자를 클래스 표시 이름으로 보여주고, 나간·내보낸 멤버의 댓글은 뺀다
@@ -204,6 +209,7 @@ public class PerspectiveCommentService {
 
     @Transactional
     public UpdateCommentResponse updateComment(Long perspectiveId, Long commentId, Long userId, UpdateCommentRequest request) {
+        requireActiveUserForWrite(userId);
         Perspective perspective = findPerspectiveById(perspectiveId);
         PerspectiveComment comment = findCommentById(commentId);
         validateOwnership(comment, userId);
@@ -211,6 +217,14 @@ public class PerspectiveCommentService {
 
         comment.updateContent(request.content());
         return new UpdateCommentResponse(comment.getId(), comment.getContent(), comment.getUpdatedAt());
+    }
+
+    private void requireActiveUserForWrite(Long userId) {
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
     }
 
     /** 댓글 작성자의 사후투표 입장. 클래스 의견이면 같은 클래스 안의 투표만 본다 */

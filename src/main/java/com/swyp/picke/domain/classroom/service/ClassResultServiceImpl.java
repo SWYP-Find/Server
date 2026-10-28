@@ -3,6 +3,7 @@ package com.swyp.picke.domain.classroom.service;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.classroom.dto.response.ClassInsightResponse;
 import com.swyp.picke.domain.classroom.dto.response.ClassMyReportResponse;
+import com.swyp.picke.domain.classroom.dto.response.ClassMyActivityResponse;
 import com.swyp.picke.domain.classroom.dto.response.ClassResultResponse;
 import com.swyp.picke.domain.classroom.entity.ClassMember;
 import com.swyp.picke.domain.classroom.entity.ClassReport;
@@ -23,11 +24,14 @@ import com.swyp.picke.domain.perspective.entity.Perspective;
 import com.swyp.picke.domain.perspective.entity.PerspectiveComment;
 import com.swyp.picke.domain.perspective.enums.PerspectiveStatus;
 import com.swyp.picke.domain.perspective.repository.PerspectiveCommentRepository;
+import com.swyp.picke.domain.perspective.repository.CommentLikeRepository;
+import com.swyp.picke.domain.perspective.repository.PerspectiveLikeRepository;
 import com.swyp.picke.domain.perspective.repository.PerspectiveRepository;
 import com.swyp.picke.domain.vote.entity.BattleVote;
 import com.swyp.picke.domain.vote.repository.BattleVoteRepository;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
+import com.swyp.picke.global.common.util.CursorParser;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -37,6 +41,7 @@ import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.PageRequest;
 
 /**
  * 결과 화면 조회. 저장된 리포트 content(JSON)를 응답으로 바꾸고, 근거 글은 현재 상태로 다시 읽어 삭제·숨김된 글은 뺀다.
@@ -58,6 +63,11 @@ public class ClassResultServiceImpl implements ClassResultService {
     private final BattleVoteRepository battleVoteRepository;
     private final PerspectiveRepository perspectiveRepository;
     private final PerspectiveCommentRepository perspectiveCommentRepository;
+    private final PerspectiveLikeRepository perspectiveLikeRepository;
+    private final CommentLikeRepository commentLikeRepository;
+
+    private static final int DEFAULT_ACTIVITY_PAGE_SIZE = 20;
+    private static final int MAX_ACTIVITY_PAGE_SIZE = 100;
 
     @Override
     public ClassResultResponse getResult(Long userId, Long classId) {
@@ -118,6 +128,43 @@ public class ClassResultServiceImpl implements ClassResultService {
                 classMidVoteService.choicesOf(classroom, vote),
                 toOption(vote == null ? null : vote.getPostVoteOption()),
                 perspectiveCount, commentCount, feedback, generatedAt);
+    }
+
+    @Override
+    public ClassMyActivityResponse getMyActivity(Long userId, Long classId, String cursor, Integer size) {
+        ClassAccess access = classAccessService.requireResultReadable(classId, userId, LocalDateTime.now(KST));
+        if (access.member() == null) {
+            throw new CustomException(ErrorCode.CLASS_MEMBER_ONLY);
+        }
+
+        int pageSize = size == null || size <= 0
+                ? DEFAULT_ACTIVITY_PAGE_SIZE
+                : Math.min(size, MAX_ACTIVITY_PAGE_SIZE);
+        PageRequest pageable = PageRequest.of(0, pageSize);
+        LocalDateTime before = CursorParser.parseDateTime(cursor);
+        List<PerspectiveComment> comments = before == null
+                ? perspectiveCommentRepository.findVisibleByClassroomIdAndUserIdOrderByCreatedAtDesc(classId, userId, pageable)
+                : perspectiveCommentRepository.findVisibleByClassroomIdAndUserIdBeforeOrderByCreatedAtDesc(
+                        classId, userId, before, pageable);
+
+        List<ClassMyActivityResponse.Comment> items = comments.stream()
+                .map(comment -> new ClassMyActivityResponse.Comment(
+                        comment.getId(),
+                        comment.getPerspective().getId(),
+                        comment.getPerspective().getOption().getTitle(),
+                        comment.getPerspective().getOption().getStance(),
+                        comment.getContent(),
+                        comment.getLikeCount(),
+                        comment.getCreatedAt()))
+                .toList();
+        String nextCursor = comments.size() == pageSize
+                ? comments.get(comments.size() - 1).getCreatedAt().toString()
+                : null;
+        long receivedLikeCount = perspectiveLikeRepository.countReceivedByUserInClass(classId, userId)
+                + commentLikeRepository.countReceivedByUserInClass(classId, userId);
+        long commentCount = perspectiveCommentRepository.countVisibleByClassroomIdAndUserId(classId, userId);
+        return new ClassMyActivityResponse(classId, receivedLikeCount, commentCount, items,
+                nextCursor, nextCursor != null);
     }
 
     @Override

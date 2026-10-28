@@ -9,6 +9,7 @@ import com.swyp.picke.domain.classroom.service.ClassAccessService;
 import com.swyp.picke.domain.classroom.service.ClassDisplayNameResolver;
 import com.swyp.picke.domain.perspective.enums.PerspectiveStatus;
 import com.swyp.picke.domain.user.entity.User;
+import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.domain.perspective.dto.request.CreatePerspectiveRequest;
 import com.swyp.picke.domain.perspective.dto.request.UpdatePerspectiveRequest;
@@ -31,6 +32,7 @@ import com.swyp.picke.domain.user.service.UserService;
 import com.swyp.picke.domain.vote.service.BattleVoteService;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
+import com.swyp.picke.global.common.util.CursorParser;
 import com.swyp.picke.global.infra.s3.service.S3PresignedUrlService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -112,8 +114,11 @@ public class PerspectiveService {
     @Transactional
     public CreatePerspectiveResponse createPerspective(Long battleId, Long userId, Classroom classroom, CreatePerspectiveRequest request) {
         Battle battle = battleService.findById(battleId);
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
 
         Long postVoteOptionId = BattleVoteService.findPostVoteOptionId(battleId, userId, classroom);
         BattleOption option = battleService.findOptionById(postVoteOptionId);
@@ -151,13 +156,13 @@ public class PerspectiveService {
                     ? perspectiveRepository.findByBattleIdAndClassroomAndOptionIdAndStatusOrderByLikeCountDescCreatedAtDesc(battleId, classroom, option.getId(), PerspectiveStatus.PUBLISHED, pageable)
                     : cursor == null
                         ? perspectiveRepository.findByBattleIdAndClassroomAndOptionIdAndStatusOrderByCreatedAtDesc(battleId, classroom, option.getId(), PerspectiveStatus.PUBLISHED, pageable)
-                        : perspectiveRepository.findByBattleIdAndClassroomAndOptionIdAndStatusAndCreatedAtBeforeOrderByCreatedAtDesc(battleId, classroom, option.getId(), PerspectiveStatus.PUBLISHED, LocalDateTime.parse(cursor), pageable);
+                        : perspectiveRepository.findByBattleIdAndClassroomAndOptionIdAndStatusAndCreatedAtBeforeOrderByCreatedAtDesc(battleId, classroom, option.getId(), PerspectiveStatus.PUBLISHED, CursorParser.parseDateTime(cursor), pageable);
         } else {
             perspectives = isPopular
                     ? perspectiveRepository.findByBattleIdAndClassroomAndStatusOrderByLikeCountDescCreatedAtDesc(battleId, classroom, PerspectiveStatus.PUBLISHED, pageable)
                     : cursor == null
                         ? perspectiveRepository.findByBattleIdAndClassroomAndStatusOrderByCreatedAtDesc(battleId, classroom, PerspectiveStatus.PUBLISHED, pageable)
-                        : perspectiveRepository.findByBattleIdAndClassroomAndStatusAndCreatedAtBeforeOrderByCreatedAtDesc(battleId, classroom, PerspectiveStatus.PUBLISHED, LocalDateTime.parse(cursor), pageable);
+                        : perspectiveRepository.findByBattleIdAndClassroomAndStatusAndCreatedAtBeforeOrderByCreatedAtDesc(battleId, classroom, PerspectiveStatus.PUBLISHED, CursorParser.parseDateTime(cursor), pageable);
         }
 
         // 클래스 의견이면 작성자를 클래스 표시 이름으로 보여주고, 나간·내보낸 멤버의 의견은 뺀다
@@ -216,12 +221,21 @@ public class PerspectiveService {
 
     @Transactional
     public UpdatePerspectiveResponse updatePerspective(Long perspectiveId, Long userId, UpdatePerspectiveRequest request) {
+        requireActiveUserForWrite(userId);
         Perspective perspective = findPerspectiveById(perspectiveId);
         validateOwnership(perspective, userId);
         requireClassWritable(perspective, userId);
         perspective.updateContent(request.content());
         perspective.updateStatus(PerspectiveStatus.PUBLISHED);
         return new UpdatePerspectiveResponse(perspective.getId(), perspective.getContent(), perspective.getUpdatedAt());
+    }
+
+    private void requireActiveUserForWrite(Long userId) {
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
     }
 
     public List<MyPerspectiveResponse> getMyPerspective(Long battleId, Long userId) {

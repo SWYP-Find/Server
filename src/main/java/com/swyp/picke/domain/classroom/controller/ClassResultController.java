@@ -2,6 +2,7 @@ package com.swyp.picke.domain.classroom.controller;
 
 import com.swyp.picke.domain.classroom.dto.response.ClassInsightResponse;
 import com.swyp.picke.domain.classroom.dto.response.ClassMyReportResponse;
+import com.swyp.picke.domain.classroom.dto.response.ClassMyActivityResponse;
 import com.swyp.picke.domain.classroom.dto.response.ClassResultResponse;
 import com.swyp.picke.domain.classroom.service.ClassResultService;
 import com.swyp.picke.global.common.response.ApiResponse;
@@ -47,6 +48,18 @@ public class ClassResultController {
             @PathVariable Long classId
     ) {
         return ApiResponse.onSuccess(classResultService.getMyReport(userId, classId));
+    }
+
+    @Operation(summary = "내 활동 (리포트 화면)",
+            description = "공개된 의견·댓글에 받은 좋아요 수와 내가 쓴 공개 댓글 목록을 커서 기반으로 조회합니다. 참여 멤버 전용이며, 기본 20건·최대 100건입니다.")
+    @GetMapping("/my-activity")
+    public ApiResponse<ClassMyActivityResponse> getMyActivity(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long classId,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String cursor,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) Integer size
+    ) {
+        return ApiResponse.onSuccess(classResultService.getMyActivity(userId, classId, cursor, size));
     }
 
     @Operation(summary = "클래스 인사이트 (운영자)",

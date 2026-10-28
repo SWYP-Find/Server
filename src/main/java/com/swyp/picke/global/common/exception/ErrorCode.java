@@ -158,6 +158,7 @@ public enum ErrorCode {
     CLASS_DEADLINE_NOT_EXTENDED(HttpStatus.BAD_REQUEST, "CLASS_400_DEADLINE_EXT", "마감일은 기존 마감일보다 뒤로 연장만 할 수 있습니다."),
     CLASS_CLOSED(HttpStatus.CONFLICT, "CLASS_409_CLOSED", "마감된 클래스입니다."),
     CLASS_TICKET_ENDED(HttpStatus.CONFLICT, "CLASS_409_TICKET_ENDED", "이용권 이용이 종료된 클래스입니다."),
+    CLASS_REQUEST_KEY_CONFLICT(HttpStatus.CONFLICT, "CLASS_409_REQUEST_KEY", "같은 요청 키로 다른 내용의 클래스를 만들 수 없습니다. 새 요청 키로 다시 시도해 주세요."),
     CLASS_INVITE_CODE_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "CLASS_500_CODE", "초대코드 생성에 실패했습니다. 다시 시도해 주세요."),
 
     // Classroom member (클래스 참여·멤버)
@@ -203,6 +204,10 @@ public enum ErrorCode {
     CLASS_DEBATE_REPLY_BLOCKED(HttpStatus.BAD_REQUEST, "CLASS_400_DEBATE_BLOCKED", "다른 사람을 위협하거나 해칠 수 있는 표현은 보낼 수 없어요. 내용을 고쳐 주세요."),
     CLASS_DEBATE_NOT_RETRYABLE(HttpStatus.CONFLICT, "CLASS_409_DEBATE_RETRY", "지금은 다시 시도할 수 없어요."),
     CLASS_DEBATE_NOT_COMPLETED(HttpStatus.CONFLICT, "CLASS_409_DEBATE_INCOMPLETE", "AI 철학자와의 토론을 마친 뒤 사후투표를 할 수 있어요."),
+    CLASS_MID_VOTE_NOT_SUPPORTED(HttpStatus.CONFLICT, "CLASS_409_MID_VOTE", "중간투표가 없는 배틀입니다."),
+    CLASS_MID_VOTE_LOCKED(HttpStatus.CONFLICT, "CLASS_409_MID_VOTE_LOCKED", "사후투표를 마친 뒤에는 중간투표를 바꿀 수 없어요."),
+    CLASS_MID_VOTE_REQUIRED(HttpStatus.CONFLICT, "CLASS_409_MID_VOTE_REQUIRED", "콘텐츠 중간의 선택을 마친 뒤 사후투표를 할 수 있어요."),
+    CLASS_MID_VOTE_OPTION_NOT_FOUND(HttpStatus.NOT_FOUND, "CLASS_404_MID_VOTE_OPTION", "존재하지 않는 중간투표 선택지입니다."),
 
     // Tumblbug XLSX extensions
     COMMON_REQUEST_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "COMMON_413_SIZE", "요청 크기가 서버 허용 용량을 초과했습니다."),

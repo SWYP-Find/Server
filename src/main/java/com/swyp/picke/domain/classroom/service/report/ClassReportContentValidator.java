@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.classroom.service.report;
 
+import com.swyp.picke.domain.classroom.dto.response.ClassMidVoteInfo;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -93,6 +94,7 @@ public class ClassReportContentValidator {
         content.put("coverage", input.coverage());
         content.put("excluded_count", input.excludedCount());
         content.put("pre_option_id", input.preOption() == null ? null : input.preOption().optionId());
+        content.put("mid_choices", midChoices(input.midChoices()));
         content.put("post_option_id", input.postOption() == null ? null : input.postOption().optionId());
         return content;
     }
@@ -131,7 +133,8 @@ public class ClassReportContentValidator {
     // ===== 템플릿 (AI 호출 없음) =====
 
     /** 투표만 있을 때의 서버 템플릿 (PRD §13 자료 부족 처리) */
-    public static Map<String, Object> limitedMemberFeedback(MemberFeedbackInput.OptionInfo pre, MemberFeedbackInput.OptionInfo post) {
+    public static Map<String, Object> limitedMemberFeedback(MemberFeedbackInput.OptionInfo pre, List<ClassMidVoteInfo> mid,
+                                                            MemberFeedbackInput.OptionInfo post) {
         String judgmentBasis;
         if (pre != null && post != null && !pre.optionId().equals(post.optionId())) {
             judgmentBasis = "선택이 " + pre.title() + "에서 " + post.title() + "로 바뀌었어요.";
@@ -139,6 +142,14 @@ public class ClassReportContentValidator {
             judgmentBasis = "처음부터 끝까지 " + post.title() + "를 선택했어요.";
         } else {
             judgmentBasis = "선택 기록을 확인할 수 없어요.";
+        }
+        // 중간투표 문구는 배틀 선택지와 다를 수 있어 고른 문구 그대로 덧붙인다
+        if (mid != null && !mid.isEmpty()) {
+            List<String> labels = new ArrayList<>();
+            for (ClassMidVoteInfo choice : mid) {
+                labels.add("'" + choice.label() + "'");
+            }
+            judgmentBasis += " 콘텐츠 중간에는 " + String.join(", ", labels) + " 쪽을 골랐어요.";
         }
         Map<String, Object> content = new LinkedHashMap<>();
         content.put("headline", "선택의 이유를 확인할 글이 아직 없어요");
@@ -151,8 +162,24 @@ public class ClassReportContentValidator {
         content.put("coverage", "full");
         content.put("excluded_count", 0);
         content.put("pre_option_id", pre == null ? null : pre.optionId());
+        content.put("mid_choices", midChoices(mid));
         content.put("post_option_id", post == null ? null : post.optionId());
         return content;
+    }
+
+    private static List<Map<String, Object>> midChoices(List<ClassMidVoteInfo> choices) {
+        List<Map<String, Object>> list = new ArrayList<>();
+        if (choices == null) {
+            return list;
+        }
+        for (ClassMidVoteInfo choice : choices) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("checkpoint_id", choice.checkpointId());
+            m.put("option_id", choice.optionId());
+            m.put("label", choice.label());
+            list.add(m);
+        }
+        return list;
     }
 
     /** 유효 공개 글 작성자 3명 미만일 때의 템플릿 (PRD §14 개인정보와 소수 의견) */

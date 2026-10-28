@@ -92,9 +92,10 @@
 
 **참여자: TTS 배틀 진행**
 1. 사전투표: `POST /classes/{id}/battle/votes/pre`
-2. TTS 청취 완료: `POST /classes/{id}/battle/votes/tts-complete`
-3. 사후투표: `POST /classes/{id}/battle/votes/post`
-4. 의견 작성: `POST /classes/{id}/battle/perspectives`
+2. (중간투표가 있는 콘텐츠만) 선택 지점마다 콘텐츠 중 선택: `POST /classes/{id}/battle/votes/mid`
+3. TTS 청취 완료: `POST /classes/{id}/battle/votes/tts-complete`
+4. 사후투표: `POST /classes/{id}/battle/votes/post`
+5. 의견 작성: `POST /classes/{id}/battle/perspectives`
 
 **참여자: 커스텀 배틀 진행**
 1. 사전투표: `POST /classes/{id}/battle/votes/pre`
@@ -191,7 +192,8 @@
   "deadline": "2026-12-31T23:59:59",
   "commentRequired": true,
   "ownerParticipates": true,
-  "ownerDisplayName": "김선생"
+  "ownerDisplayName": "김선생",
+  "requestKey": "3f2b8c1e-7d4a-4f6b-9a0e-2c5d8e1f4a7b"
 }
 ```
 
@@ -204,11 +206,16 @@
 | `commentRequired` | O | 의견 작성 필수 여부. 참여 완료 판정에 쓴다 |
 | `ownerParticipates` | O | 운영자도 참여자로 들어갈지. true면 운영자가 1석을 차지하고 투표·의견을 쓸 수 있다 |
 | `ownerDisplayName` | X | 운영자가 참여할 때 클래스 안에서 쓸 이름 (1~20자). 비우면 닉네임을 쓴다 |
+| `requestKey` | X (권장) | 중복 생성 방지 키 (1~64자, 영문·숫자·`-`·`_`). 생성 화면을 열 때 UUID를 하나 만들고, 재전송할 때도 같은 값을 보낸다 |
 
 - 정원은 이용권 정원을 그대로 쓴다.
 - 초대코드 6자는 서버가 만든다.
 - 커스텀 배틀의 썸네일은 환경변수 `CLASS_CUSTOM_BATTLE_THUMBNAIL_URL`의 고정 이미지 1종이다.
 - 응답: `ClassDetailResponse` (2.3 참고)
+- **중복 요청 방지**: 버튼 연타·네트워크 재전송 대비. 같은 운영자의 생성 요청은 이용권 행 잠금으로 하나씩 처리한다.
+  - `requestKey`를 보내면: 같은 키·같은 내용이면 새로 만들지 않고 그 클래스를 200으로 돌려준다. 같은 키·다른 내용이면 409 `CLASS_409_REQUEST_KEY`다. 키가 다르면 내용이 같아도 새로 만든다.
+  - `requestKey`가 없으면: 10초 안에 같은 이름·같은 배틀(또는 주제 버전)로 다시 보낸 요청을 중복으로 보고 직전 클래스를 200으로 돌려준다.
+  - 이름·운영자 표시 이름의 앞뒤 공백은 같은 내용으로 본다.
 
 | 상황 | 응답 |
 |---|---|
@@ -219,6 +226,9 @@
 | 없는 주제 버전이거나 본인 초안의 버전이 아님 | 404 `CLASS_404_TOPIC_VERSION` |
 | 같은 초안으로 이미 클래스를 만듦 (초안 1개당 클래스 1개) | 409 `CLASS_409_TOPIC_DRAFT_USED` |
 | 마감일이 지금 이전이거나 이용권 종료일 이후 | 400 `CLASS_400_DEADLINE` |
+| 같은 `requestKey`로 다른 내용을 보냄 | 409 `CLASS_409_REQUEST_KEY` |
+| `requestKey`로 만든 클래스가 이미 삭제됨 | 409 `CLASS_409_DELETED` |
+| `requestKey` 형식 오류 | 400 `COMMON_400` |
 | 초대코드 생성 실패 (드묾) | 500 `CLASS_500_CODE` |
 
 ### 2.2 내 클래스 목록
@@ -278,7 +288,7 @@
 }
 ```
 
-- `inviteCode`: 운영자에게만 내려간다. 멤버에게는 null이다.
+- `inviteCode`: 운영자·멤버 모두에게 내려간다. 멤버도 공유하기 버튼으로 코드를 공유할 수 있다.
 - `topicVersionId`: 커스텀 배틀의 주제 버전 ID다. TTS 클래스는 null이다.
 - `deadline`: 운영자가 정한 마감일이다. null이면 마감일이 없다.
 
@@ -653,6 +663,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
     "commentRequired": true,
     "canParticipate": true,
     "participationCompleted": false,
+    "midVoteEnabled": false,
     "battle": { }
   }
 }
@@ -660,6 +671,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 
 - `canParticipate`: 지금 투표·의견을 쓸 수 있는지다. 참여 중인 멤버이고 마감 전일 때 true다. 참여하지 않는 운영자는 false다. false면 투표·의견 버튼을 막는다.
 - `participationCompleted`: 참여 완료 여부다. 사후투표를 마쳤고, 의견이 필수면 공개된 내 의견이 1건 이상일 때 true다.
+- `midVoteEnabled`: 중간투표가 있는 기존 콘텐츠(TTS)인지다. 배틀의 중간투표 설정이 켜져 있고 시나리오에 선택 지점(선택지가 있는 노드)이 있을 때 true다. true면 콘텐츠의 선택 화면에서 고른 값을 6.3.1로 보낸다. 커스텀 배틀은 항상 false다.
 - `battle`: 일반 배틀 상세(`BattleUserDetailResponse`)와 같은 구조다. 단 `userVoteStatus`, `currentStep`, `participantsCount`는 이 클래스 기준이다. 구조는 `battle-api.md`를 참고한다.
 
 ### 6.2 사전투표
@@ -691,6 +703,31 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 | 커스텀 배틀 클래스 | 409 `CLASS_409_TTS` |
 | 사전투표 전 | 404 `VOTE_404` |
 
+### 6.3.1 중간투표 (중간투표가 있는 TTS 콘텐츠만)
+- `POST /api/v1/classes/{classId}/battle/votes/mid`
+- 콘텐츠 재생 중 "선택의 시간"에서 고른 값을 선택 지점마다 기록한다. 클래스용 별도 화면은 없고, 기존 콘텐츠 선택 결과를 수집하는 용도다.
+- 선택 지점(checkpoint)은 선택지가 있는 시나리오 노드다. 값은 시나리오 조회(`GET /battles/{battleId}/scenario`)의 노드 ID와 `interactiveOptions[].optionId`를 쓴다.
+
+```json
+{ "checkpointId": 801, "optionId": 9001 }
+```
+
+```json
+{ "statusCode": 200, "data": { "voteId": 100, "status": "TTS_LISTENING" } }
+```
+
+- 지점마다 1건만 저장한다. 같은 지점을 다시 보내면 덮어쓴다. 사후투표 전까지 바꿀 수 있다(콘텐츠를 다시 재생한 경우).
+- 처음 보내면 단계가 `TTS_LISTENING`으로 바뀌고, 이후 사전투표가 잠긴다. 이미 `POST_VOTE`면 단계는 그대로 둔다.
+- 필수 중간투표: 시작 노드부터 내가 고른 선택지를 따라가며 만나는 선택 지점에 모두 답해야 사후투표(6.4)를 할 수 있다.
+- 선택 당시 선택지 문구를 함께 저장한다. 시나리오를 수정해도 결과·리포트에는 고른 문구가 남는다.
+
+| 상황 | 응답 |
+|---|---|
+| 중간투표가 없는 배틀(설정 꺼짐·선택 지점 없음)이거나 커스텀 배틀 클래스 | 409 `CLASS_409_MID_VOTE` |
+| 없는 선택 지점이거나 그 지점의 선택지가 아님 | 404 `CLASS_404_MID_VOTE_OPTION` |
+| 사전투표 전 | 404 `VOTE_404` |
+| 사후투표 완료 후 | 409 `CLASS_409_MID_VOTE_LOCKED` |
+
 ### 6.4 사후투표
 - `POST /api/v1/classes/{classId}/battle/votes/post`
 - 요청은 6.2와 같고, 응답의 `status`는 `COMPLETED`다.
@@ -701,6 +738,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 | 사전투표 기록 없음 | 404 `VOTE_404` |
 | 진행 단계가 `NONE` | 409 `VOTE_409_PRE` |
 | TTS 클래스인데 청취 완료(6.3) 전 | 409 `CLASS_409_TTS_INCOMPLETE` |
+| 중간투표 콘텐츠인데 고른 경로의 선택 지점에 답하지 않음 | 409 `CLASS_409_MID_VOTE_REQUIRED` |
 | 이미 제출 | 409 `VOTE_409_SUB` |
 | 커스텀 배틀인데 AI 토론을 마치지 않음 | 409 `CLASS_409_DEBATE_INCOMPLETE` |
 | 이 배틀의 선택지가 아님 | 404 `BATTLE_OPT_404` |
@@ -714,6 +752,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
   "data": {
     "battleTitle": "AI가 쓴 글도 창작일까?",
     "preVote": { "optionId": 31, "label": "A", "title": "창작이다" },
+    "midVotes": [ { "checkpointId": 801, "optionId": 9002, "label": "무죄" } ],
     "postVote": { "optionId": 32, "label": "B", "title": "창작이 아니다" },
     "status": "COMPLETED",
     "opinionChanged": true
@@ -722,10 +761,12 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 ```
 
 - 투표 전이면 404 `VOTE_404`다.
+- `midVotes`는 선택 지점별 중간투표(6.3.1)다. 지점 ID 순이고, 중간투표가 없는 배틀이거나 아직 고르지 않았으면 빈 배열이다.
+- `opinionChanged`는 사전·사후만 비교한다.
 
 ### 6.6 투표 통계
 - `GET /api/v1/classes/{classId}/battle/vote-stats`
-- 이 클래스 멤버들의 사후투표만 집계한다.
+- 이 클래스에 지금 참여 중인(ACTIVE) 멤버들의 사후투표만 집계한다. 나가거나 내보내진 멤버의 투표는 빠지고, 다시 참여하면 다시 포함된다.
 
 ```json
 {
@@ -791,7 +832,9 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 }
 ```
 
-- `user`에는 클래스 표시 이름이 아니라 전체 서비스 닉네임이 내려간다.
+- `user.nickname`에는 전체 서비스 닉네임 대신 이 클래스의 표시 이름(5.2·5.4)이 내려간다.
+- `user.userTag`는 클래스에서는 null이다. 계정 식별자를 클래스 안에 노출하지 않는다.
+- 나가거나 내보내진 멤버의 의견은 목록에서 빠진다. 다시 참여하면 다시 보인다.
 
 ### 6.9 내 의견
 - `GET /api/v1/classes/{classId}/battle/perspectives/me`
@@ -800,6 +843,9 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 
 ### 6.10 의견의 댓글·수정·삭제·좋아요
 클래스 의견도 일반 관점 API를 그대로 쓴다. 구조는 `comments-api.md`, `perspectives-api.md`, `likes-api.md`를 참고한다.
+
+클래스 의견·댓글이면 의견 상세, 댓글 목록, 댓글 등록 응답의 `user.nickname`도 클래스 표시 이름이고 `user.userTag`는 null이다.
+나가거나 내보내진 멤버의 댓글은 댓글 목록에서 빠진다. 그 멤버의 의견은 상세 조회·댓글 조회·댓글 등록 모두 404 `PERSPECTIVE_404`다.
 
 | 기능 | API | 클래스 권한 검사 |
 |---|---|---|
@@ -956,8 +1002,20 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
       "commentWriterCount": 9,
       "commentRate": 75.0,
       "postVoteCount": 11,
+      "midVoteEnabled": true,
+      "midVoteCount": 10,
       "options": [
         { "optionId": 31, "title": "창작이다", "stance": "...", "preVoteCount": 8, "postVoteCount": 6, "postVoteRatio": 54.5 }
+      ],
+      "midVoteCheckpoints": [
+        {
+          "checkpointId": 801,
+          "voteCount": 10,
+          "options": [
+            { "optionId": 9001, "label": "유죄", "voteCount": 4, "ratio": 40.0 },
+            { "optionId": 9002, "label": "무죄", "voteCount": 6, "ratio": 60.0 }
+          ]
+        }
       ]
     },
     "myReportState": "SUCCEEDED",
@@ -968,6 +1026,8 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 
 - `statsBasis`: `LIVE`(현재 데이터) / `SNAPSHOT`(마감 스냅샷). `LIVE`이면 `cutoffAt`은 null이다.
 - 비율은 소수 첫째 자리 %이고, 분모가 0이면 0이다.
+- `midVoteCount`는 한 지점이라도 답한 활성 참여자 수다. `midVoteCheckpoints`는 선택 지점별 분포이고, `ratio`는 그 지점 응답자 중 비율이다.
+- `midVoteEnabled`가 false면 `midVoteCount`는 0, `midVoteCheckpoints`는 빈 배열이다. 화면에서 중간투표 칸을 숨긴다. 중간투표 도입 전에 만든 스냅샷도 false로 내려간다.
 - `myReportState`: 참여 멤버만 있다. 참여하지 않는 운영자는 null이다.
 - `insightState`: 운영자에게만 있다. 그 외에는 null이다.
 - 이 두 값으로 리포트 탭을 보여줄지 정한다.
@@ -985,6 +1045,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
     "state": "SUCCEEDED",
     "closeAt": "2026-12-31T23:59:59",
     "preOption": { "optionId": 31, "title": "창작이다", "stance": "..." },
+    "midVotes": [],
     "postOption": { "optionId": 32, "title": "창작이 아니다", "stance": "..." },
     "perspectiveCount": 1,
     "commentCount": 2,
@@ -1008,6 +1069,8 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 
 - `feedback`은 `state`가 `SUCCEEDED`나 `LIMITED`일 때만 있다. 그 외에는 null이다.
 - `strength`, `nextFocus`는 기록으로 확인되지 않으면 null이다.
+- `midVotes`는 중간투표가 있는 콘텐츠에서 선택 지점마다 고른 선택지다(6.5와 같은 형태). 없으면 빈 배열이다. 중간 선택은 AI 피드백 입력에도 들어간다.
+- 글 없이 투표만 한 `LIMITED` 템플릿은 중간 선택이 있으면 "… 콘텐츠 중간에는 '무죄' 쪽을 골랐어요."를 덧붙인다.
 - `evidence[].content`는 현재 기준 원문이다. 삭제·숨김된 글은 목록에서 빠진다.
 - `coverage=partial`은 분량 제한으로 일부 글을 빼고 분석했다는 뜻이다. 뺀 글 수는 `excludedCount`에 있다.
 - 참여하지 않는 운영자는 403 `CLASS_403_MEMBER`다.
@@ -1200,7 +1263,59 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 - 응답 필드:
   - 주문: `totalOrders`, `paidConfirmed`, `issuable`, `held`, `refunded`, `canceled`
   - 이용권: `issued`, `undelivered`, `delivered`, `registered`
+  - 등록기한 알림 대상 수: `registerReminderD30`, `registerReminderD7` (9.9와 같은 기준)
 - 이용권 수치는 살아 있는(REVOKED가 아닌) 행 기준이다.
+
+### 9.9 등록기한 임박 알림
+PRD "등록기한 30일·7일 전 알림은 허용된 연락 수단에서만 발송". 미등록 이용권은 앱 계정에 연결되지 않아 푸시를 보낼 수 없다. 그래서 코드 전달(9.4)처럼 운영자가 후원자 연락처로 보내고 결과를 기록한다. 대상은 조회 시점에 계산하므로 별도 배치가 없다.
+
+**대상 조회**
+- `GET /api/v1/admin/funding/register-reminders?stage=D30`
+
+| `stage` | 대상 등록기한 |
+|---|---|
+| `D30` | 지금부터 7일 초과 ~ 30일 이내 |
+| `D7` | 지금부터 7일 이내 (지난 건 제외) |
+
+- 대상: 전달 완료(`codeStatus=DELIVERED`)·미등록(`status=UNREGISTERED`)이고, 그 단계 알림을 아직 `SUCCESS`로 기록하지 않은 이용권이다. 등록기한이 빠른 순이다.
+- 30일 알림을 놓치고 7일 안으로 들어온 이용권은 `D7` 대상만 된다.
+- 미전달(`ISSUED`) 이용권은 대상이 아니다. 코드 전달(9.4)부터 해야 한다.
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "stage": "D30",
+    "count": 1,
+    "items": [
+      {
+        "ticketId": 12, "fundingOrderId": 3, "platform": "TUMBLBUG", "orderId": "ORD-30",
+        "supporterName": "홍길동", "supporterEmail": "a@test.com", "supporterPhone": "010-0000-0000",
+        "capacity": 15, "registerBy": "2026-11-17T10:00:00", "daysLeft": 20
+      }
+    ]
+  }
+}
+```
+
+- `daysLeft`: 등록기한까지 남은 일수 (KST 날짜 기준)
+
+**발송 기록**
+- `POST /api/v1/admin/funding/tickets/{ticketId}/register-reminders`
+
+```json
+{ "stage": "D30", "channel": "EMAIL", "status": "SUCCESS", "failureReason": null }
+```
+
+- `channel`: `EMAIL` / `SMS` / `MANUAL`
+- `status`: `SUCCESS`면 그 단계 대상에서 빠진다. `FAILED`는 이력만 남고 대상에 그대로 있다(재시도 가능).
+- 응답: `reminderId`, `ticketId`, `stage`, `channel`, `status`, `failureReason`, `attemptedAt`
+
+| 상황 | 응답 |
+|---|---|
+| 전달 완료·미등록 이용권이 아님 (미전달·등록 완료·무효화) | 409 `TICKET_409_STATE` |
+| 등록기한 경과 | 409 `TICKET_409_REG_EXP` |
+| `stage`·`channel`·`status` 누락 | 400 `COMMON_400` |
 
 ---
 
@@ -1236,12 +1351,17 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 | `CLASS_409_TICKET_ENDED` | 409 | 이용권 이용이 종료된 클래스입니다. |
 | `CLASS_409_FULL` | 409 | 정원이 가득 찬 클래스입니다. |
 | `CLASS_409_DELETED` | 409 | 삭제되어 더 이상 이용할 수 없는 클래스입니다. |
+| `CLASS_409_REQUEST_KEY` | 409 | 같은 요청 키로 다른 내용의 클래스를 만들 수 없습니다. 새 요청 키로 다시 시도해 주세요. |
 | `CLASS_409_JOINED` | 409 | 이미 참여 중인 클래스입니다. |
 | `CLASS_409_NAME` | 409 | 이미 사용 중인 이름입니다. 다른 이름을 입력해 주세요. |
 | `CLASS_409_OWNER` | 409 | 내가 운영하는 클래스에는 참여자로 들어갈 수 없습니다. |
 | `CLASS_409_PRE_VOTE_LOCKED` | 409 | 배틀이 시작된 뒤에는 사전투표를 변경할 수 없습니다. |
 | `CLASS_409_TTS` | 409 | 커스텀 배틀 클래스에는 음성(TTS) 단계가 없습니다. |
 | `CLASS_409_TTS_INCOMPLETE` | 409 | 오디오를 끝까지 들은 뒤 사후투표를 할 수 있어요. |
+| `CLASS_409_MID_VOTE` | 409 | 중간투표가 없는 배틀입니다. |
+| `CLASS_409_MID_VOTE_LOCKED` | 409 | 사후투표를 마친 뒤에는 중간투표를 바꿀 수 없어요. |
+| `CLASS_409_MID_VOTE_REQUIRED` | 409 | 콘텐츠 중간의 선택을 마친 뒤 사후투표를 할 수 있어요. |
+| `CLASS_404_MID_VOTE_OPTION` | 404 | 존재하지 않는 중간투표 선택지입니다. |
 | `CLASS_409_PERSPECTIVE_REQUIRED` | 409 | 의견 작성이 필수인 클래스의 의견은 삭제할 수 없어요. 내용을 수정해 주세요. |
 | `CLASS_409_RESULT_EXPIRED` | 409 | 결과 열람 기간이 끝났습니다. |
 | `CLASS_409_REPORT_RETRY` | 409 | 지금은 AI 요약을 다시 시도할 수 없습니다. |

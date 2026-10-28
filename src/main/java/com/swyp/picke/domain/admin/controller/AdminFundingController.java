@@ -1,5 +1,9 @@
 package com.swyp.picke.domain.admin.controller;
 
+import com.swyp.picke.domain.ticket.enums.RegisterReminderStage;
+import com.swyp.picke.domain.admin.dto.funding.response.RegisterReminderTargetResponse;
+import com.swyp.picke.domain.admin.dto.funding.response.RegisterReminderResponse;
+import com.swyp.picke.domain.admin.dto.funding.request.RegisterReminderRequest;
 import com.swyp.picke.domain.admin.dto.funding.request.FundingRefundRequest;
 import com.swyp.picke.domain.admin.dto.funding.request.TicketDeliveryRequest;
 import com.swyp.picke.domain.admin.dto.funding.request.TicketIssueRequest;
@@ -107,7 +111,29 @@ public class AdminFundingController {
                 adminFundingService.getOrders(paymentStatus, ticketStatus, codeStatus, keyword, capacity, deliveryStatus, page, size));
     }
 
-    @Operation(summary = "펀딩·이용권 현황 요약", description = "결제 확정/발급 가능/보류/발급/미전달/전달/등록/환불/취소 카운트")
+    @Operation(summary = "등록기한 임박 알림 대상",
+            description = "전달 완료(DELIVERED)·미등록 이용권 중 등록기한이 D30(7일 초과~30일 이내) 또는 D7(7일 이내)에 들고, "
+                    + "해당 단계 알림을 아직 SUCCESS 로 기록하지 않은 건을 등록기한 빠른 순으로 돌려줍니다. "
+                    + "미등록 이용권은 앱 계정이 없어 푸시가 불가하므로, 운영자가 후원자 연락처로 보낸 뒤 결과를 기록합니다.")
+    @GetMapping("/register-reminders")
+    public ApiResponse<RegisterReminderTargetResponse> getRegisterReminderTargets(
+            @RequestParam RegisterReminderStage stage
+    ) {
+        return ApiResponse.onSuccess(adminFundingService.getRegisterReminderTargets(stage));
+    }
+
+    @Operation(summary = "등록기한 임박 알림 발송 기록",
+            description = "운영자가 보낸 등록기한 알림 결과를 단계별로 기록합니다. SUCCESS 로 기록한 단계는 대상 목록에서 빠집니다. "
+                    + "전달 완료·미등록 이용권이 아니면 409 TICKET_409_STATE, 등록기한이 지났으면 409 TICKET_409_REG_EXP.")
+    @PostMapping("/tickets/{ticketId}/register-reminders")
+    public ApiResponse<RegisterReminderResponse> recordRegisterReminder(
+            @PathVariable Long ticketId,
+            @Valid @RequestBody RegisterReminderRequest request
+    ) {
+        return ApiResponse.onSuccess(adminFundingService.recordRegisterReminder(ticketId, request));
+    }
+
+    @Operation(summary = "펀딩·이용권 현황 요약", description = "결제 확정/발급 가능/보류/발급/미전달/전달/등록/환불/취소 카운트, 등록기한 알림 대상 수")
     @GetMapping("/summary")
     public ApiResponse<FundingSummaryResponse> getSummary() {
         return ApiResponse.onSuccess(adminFundingService.getSummary());

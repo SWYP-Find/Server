@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.classroom.service.report;
 
+import com.swyp.picke.domain.classroom.dto.response.ClassMidVoteInfo;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -12,6 +13,7 @@ public record MemberFeedbackInput(
         String battleSummary,
         List<OptionInfo> options,
         OptionInfo preOption,
+        List<ClassMidVoteInfo> midChoices,
         OptionInfo postOption,
         List<Statement> statements,
         int excludedCount

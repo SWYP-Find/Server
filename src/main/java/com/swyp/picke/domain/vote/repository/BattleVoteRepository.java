@@ -3,6 +3,7 @@ package com.swyp.picke.domain.vote.repository;
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.classroom.entity.Classroom;
+import com.swyp.picke.domain.classroom.enums.ClassMemberStatus;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.vote.entity.BattleVote;
 import org.springframework.data.domain.Pageable;
@@ -51,6 +52,13 @@ public interface BattleVoteRepository extends JpaRepository<BattleVote, Long> {
     long countByBattleAndClassroomAndPostVoteOption(Battle battle, Classroom classroom, BattleOption postVoteOption);
 
     long countByBattleAndClassroomAndPostVoteOptionIsNotNull(Battle battle, Classroom classroom);
+
+    /** 클래스 투표 통계: 지금 클래스에 남아 있는(status) 멤버의 사후투표만 선택지별로 센다. [optionId, count] */
+    @Query("SELECT v.postVoteOption.id, COUNT(v) FROM BattleVote v WHERE v.battle = :battle AND v.classroom = :classroom " +
+            "AND v.postVoteOption IS NOT NULL AND EXISTS (SELECT m.id FROM ClassMember m " +
+            "WHERE m.classroom = v.classroom AND m.user = v.user AND m.status = :status) GROUP BY v.postVoteOption.id")
+    List<Object[]> countClassPostVotesByMemberStatus(@Param("battle") Battle battle, @Param("classroom") Classroom classroom,
+                                                     @Param("status") ClassMemberStatus status);
 
     Optional<BattleVote> findTopByBattleAndClassroomOrderByUpdatedAtDesc(Battle battle, Classroom classroom);
 

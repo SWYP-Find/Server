@@ -28,9 +28,13 @@ import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -57,6 +61,8 @@ public class ClassroomServiceImpl implements ClassroomService {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final int INVITE_CODE_MAX_ATTEMPTS = 10;
+    /** 같은 생성 요청으로 보는 시간 범위. 연속 탭·네트워크 재전송을 잡을 만큼만 짧게 둔다. */
+    private static final long DUPLICATE_WINDOW_SECONDS = 10;
 
     private final ClassroomRepository classroomRepository;
     private final ClassMemberRepository classMemberRepository;
@@ -77,6 +83,17 @@ public class ClassroomServiceImpl implements ClassroomService {
         if ((request.battleId() == null) == (request.topicVersionId() == null)) {
             throw new CustomException(ErrorCode.CLASS_BATTLE_SOURCE_INVALID);
         }
+        String requestKey = request.requestKey() == null || request.requestKey().isBlank() ? null : request.requestKey();
+        String requestHash = requestKey == null ? null : requestHashOf(request);
+        // 같은 이용권의 생성 요청은 행 잠금으로 한 번에 하나씩 처리한 뒤, 이미 만든 같은 요청의 클래스가 있으면 그것을 돌려준다
+        ticket = classTicketRepository.findByIdForUpdate(ticket.getId()).orElse(ticket);
+        Classroom duplicate = requestKey != null
+                ? findByRequestKey(userId, requestKey, requestHash)
+                : findRecentDuplicate(userId, request);
+        if (duplicate != null) {
+            log.info("클래스 중복 생성 요청 - 기존 클래스 반환 classId: {}, ownerId: {}", duplicate.getId(), userId);
+            return ClassroomConverter.toDetail(duplicate, ClassMemberRole.OWNER, seatCountOf(duplicate), now);
+        }
         ClassTopicVersion topicVersion = request.topicVersionId() == null ? null : findOwnTopicVersion(userId, request.topicVersionId());
         Battle tts = topicVersion == null ? findClassBattle(request.battleId()) : null;
         validateDeadlineRange(request.deadline(), ticket, now);
@@ -94,6 +111,8 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .deadline(request.deadline())
                 .commentRequired(request.commentRequired())
                 .ownerParticipates(request.ownerParticipates())
+                .createRequestKey(requestKey)
+                .createRequestHash(requestHash)
                 .build());
 
         long memberCount = 0;
@@ -212,6 +231,66 @@ public class ClassroomServiceImpl implements ClassroomService {
     }
 
     // ===== 생성 검증 =====
+
+    /**
+     * 요청 키로 이미 만든 클래스를 찾는다. 키가 같은데 내용이 다르면 클라이언트가 키를 재사용한 것이라 409.
+     * 키는 운영자 단위로 유일해서 다른 운영자의 키와는 겹쳐도 상관없다.
+     */
+    private Classroom findByRequestKey(Long userId, String requestKey, String requestHash) {
+        Classroom existing = classroomRepository.findByOwnerIdAndCreateRequestKey(userId, requestKey).orElse(null);
+        if (existing == null) {
+            return null;
+        }
+        if (!requestHash.equals(existing.getCreateRequestHash())) {
+            throw new CustomException(ErrorCode.CLASS_REQUEST_KEY_CONFLICT);
+        }
+        if (existing.getStatus() != ClassStatus.ACTIVE) {
+            throw new CustomException(ErrorCode.CLASS_DELETED);
+        }
+        return existing;
+    }
+
+    /** 같은 요청인지 비교할 본문 해시. 서버가 정규화하는 값(이름·운영자 표시 이름 앞뒤 공백)은 정규화한 뒤 비교한다 */
+    static String requestHashOf(ClassCreateRequest request) {
+        String canonical = String.join("\n",
+                request.name().strip(),
+                String.valueOf(request.battleId()),
+                String.valueOf(request.topicVersionId()),
+                String.valueOf(request.deadline()),
+                String.valueOf(request.commentRequired()),
+                String.valueOf(request.ownerParticipates()),
+                request.ownerDisplayName() == null ? "" : request.ownerDisplayName().strip());
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 not available", e);
+        }
+    }
+
+    /**
+     * 요청 키 없이 연속 탭·재전송으로 들어온 같은 생성 요청인지 판정한다.
+     * 같은 운영자·같은 이름·같은 배틀(또는 주제 버전)으로 {@link #DUPLICATE_WINDOW_SECONDS}초 안에 만든 클래스가 있으면 그 클래스.
+     * 이용권 기간 안에서 클래스 생성 수는 무제한이라, 이름이나 배틀이 다르면 새로 만든다.
+     * createdAt 은 JPA Auditing 이 서버 기본 시간대로 채우므로, 비교 기준도 KST 가 아닌 서버 기본 시간대로 잡는다.
+     */
+    private Classroom findRecentDuplicate(Long userId, ClassCreateRequest request) {
+        String name = request.name().strip();
+        LocalDateTime now = LocalDateTime.now();
+        return classroomRepository.findByOwnerIdAndNameAndStatusAndCreatedAtAfterOrderByIdDesc(
+                        userId, name, ClassStatus.ACTIVE, now.minusSeconds(DUPLICATE_WINDOW_SECONDS))
+                .stream()
+                .filter(c -> isSameBattleSource(c, request))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private static boolean isSameBattleSource(Classroom classroom, ClassCreateRequest request) {
+        if (request.topicVersionId() != null) {
+            return classroom.getTopicVersion() != null && request.topicVersionId().equals(classroom.getTopicVersion().getId());
+        }
+        return classroom.getTopicVersion() == null && request.battleId().equals(classroom.getBattle().getId());
+    }
 
     /**
      * 사용 중(ACTIVE) 이용권이 없거나 기간이 끝났으면 생성 불가.

@@ -26,6 +26,13 @@ public interface ClassroomRepository extends JpaRepository<Classroom, Long> {
 
     Optional<Classroom> findByIdAndStatus(Long id, ClassStatus status);
 
+    /** 중복 생성 판정용: 같은 운영자가 같은 요청 키로 만든 클래스 */
+    Optional<Classroom> findByOwnerIdAndCreateRequestKey(Long ownerId, String createRequestKey);
+
+    /** 중복 생성 판정용(요청 키가 없을 때): 같은 운영자가 같은 이름으로 최근에 만든 클래스 */
+    List<Classroom> findByOwnerIdAndNameAndStatusAndCreatedAtAfterOrderByIdDesc(
+            Long ownerId, String name, ClassStatus status, LocalDateTime createdAfter);
+
     /**
      * 참여용: 정원 검사와 멤버 생성이 한 트랜잭션에서 직렬화되도록 클래스 행을 잠근다(SELECT ... FOR UPDATE).
      * 마지막 1석을 두 사람이 동시에 신청하면 한 명만 들어간다 (PRD F06).

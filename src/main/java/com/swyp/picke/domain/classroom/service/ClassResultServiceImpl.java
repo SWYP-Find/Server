@@ -7,6 +7,7 @@ import com.swyp.picke.domain.classroom.dto.response.ClassResultResponse;
 import com.swyp.picke.domain.classroom.entity.ClassMember;
 import com.swyp.picke.domain.classroom.entity.ClassReport;
 import com.swyp.picke.domain.classroom.entity.Classroom;
+import com.swyp.picke.domain.classroom.enums.ClassBattleType;
 import com.swyp.picke.domain.classroom.enums.ClassMemberRole;
 import com.swyp.picke.domain.classroom.enums.ClassReportStatus;
 import com.swyp.picke.domain.classroom.enums.ClassReportType;
@@ -53,6 +54,7 @@ public class ClassResultServiceImpl implements ClassResultService {
     private final ClassAccessService classAccessService;
     private final ClassReportRepository classReportRepository;
     private final ClassResultStatsCalculator statsCalculator;
+    private final ClassMidVoteService classMidVoteService;
     private final BattleVoteRepository battleVoteRepository;
     private final PerspectiveRepository perspectiveRepository;
     private final PerspectiveCommentRepository perspectiveCommentRepository;
@@ -113,6 +115,7 @@ public class ClassResultServiceImpl implements ClassResultService {
         return new ClassMyReportResponse(
                 classId, state, classroom.getEffectiveCloseAt(),
                 toOption(vote == null ? null : vote.getPreVoteOption()),
+                classMidVoteService.choicesOf(classroom, vote),
                 toOption(vote == null ? null : vote.getPostVoteOption()),
                 perspectiveCount, commentCount, feedback, generatedAt);
     }
@@ -330,10 +333,20 @@ public class ClassResultServiceImpl implements ClassResultService {
     private static ClassResultResponse.Stats toStats(ClassResultStats stats) {
         List<ClassResultResponse.OptionStat> options = new ArrayList<>();
         for (ClassResultStats.OptionStat o : stats.options()) {
-            options.add(new ClassResultResponse.OptionStat(o.optionId(), o.title(), o.stance(), o.preVoteCount(), o.postVoteCount(), o.postVoteRatio()));
+            options.add(new ClassResultResponse.OptionStat(o.optionId(), o.title(), o.stance(), o.preVoteCount(),
+                    o.postVoteCount(), o.postVoteRatio()));
+        }
+        List<ClassResultResponse.CheckpointStat> checkpoints = new ArrayList<>();
+        for (ClassResultStats.CheckpointStat c : stats.midVoteCheckpoints()) {
+            List<ClassResultResponse.ChoiceStat> choices = new ArrayList<>();
+            for (ClassResultStats.ChoiceStat choice : c.options()) {
+                choices.add(new ClassResultResponse.ChoiceStat(choice.optionId(), choice.label(), choice.voteCount(), choice.ratio()));
+            }
+            checkpoints.add(new ClassResultResponse.CheckpointStat(c.checkpointId(), c.voteCount(), choices));
         }
         return new ClassResultResponse.Stats(stats.activeMemberCount(), stats.completedCount(), stats.participationRate(),
-                stats.commentWriterCount(), stats.commentRate(), stats.postVoteCount(), options);
+                stats.commentWriterCount(), stats.commentRate(), stats.postVoteCount(),
+                stats.midVoteEnabled(), stats.midVoteCount(), options, checkpoints);
     }
 
     private static boolean inClass(Classroom classroom, Long classId) {

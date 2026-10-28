@@ -406,7 +406,8 @@ class ClassBattleApiIntegrationTest {
 
         mockMvc.perform(get(classBattle(cls) + "/perspectives").header("Authorization", "Bearer " + readerToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.items[0].user.nickname").value("김표시"));
+                .andExpect(jsonPath("$.data.items[0].user.nickname").value("김표시"))
+                .andExpect(jsonPath("$.data.items[0].user.userTag").value(org.hamcrest.Matchers.nullValue()));
         mockMvc.perform(get(classBattle(cls) + "/perspectives/me").header("Authorization", "Bearer " + writerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].user.nickname").value("김표시"));
@@ -415,7 +416,69 @@ class ClassBattleApiIntegrationTest {
                 .andExpect(jsonPath("$.data.user.nickname").value("김표시"));
         mockMvc.perform(get("/api/v1/perspectives/" + perspectiveId + "/comments").header("Authorization", "Bearer " + writerToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.items[0].user.nickname").value("이표시"));
+                .andExpect(jsonPath("$.data.items[0].user.nickname").value("이표시"))
+                .andExpect(jsonPath("$.data.items[0].user.userTag").value(org.hamcrest.Matchers.nullValue()));
+    }
+
+    @Test
+    @DisplayName("나간·내보낸 멤버의 의견·댓글·투표는 클래스 목록과 투표 통계에서 빠진다")
+    void leftMember_postsAndVotesHidden() throws Exception {
+        ClassInfo cls = createClass(false);
+        String leaverToken = tokenOf(newUser("나갈사람"));
+        String stayerToken = tokenOf(newUser("남을사람"));
+        join(leaverToken, cls.inviteCode, "나갈사람").andExpect(status().isOk());
+        join(stayerToken, cls.inviteCode, "남을사람").andExpect(status().isOk());
+
+        long leaverPerspective = 0;
+        for (String token : List.of(leaverToken, stayerToken)) {
+            vote(token, cls, "/votes/pre", optionA).andExpect(status().isOk());
+            listen(token, cls);
+            vote(token, cls, "/votes/post", optionA).andExpect(status().isOk());
+            long id = dataOf(mockMvc.perform(post(classBattle(cls) + "/perspectives")
+                            .header("Authorization", "Bearer " + token)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(json(Map.of("content", "목록 숨김을 확인할 클래스 의견입니다."))))
+                    .andExpect(status().isOk())
+                    .andReturn()).get("perspectiveId").asLong();
+            if (token.equals(leaverToken)) {
+                leaverPerspective = id;
+            }
+        }
+        long stayerPerspective = dataOf(mockMvc.perform(get(classBattle(cls) + "/perspectives/me")
+                        .header("Authorization", "Bearer " + stayerToken))
+                .andReturn()).get(0).get("perspectiveId").asLong();
+        mockMvc.perform(post("/api/v1/perspectives/" + stayerPerspective + "/comments")
+                        .header("Authorization", "Bearer " + leaverToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("content", "나간 뒤 숨겨질 클래스 댓글입니다."))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/api/v1/classes/" + cls.classId + "/members/me").header("Authorization", "Bearer " + leaverToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get(classBattle(cls) + "/perspectives").header("Authorization", "Bearer " + stayerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items", hasSize(1)))
+                .andExpect(jsonPath("$.data.items[0].user.nickname").value("남을사람"));
+        mockMvc.perform(get("/api/v1/perspectives/" + stayerPerspective + "/comments").header("Authorization", "Bearer " + stayerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items", hasSize(0)));
+        mockMvc.perform(get("/api/v1/perspectives/" + leaverPerspective).header("Authorization", "Bearer " + stayerToken))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/v1/perspectives/" + leaverPerspective + "/comments").header("Authorization", "Bearer " + stayerToken))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get(classBattle(cls) + "/vote-stats").header("Authorization", "Bearer " + stayerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalCount").value(1));
+
+        // 다시 참여하면 기존 글이 다시 보인다
+        join(leaverToken, cls.inviteCode, "나갈사람").andExpect(status().isOk());
+        mockMvc.perform(get(classBattle(cls) + "/perspectives").header("Authorization", "Bearer " + stayerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items", hasSize(2)));
+        mockMvc.perform(get(classBattle(cls) + "/vote-stats").header("Authorization", "Bearer " + stayerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalCount").value(2));
     }
 
     @Test

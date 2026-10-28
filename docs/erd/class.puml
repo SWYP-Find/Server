@@ -434,6 +434,8 @@ note bottom of votes
     클래스용 별도 중간투표 UI 없음, 기존 콘텐츠 결과 수집 용도만 (기획 Q&A 확정)
   클래스 내 배틀 화면은 일반 배틀과 동일 (사전투표·채팅방·최종투표·의견 목록, 좋아요/정렬)
   → votes / perspectives / perspective_comments 를 class_id 로 스코프만 분리해 재사용
+  클래스 의견·댓글 작성자는 class_members.display_name 으로 노출, userTag 는 null (#575)
+  class_members.status 가 LEFT/REMOVED 인 작성자의 의견·댓글·사후투표는 클래스 목록·vote-stats 에서 제외 (재참여 시 다시 노출)
   class_id 추가에 따라 유니크 변경:
   votes          UK(user_id, battle_id) → UK(user_id, battle_id, class_id)
   user_battles   UK(user_id, battle_id) → UK(user_id, battle_id, class_id)

@@ -67,8 +67,10 @@ class PerspectiveServiceTest {
     @Mock
     private S3PresignedUrlService s3PresignedUrlService;
 
-    @Mock
-    private ClassDisplayNameResolver classDisplayNameResolver;
+    // 일반 배틀(classroom null)은 저장소를 건드리지 않으므로 실제 구현을 쓴다
+    @org.mockito.Spy
+    private ClassDisplayNameResolver classDisplayNameResolver = new ClassDisplayNameResolver(
+            org.mockito.Mockito.mock(com.swyp.picke.domain.classroom.repository.ClassMemberRepository.class));
 
     @InjectMocks
     private PerspectiveService perspectiveService;

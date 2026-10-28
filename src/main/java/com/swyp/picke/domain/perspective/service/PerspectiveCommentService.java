@@ -70,6 +70,7 @@ public class PerspectiveCommentService {
         Perspective perspective = findPerspectiveById(perspectiveId);
         Classroom classroom = perspective.getClassroom();
         requireClassWritable(classroom, userId);
+        requireVisibleAuthor(perspective, classroom);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
@@ -93,7 +94,7 @@ public class PerspectiveCommentService {
         String name = classDisplayNameResolver.nameOf(classroom, userId, userSummary.nickname());
         return new CreateCommentResponse(
                 comment.getId(),
-                new CreateCommentResponse.UserSummary(userSummary.userTag(), name, userSummary.characterType(), characterImageUrl),
+                new CreateCommentResponse.UserSummary(ClassDisplayNameResolver.userTagOf(classroom, userSummary.userTag()), name, userSummary.characterType(), characterImageUrl),
                 stance,
                 comment.getContent(),
                 0,
@@ -138,6 +139,7 @@ public class PerspectiveCommentService {
         Perspective perspective = findPerspectiveById(perspectiveId);
         Classroom classroom = perspective.getClassroom();
         requireClassReadable(classroom, userId);
+        requireVisibleAuthor(perspective, classroom);
 
         int pageSize = (size == null || size <= 0) ? DEFAULT_PAGE_SIZE : size;
         PageRequest pageable = PageRequest.of(0, pageSize);
@@ -148,11 +150,12 @@ public class PerspectiveCommentService {
                         perspective, LocalDateTime.parse(cursor), pageable);
 
         Long battleId = perspective.getBattle().getId();
-        // 클래스 댓글이면 작성자를 클래스 표시 이름으로 보여준다
+        // 클래스 댓글이면 작성자를 클래스 표시 이름으로 보여주고, 나간·내보낸 멤버의 댓글은 뺀다
         Map<Long, String> classNames = classDisplayNameResolver.resolve(classroom,
                 comments.stream().map(c -> c.getUser().getId()).distinct().toList());
         List<CommentListResponse.Item> items = comments.stream()
                 .filter(c -> !c.isHidden())
+                .filter(c -> ClassDisplayNameResolver.isVisible(classroom, classNames, c.getUser().getId()))
                 .map(c -> {
                     UserSummary user = userQueryService.findSummaryById(c.getUser().getId());
                     String characterImageUrl = resolveCharacterImageUrl(user.characterType());
@@ -161,7 +164,7 @@ public class PerspectiveCommentService {
                     boolean isLiked = commentLikeRepository.existsByCommentAndUserId(c, userId);
                     return new CommentListResponse.Item(
                             c.getId(),
-                            new CommentListResponse.UserSummary(user.userTag(), name, user.characterType(), characterImageUrl),
+                            new CommentListResponse.UserSummary(ClassDisplayNameResolver.userTagOf(classroom, user.userTag()), name, user.characterType(), characterImageUrl),
                             stance,
                             c.getContent(),
                             c.getLikeCount(),
@@ -177,6 +180,13 @@ public class PerspectiveCommentService {
                 : null;
 
         return new CommentListResponse(items, nextCursor, nextCursor != null);
+    }
+
+    /** 나간·내보낸 멤버의 클래스 의견은 숨겨져 있으므로 댓글 조회·작성도 막는다 */
+    private void requireVisibleAuthor(Perspective perspective, Classroom classroom) {
+        if (!classDisplayNameResolver.isVisibleAuthor(classroom, perspective.getUser().getId())) {
+            throw new CustomException(ErrorCode.PERSPECTIVE_NOT_FOUND);
+        }
     }
 
     @Transactional

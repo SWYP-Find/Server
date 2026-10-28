@@ -32,6 +32,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import com.swyp.picke.domain.classroom.enums.ClassMemberStatus;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -104,11 +107,17 @@ public class BattleVoteServiceImpl implements BattleVoteService {
     public VoteStatsResponse getVoteStats(Long battleId, Classroom classroom) {
         Battle battle = battleService.findById(battleId);
         List<BattleOption> options = battleOptionRepository.findByBattle(battle);
-        long totalCount = battleVoteRepository.countByBattleAndClassroomAndPostVoteOptionIsNotNull(battle, classroom);
+        // 클래스면 나간·내보낸 멤버의 투표는 빼고 센다
+        Map<Long, Long> classCounts = classroom == null ? null : activeMemberPostVoteCounts(battle, classroom);
+        long totalCount = classroom == null
+                ? battleVoteRepository.countByBattleAndClassroomAndPostVoteOptionIsNotNull(battle, null)
+                : classCounts.values().stream().mapToLong(Long::longValue).sum();
 
         List<VoteStatsResponse.OptionStat> stats = options.stream()
                 .map(option -> {
-                    long count = battleVoteRepository.countByBattleAndClassroomAndPostVoteOption(battle, classroom, option);
+                    long count = classroom == null
+                            ? battleVoteRepository.countByBattleAndClassroomAndPostVoteOption(battle, null, option)
+                            : classCounts.getOrDefault(option.getId(), 0L);
                     double ratio = totalCount > 0
                             ? Math.round((double) count / totalCount * 1000.0) / 10.0
                             : 0.0;
@@ -127,6 +136,14 @@ public class BattleVoteServiceImpl implements BattleVoteService {
                 .orElse(null);
 
         return VoteConverter.toVoteStatsResponse(stats, totalCount, updatedAt);
+    }
+
+    private Map<Long, Long> activeMemberPostVoteCounts(Battle battle, Classroom classroom) {
+        Map<Long, Long> counts = new HashMap<>();
+        for (Object[] row : battleVoteRepository.countClassPostVotesByMemberStatus(battle, classroom, ClassMemberStatus.ACTIVE)) {
+            counts.put((Long) row[0], (Long) row[1]);
+        }
+        return counts;
     }
 
     @Override

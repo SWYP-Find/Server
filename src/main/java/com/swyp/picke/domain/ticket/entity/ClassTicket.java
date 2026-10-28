@@ -20,7 +20,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * 클래스 이용권. 코드 원문은 저장하지 않고 SHA-256 해시만 보관한다.
+ * 클래스 이용권. SHA-256 해시로 검증하고 AES-GCM 암호문으로 관리자 표시용 원문을 보관한다.
  * <ul>
  *   <li>registerBy  = 결제 확정일 + 1년 (발급 시 계산)</li>
  *   <li>activatedAt = 등록 시각, expiresAt = activatedAt + 6개월</li>
@@ -50,6 +50,10 @@ public class ClassTicket extends BaseEntity {
 
     @Column(name = "code_hash", nullable = false, length = 64)
     private String codeHash;
+
+    /** Recoverable display value encrypted with AES-GCM; nullable for tickets issued before this feature. */
+    @Column(name = "encrypted_code", length = 160)
+    private String encryptedCode;
 
     /** Optional display/search suffix. Raw codes remain unavailable after issuance. */
     @Column(name = "code_suffix", length = 4)
@@ -87,32 +91,44 @@ public class ClassTicket extends BaseEntity {
     private LocalDateTime revokedAt;
 
     @Builder
-    private ClassTicket(FundingOrder fundingOrder, int capacity, String codeHash, LocalDateTime registerBy) {
+    private ClassTicket(FundingOrder fundingOrder, int capacity, String codeHash, String encryptedCode, LocalDateTime registerBy) {
         this.fundingOrder = fundingOrder;
         this.capacity = capacity;
         this.codeHash = codeHash;
+        this.encryptedCode = encryptedCode;
         this.registerBy = registerBy;
         this.codeStatus = TicketCodeStatus.ISSUED;
         this.status = TicketStatus.UNREGISTERED;
     }
 
-    public static ClassTicket issue(FundingOrder order, String codeHash) {
+    public static ClassTicket issue(FundingOrder order, String codeHash, String encryptedCode) {
         return ClassTicket.builder()
                 .fundingOrder(order)
                 .capacity(order.getRewardTier().getCapacity())
                 .codeHash(codeHash)
+                .encryptedCode(encryptedCode)
                 .registerBy(order.getPaidAt().plusYears(REGISTER_WINDOW_YEARS))
                 .build();
     }
 
+    /** 기존 해시 전용 테스트/운영 호출 호환용. 새 발급 경로에서는 암호문 인자를 사용합니다. */
+    public static ClassTicket issue(FundingOrder order, String codeHash) {
+        return issue(order, codeHash, null);
+    }
+
     /** 재발급: 같은 주문·정원·등록기한으로 새 코드 행을 만든다. 기존 행은 호출 측에서 revoke 한다 (CF06) */
-    public static ClassTicket reissueFrom(ClassTicket previous, String codeHash) {
+    public static ClassTicket reissueFrom(ClassTicket previous, String codeHash, String encryptedCode) {
         return ClassTicket.builder()
                 .fundingOrder(previous.getFundingOrder())
                 .capacity(previous.getCapacity())
                 .codeHash(codeHash)
+                .encryptedCode(encryptedCode)
                 .registerBy(previous.getRegisterBy())
                 .build();
+    }
+
+    public static ClassTicket reissueFrom(ClassTicket previous, String codeHash) {
+        return reissueFrom(previous, codeHash, null);
     }
 
     /** 미사용 코드(발급·전달 단계)인지. 재발급·전달 기록은 이 상태에서만 가능하다 */

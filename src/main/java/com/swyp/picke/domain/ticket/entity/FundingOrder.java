@@ -124,6 +124,6 @@ public class FundingOrder extends BaseEntity {
     }
 
     public boolean isIssuable() {
-        return paymentStatus == PaymentStatus.PAID_CONFIRMED && quantity == 1;
+        return paymentStatus == PaymentStatus.PAID_CONFIRMED && paidAt != null && quantity > 0;
     }
 }

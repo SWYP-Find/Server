@@ -38,8 +38,17 @@ public interface ClassTicketRepository extends JpaRepository<ClassTicket, Long>,
 
     boolean existsByCodeHash(String codeHash);
 
-    /** 주문의 살아 있는(REVOKED 아닌) 이용권. 재발급 이력이 있어도 1건 (partial unique) */
+    /** 기존 단일 티켓 호출 호환용. 복수 코드 처리는 findAll/count 메서드를 사용합니다. */
     Optional<ClassTicket> findByFundingOrderIdAndStatusNot(Long fundingOrderId, TicketStatus status);
+
+    List<ClassTicket> findAllByFundingOrderIdAndStatusNot(Long fundingOrderId, TicketStatus status);
+
+    long countByFundingOrderIdAndStatusNot(Long fundingOrderId, TicketStatus status);
+
+    @Query("select t from ClassTicket t left join fetch t.registeredUser where t.fundingOrder.id in :fundingOrderIds "
+            + "and t.status <> :status order by t.id asc")
+    List<ClassTicket> findByFundingOrderIdInAndStatusNotOrderByIdAsc(
+            @Param("fundingOrderIds") Collection<Long> fundingOrderIds, @Param("status") TicketStatus status);
 
     List<ClassTicket> findByFundingOrderIdInAndStatusNot(Collection<Long> fundingOrderIds, TicketStatus status);
 

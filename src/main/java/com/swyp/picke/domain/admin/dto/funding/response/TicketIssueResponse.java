@@ -21,7 +21,7 @@ public record TicketIssueResponse(
             @Schema(nullable = true) String supporterPhone,
             int capacity,
             @Schema(description = "등록 기한 (결제 확정일 + 1년)") LocalDateTime registerBy,
-            @Schema(description = "이용권 코드 (XXXXXX-XXXXX-XXXXX-XXXXX-XXXXX). 1회만 노출") String code
+            @Schema(description = "관리자에게 표시되는 이용권 코드 (XXXXXX-XXXXX-XXXXX-XXXXX-XXXXX)") String code
     ) {}
 
     public record Skipped(

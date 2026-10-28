@@ -5,7 +5,7 @@ import java.security.SecureRandom;
 /**
  * 이용권 코드 생성. SecureRandom 130bit → Crockford Base32 26자 (0/O, 1/I/L 혼동 문자 제외).
  * 표시 형식은 {@code XXXXXX-XXXXX-XXXXX-XXXXX-XXXXX} (6-5-5-5-5). 하이픈·소문자는 {@link TicketCodeHasher#normalize} 가 흡수한다.
- * 원문은 발급 응답에서 1회만 노출하고 저장·로그에 남기지 않는다.
+ * 원문은 관리자 발급/조회 응답으로만 노출하고 서버 로그에는 남기지 않는다. DB에는 별도 키로 암호화해 보관한다.
  */
 public final class TicketCodeGenerator {
 

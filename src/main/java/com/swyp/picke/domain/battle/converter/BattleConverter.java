@@ -47,6 +47,12 @@ public class BattleConverter {
     }
 
     public TodayBattleResponse toTodayResponse(Battle battle, List<Tag> tags, List<BattleOption> options) {
+        return toTodayResponse(battle, tags, options,
+                battle.getCommentCount() == null ? 0L : battle.getCommentCount());
+    }
+
+    public TodayBattleResponse toTodayResponse(Battle battle, List<Tag> tags, List<BattleOption> options,
+                                               Long commentCount) {
         return new TodayBattleResponse(
                 battle.getId(),
                 battle.getTitle(),
@@ -56,7 +62,8 @@ public class BattleConverter {
                 battle.getTotalParticipantsCount() == null ? 0L : battle.getTotalParticipantsCount(),
                 battle.getAudioDuration() == null ? 0 : battle.getAudioDuration(),
                 toTagResponses(tags, null),
-                toTodayOptionResponses(options)
+                toTodayOptionResponses(options),
+                commentCount == null ? 0L : commentCount
         );
     }
 

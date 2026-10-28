@@ -7,6 +7,7 @@ public record HomeResponse(
         List<HomeEditorPickResponse> editorPicks,
         List<HomeTrendingResponse> trendingBattles,
         List<HomeBestBattleResponse> bestBattles,
+        List<HomeMostDiscussedBattleResponse> mostDiscussedBattles,
         List<HomeTodayQuizResponse> todayQuizzes,
         List<HomeTodayVoteResponse> todayVotes,
         List<HomeNewBattleResponse> newBattles

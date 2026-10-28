@@ -31,6 +31,8 @@ public interface BattleService {
 
     List<TodayBattleResponse> getBestBattles();
 
+    List<TodayBattleResponse> getMostDiscussedBattles();
+
     List<TodayBattleResponse> getTodayPicks();
 
     List<TodayBattleResponse> getNewBattles(List<Long> excludeIds);

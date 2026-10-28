@@ -1263,7 +1263,59 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 - 응답 필드:
   - 주문: `totalOrders`, `paidConfirmed`, `issuable`, `held`, `refunded`, `canceled`
   - 이용권: `issued`, `undelivered`, `delivered`, `registered`
+  - 등록기한 알림 대상 수: `registerReminderD30`, `registerReminderD7` (9.9와 같은 기준)
 - 이용권 수치는 살아 있는(REVOKED가 아닌) 행 기준이다.
+
+### 9.9 등록기한 임박 알림
+PRD "등록기한 30일·7일 전 알림은 허용된 연락 수단에서만 발송". 미등록 이용권은 앱 계정에 연결되지 않아 푸시를 보낼 수 없다. 그래서 코드 전달(9.4)처럼 운영자가 후원자 연락처로 보내고 결과를 기록한다. 대상은 조회 시점에 계산하므로 별도 배치가 없다.
+
+**대상 조회**
+- `GET /api/v1/admin/funding/register-reminders?stage=D30`
+
+| `stage` | 대상 등록기한 |
+|---|---|
+| `D30` | 지금부터 7일 초과 ~ 30일 이내 |
+| `D7` | 지금부터 7일 이내 (지난 건 제외) |
+
+- 대상: 전달 완료(`codeStatus=DELIVERED`)·미등록(`status=UNREGISTERED`)이고, 그 단계 알림을 아직 `SUCCESS`로 기록하지 않은 이용권이다. 등록기한이 빠른 순이다.
+- 30일 알림을 놓치고 7일 안으로 들어온 이용권은 `D7` 대상만 된다.
+- 미전달(`ISSUED`) 이용권은 대상이 아니다. 코드 전달(9.4)부터 해야 한다.
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "stage": "D30",
+    "count": 1,
+    "items": [
+      {
+        "ticketId": 12, "fundingOrderId": 3, "platform": "TUMBLBUG", "orderId": "ORD-30",
+        "supporterName": "홍길동", "supporterEmail": "a@test.com", "supporterPhone": "010-0000-0000",
+        "capacity": 15, "registerBy": "2026-11-17T10:00:00", "daysLeft": 20
+      }
+    ]
+  }
+}
+```
+
+- `daysLeft`: 등록기한까지 남은 일수 (KST 날짜 기준)
+
+**발송 기록**
+- `POST /api/v1/admin/funding/tickets/{ticketId}/register-reminders`
+
+```json
+{ "stage": "D30", "channel": "EMAIL", "status": "SUCCESS", "failureReason": null }
+```
+
+- `channel`: `EMAIL` / `SMS` / `MANUAL`
+- `status`: `SUCCESS`면 그 단계 대상에서 빠진다. `FAILED`는 이력만 남고 대상에 그대로 있다(재시도 가능).
+- 응답: `reminderId`, `ticketId`, `stage`, `channel`, `status`, `failureReason`, `attemptedAt`
+
+| 상황 | 응답 |
+|---|---|
+| 전달 완료·미등록 이용권이 아님 (미전달·등록 완료·무효화) | 409 `TICKET_409_STATE` |
+| 등록기한 경과 | 409 `TICKET_409_REG_EXP` |
+| `stage`·`channel`·`status` 누락 | 400 `COMMON_400` |
 
 ---
 

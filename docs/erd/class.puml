@@ -108,6 +108,19 @@ entity "class_tickets" as class_tickets {
   updated_at : TIMESTAMP
 }
 
+entity "ticket_register_reminders" as ticket_register_reminders {
+  * id : BIGINT <<PK>>
+  --
+  ticket_id : BIGINT <<FK, NEW #589>>
+  stage : VARCHAR(10) <<D30 / D7>>
+  channel : VARCHAR(20)
+  status : VARCHAR(20)
+  failure_reason : VARCHAR(255) <<nullable>>
+  attempted_at : TIMESTAMP
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
 entity "ticket_delivery_attempts" as ticket_delivery_attempts {
   * id : BIGINT <<PK>>
   --
@@ -278,6 +291,7 @@ entity "class_reports" as class_reports {
 funding_orders ||--o{ class_tickets : issues
 users          |o--o{ class_tickets : registers
 class_tickets  ||--o{ ticket_delivery_attempts : delivered by
+class_tickets  ||--o{ ticket_register_reminders : reminded by
 
 users          ||--o{ classes       : owns
 class_tickets  ||--o{ classes       : issued with

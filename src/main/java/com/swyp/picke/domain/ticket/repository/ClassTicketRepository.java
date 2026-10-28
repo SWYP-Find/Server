@@ -1,5 +1,7 @@
 package com.swyp.picke.domain.ticket.repository;
 
+import java.time.LocalDateTime;
+import com.swyp.picke.domain.ticket.enums.RegisterReminderStage;
 import com.swyp.picke.domain.ticket.entity.ClassTicket;
 import com.swyp.picke.domain.ticket.enums.TicketCodeStatus;
 import com.swyp.picke.domain.ticket.enums.TicketStatus;
@@ -13,6 +15,23 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface ClassTicketRepository extends JpaRepository<ClassTicket, Long> {
+
+    String REGISTER_REMINDER_TARGET_CONDITION =
+            "where t.status = com.swyp.picke.domain.ticket.enums.TicketStatus.UNREGISTERED "
+            + "and t.codeStatus = com.swyp.picke.domain.ticket.enums.TicketCodeStatus.DELIVERED "
+            + "and t.registerBy > :from and t.registerBy <= :to "
+            + "and not exists (select 1 from TicketRegisterReminder r where r.ticket = t and r.stage = :stage "
+            + "and r.status = com.swyp.picke.domain.ticket.enums.DeliveryStatus.SUCCESS)";
+
+    /** 등록기한 알림 대상: 전달 완료·미등록이고 등록기한이 (from, to] 안이며 이 단계 알림을 아직 성공 기록하지 않은 이용권 */
+    @Query("select t from ClassTicket t join fetch t.fundingOrder " + REGISTER_REMINDER_TARGET_CONDITION
+            + " order by t.registerBy asc, t.id asc")
+    List<ClassTicket> findRegisterReminderTargets(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to,
+                                                  @Param("stage") RegisterReminderStage stage);
+
+    @Query("select count(t) from ClassTicket t " + REGISTER_REMINDER_TARGET_CONDITION)
+    long countRegisterReminderTargets(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to,
+                                      @Param("stage") RegisterReminderStage stage);
 
     Optional<ClassTicket> findByCodeHash(String codeHash);
 

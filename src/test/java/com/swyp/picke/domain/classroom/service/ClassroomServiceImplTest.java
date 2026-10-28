@@ -254,8 +254,8 @@ class ClassroomServiceImplTest {
     }
 
     @Test
-    @DisplayName("멤버에게는 초대코드가 내려가지 않는다")
-    void getDetail_memberDoesNotSeeInviteCode() {
+    @DisplayName("멤버도 공유하기용 초대코드를 받는다")
+    void getDetail_memberSeesInviteCode() {
         Classroom classroom = classroom(null);
         User other = user(OTHER_ID, "학생");
         ClassMember member = ClassMember.builder().classroom(classroom).user(other).displayName("학생")
@@ -268,7 +268,7 @@ class ClassroomServiceImplTest {
         ClassDetailResponse response = service.getDetail(OTHER_ID, CLASS_ID);
 
         assertThat(response.myRole()).isEqualTo(ClassMemberRole.MEMBER);
-        assertThat(response.inviteCode()).isNull();
+        assertThat(response.inviteCode()).isEqualTo("ABC234");
         assertThat(response.memberCount()).isEqualTo(2);
     }
 

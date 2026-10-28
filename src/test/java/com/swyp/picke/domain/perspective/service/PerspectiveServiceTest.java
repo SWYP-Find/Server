@@ -27,6 +27,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import com.swyp.picke.domain.classroom.service.ClassDisplayNameResolver;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -65,6 +66,9 @@ class PerspectiveServiceTest {
 
     @Mock
     private S3PresignedUrlService s3PresignedUrlService;
+
+    @Mock
+    private ClassDisplayNameResolver classDisplayNameResolver;
 
     @InjectMocks
     private PerspectiveService perspectiveService;

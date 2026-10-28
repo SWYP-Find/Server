@@ -106,7 +106,7 @@ class ClassMemberServiceImplTest {
 
         assertThat(response.classId()).isEqualTo(CLASS_ID);
         assertThat(response.myRole()).isEqualTo(ClassMemberRole.MEMBER);
-        assertThat(response.inviteCode()).isNull();
+        assertThat(response.inviteCode()).isEqualTo(CODE); // 멤버도 공유하기용 초대코드를 받는다
         assertThat(response.memberCount()).isEqualTo(5);
     }
 

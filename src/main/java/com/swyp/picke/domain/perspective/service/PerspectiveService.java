@@ -6,6 +6,7 @@ import com.swyp.picke.domain.battle.service.BattleService;
 import com.swyp.picke.domain.battle.util.BattleOptionDisplay;
 import com.swyp.picke.domain.classroom.entity.Classroom;
 import com.swyp.picke.domain.classroom.service.ClassAccessService;
+import com.swyp.picke.domain.classroom.service.ClassDisplayNameResolver;
 import com.swyp.picke.domain.perspective.enums.PerspectiveStatus;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.repository.UserRepository;
@@ -39,6 +40,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 의견(Perspective) 서비스.
@@ -67,6 +69,7 @@ public class PerspectiveService {
     private final GptModerationService gptModerationService;
     private final S3PresignedUrlService s3PresignedUrlService;
     private final ClassAccessService classAccessService;
+    private final ClassDisplayNameResolver classDisplayNameResolver;
 
     public PerspectiveDetailResponse getPerspectiveDetail(Long perspectiveId, Long userId) {
         Perspective perspective = findPerspectiveById(perspectiveId);
@@ -76,11 +79,12 @@ public class PerspectiveService {
         requireClassReadable(perspective, userId);
         UserSummary user = userQueryService.findSummaryById(perspective.getUser().getId());
         String characterImageUrl = resolveCharacterImageUrl(user.characterType());
+        String name = classDisplayNameResolver.nameOf(perspective.getClassroom(), perspective.getUser().getId(), user.nickname());
         BattleOption option = perspective.getOption();
         boolean isLiked = perspectiveLikeRepository.existsByPerspectiveAndUserId(perspective, userId);
         return new PerspectiveDetailResponse(
                 perspective.getId(),
-                new PerspectiveDetailResponse.UserSummary(user.userTag(), user.nickname(), user.characterType(), characterImageUrl),
+                new PerspectiveDetailResponse.UserSummary(user.userTag(), name, user.characterType(), characterImageUrl),
                 new PerspectiveDetailResponse.OptionSummary(option.getId(), BattleOptionDisplay.opinion(option), option.getTitle(), option.getStance()),
                 perspective.getContent(),
                 perspective.getLikeCount(),
@@ -151,15 +155,19 @@ public class PerspectiveService {
                         : perspectiveRepository.findByBattleIdAndClassroomAndStatusAndCreatedAtBeforeOrderByCreatedAtDesc(battleId, classroom, PerspectiveStatus.PUBLISHED, LocalDateTime.parse(cursor), pageable);
         }
 
+        // 클래스 의견이면 작성자를 클래스 표시 이름으로 보여준다
+        Map<Long, String> classNames = classDisplayNameResolver.resolve(classroom,
+                perspectives.stream().map(p -> p.getUser().getId()).distinct().toList());
         List<PerspectiveListResponse.Item> items = perspectives.stream()
                 .map(p -> {
                     UserSummary user = userQueryService.findSummaryById(p.getUser().getId());
                     String characterImageUrl = resolveCharacterImageUrl(user.characterType());
+                    String name = classNames.getOrDefault(p.getUser().getId(), user.nickname());
                     BattleOption option = p.getOption();
                     boolean isLiked = perspectiveLikeRepository.existsByPerspectiveAndUserId(p, userId);
                     return new PerspectiveListResponse.Item(
                             p.getId(),
-                            new PerspectiveListResponse.UserSummary(user.userTag(), user.nickname(), user.characterType(), characterImageUrl),
+                            new PerspectiveListResponse.UserSummary(user.userTag(), name, user.characterType(), characterImageUrl),
                             new PerspectiveListResponse.OptionSummary(option.getId(), BattleOptionDisplay.opinion(option), option.getTitle(), option.getStance()),
                             p.getContent(),
                             p.getLikeCount(),
@@ -221,6 +229,7 @@ public class PerspectiveService {
 
         UserSummary user = userQueryService.findSummaryById(userId);
         String characterImageUrl = resolveCharacterImageUrl(user.characterType());
+        String name = classDisplayNameResolver.nameOf(classroom, userId, user.nickname());
 
         return perspectives.stream()
                 .map(perspective -> {
@@ -228,7 +237,7 @@ public class PerspectiveService {
                     boolean isLiked = perspectiveLikeRepository.existsByPerspectiveAndUserId(perspective, userId);
                     return new MyPerspectiveResponse(
                             perspective.getId(),
-                            new MyPerspectiveResponse.UserSummary(user.userTag(), user.nickname(), user.characterType(), characterImageUrl),
+                            new MyPerspectiveResponse.UserSummary(user.userTag(), name, user.characterType(), characterImageUrl),
                             new MyPerspectiveResponse.OptionSummary(option.getId(), BattleOptionDisplay.opinion(option), option.getTitle(), option.getStance()),
                             perspective.getContent(),
                             perspective.getLikeCount(),

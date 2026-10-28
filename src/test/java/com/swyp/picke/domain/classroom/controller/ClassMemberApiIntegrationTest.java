@@ -125,7 +125,7 @@ class ClassMemberApiIntegrationTest {
         User student = newUser("학생A");
         String studentToken = tokenOf(student);
 
-        // 소문자·공백 섞인 코드도 정규화되어 들어간다. 멤버에게는 초대코드가 안 내려간다
+        // 소문자·공백 섞인 코드도 정규화되어 들어간다. 멤버도 공유하기용 초대코드를 받는다
         mockMvc.perform(post("/api/v1/classes/join")
                         .header("Authorization", "Bearer " + studentToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -133,7 +133,7 @@ class ClassMemberApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.classId").value(cls.classId))
                 .andExpect(jsonPath("$.data.myRole").value("MEMBER"))
-                .andExpect(jsonPath("$.data.inviteCode").doesNotExist())
+                .andExpect(jsonPath("$.data.inviteCode").value(cls.inviteCode))
                 .andExpect(jsonPath("$.data.memberCount").value(2));
 
         // 명단: 운영자 먼저, 본인 행 me=true, userId 같은 계정 식별자 없음

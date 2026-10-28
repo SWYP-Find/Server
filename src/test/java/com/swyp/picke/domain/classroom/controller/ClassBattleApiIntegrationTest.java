@@ -378,6 +378,47 @@ class ClassBattleApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("클래스 의견·댓글 작성자는 계정 닉네임 대신 클래스 표시 이름으로 보인다")
+    void perspectivesAndComments_showClassDisplayName() throws Exception {
+        ClassInfo cls = createClass(false);
+        String writerToken = tokenOf(newUser("계정닉네임A"));
+        String readerToken = tokenOf(newUser("계정닉네임B"));
+        join(writerToken, cls.inviteCode, "김표시").andExpect(status().isOk());
+        join(readerToken, cls.inviteCode, "이표시").andExpect(status().isOk());
+
+        vote(writerToken, cls, "/votes/pre", optionA).andExpect(status().isOk());
+        listen(writerToken, cls);
+        vote(writerToken, cls, "/votes/post", optionA).andExpect(status().isOk());
+        long perspectiveId = dataOf(mockMvc.perform(post(classBattle(cls) + "/perspectives")
+                        .header("Authorization", "Bearer " + writerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("content", "표시 이름을 확인할 클래스 의견입니다."))))
+                .andExpect(status().isOk())
+                .andReturn()).get("perspectiveId").asLong();
+
+        // 댓글 등록 응답도 클래스 표시 이름
+        mockMvc.perform(post("/api/v1/perspectives/" + perspectiveId + "/comments")
+                        .header("Authorization", "Bearer " + readerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("content", "표시 이름을 확인할 클래스 댓글입니다."))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.user.nickname").value("이표시"));
+
+        mockMvc.perform(get(classBattle(cls) + "/perspectives").header("Authorization", "Bearer " + readerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].user.nickname").value("김표시"));
+        mockMvc.perform(get(classBattle(cls) + "/perspectives/me").header("Authorization", "Bearer " + writerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].user.nickname").value("김표시"));
+        mockMvc.perform(get("/api/v1/perspectives/" + perspectiveId).header("Authorization", "Bearer " + readerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.user.nickname").value("김표시"));
+        mockMvc.perform(get("/api/v1/perspectives/" + perspectiveId + "/comments").header("Authorization", "Bearer " + writerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].user.nickname").value("이표시"));
+    }
+
+    @Test
     @DisplayName("클래스 의견·댓글 좋아요: 비멤버 403, 참여하지 않는 운영자는 조회만, 마감 후 등록·취소 409")
     void likes_followClassAccess() throws Exception {
         ClassInfo cls = createClass(false);

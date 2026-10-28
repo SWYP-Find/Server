@@ -219,7 +219,7 @@ class ClassroomApiIntegrationTest {
         mockMvc.perform(get("/api/v1/classes/" + classId).header("Authorization", "Bearer " + studentToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.myRole").value("MEMBER"))
-                .andExpect(jsonPath("$.data.inviteCode").doesNotExist())
+                .andExpect(jsonPath("$.data.inviteCode").value(classroom.getInviteCode()))
                 .andExpect(jsonPath("$.data.memberCount").value(1));
 
         mockMvc.perform(get("/api/v1/classes").header("Authorization", "Bearer " + studentToken))

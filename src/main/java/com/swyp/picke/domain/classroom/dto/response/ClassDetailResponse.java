@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 public record ClassDetailResponse(
         @Schema(description = "클래스 ID") Long classId,
         @Schema(description = "클래스 이름") String name,
-        @Schema(description = "초대코드 6자. 운영자에게만 내려가고 멤버에게는 null") String inviteCode,
+        @Schema(description = "초대코드 6자. 공유하기 버튼용으로 운영자·멤버 모두에게 내려간다") String inviteCode,
         @Schema(description = "내 역할 (OWNER / MEMBER)") ClassMemberRole myRole,
         @Schema(description = "운영자 유저 ID") Long ownerId,
         @Schema(description = "배틀 정보") BattleInfo battle,

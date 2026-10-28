@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.ad.link;
 
+import com.swyp.picke.domain.ad.entity.AdCreative;
 import org.springframework.web.util.UriComponentsBuilder;
 
 /**
@@ -24,7 +25,7 @@ final class AffiliateLinks {
     }
 
     /** 지면별 성과를 가르기 위한 추적값. 영문·숫자·밑줄만 쓰므로 인코딩이 필요 없다. */
-    static String subIdOf(com.swyp.picke.domain.ad.entity.AdCreative creative) {
+    static String subIdOf(AdCreative creative) {
         return creative.getSlot().name() + "_" + creative.getCode();
     }
 }

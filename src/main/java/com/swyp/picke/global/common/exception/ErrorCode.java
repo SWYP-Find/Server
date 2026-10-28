@@ -158,6 +158,7 @@ public enum ErrorCode {
     CLASS_DEADLINE_NOT_EXTENDED(HttpStatus.BAD_REQUEST, "CLASS_400_DEADLINE_EXT", "마감일은 기존 마감일보다 뒤로 연장만 할 수 있습니다."),
     CLASS_CLOSED(HttpStatus.CONFLICT, "CLASS_409_CLOSED", "마감된 클래스입니다."),
     CLASS_TICKET_ENDED(HttpStatus.CONFLICT, "CLASS_409_TICKET_ENDED", "이용권 이용이 종료된 클래스입니다."),
+    CLASS_REQUEST_KEY_CONFLICT(HttpStatus.CONFLICT, "CLASS_409_REQUEST_KEY", "같은 요청 키로 다른 내용의 클래스를 만들 수 없습니다. 새 요청 키로 다시 시도해 주세요."),
     CLASS_INVITE_CODE_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "CLASS_500_CODE", "초대코드 생성에 실패했습니다. 다시 시도해 주세요."),
 
     // Classroom member (클래스 참여·멤버)

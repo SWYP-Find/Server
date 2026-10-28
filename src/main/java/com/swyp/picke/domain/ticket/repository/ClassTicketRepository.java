@@ -36,6 +36,11 @@ public interface ClassTicketRepository extends JpaRepository<ClassTicket, Long> 
 
     Optional<ClassTicket> findByRegisteredUserIdAndStatus(Long userId, TicketStatus status);
 
+    /** 클래스 생성용: 같은 이용권으로 동시에 들어온 생성 요청을 직렬화한다 (연속 탭 중복 생성 방지) */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from ClassTicket t where t.id = :id")
+    Optional<ClassTicket> findByIdForUpdate(@Param("id") Long id);
+
     /** 내 이용권 조회용: ACTIVE 가 있으면 그것, 없으면 가장 최근에 만료된 것 */
     Optional<ClassTicket> findTopByRegisteredUserIdAndStatusInOrderByActivatedAtDesc(
             Long userId, Collection<TicketStatus> statuses);

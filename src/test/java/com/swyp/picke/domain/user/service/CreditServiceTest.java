@@ -8,6 +8,8 @@ import com.swyp.picke.domain.user.enums.UserRole;
 import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.repository.CreditHistoryRepository;
 import com.swyp.picke.domain.user.repository.UserRepository;
+import com.swyp.picke.domain.notification.service.NotificationService;
+import com.swyp.picke.domain.battle.repository.BattleRepository;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
@@ -42,10 +44,10 @@ class CreditServiceTest {
     private UserService userService;
 
     @Mock
-    private com.swyp.picke.domain.notification.service.NotificationService notificationService;
+    private NotificationService notificationService;
 
     @Mock
-    private com.swyp.picke.domain.battle.repository.BattleRepository battleRepository;
+    private BattleRepository battleRepository;
 
     @InjectMocks
     private CreditService creditService;

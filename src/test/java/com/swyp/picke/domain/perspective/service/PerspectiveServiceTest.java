@@ -108,7 +108,7 @@ class PerspectiveServiceTest {
         BattleOption option = option(10L, battle, BattleOptionLabel.A, "예술이다");
 
         when(battleService.findById(100L)).thenReturn(battle);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(battleVoteService.findPostVoteOptionId(100L, 1L, null)).thenReturn(10L);
         when(battleService.findOptionById(10L)).thenReturn(option);
         when(perspectiveRepository.save(org.mockito.ArgumentMatchers.any(Perspective.class)))

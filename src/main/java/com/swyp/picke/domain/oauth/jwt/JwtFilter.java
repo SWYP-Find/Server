@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.oauth.jwt;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.repository.UserDailyActivityRepository;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.global.common.exception.ErrorCode;
@@ -145,14 +146,17 @@ public class JwtFilter extends OncePerRequestFilter {
         if (userRepository == null) {
             return null;
         }
-        return userRepository.findById(userId)
-                .map(user -> switch (user.getStatus()) {
-                    case ACTIVE, PENDING -> null;
-                    case SUSPENDED -> ErrorCode.USER_SUSPENDED;
-                    case BANNED -> ErrorCode.USER_BANNED;
-                    case DELETED -> ErrorCode.AUTH_UNAUTHORIZED;
-                })
-                .orElse(ErrorCode.AUTH_UNAUTHORIZED);
+        // Optional.map 안에서 null 을 돌려주면 빈 값이 되어 정상 계정도 401 이 되므로 조회와 판정을 나눈다
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            return ErrorCode.AUTH_UNAUTHORIZED;
+        }
+        return switch (user.getStatus()) {
+            case ACTIVE, PENDING -> null;
+            case SUSPENDED -> ErrorCode.USER_SUSPENDED;
+            case BANNED -> ErrorCode.USER_BANNED;
+            case DELETED -> ErrorCode.AUTH_UNAUTHORIZED;
+        };
     }
 
     /**

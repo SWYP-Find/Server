@@ -127,6 +127,7 @@ class ClassDebateApiIntegrationTest {
         ownerToken = tokenOf(owner);
         issueAndRegister(owner);
         when(aiClient.getModel()).thenReturn("test-model");
+        when(aiClient.getDebateModel()).thenReturn("test-debate-model");
         when(moderationClient.flaggedCategories(anyString())).thenReturn(Set.of());
         when(aiClient.chatJson(eq(ClassTopicPrompts.SUGGEST_SYSTEM), anyString(), anyInt()))
                 .thenReturn(result(candidatesJson()));
@@ -198,7 +199,7 @@ class ClassDebateApiIntegrationTest {
                 .andExpect(jsonPath("$.data.messages[0].focus").value("EVIDENCE"))
                 .andExpect(jsonPath("$.data.messages[0].focusLabel").value("근거"))
                 .andExpect(jsonPath("$.data.messages[0].bubbles", hasSize(3)));
-        verify(aiClient).chatJson(eq(ClassDebatePrompts.SYSTEM),
+        verify(aiClient).chatJson(eq("test-debate-model"), eq(ClassDebatePrompts.SYSTEM),
                 argThat(p -> p.contains("[라운드] 1 / 3") && p.contains("(아직 없음)") && p.contains("[수준] 중급")
                         && p.contains("[상대 입장 - 당신이 대변] B. 반대 2") && p.contains("[철학자 프로필] 아리스토텔레스") && p.contains("- 성향 등급: 대표=이성")),
                 anyInt());
@@ -216,7 +217,7 @@ class ClassDebateApiIntegrationTest {
                 .andExpect(jsonPath("$.data.messages[1].bubbles", hasSize(1))));
         long userMessage1 = r1.get("messages").get(1).get("messageId").asLong();
         assertThat(r1.get("messages").get(2).get("replyToMessageId").asLong()).isEqualTo(userMessage1);
-        verify(aiClient).chatJson(eq(ClassDebatePrompts.SYSTEM),
+        verify(aiClient).chatJson(eq("test-debate-model"), eq(ClassDebatePrompts.SYSTEM),
                 argThat(p -> p.contains("[라운드] 2 / 3") && p.contains("(1라운드 참가자 반박)") && p.contains("첫 번째 반박")),
                 anyInt());
 
@@ -230,7 +231,8 @@ class ClassDebateApiIntegrationTest {
         postVote(optionB).andExpect(status().isOk());
         assertThat(aiJobRepository.findAll()).filteredOn(j -> j.getType() == AiJobType.DEBATE_ARGUMENT)
                 .hasSize(3)
-                .allMatch(j -> j.getStatus() == AiJobStatus.SUCCEEDED && j.getAttempt() == 1 && j.getMember() != null);
+                .allMatch(j -> j.getStatus() == AiJobStatus.SUCCEEDED && j.getAttempt() == 1 && j.getMember() != null
+                        && "test-debate-model".equals(j.getModel()));
 
         // 재접속은 저장된 대화 그대로, 다시 시작해도 새 세션을 만들지 않는다
         start().andExpect(jsonPath("$.data.messages", hasSize(6)));
@@ -305,7 +307,7 @@ class ClassDebateApiIntegrationTest {
     @DisplayName("AI 장애: 3회 실패하면 FAILED(반박 불가·재시도 가능), 재시도는 같은 작업으로 성공")
     void failureAndRetry() throws Exception {
         preVote(optionA);
-        when(aiClient.chatJson(eq(ClassDebatePrompts.SYSTEM), anyString(), anyInt()))
+        when(aiClient.chatJson(eq("test-debate-model"), eq(ClassDebatePrompts.SYSTEM), anyString(), anyInt()))
                 .thenThrow(new ResourceAccessException("timeout"));
 
         start().andExpect(jsonPath("$.data.status").value("FAILED"))
@@ -333,13 +335,13 @@ class ClassDebateApiIntegrationTest {
         preVote(optionA);
         Map<String, Object> withRound = new HashMap<>(argument(1));
         withRound.put("round", 2);
-        when(aiClient.chatJson(eq(ClassDebatePrompts.SYSTEM), anyString(), anyInt()))
+        when(aiClient.chatJson(eq("test-debate-model"), eq(ClassDebatePrompts.SYSTEM), anyString(), anyInt()))
                 .thenReturn(result(withRound))
                 .thenReturn(result(argument(1)));
         start().andExpect(jsonPath("$.data.status").value("WAITING_USER"));
-        verify(aiClient).chatJson(eq(ClassDebatePrompts.SYSTEM), argThat(p -> p.contains("[고칠 점]") && p.contains("round 필드")), anyInt());
+        verify(aiClient).chatJson(eq("test-debate-model"), eq(ClassDebatePrompts.SYSTEM), argThat(p -> p.contains("[고칠 점]") && p.contains("round 필드")), anyInt());
 
-        when(aiClient.chatJson(eq(ClassDebatePrompts.SYSTEM), anyString(), anyInt()))
+        when(aiClient.chatJson(eq("test-debate-model"), eq(ClassDebatePrompts.SYSTEM), anyString(), anyInt()))
                 .thenReturn(result(Map.of("argument_text", "너무 짧은 주장이에요.", "focus", "EVIDENCE")));
         reply(1, longText("첫 번째 반박"), "key-1")
                 .andExpect(jsonPath("$.data.status").value("FAILED"))
@@ -363,7 +365,7 @@ class ClassDebateApiIntegrationTest {
 
     /** 프롬프트의 라운드를 읽어 그 라운드에 맞는 정상 주장을 돌려준다 */
     private void stubDebate() {
-        when(aiClient.chatJson(eq(ClassDebatePrompts.SYSTEM), anyString(), anyInt()))
+        when(aiClient.chatJson(eq("test-debate-model"), eq(ClassDebatePrompts.SYSTEM), anyString(), anyInt()))
                 .thenAnswer(inv -> {
                     Matcher m = ROUND.matcher(inv.getArgument(1));
                     int round = m.find() ? Integer.parseInt(m.group(1)) : 0;

@@ -45,7 +45,7 @@ public class ClassDebateService {
     public ClassDebateResponse start(Long userId, Long classId) {
         ClassDebateSessionService.PreparedTurn turn;
         try {
-            turn = sessionService.start(userId, classId, aiClient.getModel(), now());
+            turn = sessionService.start(userId, classId, aiClient.getDebateModel(), now());
         } catch (DataIntegrityViolationException e) {
             // 두 기기에서 동시에 시작: 먼저 만든 세션을 그대로 돌려준다
             turn = null;
@@ -59,7 +59,7 @@ public class ClassDebateService {
     public ClassDebateResponse reply(Long userId, Long classId, ClassDebateReplyRequest request) {
         // 외부 검사는 세션 잠금 밖에서 한다. 차단되면 저장·라운드 소비 없이 끝난다
         inputGuard.check(request.content());
-        ClassDebateSessionService.PreparedTurn turn = sessionService.reply(userId, classId, request, aiClient.getModel(), now());
+        ClassDebateSessionService.PreparedTurn turn = sessionService.reply(userId, classId, request, aiClient.getDebateModel(), now());
         if (turn != null) {
             generate(turn);
         }
@@ -67,7 +67,7 @@ public class ClassDebateService {
     }
 
     public ClassDebateResponse retry(Long userId, Long classId) {
-        generate(sessionService.retry(userId, classId, aiClient.getModel(), now()));
+        generate(sessionService.retry(userId, classId, aiClient.getDebateModel(), now()));
         return sessionService.view(userId, classId, now());
     }
 
@@ -82,7 +82,7 @@ public class ClassDebateService {
         while (usage.calls() < MAX_PROVIDER_CALLS) {
             ClassReportAiClient.AiChatResult result;
             try {
-                result = aiClient.chatJson(ClassDebatePrompts.SYSTEM, prompt, ClassDebatePrompts.MAX_OUTPUT_TOKENS);
+                result = aiClient.chatJson(aiClient.getDebateModel(), ClassDebatePrompts.SYSTEM, prompt, ClassDebatePrompts.MAX_OUTPUT_TOKENS);
                 usage.add(result);
             } catch (ReportValidationException e) {
                 // 잘린 출력·JSON 아님 (A13): 형식 위반으로 보고 보정 1회

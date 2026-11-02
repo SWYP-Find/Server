@@ -123,7 +123,7 @@ class ClassroomServiceImplTest {
     @Test
     @DisplayName("직전에 같은 이름·배틀로 만든 클래스가 있으면 새로 만들지 않고 그 클래스를 돌려준다")
     void create_duplicateRequest_returnsExisting() {
-        when(userRepository.findById(OWNER_ID)).thenReturn(Optional.of(owner));
+        when(userRepository.findByIdForUpdate(OWNER_ID)).thenReturn(Optional.of(owner));
         when(classTicketRepository.findByRegisteredUserIdAndStatus(OWNER_ID, TicketStatus.ACTIVE))
                 .thenReturn(Optional.of(ticket));
         Classroom existing = classroom(null);
@@ -187,7 +187,7 @@ class ClassroomServiceImplTest {
     @Test
     @DisplayName("사용 중 이용권이 없으면 CLASS_403_TICKET")
     void create_rejectsWithoutActiveTicket() {
-        when(userRepository.findById(OWNER_ID)).thenReturn(Optional.of(owner));
+        when(userRepository.findByIdForUpdate(OWNER_ID)).thenReturn(Optional.of(owner));
         when(classTicketRepository.findByRegisteredUserIdAndStatus(OWNER_ID, TicketStatus.ACTIVE))
                 .thenReturn(Optional.empty());
 
@@ -203,7 +203,7 @@ class ClassroomServiceImplTest {
     @DisplayName("기간이 끝난 ACTIVE 이용권으로는 만들 수 없고(CLASS_403_TICKET), 이용권 상태는 건드리지 않는다")
     void create_rejectsStaleTicketWithoutTouchingIt() {
         ClassTicket stale = activeTicket(owner, LocalDateTime.now().minusMonths(7));
-        when(userRepository.findById(OWNER_ID)).thenReturn(Optional.of(owner));
+        when(userRepository.findByIdForUpdate(OWNER_ID)).thenReturn(Optional.of(owner));
         when(classTicketRepository.findByRegisteredUserIdAndStatus(OWNER_ID, TicketStatus.ACTIVE))
                 .thenReturn(Optional.of(stale));
 
@@ -218,7 +218,7 @@ class ClassroomServiceImplTest {
     @Test
     @DisplayName("공개되지 않은 배틀은 CLASS_400_BATTLE")
     void create_rejectsUnpublishedBattle() {
-        when(userRepository.findById(OWNER_ID)).thenReturn(Optional.of(owner));
+        when(userRepository.findByIdForUpdate(OWNER_ID)).thenReturn(Optional.of(owner));
         when(classTicketRepository.findByRegisteredUserIdAndStatus(OWNER_ID, TicketStatus.ACTIVE))
                 .thenReturn(Optional.of(ticket));
         when(battleRepository.findById(BATTLE_ID)).thenReturn(Optional.of(battle(BattleStatus.PENDING)));
@@ -422,7 +422,7 @@ class ClassroomServiceImplTest {
     }
 
     private void givenOwnerTicketBattle() {
-        when(userRepository.findById(OWNER_ID)).thenReturn(Optional.of(owner));
+        when(userRepository.findByIdForUpdate(OWNER_ID)).thenReturn(Optional.of(owner));
         when(classTicketRepository.findByRegisteredUserIdAndStatus(OWNER_ID, TicketStatus.ACTIVE))
                 .thenReturn(Optional.of(ticket));
         when(battleRepository.findById(BATTLE_ID)).thenReturn(Optional.of(battle));

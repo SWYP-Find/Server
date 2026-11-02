@@ -46,6 +46,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -78,6 +79,8 @@ class ClassMemberServiceImplTest {
     void setUp() {
         owner = user(OWNER_ID, "선생님");
         student = user(STUDENT_ID, "학생");
+        // 참여는 가장 먼저 참여자 계정을 잠그고 ACTIVE 인지 확인한다 (#584)
+        lenient().when(userRepository.findByIdForUpdate(STUDENT_ID)).thenReturn(Optional.of(student));
         classroom = classroom(owner, 5, null);
     }
 
@@ -91,7 +94,6 @@ class ClassMemberServiceImplTest {
         when(classMemberRepository.existsByClassroomIdAndDisplayNameAndStatus(CLASS_ID, "김학생", ClassMemberStatus.ACTIVE))
                 .thenReturn(false);
         when(classMemberRepository.countByClassroomIdAndSeatHeldTrue(CLASS_ID)).thenReturn(4L, 5L);
-        when(userRepository.findById(STUDENT_ID)).thenReturn(Optional.of(student));
 
         ClassDetailResponse response = service.join(STUDENT_ID, new ClassJoinRequest(" abc-234 ", "  김학생 "));
 
@@ -139,6 +141,7 @@ class ClassMemberServiceImplTest {
     @DisplayName("운영자가 자기 클래스 코드를 넣으면 409 CLASS_409_OWNER")
     void join_ownerOwnCode_409() {
         givenClassByCode();
+        when(userRepository.findByIdForUpdate(OWNER_ID)).thenReturn(Optional.of(owner));
 
         assertThatThrownBy(() -> service.join(OWNER_ID, new ClassJoinRequest(CODE, "선생님")))
                 .satisfies(e -> assertThat(errorCodeOf(e)).isEqualTo(ErrorCode.CLASS_OWNER_CANNOT_JOIN));

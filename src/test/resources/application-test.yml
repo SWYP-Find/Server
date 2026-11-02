@@ -86,6 +86,9 @@ app:
   baseUrl: http://localhost:8080
 picke:
   baseUrl: http://localhost:8080
+  ticket:
+    # 테스트 전용 이용권 코드 암호화 키 (Base64 로 인코딩한 32바이트)
+    code-encryption-key: cGlja2UtdGVzdC10aWNrZXQtY29kZS12YXVsdC1rZXk=
   local-storage:
     root: ${java.io.tmpdir}/picke-local-storage-test
   class-report:

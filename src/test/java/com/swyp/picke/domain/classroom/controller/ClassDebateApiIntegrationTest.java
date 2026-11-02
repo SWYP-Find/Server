@@ -196,10 +196,11 @@ class ClassDebateApiIntegrationTest {
                 .andExpect(jsonPath("$.data.messages", hasSize(1)))
                 .andExpect(jsonPath("$.data.messages[0].speaker").value("AI"))
                 .andExpect(jsonPath("$.data.messages[0].focus").value("EVIDENCE"))
-                .andExpect(jsonPath("$.data.messages[0].focusLabel").value("근거"));
+                .andExpect(jsonPath("$.data.messages[0].focusLabel").value("근거"))
+                .andExpect(jsonPath("$.data.messages[0].bubbles", hasSize(3)));
         verify(aiClient).chatJson(eq(ClassDebatePrompts.SYSTEM),
                 argThat(p -> p.contains("[라운드] 1 / 3") && p.contains("(아직 없음)") && p.contains("[수준] 중급")
-                        && p.contains("[상대 입장 - 당신이 대변] B. 반대 2") && p.contains("[철학자] 아리스토텔레스")),
+                        && p.contains("[상대 입장 - 당신이 대변] B. 반대 2") && p.contains("[철학자 프로필] 아리스토텔레스") && p.contains("- 성향 등급: 대표=이성")),
                 anyInt());
 
         // 시작 후에는 사전투표를 바꿀 수 없고, 토론 전 사후투표도 막힌다
@@ -211,7 +212,8 @@ class ClassDebateApiIntegrationTest {
         JsonNode r1 = data(reply(1, longText("첫 번째 반박"), "key-1")
                 .andExpect(jsonPath("$.data.status").value("WAITING_USER"))
                 .andExpect(jsonPath("$.data.round").value(2))
-                .andExpect(jsonPath("$.data.messages", hasSize(3))));
+                .andExpect(jsonPath("$.data.messages", hasSize(3)))
+                .andExpect(jsonPath("$.data.messages[1].bubbles", hasSize(1))));
         long userMessage1 = r1.get("messages").get(1).get("messageId").asLong();
         assertThat(r1.get("messages").get(2).get("replyToMessageId").asLong()).isEqualTo(userMessage1);
         verify(aiClient).chatJson(eq(ClassDebatePrompts.SYSTEM),

@@ -7,7 +7,7 @@ import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /**
- * AI 주장 응답 검사 (PRD §11 출력 계약). 길이는 잘라 쓰지 않고 위반으로 본다.
+ * AI 주장 응답 검사 (PRD §11 출력 계약). 길이는 잘라 쓰지 않고 위반으로 본다. 통과하면 말풍선 단위로 줄바꿈을 정리해 돌려준다.
  * 라운드·종료 여부를 정하는 필드가 있으면 받지 않는다 (부록 A "done·round 값이 응답에 있으면 허용하지 않는다").
  */
 @Component
@@ -34,17 +34,18 @@ public class ClassDebateContentValidator {
         if (text == null || text.isEmpty()) {
             throw new DebateValidationException("EMPTY_ARGUMENT", "argument_text 가 비어 있습니다");
         }
-        int length = text.codePointCount(0, text.length());
+        int length = DebateBubbles.length(text);
         if (length < ARGUMENT_MIN_LENGTH || length > ARGUMENT_MAX_LENGTH) {
             throw new DebateValidationException("ARGUMENT_LENGTH",
-                    "argument_text 는 " + ARGUMENT_MIN_LENGTH + "자 이상 " + ARGUMENT_MAX_LENGTH + "자 이하여야 합니다 (현재 " + length + "자)");
+                    "argument_text 는 줄바꿈을 빼고 " + ARGUMENT_MIN_LENGTH + "자 이상 " + ARGUMENT_MAX_LENGTH + "자 이하여야 합니다 (현재 " + length + "자)");
         }
         ClassDebateFocus focus = parseFocus(ReportContent.str(json, "focus"));
         if (focus == null) {
             throw new DebateValidationException("INVALID_FOCUS",
                     "focus 는 EVIDENCE, ASSUMPTION, COUNTEREXAMPLE, CONDITION, VALUE_CONFLICT 중 하나여야 합니다");
         }
-        return new Argument(text, focus);
+        // 말풍선 수가 2~3개를 벗어나도 보정 호출 없이 서버가 다시 나눠 저장한다
+        return new Argument(DebateBubbles.join(DebateBubbles.split(text)), focus);
     }
 
     private static ClassDebateFocus parseFocus(String value) {

@@ -333,7 +333,7 @@ class OAuthServiceTest {
                 .status(UserStatus.ACTIVE)
                 .build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(userWithdrawalRepository.existsByUser_Id(1L)).thenReturn(false);
 
         authService.withdraw(1L, new WithdrawRequest(WithdrawalReason.NO_TIME));
@@ -344,6 +344,7 @@ class OAuthServiceTest {
         verify(userWithdrawalRepository).save(withdrawalCaptor.capture());
         assertThat(withdrawalCaptor.getValue().getReason()).isEqualTo(WithdrawalReason.NO_TIME);
 
+        verify(userClassWithdrawalService).apply(eq(user), any());
         assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
         assertThat(user.getDeletedAt()).isNotNull();
     }
@@ -356,7 +357,7 @@ class OAuthServiceTest {
                 .status(UserStatus.ACTIVE)
                 .build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(userWithdrawalRepository.existsByUser_Id(1L)).thenReturn(true);
 
         authService.withdraw(1L, new WithdrawRequest(WithdrawalReason.OTHER));
@@ -383,7 +384,7 @@ class OAuthServiceTest {
                 .build();
         socialAccount.updateAppleRefreshToken("apple-stored-token");
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
         when(userWithdrawalRepository.existsByUser_Id(userId)).thenReturn(false);
         when(socialAccountRepository.findByUser(user)).thenReturn(Optional.of(socialAccount));
 

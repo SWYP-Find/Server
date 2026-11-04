@@ -52,8 +52,8 @@ public final class ClassDebatePrompts {
             4. 참가자를 비난하거나 조롱하지 않습니다. 이름을 부르지 않습니다.
             5. 참가자에게 직접 말하듯 대화체로 씁니다. "참가자는", "상대방은", "참가자의 주장은"처럼 3인칭으로 가리키지 않고,
                "~라고 했지요", "~라고 보는군요"처럼 받아서 이어 갑니다. 글의 끝은 결론을 되풀이하지 않고 참가자가 답할 질문 하나로 맺습니다.
-            6. argument_text 는 줄바꿈을 빼고 200자 이상 500자 이하로 씁니다. 수준과 관계없이 이 범위를 지킵니다.
-               200자는 생각보다 짧지 않으니 4~6문장, 250~400자를 목표로 씁니다.
+            6. argument_text 는 줄바꿈을 빼고 최소 200자 이상, 500자 이하로 씁니다. 수준과 관계없이 200자보다 짧게 쓰지 않습니다.
+               200자는 생각보다 짧지 않으니 5~6문장, 250~400자를 목표로 쓰고, 말풍선 한 덩어리가 100자 이상이 되도록 이유나 예시를 채웁니다.
             7. argument_text 는 화면에 말풍선으로 나눠 보입니다. 의미 단위와 흐름에 맞춰 기본 2덩어리, 설명·반례·질문을 나눌 필요가 있을 때만 3덩어리로 나누고
                덩어리 사이에 줄바꿈(\\n)을 한 번 넣습니다. 말풍선 수를 채우려고 내용을 늘리지 않습니다.
             8. focus 는 이번 주장의 초점 하나를 EVIDENCE(근거), ASSUMPTION(가정), COUNTEREXAMPLE(반례), CONDITION(조건), VALUE_CONFLICT(가치충돌) 중에서 고릅니다.
@@ -76,7 +76,8 @@ public final class ClassDebatePrompts {
         sb.append("- 성향 등급: ").append(profile.traitTiers()).append("\n\n");
         sb.append("[수준] ").append(difficultyLabel(input.difficulty())).append('\n');
         sb.append("[말투] ").append(speechStyle(input.difficulty())).append('\n');
-        sb.append("[라운드] ").append(input.round()).append(" / 3\n\n");
+        sb.append("[라운드] ").append(input.round()).append(" / 3\n");
+        sb.append("[분량] 줄바꿈을 빼고 최소 200자 이상 (목표 250~400자, 최대 500자)\n\n");
         sb.append("[대화]\n");
         if (input.history().isEmpty()) {
             sb.append("(아직 없음)\n");

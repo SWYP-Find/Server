@@ -19,7 +19,8 @@ class ClassDebatePromptsTest {
     void userPromptCarriesDifficulty(BattleDifficulty difficulty, String label) {
         String prompt = ClassDebatePrompts.user(input(difficulty));
 
-        assertThat(prompt).contains("[수준] " + label + "\n");
+        assertThat(prompt).contains("[수준] " + label + "\n")
+                .contains("[분량] 줄바꿈을 빼고 최소 200자 이상");
     }
 
     @ParameterizedTest
@@ -34,7 +35,7 @@ class ClassDebatePromptsTest {
     void systemPromptDescribesEveryDifficulty() {
         assertThat(ClassDebatePrompts.SYSTEM)
                 .contains("- 초급(중학생):", "- 중급(고등학생):", "- 고급(성인):")
-                .contains("줄바꿈을 빼고 200자 이상 500자 이하")
+                .contains("줄바꿈을 빼고 최소 200자 이상, 500자 이하")
                 .doesNotContain("권장 200~300자");
         assertThat(ClassDebatePrompts.PROMPT_VERSION).isEqualTo("debate-v4");
     }

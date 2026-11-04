@@ -28,15 +28,16 @@ class ClassDebateContentValidatorTest {
     }
 
     @Test
-    @DisplayName("길이는 말풍선 줄바꿈을 빼고 200~500자로 검사한다")
+    @DisplayName("길이는 말풍선 줄바꿈을 빼고 120~500자로 검사하고, 보정 안내는 프롬프트 기준 200자로 한다")
     void lengthIgnoresBubbleLineBreaks() {
-        String ok = "가".repeat(99) + "\n" + "나".repeat(100);
+        String ok = "가".repeat(59) + "\n" + "나".repeat(60);
         assertThat(validator.parse(Map.of("argument_text", ok, "focus", "EVIDENCE")).text()).contains("\n");
 
-        String tooShort = "가".repeat(98) + "\n" + "나".repeat(100);
+        String tooShort = "가".repeat(58) + "\n" + "나".repeat(60);
         assertThatThrownBy(() -> validator.parse(Map.of("argument_text", tooShort, "focus", "EVIDENCE")))
                 .isInstanceOf(DebateValidationException.class)
-                .extracting("code").isEqualTo("ARGUMENT_LENGTH");
+                .hasFieldOrPropertyWithValue("code", "ARGUMENT_LENGTH")
+                .hasFieldOrPropertyWithValue("problem", "argument_text 는 줄바꿈을 빼고 200자 이상 500자 이하로 다시 씁니다 (현재 119자)");
     }
 
     @Test

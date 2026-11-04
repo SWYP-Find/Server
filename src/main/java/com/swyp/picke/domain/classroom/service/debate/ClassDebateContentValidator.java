@@ -13,8 +13,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class ClassDebateContentValidator {
 
-    /** 기획 Q&A 확정 길이 (ERD ai_jobs 노트) */
-    public static final int ARGUMENT_MIN_LENGTH = 200;
+    /** 프롬프트로 요구하는 최소 길이. 보정 호출도 이 기준으로 다시 쓰게 한다 */
+    public static final int ARGUMENT_TARGET_MIN_LENGTH = 200;
+    /** 검증 하한은 프롬프트보다 느슨하게 둔다. 200자에 조금 못 미친 주장까지 재요청하지 않기 위해서다 (#602) */
+    public static final int ARGUMENT_MIN_LENGTH = 120;
     public static final int ARGUMENT_MAX_LENGTH = 500;
 
     private static final Set<String> FORBIDDEN_FIELDS = Set.of("round", "round_index", "done", "finished", "next_round", "winner", "score");
@@ -37,7 +39,7 @@ public class ClassDebateContentValidator {
         int length = DebateBubbles.length(text);
         if (length < ARGUMENT_MIN_LENGTH || length > ARGUMENT_MAX_LENGTH) {
             throw new DebateValidationException("ARGUMENT_LENGTH",
-                    "argument_text 는 줄바꿈을 빼고 " + ARGUMENT_MIN_LENGTH + "자 이상 " + ARGUMENT_MAX_LENGTH + "자 이하여야 합니다 (현재 " + length + "자)");
+                    "argument_text 는 줄바꿈을 빼고 " + ARGUMENT_TARGET_MIN_LENGTH + "자 이상 " + ARGUMENT_MAX_LENGTH + "자 이하로 다시 씁니다 (현재 " + length + "자)");
         }
         ClassDebateFocus focus = parseFocus(ReportContent.str(json, "focus"));
         if (focus == null) {

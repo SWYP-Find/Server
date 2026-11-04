@@ -36,8 +36,8 @@ public class ClassReportAiClient {
     @Value("${openai.model}")
     private String model;
 
-    /** AI 철학자 토론만 쓰는 모델. 철학자별 말투·대화체 품질 때문에 기본 모델보다 한 단계 높게 둔다 (#602) */
-    @Value("${openai.debate.model:gpt-4.1-mini}")
+    /** AI 철학자 토론만 쓰는 모델. 철학자별 말투·대화체 품질과 응답 속도 때문에 기본 모델과 따로 둔다 (#602) */
+    @Value("${openai.debate.model:gpt-5.4-mini}")
     private String debateModel;
 
     /** 파싱된 JSON 본문과 토큰 사용량 */
@@ -70,7 +70,8 @@ public class ClassReportAiClient {
                 ),
                 "response_format", Map.of("type", "json_object"),
                 "temperature", 0.3,
-                "max_tokens", maxOutputTokens
+                // gpt-5 계열은 max_tokens 를 받지 않는다. gpt-4o·4.1 계열도 max_completion_tokens 를 받는다
+                "max_completion_tokens", maxOutputTokens
         );
 
         Map<String, Object> response = restClient.post()

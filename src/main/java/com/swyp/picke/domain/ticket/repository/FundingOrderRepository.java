@@ -164,17 +164,16 @@ public interface FundingOrderRepository extends JpaRepository<FundingOrder, Long
                     and not exists (select a.id from TicketDeliveryAttempt a where a.ticket = t
                       and a.status = com.swyp.picke.domain.ticket.enums.DeliveryStatus.SUCCESS
                       and a.id = (select max(latest.id) from TicketDeliveryAttempt latest where latest.ticket = t))))
-              and (:deliveryStatus is null
-                   or (:deliveryStatus = com.swyp.picke.domain.ticket.enums.DeliveryStatus.SUCCESS
-                       and exists (select t.id from ClassTicket t where t.fundingOrder = o
+              and (:deliverySent = false
+                   or (exists (select t.id from ClassTicket t where t.fundingOrder = o
                          and t.status <> com.swyp.picke.domain.ticket.enums.TicketStatus.REVOKED)
                        and not exists (select t.id from ClassTicket t where t.fundingOrder = o
                          and t.status <> com.swyp.picke.domain.ticket.enums.TicketStatus.REVOKED
                          and not exists (select a.id from TicketDeliveryAttempt a where a.ticket = t
                            and a.status = com.swyp.picke.domain.ticket.enums.DeliveryStatus.SUCCESS
-                           and a.id = (select max(latest.id) from TicketDeliveryAttempt latest where latest.ticket = t))))
-                   or (:deliveryStatus = com.swyp.picke.domain.ticket.enums.DeliveryStatus.FAILED
-                       and exists (select a.id from TicketDeliveryAttempt a where a.ticket.fundingOrder = o
+                           and a.id = (select max(latest.id) from TicketDeliveryAttempt latest where latest.ticket = t)))))
+              and (:deliveryFailed = false
+                   or (exists (select a.id from TicketDeliveryAttempt a where a.ticket.fundingOrder = o
                          and a.ticket.status <> com.swyp.picke.domain.ticket.enums.TicketStatus.REVOKED
                          and a.status = com.swyp.picke.domain.ticket.enums.DeliveryStatus.FAILED
                          and a.id = (select max(latest.id) from TicketDeliveryAttempt latest where latest.ticket = a.ticket))))
@@ -203,17 +202,16 @@ public interface FundingOrderRepository extends JpaRepository<FundingOrder, Long
                     and not exists (select a.id from TicketDeliveryAttempt a where a.ticket = t
                       and a.status = com.swyp.picke.domain.ticket.enums.DeliveryStatus.SUCCESS
                       and a.id = (select max(latest.id) from TicketDeliveryAttempt latest where latest.ticket = t))))
-              and (:deliveryStatus is null
-                   or (:deliveryStatus = com.swyp.picke.domain.ticket.enums.DeliveryStatus.SUCCESS
-                       and exists (select t.id from ClassTicket t where t.fundingOrder = o
+              and (:deliverySent = false
+                   or (exists (select t.id from ClassTicket t where t.fundingOrder = o
                          and t.status <> com.swyp.picke.domain.ticket.enums.TicketStatus.REVOKED)
                        and not exists (select t.id from ClassTicket t where t.fundingOrder = o
                          and t.status <> com.swyp.picke.domain.ticket.enums.TicketStatus.REVOKED
                          and not exists (select a.id from TicketDeliveryAttempt a where a.ticket = t
                            and a.status = com.swyp.picke.domain.ticket.enums.DeliveryStatus.SUCCESS
-                           and a.id = (select max(latest.id) from TicketDeliveryAttempt latest where latest.ticket = t))))
-                   or (:deliveryStatus = com.swyp.picke.domain.ticket.enums.DeliveryStatus.FAILED
-                       and exists (select a.id from TicketDeliveryAttempt a where a.ticket.fundingOrder = o
+                           and a.id = (select max(latest.id) from TicketDeliveryAttempt latest where latest.ticket = t)))))
+              and (:deliveryFailed = false
+                   or (exists (select a.id from TicketDeliveryAttempt a where a.ticket.fundingOrder = o
                          and a.ticket.status <> com.swyp.picke.domain.ticket.enums.TicketStatus.REVOKED
                          and a.status = com.swyp.picke.domain.ticket.enums.DeliveryStatus.FAILED
                          and a.id = (select max(latest.id) from TicketDeliveryAttempt latest where latest.ticket = a.ticket))))
@@ -231,7 +229,8 @@ public interface FundingOrderRepository extends JpaRepository<FundingOrder, Long
                                     @Param("campaignId") String campaignId,
                                     @Param("keyword") String keyword,
                                     @Param("rewardTier") RewardTier rewardTier,
-                                    @Param("deliveryStatus") DeliveryStatus deliveryStatus,
+                                    @Param("deliverySent") boolean deliverySent,
+                                    @Param("deliveryFailed") boolean deliveryFailed,
                                     @Param("deliveryPending") boolean deliveryPending,
                                     Pageable pageable);
 }

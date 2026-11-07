@@ -241,7 +241,7 @@ public class ClassDebateSessionService {
                 side(session.getParticipantOption()),
                 side(session.getOpponentOption()),
                 messages.stream().map(m -> new ClassDebateResponse.Message(
-                        m.getId(), m.getRoundIndex(), m.getSpeaker(), m.getContent(), m.getFocus(),
+                        m.getId(), m.getRoundIndex(), m.getSpeaker(), m.getContent(), bubbles(m), m.getFocus(),
                         m.getFocus() == null ? null : m.getFocus().getLabel(), m.getReplyToMessageId(), m.getCreatedAt())).toList(),
                 AI_NOTICE,
                 REPLY_MIN_LENGTH,
@@ -254,6 +254,14 @@ public class ClassDebateSessionService {
     }
 
     // ---------- 내부 ----------
+
+    /** AI 주장은 말풍선 2~3개로, 참가자 반박은 그대로 1개. 줄바꿈이 없던 예전 주장도 같은 규칙으로 나뉜다 */
+    private static List<String> bubbles(ClassDebateMessage message) {
+        if (message.getSpeaker() == ClassDebateSpeaker.AI) {
+            return DebateBubbles.split(message.getContent());
+        }
+        return List.of(message.getContent());
+    }
 
     private static Classroom requireCustom(Classroom classroom) {
         if (classroom.getBattleType() != ClassBattleType.CUSTOM) {

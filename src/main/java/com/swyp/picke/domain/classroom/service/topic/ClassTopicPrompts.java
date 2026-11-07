@@ -2,6 +2,7 @@ package com.swyp.picke.domain.classroom.service.topic;
 
 import com.swyp.picke.domain.battle.enums.BattleCategory;
 import com.swyp.picke.domain.battle.enums.BattleDifficulty;
+import com.swyp.picke.domain.classroom.service.debate.DebatePhilosopherProfile;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -14,7 +15,7 @@ public final class ClassTopicPrompts {
     private ClassTopicPrompts() {
     }
 
-    public static final String PROMPT_VERSION = "topic-v2";
+    public static final String PROMPT_VERSION = "topic-v3";
 
     public static final int SUGGEST_MAX_OUTPUT_TOKENS = 4_000;
     public static final int VALIDATE_MAX_OUTPUT_TOKENS = 800;
@@ -29,7 +30,9 @@ public final class ClassTopicPrompts {
                예: "비난할 수 있다"의 상대는 "비난하기 어렵다"이지, 다른 논점인 "제도를 유지해야 한다"가 아닙니다.
             4. label 은 20자 이하의 답, rationale 은 40자 이하로 그 답을 지지하는 관점의 핵심 이유입니다.
             5. 각 선택지에는 그 관점을 가장 잘 대변할 철학자를 [철학자 목록]의 id 로만 고릅니다. 두 선택지의 철학자는 서로 달라야 합니다.
-               목록에 없는 인물을 쓰지 않습니다.
+               목록에 없는 인물을 쓰지 않습니다. 먼저 선택지가 무엇을 근거로 주장하는지 원칙·이성·개인·변화·내면·이상 중 핵심 1~2개를 정하고,
+               핵심 관점이 그 근거와 맞는 철학자를 고릅니다. 성향 등급은 비교할 때 보조 기준으로만 쓰고, 등급이 가장 높다는 이유만으로 고르지 않습니다.
+               이 판단은 출력에 쓰지 않습니다.
             6. 특정 선택지를 정답처럼 암시하지 않습니다. 사람의 존엄을 부정하거나 특정 집단을 차별하는 선택지로 논쟁을 만들지 않습니다.
                민감한 주제라는 이유만으로 피하지는 않습니다.
             7. category 는 [조건]의 카테고리 코드 중 하나를, difficulty 는 [조건]의 수준 코드를 그대로 씁니다.
@@ -108,7 +111,7 @@ public final class ClassTopicPrompts {
             sb.append("options[").append(i).append("].rationale: ").append(option.rationale()).append('\n');
             sb.append("options[").append(i).append("].philosopher: ").append(option.philosopher().name())
                     .append(" (").append(option.philosopher().getLabel()).append(" · ")
-                    .append(option.philosopher().getDescription()).append(")\n");
+                    .append(DebatePhilosopherProfile.of(option.philosopher()).getCoreView()).append(")\n");
         }
         sb.append(">>>\n");
         return sb.toString();

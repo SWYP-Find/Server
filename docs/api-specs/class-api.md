@@ -869,7 +869,8 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
   - 조회: 클래스를 볼 수 있으면 된다. 마감 후에도 읽을 수 있다.
   - 시작·반박·재시도: 0.3의 쓰기 규칙을 따른다.
 - **라운드 진행:** 1라운드는 AI 주장으로 시작하고, 이어서 참가자가 반박한다. 3라운드 반박을 내면 토론이 끝나고 `COMPLETED`가 된다.
-- **AI 주장 길이:** 200~500자
+- **AI 주장 길이:** 프롬프트로 200~500자를 요구하고, 서버는 120~500자를 통과시킨다 (말풍선 사이 줄바꿈은 세지 않는다)
+- **AI 주장 말풍선:** 한 주장을 의미 단위로 2~3개 말풍선으로 나눠 `bubbles`로 내려준다. 말풍선마다 AI를 따로 부르지 않는다.
 - **반박 길이:** 앞뒤 공백 제거 후 50~500자. 저장한 뒤에는 수정할 수 없다.
 
 ### 7.1 토론 조회 (재접속)
@@ -940,7 +941,8 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
     "opponentOption": { "optionId": 32, "position": "B", "title": "...", "stance": "..." },
     "messages": [
       {
-        "messageId": 101, "round": 1, "speaker": "AI", "content": "...",
+        "messageId": 101, "round": 1, "speaker": "AI", "content": "첫 말풍선\n둘째 말풍선",
+        "bubbles": ["첫 말풍선", "둘째 말풍선"],
         "focus": "ASSUMPTION", "focusLabel": "가정", "replyToMessageId": null,
         "createdAt": "2026-10-21T10:00:00"
       }
@@ -961,6 +963,8 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 
 - `canReply`: `WAITING_USER`이고 마감 전일 때 true
 - `canRetry`: 실패했거나 생성이 오래 멈췄고 마감 전일 때 true
+- `content`: 전체 글이다. AI 주장은 말풍선 사이에 줄바꿈이 들어 있다.
+- `bubbles`: 화면에 말풍선으로 보여 줄 글 목록이다. AI 주장은 2~3개, 참가자 반박은 1개다. 줄바꿈 없이 저장된 예전 AI 주장도 서버가 문장 기준으로 나눠 준다.
 - `focus`: AI 주장의 초점이다. 값은 `EVIDENCE`(근거) / `ASSUMPTION`(가정) / `COUNTEREXAMPLE`(반례) / `CONDITION`(조건) / `VALUE_CONFLICT`(가치충돌)이고, 참가자 반박이면 null이다.
 - `replyToMessageId`: AI 주장이 응답한 참가자 반박의 ID
 

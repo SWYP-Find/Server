@@ -87,6 +87,8 @@ openai:
   api-key: ${OPENAI_API_KEY}
   url: https://api.openai.com/v1/chat/completions
   model: gpt-4o-mini
+  debate:
+    model: ${OPENAI_DEBATE_MODEL:gpt-5.4-mini}
   moderation:
     url: https://api.openai.com/v1/moderations
     model: omni-moderation-latest

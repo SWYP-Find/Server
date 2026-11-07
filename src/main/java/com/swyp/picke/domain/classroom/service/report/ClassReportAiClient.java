@@ -36,6 +36,10 @@ public class ClassReportAiClient {
     @Value("${openai.model}")
     private String model;
 
+    /** AI 철학자 토론만 쓰는 모델. 철학자별 말투·대화체 품질과 응답 속도 때문에 기본 모델과 따로 둔다 (#602) */
+    @Value("${openai.debate.model:gpt-5.4-mini}")
+    private String debateModel;
+
     /** 파싱된 JSON 본문과 토큰 사용량 */
     public record AiChatResult(Map<String, Object> json, String rawContent, Integer inputTokens, Integer outputTokens) {
     }
@@ -44,7 +48,15 @@ public class ClassReportAiClient {
         return model;
     }
 
+    public String getDebateModel() {
+        return debateModel;
+    }
+
     public AiChatResult chatJson(String systemPrompt, String userPrompt, int maxOutputTokens) {
+        return chatJson(model, systemPrompt, userPrompt, maxOutputTokens);
+    }
+
+    public AiChatResult chatJson(String model, String systemPrompt, String userPrompt, int maxOutputTokens) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(CONNECT_TIMEOUT_MS);
         factory.setReadTimeout(READ_TIMEOUT_MS);
@@ -58,7 +70,8 @@ public class ClassReportAiClient {
                 ),
                 "response_format", Map.of("type", "json_object"),
                 "temperature", 0.3,
-                "max_tokens", maxOutputTokens
+                // gpt-5 계열은 max_tokens 를 받지 않는다. gpt-4o·4.1 계열도 max_completion_tokens 를 받는다
+                "max_completion_tokens", maxOutputTokens
         );
 
         Map<String, Object> response = restClient.post()

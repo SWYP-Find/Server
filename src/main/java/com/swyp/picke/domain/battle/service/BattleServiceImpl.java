@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.battle.service;
 
 import com.swyp.picke.domain.battle.converter.BattleConverter;
+import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleClassSettingsRequest;
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleCreateRequest;
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleOptionRequest;
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleUpdateRequest;
@@ -11,6 +12,8 @@ import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.entity.BattleOptionTag;
 import com.swyp.picke.domain.battle.entity.BattleTag;
+import com.swyp.picke.domain.battle.enums.BattleCreatorType;
+import com.swyp.picke.domain.battle.enums.BattleDifficulty;
 import com.swyp.picke.domain.battle.enums.BattleStatus;
 import com.swyp.picke.domain.battle.util.BattleOptionDisplay;
 import com.swyp.picke.domain.user.dto.response.UserBattleStatusResponse;
@@ -65,6 +68,7 @@ public class BattleServiceImpl implements BattleService {
     private static final int HOME_EDITOR_PICK_LIMIT = 10;
     private static final int HOME_TRENDING_LIMIT = 4;
     private static final int HOME_BEST_LIMIT = 3;
+    private static final int HOME_MOST_DISCUSSION_LIMIT = 3;
     private static final int HOME_TODAY_PICK_LIMIT = 1;
     private static final int HOME_NEW_LIMIT = 3;
     private static final int PUBLISH_BATCH_SIZE = 100;
@@ -117,6 +121,15 @@ public class BattleServiceImpl implements BattleService {
     @Override
     public List<TodayBattleResponse> getBestBattles() {
         return loadBestBattles(HOME_BEST_LIMIT);
+    }
+
+    @Override
+    public List<TodayBattleResponse> getMostDiscussedBattles() {
+        List<Object[]> rows = battleRepository.findMostDiscussedBattles(PageRequest.of(0, HOME_MOST_DISCUSSION_LIMIT));
+        List<Battle> battles = rows.stream().map(row -> (Battle) row[0]).toList();
+        Map<Long, Long> commentCounts = rows.stream().collect(Collectors.toMap(
+                row -> ((Battle) row[0]).getId(), row -> ((Number) row[1]).longValue()));
+        return convertToTodayResponses(battles, commentCounts);
     }
 
     @Override
@@ -184,11 +197,14 @@ public class BattleServiceImpl implements BattleService {
         BattleStatus battleStatusFilter = parseBattleStatus(status);
 
         Page<Battle> battlePage;
+        // 클래스 전용 커스텀 배틀(creator_type = USER)은 어드민 목록에서 뺀다
         if (battleStatusFilter == null) {
-            battlePage = battleRepository.findByDeletedAtIsNullOrderByCreatedAtDesc(pageRequest);
+            battlePage = battleRepository.findByCreatorTypeNotAndDeletedAtIsNullOrderByCreatedAtDesc(
+                    BattleCreatorType.USER, pageRequest);
         } else {
-            battlePage = battleRepository.findByStatusAndDeletedAtIsNullOrderByCreatedAtDesc(
+            battlePage = battleRepository.findByStatusAndCreatorTypeNotAndDeletedAtIsNullOrderByCreatedAtDesc(
                     battleStatusFilter,
+                    BattleCreatorType.USER,
                     pageRequest
             );
         }
@@ -229,14 +245,6 @@ public class BattleServiceImpl implements BattleService {
     public BattleUserDetailResponse getBattleDetail(Long battleId) {
         Battle battle = findPublishedById(battleId);
         battle.increaseViewCount();
-        List<Tag> tags = getTagsByBattle(battle);
-        List<BattleOption> options = battleOptionRepository.findByBattle(battle);
-        Map<Long, List<Tag>> optionTagsMap = battleOptionTagRepository.findByBattleWithTags(battle)
-                .stream()
-                .collect(Collectors.groupingBy(
-                        bot -> bot.getBattleOption().getId(),
-                        Collectors.mapping(BattleOptionTag::getTag, Collectors.toList())
-                ));
         Long currentUserId = SecurityUtil.getCurrentUserId();
         User user = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
@@ -254,12 +262,20 @@ public class BattleServiceImpl implements BattleService {
                 })
                 .orElse(null);
 
-        return battleConverter.toUserDetailResponse(
-                battle, tags, options, optionTagsMap,
-                battle.getTotalParticipantsCount(),
-                voteStatus,
-                currentStep
-        );
+        return buildUserDetail(battle, battle.getTotalParticipantsCount(), voteStatus, currentStep);
+    }
+
+    @Override
+    public BattleUserDetailResponse buildUserDetail(Battle battle, Long participantsCount, VoteSide voteSide, UserBattleStep step) {
+        List<Tag> tags = getTagsByBattle(battle);
+        List<BattleOption> options = battleOptionRepository.findByBattle(battle);
+        Map<Long, List<Tag>> optionTagsMap = battleOptionTagRepository.findByBattleWithTags(battle)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        bot -> bot.getBattleOption().getId(),
+                        Collectors.mapping(BattleOptionTag::getTag, Collectors.toList())
+                ));
+        return battleConverter.toUserDetailResponse(battle, tags, options, optionTagsMap, participantsCount, voteSide, step);
     }
 
     @Override
@@ -332,6 +348,8 @@ public class BattleServiceImpl implements BattleService {
                 request.audioDuration(),
                 request.status()
         );
+        // 수준은 기획 확정 전까지 초급으로 두고, 어드민 상세에서 바꾼다 (#571)
+        battle.updateClassSettings(BattleDifficulty.BEGINNER, null, null, null);
         battle = battleRepository.save(battle);
 
         if (request.tagIds() != null) {
@@ -390,6 +408,25 @@ public class BattleServiceImpl implements BattleService {
                 ));
 
         return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), options, optionTagsMap);
+    }
+
+    /**
+     * 클래스 추천 필터용 수준·카테고리·추천 여부·중간투표 여부 설정. null 은 변경 없음.
+     * 사용자가 만든 커스텀 배틀은 클래스 전용이라 바꿀 수 없고, 추천을 켜면 수준·카테고리가 모두 있어야 한다.
+     */
+    @Override
+    @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
+    public AdminBattleDetailResponse updateClassSettings(Long battleId, AdminBattleClassSettingsRequest request) {
+        Battle battle = findById(battleId);
+        if (battle.getCreatorType() == BattleCreatorType.USER) {
+            throw new CustomException(ErrorCode.CLASS_BATTLE_NOT_AVAILABLE);
+        }
+        battle.updateClassSettings(request.difficulty(), request.category(), request.classRecommendable(), request.midVoteEnabled());
+        if (battle.isClassRecommendable() && (battle.getDifficulty() == null || battle.getCategory() == null)) {
+            throw new CustomException(ErrorCode.CLASS_RECOMMEND_SETTINGS_INCOMPLETE);
+        }
+        return getAdminBattleDetail(battleId);
     }
 
     @Override
@@ -613,6 +650,10 @@ public class BattleServiceImpl implements BattleService {
     }
 
     private List<TodayBattleResponse> convertToTodayResponses(List<Battle> battles) {
+        return convertToTodayResponses(battles, Map.of());
+    }
+
+    private List<TodayBattleResponse> convertToTodayResponses(List<Battle> battles, Map<Long, Long> commentCountOverrides) {
         if (battles == null || battles.isEmpty()) return Collections.emptyList();
 
         Map<Long, List<BattleOption>> optionsMap = battleOptionRepository.findByBattleIn(battles)
@@ -627,7 +668,10 @@ public class BattleServiceImpl implements BattleService {
         return battles.stream().map(battle -> {
             List<Tag> tags = tagsMap.getOrDefault(battle.getId(), Collections.emptyList());
             List<BattleOption> options = optionsMap.getOrDefault(battle.getId(), Collections.emptyList());
-            return battleConverter.toTodayResponse(battle, tags, options);
+            Long commentCount = commentCountOverrides.get(battle.getId());
+            return commentCount == null
+                    ? battleConverter.toTodayResponse(battle, tags, options)
+                    : battleConverter.toTodayResponse(battle, tags, options, commentCount);
         }).toList();
     }
 

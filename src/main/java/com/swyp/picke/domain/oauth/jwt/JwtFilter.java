@@ -1,14 +1,15 @@
 package com.swyp.picke.domain.oauth.jwt;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.repository.UserDailyActivityRepository;
+import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import com.swyp.picke.global.common.response.ApiResponse;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -22,12 +23,24 @@ import java.util.List;
 import java.util.Set;
 
 @Slf4j
-@RequiredArgsConstructor
 public class JwtFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
     private final UserDailyActivityRepository userDailyActivityRepository;
+    private final UserRepository userRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public JwtFilter(JwtProvider jwtProvider, UserDailyActivityRepository userDailyActivityRepository,
+                     UserRepository userRepository) {
+        this.jwtProvider = jwtProvider;
+        this.userDailyActivityRepository = userDailyActivityRepository;
+        this.userRepository = userRepository;
+    }
+
+    /** Compatibility constructor for isolated filter tests; production wiring always supplies UserRepository. */
+    public JwtFilter(JwtProvider jwtProvider, UserDailyActivityRepository userDailyActivityRepository) {
+        this(jwtProvider, userDailyActivityRepository, null);
+    }
 
     // 1. 화이트리스트 상수 관리
     private static final List<String> WHITELIST = List.of(
@@ -96,6 +109,11 @@ public class JwtFilter extends OncePerRequestFilter {
                 }
 
                 Long userId = jwtProvider.getUserId(token);
+                ErrorCode inactiveAccountError = accountError(userId);
+                if (inactiveAccountError != null) {
+                    setErrorResponse(response, inactiveAccountError);
+                    return;
+                }
                 String role = jwtProvider.getRole(token);
                 String authorityName = (role != null && role.startsWith("ROLE_")) ? role : "ROLE_" + role;
 
@@ -122,6 +140,23 @@ public class JwtFilter extends OncePerRequestFilter {
             log.error("[JwtFilter] Filter Error: {}", e.getMessage());
             setErrorResponse(response, ErrorCode.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    private ErrorCode accountError(Long userId) {
+        if (userRepository == null) {
+            return null;
+        }
+        // Optional.map 안에서 null 을 돌려주면 빈 값이 되어 정상 계정도 401 이 되므로 조회와 판정을 나눈다
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            return ErrorCode.AUTH_UNAUTHORIZED;
+        }
+        return switch (user.getStatus()) {
+            case ACTIVE, PENDING -> null;
+            case SUSPENDED -> ErrorCode.USER_SUSPENDED;
+            case BANNED -> ErrorCode.USER_BANNED;
+            case DELETED -> ErrorCode.AUTH_UNAUTHORIZED;
+        };
     }
 
     /**

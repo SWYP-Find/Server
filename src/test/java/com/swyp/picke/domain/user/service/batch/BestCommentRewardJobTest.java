@@ -65,7 +65,7 @@ class BestCommentRewardJobTest {
 
         when(battleRepository.findByTargetDateBetweenAndStatusAndDeletedAtIsNull(any(), any(), any()))
                 .thenReturn(List.of(battle));
-        when(perspectiveRepository.findByBattleIdAndStatusOrderByLikeCountDescCreatedAtDesc(
+        when(perspectiveRepository.findByBattleIdAndClassroomIsNullAndStatusOrderByLikeCountDescCreatedAtDesc(
                 battle.getId(), PerspectiveStatus.PUBLISHED, PageRequest.of(0, 3)))
                 .thenReturn(List.of(perspective));
 
@@ -87,7 +87,7 @@ class BestCommentRewardJobTest {
 
         when(battleRepository.findByTargetDateBetweenAndStatusAndDeletedAtIsNull(any(), any(), any()))
                 .thenReturn(List.of(battle));
-        when(perspectiveRepository.findByBattleIdAndStatusOrderByLikeCountDescCreatedAtDesc(
+        when(perspectiveRepository.findByBattleIdAndClassroomIsNullAndStatusOrderByLikeCountDescCreatedAtDesc(
                 battle.getId(), PerspectiveStatus.PUBLISHED, PageRequest.of(0, 3)))
                 .thenReturn(List.of(top1, top2, top3));
 

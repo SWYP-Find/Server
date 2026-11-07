@@ -28,16 +28,16 @@ public class PerspectiveQueryService {
     }
 
     public long countUserComments(Long userId) {
-        return perspectiveCommentRepository.countByUserId(userId);
+        return perspectiveCommentRepository.countByUserIdAndClassroomIsNull(userId);
     }
 
     public List<Perspective> findUserPerspectives(Long userId, int limit) {
         PageRequest pageable = PageRequest.of(0, limit);
-        return perspectiveRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
+        return perspectiveRepository.findByUserIdAndClassroomIsNullOrderByCreatedAtDesc(userId, pageable);
     }
 
     public long countUserPerspectives(Long userId) {
-        return perspectiveRepository.countByUserId(userId);
+        return perspectiveRepository.countByUserIdAndClassroomIsNull(userId);
     }
 
     public List<PerspectiveLike> findUserLikes(Long userId, int offset, int size) {

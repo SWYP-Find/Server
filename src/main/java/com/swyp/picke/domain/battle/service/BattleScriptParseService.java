@@ -20,6 +20,7 @@ import com.swyp.picke.domain.battle.parser.EmotionClassifier.ScriptEmotion;
 import com.swyp.picke.domain.battle.parser.EmotionClassifier.ScriptLine;
 import com.swyp.picke.domain.battle.parser.ScriptToneExtractor;
 import com.swyp.picke.domain.scenario.enums.SpeakerType;
+import com.swyp.picke.domain.scenario.enums.ScenarioStatus;
 import com.swyp.picke.domain.scenario.enums.Tone;
 import com.swyp.picke.domain.scenario.service.PhilosopherVoiceService;
 import com.swyp.picke.domain.tag.entity.Tag;
@@ -109,7 +110,7 @@ public class BattleScriptParseService {
         Map<SpeakerType, String> voiceSettings = buildVoiceSettings(binding, warnings);
 
         AdminScenarioCreateRequest scenarioPayload = new AdminScenarioCreateRequest(
-                null, doc.interactive, com.swyp.picke.domain.scenario.enums.ScenarioStatus.PENDING,
+                null, doc.interactive, ScenarioStatus.PENDING,
                 nodes, voiceSettings);
 
         Map<String, String> speakerNames = new LinkedHashMap<>();

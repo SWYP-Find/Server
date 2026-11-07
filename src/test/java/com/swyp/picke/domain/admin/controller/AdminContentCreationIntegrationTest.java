@@ -3,6 +3,7 @@ package com.swyp.picke.domain.admin.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.swyp.picke.domain.battle.entity.Battle;
+import com.swyp.picke.domain.battle.enums.BattleDifficulty;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.repository.BattleOptionRepository;
 import com.swyp.picke.domain.battle.repository.BattleOptionTagRepository;
@@ -149,6 +150,7 @@ class AdminContentCreationIntegrationTest {
         assertThat(savedBattle.getThumbnailUrl()).isEqualTo("images/battles/battle-thumb.png");
         assertThat(savedBattle.getAudioDuration()).isEqualTo(95);
         assertThat(savedBattle.getTargetDate()).isEqualTo(targetDate);
+        assertThat(savedBattle.getDifficulty()).isEqualTo(BattleDifficulty.BEGINNER);
 
         assertThat(options).hasSize(2);
         BattleOption optionA = options.stream().filter(option -> option.getDisplayOrder() == 1).findFirst().orElseThrow();

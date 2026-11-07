@@ -134,6 +134,7 @@ public class ScenarioConverter {
 
     private OptionResponse toUserOptionResponse(InteractiveOption option) {
         return OptionResponse.builder()
+                .optionId(option.getId())
                 .label(option.getLabel())
                 .title(option.getTitle())
                 .nextNodeId(option.getNextNodeId())

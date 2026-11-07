@@ -56,7 +56,7 @@ public class VoteQueryService {
     }
 
     public long countTotalParticipation(Long userId) {
-        return battleVoteRepository.countByUserId(userId);
+        return battleVoteRepository.countByUserIdAndClassroomIsNull(userId);
     }
 
     public long countOpinionChanges(Long userId) {
@@ -64,7 +64,7 @@ public class VoteQueryService {
     }
 
     public int calculateBattleWinRate(Long userId) {
-        List<BattleVote> postVotes = battleVoteRepository.findByUserId(userId).stream()
+        List<BattleVote> postVotes = battleVoteRepository.findByUserIdAndClassroomIsNull(userId).stream()
                 .filter(v -> v.getPostVoteOption() != null)
                 .toList();
 
@@ -88,7 +88,7 @@ public class VoteQueryService {
     }
 
     public List<Long> findParticipatedBattleIds(Long userId) {
-        return battleVoteRepository.findByUserId(userId).stream()
+        return battleVoteRepository.findByUserIdAndClassroomIsNull(userId).stream()
                 .map(v -> v.getBattle().getId())
                 .distinct()
                 .toList();

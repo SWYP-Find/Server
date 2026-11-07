@@ -49,7 +49,7 @@ public class MajorityWinRewardJob {
                 continue;
             }
 
-            List<BattleVote> votes = battleVoteRepository.findAllByBattle(battle);
+            List<BattleVote> votes = battleVoteRepository.findAllByBattleAndClassroomIsNull(battle);
             for (BattleVote vote : votes) {
                 BattleOption selected = vote.getPreVoteOption();
                 if (selected == null || !selected.getId().equals(winningOption.getId())) {
@@ -63,7 +63,7 @@ public class MajorityWinRewardJob {
     private BattleOption resolveWinningOption(Battle battle) {
         List<BattleOption> options = battleOptionRepository.findByBattle(battle);
         return options.stream()
-                .max(Comparator.comparingLong(o -> battleVoteRepository.countByBattleAndPreVoteOption(battle, o)))
+                .max(Comparator.comparingLong(o -> battleVoteRepository.countByBattleAndClassroomIsNullAndPreVoteOption(battle, o)))
                 .orElse(null);
     }
 }

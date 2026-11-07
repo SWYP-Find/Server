@@ -9,6 +9,7 @@
 ### 1.1 배틀 시나리오 조회
 - `GET /api/v1/battles/{battleId}/scenario`
 - 설명: 배틀 상세에서 시나리오 노드/스크립트/분기 옵션 조회
+- `nodes[].interactiveOptions[]`에 `optionId`(선택지 ID)가 내려간다. 클래스 중간투표(class-api 6.3.1)는 `nodeId`와 이 `optionId`를 보낸다.
 
 ---
 

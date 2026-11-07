@@ -1,10 +1,14 @@
 package com.swyp.picke.domain.battle.repository;
 
 import com.swyp.picke.domain.battle.entity.Battle;
+import com.swyp.picke.domain.battle.enums.BattleCategory;
+import com.swyp.picke.domain.battle.enums.BattleCreatorType;
+import com.swyp.picke.domain.battle.enums.BattleDifficulty;
 import com.swyp.picke.domain.battle.enums.BattleStatus;
 import com.swyp.picke.domain.battle.repository.projection.BattleParticipationStats;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -34,6 +38,18 @@ public interface BattleRepository extends JpaRepository<Battle, Long> {
             "ORDER BY (battle.totalParticipantsCount + (battle.commentCount * 5)) DESC")
     List<Battle> findBestBattles(Pageable pageable);
 
+    @Query("""
+            SELECT battle, COUNT(comment) FROM Battle battle
+            LEFT JOIN Perspective perspective ON perspective.battle = battle
+                AND perspective.status = com.swyp.picke.domain.perspective.enums.PerspectiveStatus.PUBLISHED
+            LEFT JOIN PerspectiveComment comment ON comment.perspective = perspective AND comment.hidden = false
+            WHERE battle.status = 'PUBLISHED' AND battle.deletedAt IS NULL
+            GROUP BY battle
+            HAVING COUNT(comment) > 0
+            ORDER BY COUNT(comment) DESC, battle.totalParticipantsCount DESC, battle.createdAt DESC
+            """)
+    List<Object[]> findMostDiscussedBattles(Pageable pageable);
+
     // 4. 오늘의 Pické
     @Query("SELECT battle FROM Battle battle " +
             "WHERE battle.targetDate = :today " +
@@ -57,6 +73,11 @@ public interface BattleRepository extends JpaRepository<Battle, Long> {
     // 6. 전체 배틀 목록 조회
     Page<Battle> findByDeletedAtIsNullOrderByCreatedAtDesc(Pageable pageable);
     Page<Battle> findByStatusAndDeletedAtIsNullOrderByCreatedAtDesc(BattleStatus status, Pageable pageable);
+
+    /** 어드민 배틀 목록: 클래스 전용 커스텀 배틀(creator_type = USER)은 제외한다 (#547) */
+    Page<Battle> findByCreatorTypeNotAndDeletedAtIsNullOrderByCreatedAtDesc(BattleCreatorType creatorType, Pageable pageable);
+    Page<Battle> findByStatusAndCreatorTypeNotAndDeletedAtIsNullOrderByCreatedAtDesc(
+            BattleStatus status, BattleCreatorType creatorType, Pageable pageable);
     List<Battle> findByStatusAndDeletedAtIsNull(BattleStatus status);
     Page<Battle> findByStatusAndPublishAtLessThanEqualAndDeletedAtIsNull(
             BattleStatus status,
@@ -141,5 +162,15 @@ public interface BattleRepository extends JpaRepository<Battle, Long> {
             @Param("from") LocalDate from,
             @Param("to") LocalDate to,
             @Param("totalUsers") long totalUsers
+    );
+
+    /** 클래스 Picke 배틀 추천 후보: 공개·미삭제·클래스 추천이 켜진 배틀 중 수준이 같고 카테고리가 겹치는 배틀 */
+    @Query("SELECT b FROM Battle b " +
+            "WHERE b.status = :status AND b.deletedAt IS NULL AND b.classRecommendable = true " +
+            "AND b.difficulty = :difficulty AND b.category IN :categories")
+    List<Battle> findClassRecommendCandidates(
+            @Param("status") BattleStatus status,
+            @Param("difficulty") BattleDifficulty difficulty,
+            @Param("categories") Collection<BattleCategory> categories
     );
 }

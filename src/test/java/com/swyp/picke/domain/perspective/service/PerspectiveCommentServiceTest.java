@@ -25,6 +25,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import com.swyp.picke.domain.classroom.service.ClassDisplayNameResolver;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -64,6 +65,11 @@ class PerspectiveCommentServiceTest {
     @Mock
     private S3PresignedUrlService s3PresignedUrlService;
 
+    // 일반 배틀(classroom null)은 저장소를 건드리지 않으므로 실제 구현을 쓴다
+    @org.mockito.Spy
+    private ClassDisplayNameResolver classDisplayNameResolver = new ClassDisplayNameResolver(
+            org.mockito.Mockito.mock(com.swyp.picke.domain.classroom.repository.ClassMemberRepository.class));
+
     @InjectMocks
     private PerspectiveCommentService commentService;
 
@@ -94,7 +100,7 @@ class PerspectiveCommentServiceTest {
                 .thenReturn(List.of(comment));
         when(userQueryService.findSummaryById(2L)).thenReturn(new UserSummary("user-2", "nick", "OWL"));
         when(s3PresignedUrlService.generatePresignedUrl(anyString())).thenReturn("character-url");
-        when(battleVoteService.findPostVoteOptionId(100L, 2L)).thenReturn(11L);
+        when(battleVoteService.findPostVoteOptionId(100L, 2L, null)).thenReturn(11L);
         when(battleService.findOptionById(11L)).thenReturn(votedOption);
 
         CommentListResponse response = commentService.getComments(1000L, 1L, null, null);

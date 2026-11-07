@@ -46,7 +46,7 @@ public class BestCommentRewardJob {
 
         for (Battle battle : battles) {
             List<Perspective> topComments = perspectiveRepository
-                    .findByBattleIdAndStatusOrderByLikeCountDescCreatedAtDesc(
+                    .findByBattleIdAndClassroomIsNullAndStatusOrderByLikeCountDescCreatedAtDesc(
                             battle.getId(), PerspectiveStatus.PUBLISHED, PageRequest.of(0, TOP_COMMENT_LIMIT));
             if (topComments.isEmpty()) {
                 continue;

@@ -1,6 +1,8 @@
 package com.swyp.picke.domain.battle.entity;
 
+import com.swyp.picke.domain.battle.enums.BattleCategory;
 import com.swyp.picke.domain.battle.enums.BattleCreatorType;
+import com.swyp.picke.domain.battle.enums.BattleDifficulty;
 import com.swyp.picke.domain.battle.enums.BattleStatus;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.global.common.BaseEntity;
@@ -22,6 +24,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnDefault;
 
 @Getter
 @Entity
@@ -79,6 +82,28 @@ public class Battle extends BaseEntity {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    // ===== 클래스 기능 (#528) =====
+
+    /** 클래스 추천 필터용 난이도. 기존 콘텐츠는 null → 어드민이 부여 */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private BattleDifficulty difficulty;
+
+    /** 클래스 추천 필터용 주제 카테고리 */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 30)
+    private BattleCategory category;
+
+    /** 클래스 추천 배틀 노출 여부. 커스텀 배틀은 항상 false */
+    @ColumnDefault("false")
+    @Column(name = "class_recommendable", nullable = false)
+    private boolean classRecommendable;
+
+    /** 중간투표 콘텐츠 여부 (예: 뒤샹의 변기). true 인 배틀만 votes.mid_vote_option_id 수집 */
+    @ColumnDefault("false")
+    @Column(name = "mid_vote_enabled", nullable = false)
+    private boolean midVoteEnabled;
+
     @Builder
     public Battle(
             String title,
@@ -107,6 +132,29 @@ public class Battle extends BaseEntity {
         this.isEditorPick = false;
         this.commentCount = 0L;
         this.deletedAt = null;
+        this.classRecommendable = false;
+        this.midVoteEnabled = false;
+    }
+
+    /** 어드민 클래스 설정. null 은 "변경 없음" */
+    public void updateClassSettings(
+            BattleDifficulty difficulty,
+            BattleCategory category,
+            Boolean classRecommendable,
+            Boolean midVoteEnabled
+    ) {
+        if (difficulty != null) {
+            this.difficulty = difficulty;
+        }
+        if (category != null) {
+            this.category = category;
+        }
+        if (classRecommendable != null) {
+            this.classRecommendable = classRecommendable;
+        }
+        if (midVoteEnabled != null) {
+            this.midVoteEnabled = midVoteEnabled;
+        }
     }
 
     public void update(

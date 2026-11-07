@@ -27,6 +27,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import com.swyp.picke.domain.classroom.service.ClassDisplayNameResolver;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -66,6 +67,11 @@ class PerspectiveServiceTest {
     @Mock
     private S3PresignedUrlService s3PresignedUrlService;
 
+    // 일반 배틀(classroom null)은 저장소를 건드리지 않으므로 실제 구현을 쓴다
+    @org.mockito.Spy
+    private ClassDisplayNameResolver classDisplayNameResolver = new ClassDisplayNameResolver(
+            org.mockito.Mockito.mock(com.swyp.picke.domain.classroom.repository.ClassMemberRepository.class));
+
     @InjectMocks
     private PerspectiveService perspectiveService;
 
@@ -102,8 +108,8 @@ class PerspectiveServiceTest {
         BattleOption option = option(10L, battle, BattleOptionLabel.A, "예술이다");
 
         when(battleService.findById(100L)).thenReturn(battle);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(battleVoteService.findPostVoteOptionId(100L, 1L)).thenReturn(10L);
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(battleVoteService.findPostVoteOptionId(100L, 1L, null)).thenReturn(10L);
         when(battleService.findOptionById(10L)).thenReturn(option);
         when(perspectiveRepository.save(org.mockito.ArgumentMatchers.any(Perspective.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -131,7 +137,7 @@ class PerspectiveServiceTest {
         ReflectionTestUtils.setField(second, "id", 2L);
 
         when(battleService.findById(100L)).thenReturn(battle);
-        when(perspectiveRepository.findByBattleIdAndUserIdOrderByCreatedAtDesc(100L, 1L))
+        when(perspectiveRepository.findByBattleIdAndUserIdAndClassroomOrderByCreatedAtDesc(100L, 1L, null))
                 .thenReturn(List.of(second, first));
         when(userQueryService.findSummaryById(1L)).thenReturn(new UserSummary("user-1", "nick", "OWL"));
         when(s3PresignedUrlService.generatePresignedUrl(anyString())).thenReturn("character-url");

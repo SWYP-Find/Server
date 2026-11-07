@@ -14,6 +14,7 @@ import com.swyp.picke.domain.battle.parser.BattleScriptDocumentParser;
 import com.swyp.picke.domain.battle.parser.EmotionClassifier;
 import com.swyp.picke.domain.battle.parser.ScriptToneExtractor;
 import com.swyp.picke.domain.scenario.enums.SpeakerType;
+import com.swyp.picke.domain.scenario.enums.Tone;
 import com.swyp.picke.domain.scenario.service.PhilosopherVoiceService;
 import com.swyp.picke.domain.tag.entity.Tag;
 import com.swyp.picke.domain.tag.enums.TagType;
@@ -288,9 +289,9 @@ class BattleScriptParseServiceTest {
     void LLM_실패시_톤은_전부_NEUTRAL이고_경고를_남긴다() throws IOException {
         AdminBattleParseResponse res = service.parse(load("sample-interactive.txt"));
 
-        List<com.swyp.picke.domain.scenario.enums.Tone> tones = new ArrayList<>();
+        List<Tone> tones = new ArrayList<>();
         res.scenarioPayload().nodes().forEach(n -> n.scripts().forEach(s -> tones.add(s.tone())));
-        assertThat(tones).containsOnly(com.swyp.picke.domain.scenario.enums.Tone.NEUTRAL);
+        assertThat(tones).containsOnly(Tone.NEUTRAL);
         assertThat(res.warnings()).anyMatch(w -> w.code().equals("LLM_CLASSIFY_FAILED"));
     }
 }

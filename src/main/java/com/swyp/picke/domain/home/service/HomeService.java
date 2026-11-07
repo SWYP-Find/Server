@@ -7,6 +7,7 @@ import com.swyp.picke.domain.battle.service.BattleService;
 import com.swyp.picke.domain.home.dto.response.HomeBestBattleResponse;
 import com.swyp.picke.domain.home.dto.response.HomeEditorPickResponse;
 import com.swyp.picke.domain.home.dto.response.HomeNewBattleResponse;
+import com.swyp.picke.domain.home.dto.response.HomeMostDiscussedBattleResponse;
 import com.swyp.picke.domain.home.dto.response.HomeResponse;
 import com.swyp.picke.domain.home.dto.response.HomeTodayQuizResponse;
 import com.swyp.picke.domain.home.dto.response.HomeTodayVoteOptionResponse;
@@ -57,10 +58,11 @@ public class HomeService {
         List<TodayBattleResponse> editorPickRaw = battleService.getEditorPicks();
         List<TodayBattleResponse> trendingRaw = battleService.getTrendingBattles();
         List<TodayBattleResponse> bestRaw = battleService.getBestBattles();
+        List<TodayBattleResponse> mostDiscussedRaw = battleService.getMostDiscussedBattles();
         List<Quiz> quizRaw = quizService.getTodayPicks(HOME_TODAY_PICK_LIMIT);
         List<Poll> pollRaw = pollService.getTodayPicks(HOME_TODAY_PICK_LIMIT);
 
-        List<Long> excludeIds = collectBattleIds(editorPickRaw, trendingRaw, bestRaw);
+        List<Long> excludeIds = collectBattleIds(editorPickRaw, trendingRaw, bestRaw, mostDiscussedRaw);
         List<TodayBattleResponse> newRaw = battleService.getNewBattles(excludeIds);
 
         return new HomeResponse(
@@ -68,6 +70,7 @@ public class HomeService {
                 editorPickRaw.stream().map(this::toEditorPick).toList(),
                 trendingRaw.stream().map(this::toTrending).toList(),
                 bestRaw.stream().map(this::toBestBattle).toList(),
+                mostDiscussedRaw.stream().map(this::toMostDiscussed).toList(),
                 quizRaw.stream().map(this::toTodayQuiz).toList(),
                 pollRaw.stream().map(this::toTodayVote).toList(),
                 newRaw.stream().map(this::toNewBattle).toList()
@@ -83,12 +86,14 @@ public class HomeService {
                 battle.title(),
                 battle.summary(),
                 battle.tags(),
-                battle.viewCount()
+                battle.viewCount(),
+                battle.audioDuration()
         );
     }
 
     private HomeTrendingResponse toTrending(TodayBattleResponse battle) {
         return new HomeTrendingResponse(
+                "TRENDING",
                 battle.battleId(),
                 battle.thumbnailUrl(),
                 battle.title(),
@@ -100,12 +105,26 @@ public class HomeService {
 
     private HomeBestBattleResponse toBestBattle(TodayBattleResponse battle) {
         return new HomeBestBattleResponse(
+                "BEST",
                 battle.battleId(),
                 findOptionRepresentative(battle.options(), 0),
                 findOptionRepresentative(battle.options(), 1),
                 battle.title(),
                 battle.tags(),
                 battle.audioDuration(),
+                battle.viewCount()
+        );
+    }
+
+    private HomeMostDiscussedBattleResponse toMostDiscussed(TodayBattleResponse battle) {
+        return new HomeMostDiscussedBattleResponse(
+                "최다 토론",
+                battle.battleId(),
+                battle.thumbnailUrl(),
+                battle.title(),
+                battle.tags(),
+                battle.audioDuration(),
+                battle.commentCount(),
                 battle.viewCount()
         );
     }

@@ -12,6 +12,7 @@ public enum ErrorCode {
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_500", "서버 오류가 발생했습니다. 관리자에게 문의해 주세요."),
     BAD_REQUEST(HttpStatus.BAD_REQUEST, "COMMON_400", "잘못된 요청입니다."),
     COMMON_INVALID_PARAMETER(HttpStatus.BAD_REQUEST, "COMMON_400", "요청 파라미터가 잘못되었습니다."),
+    COMMON_CONFLICT(HttpStatus.CONFLICT, "COMMON_409", "요청이 현재 데이터 상태와 충돌합니다."),
 
     // File & S3
     FILE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "FILE_500", "파일 업로드 중 오류가 발생했습니다."),
@@ -65,6 +66,8 @@ public enum ErrorCode {
     BATTLE_CANNOT_REVERT_TO_PENDING(HttpStatus.BAD_REQUEST, "BATTLE_400_REVERT", "발행된 시나리오는 다시 대기(PENDING) 상태로 되돌릴 수 없습니다."),
     BATTLE_NOT_QUIZ(HttpStatus.BAD_REQUEST, "BATTLE_400_QUIZ", "해당 배틀은 퀴즈 타입이 아닙니다."),
     BATTLE_NOT_POLL(HttpStatus.BAD_REQUEST, "BATTLE_400_POLL", "해당 배틀은 투표 타입이 아닙니다."),
+    BATTLE_THUMBNAIL_MODERATION_BLOCKED(HttpStatus.UNPROCESSABLE_ENTITY, "BATTLE_422_THUMB", "배틀 주제가 이미지 생성 안전 정책에 걸려 썸네일 후보를 만들지 못했습니다. 다시 생성하거나 직접 업로드해 주세요."),
+    BATTLE_THUMBNAIL_GENERATION_FAILED(HttpStatus.BAD_GATEWAY, "BATTLE_502_THUMB", "썸네일 후보 생성에 실패했습니다. 잠시 후 다시 시도해 주세요."),
 
     // Scenario
     SCENARIO_NOT_FOUND(HttpStatus.NOT_FOUND, "SCENARIO_404", "존재하지 않는 시나리오입니다."),
@@ -87,7 +90,7 @@ public enum ErrorCode {
     PERSPECTIVE_FORBIDDEN(HttpStatus.FORBIDDEN, "PERSPECTIVE_403", "본인 관점만 수정/삭제할 수 있습니다."),
     PERSPECTIVE_POST_VOTE_REQUIRED(HttpStatus.CONFLICT, "PERSPECTIVE_VOTE_409", "사후 투표가 완료되지 않았습니다."),
     PERSPECTIVE_MODERATION_NOT_FAILED(HttpStatus.BAD_REQUEST, "PERSPECTIVE_400", "검수 실패 상태의 관점이 아닙니다."),
-    PERSPECTIVE_CONTENT_TOO_LONG(HttpStatus.BAD_REQUEST, "PERSPECTIVE_400_LEN", "관점 내용은 200자를 초과할 수 없습니다."),
+    PERSPECTIVE_CONTENT_TOO_LONG(HttpStatus.BAD_REQUEST, "PERSPECTIVE_400_LEN", "의견·댓글은 200자를 초과할 수 없습니다."),
 
     // Comment
     COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMENT_NOT_FOUND", "존재하지 않는 댓글입니다."),
@@ -126,7 +129,106 @@ public enum ErrorCode {
     AD_INVALID_LANDING_URL(HttpStatus.BAD_REQUEST, "AD_400_URL", "제휴 링크 형식이 올바르지 않습니다. 인코딩된 전체 URL을 넣어 주세요."),
 
     // Attendance
-    ATTENDANCE_ALREADY_CHECKED(HttpStatus.CONFLICT, "ATTENDANCE_409", "오늘 이미 출석체크를 완료했습니다.");
+    ATTENDANCE_ALREADY_CHECKED(HttpStatus.CONFLICT, "ATTENDANCE_409", "오늘 이미 출석체크를 완료했습니다."),
+
+    // ClassTicket (클래스 이용권)
+    TICKET_CODE_INVALID(HttpStatus.NOT_FOUND, "TICKET_404_CODE", "유효하지 않은 이용권 코드입니다."),
+    TICKET_CODE_ALREADY_CLAIMED(HttpStatus.CONFLICT, "TICKET_409_CLAIMED", "이미 등록된 이용권 코드입니다."),
+    TICKET_CODE_REVOKED(HttpStatus.CONFLICT, "TICKET_409_REVOKED", "재발급되어 더 이상 사용할 수 없는 이용권 코드입니다."),
+    TICKET_REGISTER_EXPIRED(HttpStatus.CONFLICT, "TICKET_409_REG_EXP", "등록 기한이 지난 이용권 코드입니다."),
+    TICKET_ALREADY_ACTIVE(HttpStatus.CONFLICT, "TICKET_409_ACTIVE", "이미 사용 중인 이용권이 있습니다. 만료 후 등록할 수 있습니다."),
+    TICKET_NOT_FOUND(HttpStatus.NOT_FOUND, "TICKET_404", "등록된 이용권이 없습니다."),
+    TICKET_STATE_CONFLICT(HttpStatus.CONFLICT, "TICKET_409_STATE", "현재 상태에서는 처리할 수 없는 이용권입니다."),
+    TICKET_CODE_NOT_RETRIEVABLE(HttpStatus.CONFLICT, "TICKET_409_CODE_NOT_RETRIEVABLE", "이용권 코드 보관 기능 도입 전에 발급된 코드라 다시 조회할 수 없습니다. 미등록 코드만 재발급할 수 있습니다."),
+    TICKET_CODE_STORAGE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "TICKET_503_CODE_STORAGE", "이용권 코드 암호화 설정이 없거나 올바르지 않습니다."),
+    FUNDING_DUPLICATE_SUPPORTER(HttpStatus.CONFLICT, "FUNDING_409_DUPLICATE", "이미 등록된 캠페인 후원번호와 리워드입니다."),
+    TUMBLBUG_PLAN_CONFLICT(HttpStatus.CONFLICT, "FUNDING_409_PLAN", "캠페인에 저장된 텀블벅 요금제와 요청 요금제가 다릅니다."),
+    TUMBLBUG_PLAN_FEATURE_UNAVAILABLE(HttpStatus.CONFLICT, "FUNDING_409_PLAN_FEATURE", "이 요금제에서는 텀블벅 디지털 선물 XLSX 기능을 사용할 수 없습니다."),
+
+    // Funding (어드민 펀딩 명단·발급)
+    FUNDING_ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "FUNDING_404_ORDER", "존재하지 않는 펀딩 주문입니다."),
+    FUNDING_CSV_INVALID(HttpStatus.BAD_REQUEST, "FUNDING_400_CSV", "CSV 파일을 읽을 수 없습니다. 템플릿 헤더와 UTF-8 인코딩을 확인해 주세요."),
+
+    // Classroom (클래스)
+    CLASS_NOT_FOUND(HttpStatus.NOT_FOUND, "CLASS_404", "존재하지 않는 클래스입니다."),
+    CLASS_TICKET_REQUIRED(HttpStatus.FORBIDDEN, "CLASS_403_TICKET", "사용 중인 이용권이 없어 클래스를 만들 수 없습니다."),
+    CLASS_OWNER_ONLY(HttpStatus.FORBIDDEN, "CLASS_403_OWNER", "클래스 운영자만 할 수 있습니다."),
+    CLASS_MEMBER_ONLY(HttpStatus.FORBIDDEN, "CLASS_403_MEMBER", "클래스 멤버만 볼 수 있습니다."),
+    CLASS_BATTLE_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "CLASS_400_BATTLE", "클래스에 사용할 수 없는 배틀입니다."),
+    CLASS_RECOMMEND_INVALID_CONDITION(HttpStatus.BAD_REQUEST, "CLASS_400_RECOMMEND_CONDITION", "대상 수준과 카테고리 1~3개를 골라 주세요. 주제는 50자까지 입력할 수 있어요."),
+    CLASS_RECOMMEND_SETTINGS_INCOMPLETE(HttpStatus.BAD_REQUEST, "CLASS_400_RECOMMEND_SETTINGS", "클래스 추천을 켜려면 수준과 카테고리를 먼저 정해 주세요."),
+    CLASS_BATTLE_SOURCE_INVALID(HttpStatus.BAD_REQUEST, "CLASS_400_BATTLE_SOURCE", "기존 배틀 ID 와 주제 버전 ID 중 하나만 보내 주세요."),
+    CLASS_TOPIC_DRAFT_USED(HttpStatus.CONFLICT, "CLASS_409_TOPIC_DRAFT_USED", "이 주제 초안으로 이미 만든 클래스가 있습니다."),
+    CLASS_TTS_NOT_SUPPORTED(HttpStatus.CONFLICT, "CLASS_409_TTS", "커스텀 배틀 클래스에는 음성(TTS) 단계가 없습니다."),
+    CLASS_INVALID_DEADLINE(HttpStatus.BAD_REQUEST, "CLASS_400_DEADLINE", "마감일은 현재 시각 이후, 이용권 종료일 이전이어야 합니다."),
+    CLASS_DEADLINE_NOT_EXTENDED(HttpStatus.BAD_REQUEST, "CLASS_400_DEADLINE_EXT", "마감일은 기존 마감일보다 뒤로 연장만 할 수 있습니다."),
+    CLASS_CLOSED(HttpStatus.CONFLICT, "CLASS_409_CLOSED", "마감된 클래스입니다."),
+    CLASS_TICKET_ENDED(HttpStatus.CONFLICT, "CLASS_409_TICKET_ENDED", "이용권 이용이 종료된 클래스입니다."),
+    CLASS_REQUEST_KEY_CONFLICT(HttpStatus.CONFLICT, "CLASS_409_REQUEST_KEY", "같은 요청 키로 다른 내용의 클래스를 만들 수 없습니다. 새 요청 키로 다시 시도해 주세요."),
+    CLASS_INVITE_CODE_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "CLASS_500_CODE", "초대코드 생성에 실패했습니다. 다시 시도해 주세요."),
+
+    // Classroom member (클래스 참여·멤버)
+    CLASS_INVITE_CODE_NOT_FOUND(HttpStatus.NOT_FOUND, "CLASS_404_CODE", "존재하지 않는 초대코드입니다."),
+    CLASS_MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "CLASS_404_MEMBER", "존재하지 않는 멤버입니다."),
+    CLASS_FULL(HttpStatus.CONFLICT, "CLASS_409_FULL", "정원이 가득 찬 클래스입니다."),
+    CLASS_DELETED(HttpStatus.CONFLICT, "CLASS_409_DELETED", "삭제되어 더 이상 이용할 수 없는 클래스입니다."),
+    CLASS_ALREADY_JOINED(HttpStatus.CONFLICT, "CLASS_409_JOINED", "이미 참여 중인 클래스입니다."),
+    CLASS_DISPLAY_NAME_DUPLICATED(HttpStatus.CONFLICT, "CLASS_409_NAME", "이미 사용 중인 이름입니다. 다른 이름을 입력해 주세요."),
+    CLASS_OWNER_CANNOT_JOIN(HttpStatus.CONFLICT, "CLASS_409_OWNER", "내가 운영하는 클래스에는 참여자로 들어갈 수 없습니다."),
+    CLASS_MEMBER_REMOVED(HttpStatus.FORBIDDEN, "CLASS_403_REMOVED", "내보내진 클래스에는 다시 참여할 수 없습니다."),
+    CLASS_OWNER_CANNOT_LEAVE(HttpStatus.FORBIDDEN, "CLASS_403_OWNER_LEAVE", "운영자는 클래스를 나가거나 내보내질 수 없습니다. 클래스를 삭제해 주세요."),
+
+    // Classroom battle (클래스 내 배틀 진행)
+    CLASS_TTS_INCOMPLETE(HttpStatus.CONFLICT, "CLASS_409_TTS_INCOMPLETE", "오디오를 끝까지 들은 뒤 사후투표를 할 수 있어요."),
+    CLASS_REQUIRED_PERSPECTIVE_UNDELETABLE(HttpStatus.CONFLICT, "CLASS_409_PERSPECTIVE_REQUIRED", "의견 작성이 필수인 클래스의 의견은 삭제할 수 없어요. 내용을 수정해 주세요."),
+    CLASS_PRE_VOTE_LOCKED(HttpStatus.CONFLICT, "CLASS_409_PRE_VOTE_LOCKED", "배틀이 시작된 뒤에는 사전투표를 변경할 수 없습니다."),
+
+    // Classroom result / AI report (클래스 결과·리포트)
+    CLASS_RESULT_EXPIRED(HttpStatus.CONFLICT, "CLASS_409_RESULT_EXPIRED", "결과 열람 기간이 끝났습니다."),
+    CLASS_REPORT_NOT_RETRYABLE(HttpStatus.CONFLICT, "CLASS_409_REPORT_RETRY", "지금은 AI 요약을 다시 시도할 수 없습니다."),
+
+    // Classroom custom topic (커스텀 배틀 AI 주제 제안·검증)
+    CLASS_TOPIC_DRAFT_NOT_FOUND(HttpStatus.NOT_FOUND, "CLASS_404_TOPIC_DRAFT", "존재하지 않는 주제 초안입니다."),
+    CLASS_TOPIC_CANDIDATE_NOT_FOUND(HttpStatus.NOT_FOUND, "CLASS_404_TOPIC_CANDIDATE", "존재하지 않는 주제 후보입니다."),
+    CLASS_TOPIC_VERSION_NOT_FOUND(HttpStatus.NOT_FOUND, "CLASS_404_TOPIC_VERSION", "존재하지 않는 주제 버전입니다."),
+    CLASS_TOPIC_INVALID_CONDITION(HttpStatus.BAD_REQUEST, "CLASS_400_TOPIC_CONDITION", "주제는 2~200자, 카테고리는 1~3개로 입력해 주세요."),
+    CLASS_TOPIC_GENERATING(HttpStatus.CONFLICT, "CLASS_409_TOPIC_GENERATING", "주제를 만들고 있어요. 잠시 후 다시 확인해 주세요."),
+    CLASS_TOPIC_SUGGEST_LIMIT(HttpStatus.CONFLICT, "CLASS_409_TOPIC_SUGGEST_LIMIT", "이 초안의 주제 추천 횟수를 모두 사용했습니다."),
+    CLASS_TOPIC_VALIDATION_LIMIT(HttpStatus.CONFLICT, "CLASS_409_TOPIC_VALIDATION_LIMIT", "이 초안의 수정 검증 횟수를 모두 사용했습니다."),
+    CLASS_TOPIC_CANDIDATE_STALE(HttpStatus.CONFLICT, "CLASS_409_TOPIC_CANDIDATE", "후보가 새로 추천되었습니다. 최신 후보에서 다시 골라 주세요."),
+    CLASS_TOPIC_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "CLASS_429_TOPIC", "요청이 많아 잠시 기다리고 있어요. 잠시 후 다시 시도해 주세요."),
+    CLASS_TOPIC_AI_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "CLASS_503_TOPIC_AI", "응답을 준비하지 못했어요. 다시 시도해 주세요."),
+
+    // Classroom debate (커스텀 배틀 AI 철학자 토론)
+    CLASS_DEBATE_CUSTOM_ONLY(HttpStatus.CONFLICT, "CLASS_409_DEBATE_TYPE", "커스텀 배틀 클래스에서만 토론할 수 있습니다."),
+    CLASS_DEBATE_PRE_VOTE_REQUIRED(HttpStatus.CONFLICT, "CLASS_409_DEBATE_PRE_VOTE", "사전투표를 먼저 해 주세요."),
+    CLASS_DEBATE_NOT_FOUND(HttpStatus.NOT_FOUND, "CLASS_404_DEBATE", "시작한 토론이 없습니다."),
+    CLASS_DEBATE_NOT_WAITING(HttpStatus.CONFLICT, "CLASS_409_DEBATE_STATE", "지금은 반박을 보낼 수 없어요."),
+    CLASS_DEBATE_ROUND_CONFLICT(HttpStatus.CONFLICT, "CLASS_409_DEBATE_ROUND", "이 라운드의 반박은 이미 제출되었습니다."),
+    CLASS_DEBATE_REPLY_INVALID(HttpStatus.BAD_REQUEST, "CLASS_400_DEBATE_REPLY", "반박은 50자 이상 500자 이하로 적어 주세요."),
+    CLASS_DEBATE_REPLY_PERSONAL_INFO(HttpStatus.BAD_REQUEST, "CLASS_400_DEBATE_PERSONAL_INFO", "전화번호·이메일 같은 개인정보는 지우고 보내 주세요."),
+    CLASS_DEBATE_REPLY_BLOCKED(HttpStatus.BAD_REQUEST, "CLASS_400_DEBATE_BLOCKED", "다른 사람을 위협하거나 해칠 수 있는 표현은 보낼 수 없어요. 내용을 고쳐 주세요."),
+    CLASS_DEBATE_NOT_RETRYABLE(HttpStatus.CONFLICT, "CLASS_409_DEBATE_RETRY", "지금은 다시 시도할 수 없어요."),
+    CLASS_DEBATE_NOT_COMPLETED(HttpStatus.CONFLICT, "CLASS_409_DEBATE_INCOMPLETE", "AI 철학자와의 토론을 마친 뒤 사후투표를 할 수 있어요."),
+    CLASS_MID_VOTE_NOT_SUPPORTED(HttpStatus.CONFLICT, "CLASS_409_MID_VOTE", "중간투표가 없는 배틀입니다."),
+    CLASS_MID_VOTE_LOCKED(HttpStatus.CONFLICT, "CLASS_409_MID_VOTE_LOCKED", "사후투표를 마친 뒤에는 중간투표를 바꿀 수 없어요."),
+    CLASS_MID_VOTE_REQUIRED(HttpStatus.CONFLICT, "CLASS_409_MID_VOTE_REQUIRED", "콘텐츠 중간의 선택을 마친 뒤 사후투표를 할 수 있어요."),
+    CLASS_MID_VOTE_OPTION_NOT_FOUND(HttpStatus.NOT_FOUND, "CLASS_404_MID_VOTE_OPTION", "존재하지 않는 중간투표 선택지입니다."),
+
+    // Tumblbug XLSX extensions
+    COMMON_REQUEST_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "COMMON_413_SIZE", "요청 크기가 서버 허용 용량을 초과했습니다."),
+    FUNDING_CAMPAIGN_NOT_FOUND(HttpStatus.NOT_FOUND, "FUNDING_404_CAMPAIGN", "펀딩 캠페인을 찾을 수 없습니다."),
+    FUNDING_CAMPAIGN_DUPLICATE(HttpStatus.CONFLICT, "FUNDING_409_CAMPAIGN_DUPLICATE", "같은 플랫폼 캠페인이 이미 등록되어 있습니다."),
+    FUNDING_CAMPAIGN_INACTIVE(HttpStatus.CONFLICT, "FUNDING_409_CAMPAIGN", "현재 이용할 수 없는 펀딩 캠페인입니다."),
+    FUNDING_INVALID_REQUEST(HttpStatus.BAD_REQUEST, "FUNDING_400_REQUEST", "펀딩 요청의 필수 값이나 형식이 올바르지 않습니다."),
+    FUNDING_REWARD_UNSUPPORTED(HttpStatus.BAD_REQUEST, "FUNDING_400_REWARD", "지원하지 않는 리워드 상품입니다. 정원 5, 15, 30 중 하나를 선택해 주세요."),
+    FUNDING_INVALID_DELIVERY_STATUS(HttpStatus.BAD_REQUEST, "FUNDING_400_DELIVERY_STATUS", "전달 상태는 발송 완료 또는 실패만 기록할 수 있습니다."),
+    FUNDING_TUMBLBUG_IMPORT_INVALID(HttpStatus.BAD_REQUEST, "FUNDING_400_TUMBLBUG_IMPORT", "텀블벅 엑셀 형식이나 열 매핑을 확인해 주세요."),
+    FUNDING_TUMBLBUG_COLUMNS_MISSING(HttpStatus.UNPROCESSABLE_ENTITY, "FUNDING_422_TUMBLBUG_COLUMNS", "후원자 엑셀의 필수 열을 자동 판별하지 못했습니다. 시트의 열 제목을 확인해 주세요."),
+    FUNDING_TUMBLBUG_IMPORT_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "FUNDING_413_TUMBLBUG_IMPORT", "텀블벅 엑셀은 10MB 이하, 최대 5,000개 데이터 행까지 등록할 수 있습니다."),
+    FUNDING_TUMBLBUG_IMPORT_EMPTY(HttpStatus.UNPROCESSABLE_ENTITY, "FUNDING_422_TUMBLBUG_EMPTY", "결제 완료 상태의 유효한 후원자가 없습니다."),
+    FUNDING_TUMBLBUG_IMPORT_DUPLICATE(HttpStatus.CONFLICT, "FUNDING_409_TUMBLBUG_DUPLICATE", "이미 등록된 후원번호와 리워드 행이 포함되어 있습니다."),
+    FUNDING_TUMBLBUG_IMPORT_ROWS_INVALID(HttpStatus.UNPROCESSABLE_ENTITY, "FUNDING_422_TUMBLBUG_ROWS", "발급할 수 없는 행이 있습니다. 미리보기 오류를 수정한 뒤 다시 시도해 주세요.");
 
     private final HttpStatus httpStatus;
     private final String code;

@@ -1,5 +1,6 @@
 package com.swyp.picke.global.config;
 
+import com.swyp.picke.domain.user.service.batch.CreditWeeklyBatchScheduler;
 import java.time.Clock;
 import java.time.ZoneId;
 import org.springframework.context.annotation.Bean;
@@ -9,7 +10,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 /**
  * 스케줄링 활성화.
- * 크레딧 주간 배치({@link com.swyp.picke.domain.user.service.batch.CreditWeeklyBatchScheduler})의 {@code @Scheduled} 어노테이션이 동작하려면 필요.
+ * 크레딧 주간 배치({@link CreditWeeklyBatchScheduler})의 {@code @Scheduled} 어노테이션이 동작하려면 필요.
  */
 @Configuration
 @EnableScheduling

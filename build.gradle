@@ -32,6 +32,8 @@ dependencies {
 
     // JPA
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    // Tumblbug supporter and digital-gift XLSX processing
+    implementation 'org.apache.poi:poi-ooxml:5.4.1'
 
     // Security
     implementation 'org.springframework.boot:spring-boot-starter-security'

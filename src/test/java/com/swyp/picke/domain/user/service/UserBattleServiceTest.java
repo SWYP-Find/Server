@@ -47,7 +47,7 @@ class UserBattleServiceTest {
     void getUserBattleStatus_Success() {
         // given
         UserBattle userBattle = UserBattle.builder().user(user).battle(battle).step(UserBattleStep.PRE_VOTE).build();
-        when(userBattleRepository.findByUserAndBattle(user, battle)).thenReturn(Optional.of(userBattle));
+        when(userBattleRepository.findByUserAndBattleAndClassroom(user, battle, null)).thenReturn(Optional.of(userBattle));
         when(userBattleConverter.toStatusResponse(userBattle)).thenReturn(new UserBattleStatusResponse(1L, UserBattleStep.PRE_VOTE));
 
         // when
@@ -61,7 +61,7 @@ class UserBattleServiceTest {
     @DisplayName("기록이 없는 유저 조회 시 INITIAL(NONE) 상태를 반환한다")
     void getUserBattleStatus_ReturnsInitial_WhenEmpty() {
         // given
-        when(userBattleRepository.findByUserAndBattle(user, battle)).thenReturn(Optional.empty());
+        when(userBattleRepository.findByUserAndBattleAndClassroom(user, battle, null)).thenReturn(Optional.empty());
         when(userBattleConverter.toInitialResponse(1L)).thenReturn(new UserBattleStatusResponse(1L, UserBattleStep.NONE));
 
         // when
@@ -78,7 +78,7 @@ class UserBattleServiceTest {
     @DisplayName("새로운 배틀 참여 시 UserBattle 레코드를 새로 생성한다")
     void upsertStep_CreatesNewRecord() {
         // given
-        when(userBattleRepository.findByUserAndBattle(user, battle)).thenReturn(Optional.empty());
+        when(userBattleRepository.findByUserAndBattleAndClassroom(user, battle, null)).thenReturn(Optional.empty());
 
         // when
         userBattleService.upsertStep(user, battle, UserBattleStep.PRE_VOTE);
@@ -92,7 +92,7 @@ class UserBattleServiceTest {
     void upsertStep_UpdatesExistingRecord() {
         // given
         UserBattle existingRecord = spy(UserBattle.builder().user(user).battle(battle).step(UserBattleStep.PRE_VOTE).build());
-        when(userBattleRepository.findByUserAndBattle(user, battle)).thenReturn(Optional.of(existingRecord));
+        when(userBattleRepository.findByUserAndBattleAndClassroom(user, battle, null)).thenReturn(Optional.of(existingRecord));
 
         // when
         userBattleService.upsertStep(user, battle, UserBattleStep.COMPLETED);
@@ -110,7 +110,7 @@ class UserBattleServiceTest {
         // 기획상 COMPLETED에서 PRE_VOTE로 돌아가는 것을 막아야 한다면 여기에 검증 로직 추가
         // 현재 로직은 단순 덮어쓰기라면 상태 업데이트 여부만 확인
         UserBattle existingRecord = UserBattle.builder().user(user).battle(battle).step(UserBattleStep.COMPLETED).build();
-        when(userBattleRepository.findByUserAndBattle(user, battle)).thenReturn(Optional.of(existingRecord));
+        when(userBattleRepository.findByUserAndBattleAndClassroom(user, battle, null)).thenReturn(Optional.of(existingRecord));
 
         userBattleService.upsertStep(user, battle, UserBattleStep.PRE_VOTE);
 

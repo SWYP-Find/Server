@@ -2,6 +2,7 @@ package com.swyp.picke.domain.classroom.dto.response;
 
 import com.swyp.picke.domain.battle.enums.BattleCategory;
 import com.swyp.picke.domain.battle.enums.BattleDifficulty;
+import com.swyp.picke.domain.classroom.enums.ClassTopicSuggestFailureReason;
 import com.swyp.picke.domain.classroom.enums.ClassTopicSuggestStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
@@ -16,6 +17,9 @@ public record ClassTopicDraftResponse(
                 + "SUCCEEDED = 성공, NEEDS_CLARIFICATION = 맥락 부족(clarificationMessage 표시), FAILED = 실패(기존 후보 유지, 횟수 차감 없음)")
         ClassTopicSuggestStatus suggestStatus,
         @Schema(description = "맥락 부족 시 보완 안내 문구", nullable = true) String clarificationMessage,
+        @Schema(description = "FAILED 일 때만 값이 있다. AI_UNAVAILABLE = AI 서비스 장애(잠시 후 다시 시도), "
+                + "INVALID_OUTPUT = AI 응답이 규칙을 지키지 못함(다시 시도하거나 조건 변경)", nullable = true)
+        ClassTopicSuggestFailureReason failureReason,
         @Schema(description = "현재 후보의 배치 번호 (성공 배치 수, 0 이면 후보 없음)") int batchNo,
         @Schema(description = "남은 제안 횟수 (최초 + 재추천 최대 3회)") int remainingSuggestions,
         @Schema(description = "남은 직접 수정 검증 횟수 (최대 3회)") int remainingValidations,

@@ -414,8 +414,13 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 |---|---|---|
 | `SUCCEEDED` | 후보 3개 생성. `batchNo`가 1 늘고 제안 횟수가 1 줄어든다 | 후보 표시 |
 | `NEEDS_CLARIFICATION` | 맥락이 부족함 | `clarificationMessage` 표시 |
-| `FAILED` | AI 생성 실패. 기존 후보와 횟수는 그대로다 | 재시도 안내 |
+| `FAILED` | AI 생성 실패. 기존 후보와 횟수는 그대로다. 이유는 `failureReason` | 재시도 안내 |
 | `GENERATING` | 생성 중 | "생각을 정리하고 있어요" |
+
+| failureReason (FAILED 일 때만) | 의미 | 화면 처리 |
+|---|---|---|
+| `AI_UNAVAILABLE` | AI 서비스 장애 (연결 오류·시간 초과·5xx·크레딧 소진 등) | "잠시 후 다시 시도해 주세요" |
+| `INVALID_OUTPUT` | AI 응답이 1회 보정 후에도 후보 규칙을 지키지 못함 | 다시 시도하거나 조건 변경 안내 |
 
 | 상황 | 응답 |
 |---|---|
@@ -508,6 +513,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 | `topicSeed`, `difficulty`, `categories` | 마지막 성공 배치 기준 조건 |
 | `suggestStatus` | `NONE` / `GENERATING` / `SUCCEEDED` / `NEEDS_CLARIFICATION` / `FAILED` |
 | `clarificationMessage` | 맥락 부족 안내 (nullable) |
+| `failureReason` | `AI_UNAVAILABLE` / `INVALID_OUTPUT`. `FAILED`가 아니면 null |
 | `batchNo` | 현재 후보의 배치 번호 (0이면 후보 없음) |
 | `remainingSuggestions` | 남은 제안 횟수 (최대 3) |
 | `remainingValidations` | 남은 수정 검증 횟수 (최대 3) |

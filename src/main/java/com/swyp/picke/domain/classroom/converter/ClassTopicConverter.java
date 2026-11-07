@@ -26,6 +26,7 @@ public final class ClassTopicConverter {
                 draft.getCategories().stream().map(BattleCategory::valueOf).toList(),
                 draft.getSuggestStatus(),
                 draft.getClarificationMessage(),
+                draft.getSuggestFailureReason(),
                 draft.getBatchNo(),
                 draft.remainingSuggestions(),
                 draft.remainingValidations(),

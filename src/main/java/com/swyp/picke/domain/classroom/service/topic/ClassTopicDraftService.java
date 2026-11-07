@@ -15,6 +15,7 @@ import com.swyp.picke.domain.classroom.entity.ClassTopicDraft;
 import com.swyp.picke.domain.classroom.entity.ClassTopicVersion;
 import com.swyp.picke.domain.classroom.enums.AiJobStatus;
 import com.swyp.picke.domain.classroom.enums.AiJobType;
+import com.swyp.picke.domain.classroom.enums.ClassTopicSuggestFailureReason;
 import com.swyp.picke.domain.classroom.enums.ClassTopicVersionSource;
 import com.swyp.picke.domain.classroom.repository.AiJobRepository;
 import com.swyp.picke.domain.classroom.repository.ClassTopicDraftRepository;
@@ -156,7 +157,7 @@ public class ClassTopicDraftService {
         if (job.getStatus() != AiJobStatus.RUNNING) {
             return;
         }
-        draft.failSuggest();
+        draft.failSuggest(rejected ? ClassTopicSuggestFailureReason.INVALID_OUTPUT : ClassTopicSuggestFailureReason.AI_UNAVAILABLE);
         finishJob(job, errorCode, rejected, usage, now);
     }
 

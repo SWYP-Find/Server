@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.classroom.entity;
 
 import com.swyp.picke.domain.battle.enums.BattleDifficulty;
+import com.swyp.picke.domain.classroom.enums.ClassTopicSuggestFailureReason;
 import com.swyp.picke.domain.classroom.enums.ClassTopicSuggestStatus;
 import com.swyp.picke.domain.ticket.entity.ClassTicket;
 import com.swyp.picke.domain.user.entity.User;
@@ -30,6 +31,7 @@ import org.hibernate.type.SqlTypes;
  *   <li>candidates : 마지막 성공 배치의 후보 3개. candidate_id(1~3)·question·description·category·difficulty·options[2]</li>
  *   <li>batch_no : 성공한 제안 배치 수 = 현재 후보의 배치 번호. 최대 3 (최초 + 재추천)</li>
  *   <li>suggest_request_count : 제안 요청 수(실패 포함). ai_jobs 멱등키에 쓴다</li>
+ *   <li>suggest_failure_reason : 마지막 제안이 FAILED 일 때만 값이 있다</li>
  *   <li>validation_count : AI 의미 검증을 호출한 수정 검증 수. 최대 3</li>
  * </ul>
  */
@@ -84,6 +86,10 @@ public class ClassTopicDraft extends BaseEntity {
     @Column(name = "clarification_message", length = 200)
     private String clarificationMessage;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "suggest_failure_reason", length = 30)
+    private ClassTopicSuggestFailureReason suggestFailureReason;
+
     @Column(name = "validation_count", nullable = false)
     private int validationCount;
 
@@ -122,6 +128,7 @@ public class ClassTopicDraft extends BaseEntity {
         this.suggestStatus = ClassTopicSuggestStatus.GENERATING;
         this.suggestRequestCount++;
         this.suggestStartedAt = now;
+        this.suggestFailureReason = null;
     }
 
     /** 성공 배치 반영. 조건 변경도 같은 초안의 새 배치로 세므로 이때 조건을 함께 바꾼다 (PRD §10) */
@@ -142,8 +149,9 @@ public class ClassTopicDraft extends BaseEntity {
         this.clarificationMessage = message;
     }
 
-    public void failSuggest() {
+    public void failSuggest(ClassTopicSuggestFailureReason reason) {
         this.suggestStatus = ClassTopicSuggestStatus.FAILED;
+        this.suggestFailureReason = reason;
     }
 
     public void consumeValidation() {

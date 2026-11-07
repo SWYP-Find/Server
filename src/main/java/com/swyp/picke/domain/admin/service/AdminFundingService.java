@@ -392,13 +392,13 @@ public class AdminFundingService {
                 throw new CustomException(ErrorCode.FUNDING_REWARD_UNSUPPORTED);
             }
         }
+        // 전달 상태는 boolean 으로 넘긴다. enum 파라미터를 상수와 비교하면 Hibernate 가 파라미터 타입을 정하지 못해 500 이 난다 (#612)
         boolean pending = deliveryStatus == com.swyp.picke.domain.funding.enums.DeliveryStatus.PENDING;
-        DeliveryStatus recordedStatus = deliveryStatus == null || pending ? null
-                : deliveryStatus == com.swyp.picke.domain.funding.enums.DeliveryStatus.SENT
-                        ? DeliveryStatus.SUCCESS : DeliveryStatus.FAILED;
+        boolean sent = deliveryStatus == com.swyp.picke.domain.funding.enums.DeliveryStatus.SENT;
+        boolean failed = deliveryStatus == com.swyp.picke.domain.funding.enums.DeliveryStatus.FAILED;
 
         Page<FundingOrder> result = fundingOrderRepository.searchOrders(
-                paymentStatus, ticketStatus, codeStatus, normalizedCampaignId, normalizedKeyword, rewardTier, recordedStatus, pending,
+                paymentStatus, ticketStatus, codeStatus, normalizedCampaignId, normalizedKeyword, rewardTier, sent, failed, pending,
                 PageRequest.of(pageNumber, pageSize));
         List<Long> orderIds = result.getContent().stream().map(FundingOrder::getId).toList();
         Map<Long, TumblbugOrderDetailResponse> tumblbugDetails = tumblbugImportRecordService.getDetails(orderIds);
@@ -458,19 +458,34 @@ public class AdminFundingService {
                     ticket.getActivatedAt(), ticket.getExpiresAt(),
                     registrant == null ? null : registrant.getId(),
                     registrant == null ? null : registrant.getNickname(), ticket.getCodeSuffix(),
-                    deliveries.get(ticket.getId()) == DeliveryStatus.SUCCESS
-                            ? com.swyp.picke.domain.funding.enums.DeliveryStatus.SENT
-                            : com.swyp.picke.domain.funding.enums.DeliveryStatus.PENDING));
+                    toDeliveryView(deliveries.get(ticket.getId()))));
         }
         boolean issuable = order.isIssuable() && ticketViews.size() < order.getQuantity();
         return new FundingOrderSummaryResponse(order.getId(), order.getPlatform(), order.getCampaignId(),
                 order.getOrderId(), order.getRewardTier(), order.getQuantity(), order.getSupporterName(),
                 order.getSupporterEmail(), order.getSupporterPhone(), order.getPaymentStatus(), order.getPaidAt(),
                 issuable, ticketViews.isEmpty() ? null : ticketViews.getFirst(), List.copyOf(ticketViews), tumblbug,
-                !ticketViews.isEmpty() && ticketViews.stream().allMatch(t ->
-                        t.deliveryStatus() == com.swyp.picke.domain.funding.enums.DeliveryStatus.SENT)
-                        ? com.swyp.picke.domain.funding.enums.DeliveryStatus.SENT
-                        : com.swyp.picke.domain.funding.enums.DeliveryStatus.PENDING);
+                orderDeliveryView(ticketViews));
+    }
+
+    /** 이용권의 마지막 전달 기록. 기록이 없으면 PENDING */
+    private static com.swyp.picke.domain.funding.enums.DeliveryStatus toDeliveryView(DeliveryStatus latest) {
+        if (latest == DeliveryStatus.SUCCESS) return com.swyp.picke.domain.funding.enums.DeliveryStatus.SENT;
+        if (latest == DeliveryStatus.FAILED) return com.swyp.picke.domain.funding.enums.DeliveryStatus.FAILED;
+        return com.swyp.picke.domain.funding.enums.DeliveryStatus.PENDING;
+    }
+
+    /** 주문 단위 전달 상태. 목록 필터(searchOrders)와 같은 기준: 모두 SENT 면 SENT, 하나라도 FAILED 면 FAILED (#612) */
+    private static com.swyp.picke.domain.funding.enums.DeliveryStatus orderDeliveryView(
+            List<FundingOrderSummaryResponse.Ticket> tickets) {
+        if (!tickets.isEmpty() && tickets.stream().allMatch(t ->
+                t.deliveryStatus() == com.swyp.picke.domain.funding.enums.DeliveryStatus.SENT)) {
+            return com.swyp.picke.domain.funding.enums.DeliveryStatus.SENT;
+        }
+        if (tickets.stream().anyMatch(t -> t.deliveryStatus() == com.swyp.picke.domain.funding.enums.DeliveryStatus.FAILED)) {
+            return com.swyp.picke.domain.funding.enums.DeliveryStatus.FAILED;
+        }
+        return com.swyp.picke.domain.funding.enums.DeliveryStatus.PENDING;
     }
 
     @Transactional

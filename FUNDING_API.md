@@ -67,6 +67,7 @@ Start는 공통 `import` 또는 `manual` 경로로 등록하고 1:1 메시지로
 ## 검색과 클래스 연동
 
 주문 검색은 기존 `/admin/funding/orders` 한 곳에서 `campaignId`, `keyword`, `capacity`, `paymentStatus`, `deliveryStatus`, `ticketStatus`, `codeStatus`, `page`, `size`를 지원합니다. 캠페인 대시보드는 후원 주문 수·결제 완료·전달 완료·미전달 수를 캠페인 단위로 집계합니다.
+주문의 `deliveryStatus`는 살아 있는 이용권의 마지막 전달 기록 기준입니다. 모두 전달 완료면 `SENT`, 하나라도 실패면 `FAILED`, 그 밖에는 `PENDING`이며 같은 값으로 필터합니다.
 기존 주문 응답 필드를 유지하고 `tumblbug`에 요금제·후원일시·상품·금액·후원번호 등을, `tickets`에 발급된 티켓 목록과 전달 상태를 추가합니다. 대시보드는 관리자 전용 `GET /admin/funding/tickets/{ticketId}/code`를 코드 전체 보기·복사 시 호출합니다. 코드 조회는 감사 로그에 기록되고 응답은 캐시되지 않습니다.
 코드 암호화를 위해 `TICKET_CODE_ENCRYPTION_KEY`에 Base64 인코딩한 32바이트 키를 설정해야 합니다. 기존 코드 행은 해시만 저장되어 있어 코드 원문을 복구할 수 없습니다. 미등록 기존 코드는 재발급 후 새 코드 조회가 가능합니다.
 이용권 검색은 `keyword`, `capacity`, `status`, `registeredFrom`, `registeredTo`, `page`, `size`를 지원합니다.

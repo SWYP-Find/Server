@@ -111,8 +111,8 @@ class AdminFundingApiIntegrationTest {
         assertThat(first.get("errorCount").asInt()).isEqualTo(1);
         assertThat(first.get("errors").get(0).get("line").asInt()).isEqualTo(5);
         assertThat(first.get("errors").get(0).get("orderId").asText()).isEqualTo(prefix + "ORD-BAD");
-        assertThat(first.get("issuableCount").asLong()).isEqualTo(1);   // ORD-A 만
-        assertThat(first.get("heldCount").asLong()).isEqualTo(2);       // ORD-B(수량 2), ORD-C(결제 대기)
+        assertThat(first.get("issuableCount").asLong()).isEqualTo(2);   // ORD-A, ORD-B(수량 2 도 수량만큼 발급, #586)
+        assertThat(first.get("heldCount").asLong()).isEqualTo(1);       // ORD-C(결제 대기)
         assertThat(first.get("fileHash").asText()).hasSize(64);
 
         // 같은 파일 재업로드 → 전부 unchanged, 결제 대기가 확정되면 updated
@@ -122,23 +122,33 @@ class AdminFundingApiIntegrationTest {
 
         JsonNode third = upload(HEADER + "TUMBLBUG,camp,ORD-C,5,1,후원C,,,PAID_CONFIRMED,2026-10-05 10:00:00\n");
         assertThat(third.get("updated").asInt()).isEqualTo(1);
-        assertThat(third.get("issuableCount").asLong()).isEqualTo(2);
+        assertThat(third.get("issuableCount").asLong()).isEqualTo(3);
         FundingOrder c = fundingOrderRepository.findByOrderId(prefix + "ORD-C").orElseThrow();
         assertThat(c.getPaymentStatus()).isEqualTo(PaymentStatus.PAID_CONFIRMED);
         assertThat(c.getImportFileHash()).isEqualTo(third.get("fileHash").asText());
     }
 
     @Test
-    @DisplayName("발급 → 코드 1회 노출(DB 는 해시만) → 후원자가 그 코드로 등록 → 재실행은 중복 발급하지 않는다")
+    @DisplayName("발급 → 수량만큼 코드 1회 노출(DB 는 해시만) → 후원자가 그 코드로 등록 → 재실행은 중복 발급하지 않는다")
     void issue_thenUserRegisters_thenRerunSkips() throws Exception {
         upload(HEADER
                 + "TUMBLBUG,camp,ORD-A,SEAT_15,1,후원A,a@test.com,,PAID_CONFIRMED,2026-10-01 10:00:00\n"
-                + "TUMBLBUG,camp,ORD-B,SEAT_5,2,후원B,,,PAID_CONFIRMED,2026-10-01 10:00:00\n");
+                + "TUMBLBUG,camp,ORD-B,SEAT_5,2,후원B,,,PAID_CONFIRMED,2026-10-01 10:00:00\n"
+                + "TUMBLBUG,camp,ORD-P,SEAT_5,1,후원P,,,PAYMENT_PENDING,\n");
 
+        // 수량 2 주문은 코드 2개를 받는다 (#586)
         JsonNode issued = postJson("/api/v1/admin/funding/tickets/issue", null, adminToken()).get("issued");
-        assertThat(issued).hasSize(1);
-        JsonNode item = issued.get(0);
-        assertThat(item.get("orderId").asText()).isEqualTo(prefix + "ORD-A");
+        assertThat(issued).hasSize(3);
+        List<String> issuedOrders = new java.util.ArrayList<>();
+        issued.forEach(node -> issuedOrders.add(node.get("orderId").asText()));
+        assertThat(issuedOrders).containsExactlyInAnyOrder(prefix + "ORD-A", prefix + "ORD-B", prefix + "ORD-B");
+        JsonNode item = null;
+        for (JsonNode node : issued) {
+            if (node.get("orderId").asText().equals(prefix + "ORD-A")) {
+                item = node;
+            }
+        }
+        assertThat(item).isNotNull();
         assertThat(item.get("capacity").asInt()).isEqualTo(15);
         assertThat(item.get("registerBy").asText()).startsWith("2027-10-01T10:00");
         String code = item.get("code").asText();
@@ -154,13 +164,17 @@ class AdminFundingApiIntegrationTest {
 
         Long orderA = fundingOrderRepository.findByOrderId(prefix + "ORD-A").orElseThrow().getId();
         Long orderB = fundingOrderRepository.findByOrderId(prefix + "ORD-B").orElseThrow().getId();
+        Long orderP = fundingOrderRepository.findByOrderId(prefix + "ORD-P").orElseThrow().getId();
         JsonNode byIds = postJson("/api/v1/admin/funding/tickets/issue",
-                Map.of("fundingOrderIds", List.of(orderA, orderB, 999_999L)), adminToken());
+                Map.of("fundingOrderIds", List.of(orderA, orderB, orderP, 999_999L)), adminToken());
         assertThat(byIds.get("issued")).isEmpty();
-        assertThat(byIds.get("skipped")).hasSize(3);
-        assertThat(byIds.get("skipped").get(0).get("reason").asText()).isEqualTo("ALREADY_ISSUED");
-        assertThat(byIds.get("skipped").get(1).get("reason").asText()).isEqualTo("NOT_ISSUABLE");
-        assertThat(byIds.get("skipped").get(2).get("reason").asText()).isEqualTo("NOT_FOUND");
+        Map<Long, String> skippedReasons = new java.util.HashMap<>();
+        byIds.get("skipped").forEach(node -> skippedReasons.put(node.get("fundingOrderId").asLong(), node.get("reason").asText()));
+        assertThat(skippedReasons).containsOnly(
+                Map.entry(orderA, "ALREADY_ISSUED"),
+                Map.entry(orderB, "ALREADY_ISSUED"),
+                Map.entry(orderP, "NOT_ISSUABLE"),
+                Map.entry(999_999L, "NOT_FOUND"));
 
         // 후원자가 받은 코드(소문자·하이픈 그대로)로 등록
         mockMvc.perform(post("/api/v1/class-tickets/register")

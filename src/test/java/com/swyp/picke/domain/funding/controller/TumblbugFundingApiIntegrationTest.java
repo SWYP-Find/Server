@@ -133,8 +133,12 @@ class TumblbugFundingApiIntegrationTest {
         byte[] source = workbook(row("201", "클래스 19900원", "결제완료"),
                 row("202", "클래스 19900원 (x2)", "결제완료"), row("203", "클래스 19900원", "결제대기"));
         mvc.perform(upload("/preview", source)).andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.importableRows").value(3)).andExpect(jsonPath("$.data.codeEligibleRows").value(1));
-        issue(source);
+                .andExpect(jsonPath("$.data.importableRows").value(3)).andExpect(jsonPath("$.data.codeEligibleRows").value(2));
+        // 결제완료 201(1장) + 202(x2 → 2장, #587 구매 수량만큼 발급). 결제대기 203 은 코드를 받지 않는다
+        // 결과 엑셀은 후원자당 한 행이고 202 의 코드 2개는 한 칸에 줄바꿈으로 들어간다
+        long ticketsBefore = tickets.count();
+        issue(source, 2);
+        assertThat(tickets.count() - ticketsBefore).isEqualTo(3);
         long orderCount = orders.count();
         long ticketCount = tickets.count();
         assertThat(imports.findAll().stream().filter(r -> r.getCampaign().getExternalCampaignId().equals(campaign))).hasSize(3);
@@ -191,11 +195,15 @@ class TumblbugFundingApiIntegrationTest {
     }
 
     private String issue(byte[] source) throws Exception {
+        return issue(source, 1);
+    }
+
+    private String issue(byte[] source, int expectedRows) throws Exception {
         byte[] result = mvc.perform(upload("/digital-gifts", source)).andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", "no-store, no-cache, must-revalidate"))
                 .andReturn().getResponse().getContentAsByteArray();
         try (var workbook = new XSSFWorkbook(new ByteArrayInputStream(result))) {
-            assertThat(workbook.getSheetAt(0).getLastRowNum()).isEqualTo(1);
+            assertThat(workbook.getSheetAt(0).getLastRowNum()).isEqualTo(expectedRows);
             return workbook.getSheetAt(0).getRow(1).getCell(1).getStringCellValue();
         }
     }

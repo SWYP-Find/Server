@@ -187,6 +187,7 @@ class ClassTopicApiIntegrationTest {
         suggest(draftId, null)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.suggestStatus").value("FAILED"))
+                .andExpect(jsonPath("$.data.failureReason").value("INVALID_OUTPUT"))
                 .andExpect(jsonPath("$.data.batchNo").value(1))
                 .andExpect(jsonPath("$.data.remainingSuggestions").value(2))
                 .andExpect(jsonPath("$.data.candidates[0].question").value(firstQuestion));
@@ -223,6 +224,7 @@ class ClassTopicApiIntegrationTest {
 
         suggest(draftId, null)
                 .andExpect(jsonPath("$.data.suggestStatus").value("FAILED"))
+                .andExpect(jsonPath("$.data.failureReason").value("AI_UNAVAILABLE"))
                 .andExpect(jsonPath("$.data.remainingSuggestions").value(3));
         verify(aiClient, times(3)).chatJson(eq(ClassTopicPrompts.SUGGEST_SYSTEM), anyString(), anyInt());
         AiJob job = onlyJob(AiJobType.TOPIC_CANDIDATES);
@@ -239,6 +241,7 @@ class ClassTopicApiIntegrationTest {
 
         suggest(draftId, null)
                 .andExpect(jsonPath("$.data.suggestStatus").value("FAILED"))
+                .andExpect(jsonPath("$.data.failureReason").value("AI_UNAVAILABLE"))
                 .andExpect(jsonPath("$.data.remainingSuggestions").value(3));
         verify(aiClient, times(1)).chatJson(eq(ClassTopicPrompts.SUGGEST_SYSTEM), anyString(), anyInt());
         AiJob job = onlyJob(AiJobType.TOPIC_CANDIDATES);

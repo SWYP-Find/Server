@@ -190,6 +190,7 @@ entity "class_topic_drafts" as class_topic_drafts {
   suggest_request_count : INTEGER
   suggest_started_at : TIMESTAMP <<nullable>>
   clarification_message : VARCHAR(200) <<nullable>>
+  suggest_failure_reason : VARCHAR(30) <<nullable>>
   validation_count : INTEGER
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
@@ -507,6 +508,7 @@ note bottom of class_topic_drafts
   제안: 후보 정확히 3개 (S05 화면 기준, 기획 확정)(question ≤60, description ≤80, options 2개: label ≤20, rationale ≤40, 철학자 = PhilosopherType 코드)
     서버 검사(개수·길이·조건 일치·철학자 허용 목록·두 철학자 다름·질문 중복) 실패 → 문제 목록으로 1회 보정 → 계속 실패면 REJECTED
     실패·맥락 부족(NEEDS_CLARIFICATION)은 기존 후보 유지, batch_no 증가 없음
+    FAILED 이유는 suggest_failure_reason (#608): AI_UNAVAILABLE = 제공자 장애, INVALID_OUTPUT = 보정 후에도 규칙 위반. 새 제안을 시작하면 비운다
     분당 2회/계정 = ai_jobs(TOPIC_CANDIDATES, ticket_id, started_at) 1분 내 건수 (계정당 ACTIVE 이용권 1개)
     GENERATING 3분 경과는 멈춘 작업으로 보고 새 요청 허용
   ai_jobs 멱등키: TOPIC_CANDIDATES:{draft_id}:{suggest_request_count}, TOPIC_VALIDATION:{draft_id}:{validation_count}

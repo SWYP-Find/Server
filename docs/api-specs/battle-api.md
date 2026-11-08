@@ -99,6 +99,19 @@
 ### 2.6 배틀 삭제
 - `DELETE /api/v1/admin/battles/{battleId}`
 
+### 2.7 배틀 공개·보관 상태 변경
+- `PATCH /api/v1/admin/battles/{battleId}/status`
+- 요청 본문: `{ "status": "ARCHIVED" }` (`PUBLISHED` 공개 / `ARCHIVED` 보관)
+- 공개 ↔ 보관 전환만 한다. 보관된 배틀은 사용자 화면(목록·상세·추천)에 나오지 않고, 다시 공개하면 그대로 보인다.
+- 같은 상태로 보내면 변경 없이 통과한다.
+- 임시저장(`PENDING`) 배틀은 배틀 수정(만들기)으로 발행한다. 임시 이미지 이동이 함께 일어나야 하기 때문이다.
+- 응답: `AdminBattleDetailResponse`
+
+| 상황 | 응답 |
+|---|---|
+| 그 밖의 전환 (임시저장 → 공개, 공개 → 임시저장, 반려 등) | 409 `BATTLE_409_STATUS` |
+| 삭제된 배틀 | 404 `BATTLE_404` |
+
 ---
 
 ## 3. 상태/정책 메모

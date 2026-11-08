@@ -24,6 +24,7 @@ import com.swyp.picke.domain.user.enums.UserRole;
 import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.repository.UserBattleRepository;
 import com.swyp.picke.domain.user.repository.UserRepository;
+import jakarta.persistence.EntityManager;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -39,9 +40,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * 주간 베스트 관점(#626)을 HTTP 로 검증한다.
@@ -56,7 +57,8 @@ class WeeklyBestPerspectiveApiIntegrationTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private JwtProvider jwtProvider;
-    @Autowired private JdbcTemplate jdbcTemplate;
+    @Autowired private EntityManager entityManager;
+    @Autowired private TransactionTemplate transactionTemplate;
     @Autowired private UserRepository userRepository;
     @Autowired private UserBattleRepository userBattleRepository;
     @Autowired private BattleRepository battleRepository;
@@ -201,7 +203,12 @@ class WeeklyBestPerspectiveApiIntegrationTest {
         PerspectiveLike like = perspectiveLikeRepository.save(PerspectiveLike.builder()
                 .perspective(perspective).user(user).build());
         likeIds.add(like.getId());
-        jdbcTemplate.update("update perspective_likes set created_at = ? where id = ?", createdAt, like.getId());
+        // JdbcTemplate 은 hibernate.jdbc.time_zone 변환을 거치지 않아 JVM 시간대가 KST 가 아니면 조회 조건과 어긋난다
+        transactionTemplate.executeWithoutResult(status -> entityManager
+                .createQuery("update PerspectiveLike l set l.createdAt = :createdAt where l.id = :id")
+                .setParameter("createdAt", createdAt)
+                .setParameter("id", like.getId())
+                .executeUpdate());
     }
 
     private Perspective perspective(Battle battle) {

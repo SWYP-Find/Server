@@ -216,4 +216,9 @@ public class Battle extends BaseEntity {
         this.status = BattleStatus.PUBLISHED;
     }
 
+    /** 어드민 공개·보관 전환 (#622). 삭제된 배틀과 그 밖의 전환은 서비스에서 막는다 */
+    public void changePublicationStatus(BattleStatus status) {
+        this.status = status;
+    }
+
 }

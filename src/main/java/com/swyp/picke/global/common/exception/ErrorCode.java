@@ -63,6 +63,7 @@ public enum ErrorCode {
     BATTLE_ALREADY_PUBLISHED(HttpStatus.CONFLICT, "BATTLE_409_PUB", "이미 발행된 배틀입니다."),
     BATTLE_OPTION_NOT_FOUND(HttpStatus.NOT_FOUND, "BATTLE_OPT_404", "존재하지 않는 선택지입니다."),
     BATTLE_INVALID_OPTION_COUNT(HttpStatus.BAD_REQUEST, "BATTLE_400_OPT", "배틀 타입에 맞지 않는 선택지 개수입니다."),
+    BATTLE_STATUS_CHANGE_INVALID(HttpStatus.CONFLICT, "BATTLE_409_STATUS", "공개된 배틀은 보관만, 보관된 배틀은 공개만 할 수 있습니다. 임시저장 배틀은 만들기로 발행해 주세요."),
     BATTLE_CANNOT_REVERT_TO_PENDING(HttpStatus.BAD_REQUEST, "BATTLE_400_REVERT", "발행된 시나리오는 다시 대기(PENDING) 상태로 되돌릴 수 없습니다."),
     BATTLE_NOT_QUIZ(HttpStatus.BAD_REQUEST, "BATTLE_400_QUIZ", "해당 배틀은 퀴즈 타입이 아닙니다."),
     BATTLE_NOT_POLL(HttpStatus.BAD_REQUEST, "BATTLE_400_POLL", "해당 배틀은 투표 타입이 아닙니다."),

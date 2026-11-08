@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.admin.controller;
 
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleClassSettingsRequest;
+import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleStatusRequest;
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleCreateRequest;
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleThumbnailCandidateRequest;
 import com.swyp.picke.domain.admin.dto.battle.response.AdminBattleThumbnailCandidatesResponse;
@@ -87,6 +88,17 @@ public class AdminBattleController {
             @RequestBody AdminBattleClassSettingsRequest request
     ) {
         return ApiResponse.onSuccess(adminBattleService.updateClassSettings(battleId, request));
+    }
+
+    @Operation(summary = "배틀 공개·보관 상태 변경",
+            description = "공개(PUBLISHED) ↔ 보관(ARCHIVED) 전환만 합니다. 보관된 배틀은 사용자 화면에 나오지 않습니다. "
+                    + "임시저장 배틀은 배틀 수정(만들기)으로 발행하며, 그 밖의 전환은 409 BATTLE_409_STATUS, 삭제된 배틀은 404 BATTLE_404.")
+    @PatchMapping("/{battleId}/status")
+    public ApiResponse<AdminBattleDetailResponse> updateStatus(
+            @PathVariable Long battleId,
+            @RequestBody @Valid AdminBattleStatusRequest request
+    ) {
+        return ApiResponse.onSuccess(adminBattleService.updateStatus(battleId, request));
     }
 
     @Operation(summary = "배틀 삭제")

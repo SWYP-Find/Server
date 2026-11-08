@@ -2,6 +2,7 @@ package com.swyp.picke.domain.battle.service;
 
 import com.swyp.picke.domain.battle.converter.BattleConverter;
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleClassSettingsRequest;
+import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleStatusRequest;
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleCreateRequest;
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleOptionRequest;
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleUpdateRequest;
@@ -518,6 +519,26 @@ public class BattleServiceImpl implements BattleService {
                 ));
 
         return battleConverter.toAdminDetailResponse(battle, getTagsByBattle(battle), updatedOptions, optionTagsMap);
+    }
+
+    /** 공개 ↔ 보관만 허용한다. 보관된 배틀은 PUBLISHED 조건으로 걸러져 사용자 화면에 나오지 않는다 (#622) */
+    @Override
+    @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
+    public AdminBattleDetailResponse updateStatus(Long battleId, AdminBattleStatusRequest request) {
+        Battle battle = findById(battleId);
+        if (battle.getDeletedAt() != null) {
+            throw new CustomException(ErrorCode.BATTLE_NOT_FOUND);
+        }
+        BattleStatus current = battle.getStatus();
+        BattleStatus target = request.status();
+        boolean allowed = (current == BattleStatus.PUBLISHED && target == BattleStatus.ARCHIVED)
+                || (current == BattleStatus.ARCHIVED && target == BattleStatus.PUBLISHED);
+        if (current != target && !allowed) {
+            throw new CustomException(ErrorCode.BATTLE_STATUS_CHANGE_INVALID);
+        }
+        battle.changePublicationStatus(target);
+        return getAdminBattleDetail(battleId);
     }
 
     @Override

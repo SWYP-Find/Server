@@ -51,4 +51,7 @@ public interface PerspectiveRepository extends JpaRepository<Perspective, Long> 
 
     // 베댓 보상 배치: 일반 배틀 의견만
     List<Perspective> findByBattleIdAndClassroomIsNullAndStatusOrderByLikeCountDescCreatedAtDesc(Long battleId, PerspectiveStatus status, Pageable pageable);
+
+    @Query("select p from Perspective p join fetch p.battle where p.id in :ids")
+    List<Perspective> findAllWithBattleByIdIn(@Param("ids") List<Long> ids);
 }

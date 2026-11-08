@@ -7,7 +7,9 @@ import com.swyp.picke.domain.perspective.dto.response.MyPerspectiveResponse;
 import com.swyp.picke.domain.perspective.dto.response.PerspectiveDetailResponse;
 import com.swyp.picke.domain.perspective.dto.response.PerspectiveListResponse;
 import com.swyp.picke.domain.perspective.dto.response.UpdatePerspectiveResponse;
+import com.swyp.picke.domain.perspective.dto.response.WeeklyBestPerspectiveResponse;
 import com.swyp.picke.domain.perspective.service.PerspectiveService;
+import com.swyp.picke.domain.perspective.service.WeeklyBestPerspectiveService;
 import com.swyp.picke.global.common.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -33,6 +35,14 @@ import java.util.List;
 public class PerspectiveController {
 
     private final PerspectiveService perspectiveService;
+    private final WeeklyBestPerspectiveService weeklyBestPerspectiveService;
+
+    @Operation(summary = "주간 베스트 관점 조회", description = "직전 한 주 동안 좋아요를 많이 받은 관점을 최대 25개 조회합니다. 토큰 없이 호출하면 participated 는 false 입니다.")
+    @GetMapping("/perspectives/weekly-best")
+    public ApiResponse<WeeklyBestPerspectiveResponse> getWeeklyBestPerspectives(
+            @AuthenticationPrincipal Long userId) {
+        return ApiResponse.onSuccess(weeklyBestPerspectiveService.getWeeklyBest(userId));
+    }
 
     @Operation(summary = "관점 상세 조회", description = "특정 관점의 상세 정보를 조회합니다.")
     @GetMapping("/perspectives/{perspectiveId}")

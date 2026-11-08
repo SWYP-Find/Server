@@ -148,6 +148,39 @@
 ```
 
 ---
+## 주간 베스트 관점 조회 API
+### `GET /api/v1/perspectives/weekly-best`
+
+- 직전 완료된 한 주(월요일 00:00 ~ 일요일 24:00, KST) 동안 눌린 좋아요 수 기준으로 최대 25개를 반환합니다. 화면의 5개씩 페이지 처리는 앱에서 합니다.
+- 정렬: 해당 주 좋아요 수 내림차순 → 최신 관점 → id 내림차순
+- 대상: `PUBLISHED` 관점 중 공개 배틀의 일반 관점. 클래스 관점은 제외합니다.
+- 토큰은 선택입니다. 토큰이 없으면 `participated` 는 모두 `false` 이고, 만료된 토큰을 보내면 401 입니다.
+- `participated` 는 사후투표 완료 여부입니다. `true` 면 해당 관점으로, `false` 면 배틀 진입점으로 이동합니다.
+
+#### 성공 응답 `200 OK`
+
+```json
+{
+  "statusCode": 200,
+  "data": {
+    "weekStart": "2026-11-02",
+    "weekEnd": "2026-11-08",
+    "items": [
+      {
+        "perspectiveId": 1,
+        "battleId": 10,
+        "battleTitle": "배틀 제목",
+        "content": "관점 본문",
+        "likeCount": 50,
+        "participated": true
+      }
+    ]
+  },
+  "error": null
+}
+```
+
+---
 ## 내 PENDING 관점 조회 API
 ### `GET /api/v1/battles/{battle_id}/perspectives/me/pending`
 

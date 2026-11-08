@@ -72,6 +72,7 @@ public class SecurityConfig {
 
                         // 3. 단순 조회성 및 진행상태 업데이트 REST API
                         .requestMatchers(HttpMethod.GET, "/api/v1/share/recap/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/perspectives/weekly-best").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/tags", "/api/v1/battles/**").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/battles/**").authenticated()
 

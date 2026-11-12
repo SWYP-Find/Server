@@ -362,7 +362,7 @@ class ClassroomApiIntegrationTest {
     @Test
     @DisplayName("운영자는 이름 변경·마감일 연장이 되고, 멤버가 아닌 유저는 403 CLASS_403_OWNER")
     void update_ownerOnly() throws Exception {
-        LocalDateTime deadline = LocalDateTime.now().plusDays(10).withNano(0);
+        LocalDateTime deadline = LocalDateTime.now().plusDays(10).withSecond(30).withNano(0); // 초가 0 이면 toString() 이 초를 생략해 응답 문자열과 달라진다
         long classId = createClass("클래스", deadline, false);
         LocalDateTime extended = deadline.plusDays(7);
 

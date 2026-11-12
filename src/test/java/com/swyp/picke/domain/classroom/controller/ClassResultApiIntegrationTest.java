@@ -460,6 +460,71 @@ class ClassResultApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("개인 리포트: 제공자 장애로 자동 2회 실패 → FAILED + retryable → 본인 재시도 → 성공, 이후에는 재시도 불가")
+    void memberReport_retryFlow() throws Exception {
+        ClassInfo cls = createClass(false);
+        User student = newUser("학생A");
+        String token = tokenOf(student);
+        join(token, cls.inviteCode, "학생A");
+        completeParticipation(token, cls, optionA, optionB, "효과가 입증되지 않아 반대합니다. 표본이 너무 작아요.");
+        when(aiClient.chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
+                .thenThrow(new RuntimeException("provider down"));
+
+        closeClass(cls.classId);
+        LocalDateTime now = LocalDateTime.now();
+        // 생성 전(PENDING)에는 재시도할 수 없다
+        mockMvc.perform(post(result(cls) + "/my-report/retry").header("Authorization", "Bearer " + token))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_REPORT_RETRY"));
+        generationService.runOnce(now);
+        generationService.runOnce(now.plusMinutes(1));
+
+        mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("FAILED"))
+                .andExpect(jsonPath("$.data.retryable").value(true))
+                .andExpect(jsonPath("$.data.feedback").doesNotExist());
+
+        // thenThrow 로 막아 둔 메서드라 when(...) 대신 doAnswer 로 바꾼다
+        org.mockito.Mockito.doAnswer(inv -> memberFeedbackAnswer(inv.getArgument(1)))
+                .when(aiClient).chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt());
+        mockMvc.perform(post(result(cls) + "/my-report/retry").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("PENDING"))
+                .andExpect(jsonPath("$.data.retryable").value(false));
+        generationService.runOnce(now.plusMinutes(2));
+        mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("SUCCEEDED"))
+                .andExpect(jsonPath("$.data.retryable").value(false));
+        mockMvc.perform(post(result(cls) + "/my-report/retry").header("Authorization", "Bearer " + token))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("같은 내용을 반복한 댓글은 개인 리포트 AI 입력에 한 번만 들어간다 (RP-10)")
+    void duplicateComments_mergedInMemberInput() throws Exception {
+        ClassInfo cls = createClass(false);
+        User student = newUser("학생A");
+        String token = tokenOf(student);
+        join(token, cls.inviteCode, "학생A");
+        completeParticipation(token, cls, optionA, optionB, "효과가 입증되지 않아 반대합니다. 표본이 너무 작아요.");
+        Perspective mine = perspectiveRepository.findAll().get(0);
+        Classroom classroom = classroomRepository.findById(cls.classId).orElseThrow();
+        for (String content : List.of("표본 크기가 중요해요.", "표본 크기가 중요해요.", "표본  크기가 중요해요. ", "효과가 입증되지 않아 반대합니다. 표본이 너무 작아요.")) {
+            perspectiveCommentRepository.save(PerspectiveComment.builder()
+                    .perspective(mine).user(student).classroom(classroom).content(content).build());
+        }
+        stubMemberFeedback();
+
+        closeClass(cls.classId);
+        generationService.runOnce(LocalDateTime.now());
+
+        verify(aiClient).chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM),
+                argThat(prompt -> prompt.contains("(시간순, 총 2건)") && prompt.split("표본 크기가 중요해요", -1).length == 2), anyInt());
+    }
+
+    @Test
     @DisplayName("AI 가 이유를 읽을 글이 없다고(INSUFFICIENT) 판단하면 재시도 없이 근거 부족 템플릿(LIMITED)으로 게시한다")
     void insufficientFromAi_isLimitedWithoutRetry() throws Exception {
         ClassInfo cls = createClass(false);

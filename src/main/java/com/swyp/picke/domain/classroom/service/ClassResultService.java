@@ -15,6 +15,8 @@ public interface ClassResultService {
 
     ClassMyReportResponse getMyReport(Long userId, Long classId);
 
+    ClassMyReportResponse retryMyReport(Long userId, Long classId);
+
     ClassMyActivityResponse getMyActivity(Long userId, Long classId, String cursor, Integer size);
 
     ClassInsightResponse getInsight(Long userId, Long classId);

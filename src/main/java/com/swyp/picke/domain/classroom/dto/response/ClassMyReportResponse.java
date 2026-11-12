@@ -10,6 +10,7 @@ public record ClassMyReportResponse(
         @Schema(description = "클래스 ID") Long classId,
         @Schema(description = "상태. BEFORE_CLOSE = 마감 전(\"{closeAt} 이후 AI 피드백이 제공돼요\"), NOT_ELIGIBLE = 참여 미완료, "
                 + "PENDING/GENERATING = 생성 중, SUCCEEDED = AI 피드백, LIMITED = 분석 불가 템플릿(사유는 feedback.limitedReason), FAILED = 생성 실패") ClassReportViewState state,
+        @Schema(description = "재시도 가능 여부. FAILED 이고 수동 재시도 횟수가 남았을 때만 true") boolean retryable,
         @Schema(description = "실제 마감 시각") LocalDateTime closeAt,
         @Schema(description = "사전투표 선택지") Option preOption,
         @Schema(description = "선택 지점별 중간투표. 중간투표가 없는 배틀이거나 고르지 않았으면 빈 배열") List<ClassMidVoteInfo> midVotes,

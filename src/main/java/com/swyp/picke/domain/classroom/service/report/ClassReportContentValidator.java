@@ -73,6 +73,10 @@ public class ClassReportContentValidator {
                 log.warn("[ClassReport] evidence dropped field={} source_id={} reason=NOT_OWN_STATEMENT", field, sourceId);
                 continue;
             }
+            if (quote.contains(ReportProfanityMasker.MASK)) {
+                log.warn("[ClassReport] evidence dropped field={} source_id={} reason=MASKED_PROFANITY", field, sourceId);
+                continue; // 가린 비속어가 들어간 구간은 인용으로 보여주지 않는다
+            }
             if (!contains(statement.content(), quote)) {
                 log.warn("[ClassReport] evidence dropped field={} source_id={} reason=QUOTE_NOT_IN_CONTENT quote_length={}",
                         field, sourceId, quote.length());

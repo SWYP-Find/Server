@@ -62,6 +62,17 @@ public class ClassResultController {
         return ApiResponse.onSuccess(classResultService.getMyActivity(userId, classId, cursor, size));
     }
 
+    @Operation(summary = "내 AI 피드백 재시도",
+            description = "FAILED 이고 retryable=true 일 때만. 대기열에 다시 넣고 PENDING 을 돌려주며 1분 안에 재생성됩니다. "
+                    + "재시도 불가면 409 CLASS_409_REPORT_RETRY, 참여하지 않는 운영자는 403 CLASS_403_MEMBER.")
+    @PostMapping("/my-report/retry")
+    public ApiResponse<ClassMyReportResponse> retryMyReport(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long classId
+    ) {
+        return ApiResponse.onSuccess(classResultService.retryMyReport(userId, classId));
+    }
+
     @Operation(summary = "클래스 인사이트 (운영자)",
             description = "공개 의견을 요약한 AI 인사이트와 근거·대표 의견. 운영자가 아니면 403 CLASS_403_OWNER. "
                     + "작성자 3명 미만이면 LIMITED, 생성 실패면 FAILED + retryable.")

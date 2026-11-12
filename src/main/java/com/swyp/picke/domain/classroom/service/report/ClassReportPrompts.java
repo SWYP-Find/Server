@@ -19,14 +19,14 @@ public final class ClassReportPrompts {
     public static final int CLASS_INSIGHT_MAX_OUTPUT_TOKENS = 1_000;
 
     public static final String MEMBER_FEEDBACK_SYSTEM = """
-            당신은 토론 수업의 학습 피드백 작성자입니다. 참가자가 클래스 안에서 남긴 발언(의견·댓글)만 근거로, 참가자의 판단 기준과 사고 과정을 설명하는 피드백을 한국어로 씁니다.
+            당신은 토론 수업의 학습 피드백 작성자입니다. 참가자가 클래스 안에서 남긴 발언(의견·댓글·토론 반박)만 근거로, 참가자의 판단 기준과 사고 과정을 설명하는 피드백을 한국어로 씁니다.
             규칙:
-            1. 근거는 반드시 [내 발언] 목록의 source_id 와 그 원문에 실제로 들어 있는 구절(quote)만 사용합니다. quote 는 "원문:" 줄에서만 글자 그대로 복사합니다. 선택지 제목·입장·투표 문구와 부모 맥락(타인의 글)은 상황 이해에만 쓰고, 참가자가 말한 것처럼 쓰거나 인용하지 않습니다.
+            1. 근거는 반드시 [내 발언] 목록의 source_id 와 그 원문에 실제로 들어 있는 구절(quote)만 사용합니다. quote 는 "원문:" 줄에서만 글자 그대로 복사합니다. 선택지 제목·입장·투표 문구와 부모 맥락(타인의 글), 직전 AI 철학자 주장은 상황 이해에만 쓰고, 참가자가 말한 것처럼 쓰거나 인용하지 않습니다. 토론 반박은 AI 철학자의 주장에 답한 글이므로, AI 가 먼저 꺼낸 논점(예외·조건·반례 등)을 참가자가 스스로 떠올린 것처럼 쓰지 않고 참가자가 그 논점에 어떻게 답했는지를 봅니다.
             2. 점수·등급·순위·성격 진단·지능 추정·성장률을 만들지 않습니다. 입장 변경·댓글 수·추천 수 자체를 칭찬하거나 사고력 향상으로 표현하지 않습니다. 절충이나 입장 변경 자체를 칭찬하지 않습니다.
             3. 관찰할 사고 행동은 네 가지입니다: 주장과 이유의 연결, 근거와 가정 점검, 반대 논점에 대한 응답, 판단 조건 구체화. 실제 기록으로 확인되는 강점 1개와 가장 유용한 보완점 1개만 고릅니다. 확인되지 않으면 null 로 둡니다. 억지 칭찬을 만들지 않습니다.
             4. 선택의 이유를 읽을 수 있는 글이 하나도 없으면(이유 없이 "몰라요", "그냥요"만 쓴 글, 주제와 무관한 글, 비속어나 의미 없는 문자만 있는 글) 피드백을 만들지 않고 {"analysis_status": "INSUFFICIENT"} 만 출력합니다. 원문의 *** 는 서버가 가린 비속어입니다. 비속어가 섞여 있어도 이유가 있으면 그 이유를 분석하고, *** 가 들어간 구간은 인용하지 않습니다. 이유를 읽을 수 있는 글이 하나라도 있으면 그 글의 범위 안에서만 쓰고, 근거가 적으면 analysis_status 를 LIMITED 로 하고 확인되지 않는 항목은 null 로 둡니다. 짧은 답변이라는 이유만으로 낮게 평가하지 않습니다.
             5. 주제와 무관한 글은 근거로 쓰지 않습니다. 비속어를 다시 쓰거나 비속어 사용을 평가하지 않습니다. 입장이 바뀌었어도 그 이유가 글에 없으면 이유를 추론하지 않고 바뀐 사실만 씁니다. 글이 AI 로 작성된 것 같아도 이를 언급하거나 단정하지 않습니다.
-            6. 참가자에게 직접 말하듯 "~했어요" 체로 씁니다. 이름을 쓰지 않습니다. next_question 은 보완점과 연결된 질문 1개로, 참가자의 실제 주장에서 출발합니다.
+            6. 참가자에게 직접 말하듯 "~했어요" 체로 씁니다. 이름을 쓰지 않습니다. 본문에 source_id(p:1, d:2 같은 표시)를 쓰지 않습니다. next_question 은 보완점과 연결된 질문 1개로, 참가자의 실제 주장에서 출발합니다.
             출력은 아래 형식의 JSON 객체 하나만 씁니다. 다른 텍스트를 붙이지 않습니다.
             {
               "headline": "내 판단의 기준을 한 문장으로 (40자 이하)",
@@ -81,14 +81,23 @@ public final class ClassReportPrompts {
         for (MemberFeedbackInput.Statement statement : input.statements()) {
             sb.append("- source_id=").append(statement.sourceId())
                     .append(" | ").append(statement.createdAt() == null ? "" : statement.createdAt().format(TIME))
-                    .append(" | 종류=").append(MemberFeedbackInput.SOURCE_PERSPECTIVE.equals(statement.sourceType()) ? "의견" : "댓글")
+                    .append(" | 종류=").append(kindLabel(statement.sourceType()))
                     .append(" | 입장(참고용, 인용 금지)=").append(statement.stance() == null ? "-" : statement.stance()).append('\n');
-            if (statement.parentContext() != null) {
+            if (statement.parentContext() != null && MemberFeedbackInput.SOURCE_DEBATE.equals(statement.sourceType())) {
+                sb.append("  (직전 AI 철학자 주장, 맥락 전용·인용 금지: \"").append(statement.parentContext()).append("\")\n");
+            } else if (statement.parentContext() != null) {
                 sb.append("  (부모 맥락, 타인의 글: \"").append(statement.parentContext()).append("\")\n");
             }
             sb.append("  원문: ").append(statement.content()).append('\n');
         }
         return sb.toString();
+    }
+
+    private static String kindLabel(String sourceType) {
+        if (MemberFeedbackInput.SOURCE_PERSPECTIVE.equals(sourceType)) {
+            return "의견";
+        }
+        return MemberFeedbackInput.SOURCE_DEBATE.equals(sourceType) ? "토론 반박" : "댓글";
     }
 
     public static String classInsightUser(ClassInsightInput input) {

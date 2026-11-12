@@ -5,14 +5,17 @@ import com.swyp.picke.domain.classroom.dto.response.ClassInsightResponse;
 import com.swyp.picke.domain.classroom.dto.response.ClassMyReportResponse;
 import com.swyp.picke.domain.classroom.dto.response.ClassMyActivityResponse;
 import com.swyp.picke.domain.classroom.dto.response.ClassResultResponse;
+import com.swyp.picke.domain.classroom.entity.ClassDebateMessage;
 import com.swyp.picke.domain.classroom.entity.ClassMember;
 import com.swyp.picke.domain.classroom.entity.ClassReport;
 import com.swyp.picke.domain.classroom.entity.Classroom;
 import com.swyp.picke.domain.classroom.enums.ClassBattleType;
+import com.swyp.picke.domain.classroom.enums.ClassDebateSpeaker;
 import com.swyp.picke.domain.classroom.enums.ClassMemberRole;
 import com.swyp.picke.domain.classroom.enums.ClassReportStatus;
 import com.swyp.picke.domain.classroom.enums.ClassReportType;
 import com.swyp.picke.domain.classroom.enums.ClassReportViewState;
+import com.swyp.picke.domain.classroom.repository.ClassDebateMessageRepository;
 import com.swyp.picke.domain.classroom.repository.ClassReportRepository;
 import com.swyp.picke.domain.classroom.service.ClassAccessService.ClassAccess;
 import com.swyp.picke.domain.classroom.service.report.ClassReportSnapshotService;
@@ -60,6 +63,7 @@ public class ClassResultServiceImpl implements ClassResultService {
     private final ClassReportRepository classReportRepository;
     private final ClassResultStatsCalculator statsCalculator;
     private final ClassMidVoteService classMidVoteService;
+    private final ClassDebateMessageRepository debateMessageRepository;
     private final BattleVoteRepository battleVoteRepository;
     private final PerspectiveRepository perspectiveRepository;
     private final PerspectiveCommentRepository perspectiveCommentRepository;
@@ -361,6 +365,14 @@ public class ClassResultServiceImpl implements ClassResultService {
                 }
                 text = p.getContent();
                 createdAt = p.getCreatedAt();
+            } else if (MemberFeedbackInput.SOURCE_DEBATE.equals(sourceType)) {
+                ClassDebateMessage m = debateMessageRepository.findById(sourceId).orElse(null);
+                if (m == null || m.getSpeaker() != ClassDebateSpeaker.USER
+                        || !Objects.equals(m.getSession().getMember().getUser().getId(), userId)) {
+                    continue;
+                }
+                text = m.getContent();
+                createdAt = m.getCreatedAt();
             } else {
                 PerspectiveComment c = perspectiveCommentRepository.findById(sourceId).orElse(null);
                 if (c == null || c.isHidden() || !Objects.equals(c.getUser().getId(), userId)) {

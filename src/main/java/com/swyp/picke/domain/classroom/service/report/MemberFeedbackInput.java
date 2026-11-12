@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * 개인 리포트 AI 입력 (PRD §12). 본인 발언만 분석 대상이고 타인의 글은 부모 맥락으로만 들어간다.
+ * 개인 리포트 AI 입력 (PRD §12). 본인 발언만 분석 대상이고 타인의 글·AI 철학자 주장은 맥락으로만 들어간다.
  */
 public record MemberFeedbackInput(
         String battleTitle,
@@ -23,8 +23,8 @@ public record MemberFeedbackInput(
     }
 
     /**
-     * 본인 발언 1건. sourceId 는 "p:{perspectiveId}" / "c:{commentId}" 형식으로 AI 와 주고받는다.
-     * parentContext 는 대댓글일 때 부모 의견 원문(타인 글, 맥락 전용).
+     * 본인 발언 1건. sourceId 는 "p:{perspectiveId}" / "c:{commentId}" / "d:{debateMessageId}" 형식으로 AI 와 주고받는다.
+     * parentContext 는 댓글이면 부모 의견 원문(타인 글), 토론 반박이면 직전 AI 철학자 주장. 둘 다 맥락 전용이다.
      */
     public record Statement(String sourceId, String sourceType, Long id, LocalDateTime createdAt,
                             String stance, String content, String parentContext) {
@@ -32,9 +32,14 @@ public record MemberFeedbackInput(
 
     public static final String SOURCE_PERSPECTIVE = "PERSPECTIVE";
     public static final String SOURCE_COMMENT = "COMMENT";
+    /** 커스텀 배틀 토론 반박 (엣지 케이스 PRD EX-02) */
+    public static final String SOURCE_DEBATE = "DEBATE";
 
     public static String sourceId(String sourceType, Long id) {
-        return (SOURCE_PERSPECTIVE.equals(sourceType) ? "p:" : "c:") + id;
+        if (SOURCE_PERSPECTIVE.equals(sourceType)) {
+            return "p:" + id;
+        }
+        return (SOURCE_DEBATE.equals(sourceType) ? "d:" : "c:") + id;
     }
 
     public boolean isPartial() {

@@ -48,7 +48,7 @@ public record ClassMyReportResponse(
     @Schema(description = "근거 발언. field = judgment_basis / strength / next_focus")
     public record Evidence(
             String field,
-            @Schema(description = "PERSPECTIVE / COMMENT") String sourceType,
+            @Schema(description = "PERSPECTIVE / COMMENT / DEBATE(커스텀 배틀 토론 반박)") String sourceType,
             Long sourceId,
             @Schema(description = "피드백이 인용한 구절") String quote,
             @Schema(description = "발언 원문 (현재 기준). 삭제·숨김이면 목록에서 빠진다") String content,

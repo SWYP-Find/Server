@@ -186,7 +186,7 @@ public enum ErrorCode {
 
     // Classroom result / AI report (클래스 결과·리포트)
     CLASS_RESULT_EXPIRED(HttpStatus.CONFLICT, "CLASS_409_RESULT_EXPIRED", "결과 열람 기간이 끝났습니다."),
-    CLASS_REPORT_NOT_RETRYABLE(HttpStatus.CONFLICT, "CLASS_409_REPORT_RETRY", "지금은 AI 요약을 다시 시도할 수 없습니다."),
+    CLASS_REPORT_NOT_RETRYABLE(HttpStatus.CONFLICT, "CLASS_409_REPORT_RETRY", "지금은 AI 리포트를 다시 시도할 수 없습니다."),
 
     // Classroom custom topic (커스텀 배틀 AI 주제 제안·검증)
     CLASS_TOPIC_DRAFT_NOT_FOUND(HttpStatus.NOT_FOUND, "CLASS_404_TOPIC_DRAFT", "존재하지 않는 주제 초안입니다."),

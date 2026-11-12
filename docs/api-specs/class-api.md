@@ -106,7 +106,7 @@
 
 **마감 후: 결과 확인**
 - 결과: `GET /classes/{id}/result`
-- 내 AI 피드백: `GET /classes/{id}/result/my-report`
+- 내 AI 피드백: `GET /classes/{id}/result/my-report` (실패 시 재시도 `POST /classes/{id}/result/my-report/retry`)
 - 인사이트(운영자): `GET /classes/{id}/result/insight`
 
 ---
@@ -1057,6 +1057,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
   "data": {
     "classId": 5,
     "state": "SUCCEEDED",
+    "retryable": false,
     "closeAt": "2026-12-31T23:59:59",
     "preOption": { "optionId": 31, "title": "창작이다", "stance": "..." },
     "midVotes": [],
@@ -1099,9 +1100,22 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 - AI 피드백(`SUCCEEDED`)이라도 근거가 적으면 `analysisStatus=LIMITED`이고 확인되지 않는 항목은 null이다. 이때 `limitedReason`은 null이다.
 - `evidence[].content`는 현재 기준 원문이다. 삭제·숨김된 글은 목록에서 빠진다.
 - `coverage=partial`은 분량 제한으로 일부 글을 빼고 분석했다는 뜻이다. 뺀 글 수는 `excludedCount`에 있다.
+- AI에는 비속어를 `***`로 가려서 넘긴다. 비속어가 섞여도 이유가 있으면 분석하고, `evidence[].quote`에는 비속어가 들어간 구간을 넣지 않는다. 원문(`content`)은 그대로다.
+- 같은 내용을 반복한 댓글은 처음 것만 분석한다(공백·대소문자 차이는 같은 글로 본다).
+- 생성에 실패하면 `FAILED`이고, 수동 재시도가 남았으면 `retryable`이 true다. 재시도는 8.2.1을 쓴다.
 - 참여하지 않는 운영자는 403 `CLASS_403_MEMBER`다.
 
-### 8.2.1 내 활동 (리포트 화면)
+### 8.2.1 내 AI 피드백 재시도
+- `POST /api/v1/classes/{classId}/result/my-report/retry`
+- `FAILED`이고 `retryable`이 true일 때만 할 수 있다. 자동 2회 실패 뒤 1회 더 할 수 있다.
+- 대기열에 다시 넣고 8.2와 같은 형태로 `PENDING`을 돌려준다. 1분 안에 다시 생성된다.
+
+| 상황 | 응답 |
+|---|---|
+| 다시 시도할 수 없는 상태 | 409 `CLASS_409_REPORT_RETRY` |
+| 참여하지 않는 운영자 | 403 `CLASS_403_MEMBER` |
+
+### 8.2.2 내 활동 (리포트 화면)
 - `GET /api/v1/classes/{classId}/result/my-activity?cursor={createdAt}&size=20`
 - 참여 중인 멤버만 조회할 수 있다. 기본 페이지 크기는 20, 최대 100이다.
 - `receivedLikeCount`는 공개된 내 의견·댓글에 받은 좋아요 수 합계다. `comments`는 공개 상태인 내 댓글 목록이며, 최신순 커서 페이지네이션을 사용한다.
@@ -1412,7 +1426,7 @@ PRD "등록기한 30일·7일 전 알림은 허용된 연락 수단에서만 발
 | `CLASS_404_MID_VOTE_OPTION` | 404 | 존재하지 않는 중간투표 선택지입니다. |
 | `CLASS_409_PERSPECTIVE_REQUIRED` | 409 | 의견 작성이 필수인 클래스의 의견은 삭제할 수 없어요. 내용을 수정해 주세요. |
 | `CLASS_409_RESULT_EXPIRED` | 409 | 결과 열람 기간이 끝났습니다. |
-| `CLASS_409_REPORT_RETRY` | 409 | 지금은 AI 요약을 다시 시도할 수 없습니다. |
+| `CLASS_409_REPORT_RETRY` | 409 | 지금은 AI 리포트를 다시 시도할 수 없습니다. |
 | `CLASS_409_TOPIC_DRAFT_USED` | 409 | 이 주제 초안으로 이미 만든 클래스가 있습니다. |
 | `CLASS_409_TOPIC_GENERATING` | 409 | 주제를 만들고 있어요. 잠시 후 다시 확인해 주세요. |
 | `CLASS_409_TOPIC_SUGGEST_LIMIT` | 409 | 이 초안의 주제 추천 횟수를 모두 사용했습니다. |

@@ -345,6 +345,9 @@ class ClassDebateApiIntegrationTest {
         ClassDebateMessage second = userMessage(2);
         assertThat(second.getValidForAnalysis()).isFalse();
         assertThat(second.getResponseType()).isEqualTo(ClassDebateResponseType.RETURN_TO_TOPIC);
+        // 다음 AI 주장 프롬프트에 주제 복귀 방향이 붙는다 (debate-v5)
+        verify(aiClient).chatJson(eq("test-debate-model"), eq(ClassDebatePrompts.SYSTEM),
+                argThat(p -> p.contains("[라운드] 3 / 3") && p.contains("[응답 방향]") && p.contains("이번 주제와 관련이 없습니다")), anyInt());
 
         // 분류 장애 → 통과, 3번째 반박은 AI 응답이 없어 응답 유형이 없다
         String last = longText("세 번째");

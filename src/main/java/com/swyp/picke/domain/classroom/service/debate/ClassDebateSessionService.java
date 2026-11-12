@@ -14,6 +14,7 @@ import com.swyp.picke.domain.classroom.entity.Classroom;
 import com.swyp.picke.domain.classroom.enums.AiJobStatus;
 import com.swyp.picke.domain.classroom.enums.AiJobType;
 import com.swyp.picke.domain.classroom.enums.ClassBattleType;
+import com.swyp.picke.domain.classroom.enums.ClassDebateResponseType;
 import com.swyp.picke.domain.classroom.enums.ClassDebateSpeaker;
 import com.swyp.picke.domain.classroom.enums.ClassDebateStatus;
 import com.swyp.picke.domain.classroom.repository.AiJobRepository;
@@ -309,9 +310,16 @@ public class ClassDebateSessionService {
 
     private DebatePromptInput promptInput(ClassDebateSession session) {
         Battle battle = session.getClassroom().getBattle();
-        List<DebatePromptInput.Turn> history = messageRepository.findBySessionIdOrderByRoundIndexAscIdAsc(session.getId()).stream()
+        List<ClassDebateMessage> messages = messageRepository.findBySessionIdOrderByRoundIndexAscIdAsc(session.getId());
+        List<DebatePromptInput.Turn> history = messages.stream()
                 .map(m -> new DebatePromptInput.Turn(m.getRoundIndex(), m.getSpeaker(), m.getContent()))
                 .toList();
+        // 이번 AI 주장이 답할 직전 반박의 응답 방향 (엣지 케이스 PRD EC-03·04)
+        ClassDebateResponseType responseHint = messages.stream()
+                .filter(m -> m.getSpeaker() == ClassDebateSpeaker.USER)
+                .reduce((first, second) -> second)
+                .map(ClassDebateMessage::getResponseType)
+                .orElse(null);
         return new DebatePromptInput(
                 battle.getTitle(),
                 battle.getDescription(),
@@ -320,7 +328,8 @@ public class ClassDebateSessionService {
                 session.getPhilosopher(),
                 difficultyOf(session.getClassroom()),
                 session.getRound(),
-                history);
+                history,
+                responseHint);
     }
 
     /** 커스텀 배틀의 대상 수준 = 주제 버전의 수준 (기획 Q&A: 커스텀은 AI 철학자 반론 수준). 없으면 중급으로 본다 */

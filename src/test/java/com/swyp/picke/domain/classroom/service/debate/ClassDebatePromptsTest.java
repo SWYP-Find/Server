@@ -3,9 +3,11 @@ package com.swyp.picke.domain.classroom.service.debate;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.swyp.picke.domain.battle.enums.BattleDifficulty;
+import com.swyp.picke.domain.classroom.enums.ClassDebateResponseType;
 import com.swyp.picke.domain.classroom.enums.ClassDebateSpeaker;
 import com.swyp.picke.domain.user.enums.PhilosopherType;
 import java.util.List;
+import java.util.function.Function;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -37,7 +39,7 @@ class ClassDebatePromptsTest {
                 .contains("- 초급(중학생):", "- 중급(고등학생):", "- 고급(성인):")
                 .contains("줄바꿈을 빼고 최소 200자 이상, 500자 이하")
                 .doesNotContain("권장 200~300자");
-        assertThat(ClassDebatePrompts.PROMPT_VERSION).isEqualTo("debate-v4");
+        assertThat(ClassDebatePrompts.PROMPT_VERSION).isEqualTo("debate-v5");
     }
 
     @Test
@@ -61,9 +63,25 @@ class ClassDebatePromptsTest {
         DebatePromptInput input = new DebatePromptInput(base.question(), base.description(), base.participant(), base.opponent(),
                 base.philosopher(), base.difficulty(), 2,
                 List.of(new DebatePromptInput.Turn(1, ClassDebateSpeaker.AI, "첫 덩어리예요.\n둘째 덩어리예요."),
-                        new DebatePromptInput.Turn(1, ClassDebateSpeaker.USER, "반박이에요.")));
+                        new DebatePromptInput.Turn(1, ClassDebateSpeaker.USER, "반박이에요.")), null);
 
         assertThat(ClassDebatePrompts.user(input)).contains("(1라운드 AI 주장) 첫 덩어리예요. 둘째 덩어리예요.\n");
+    }
+
+    @Test
+    @DisplayName("직전 반박의 응답 방향(논거 구체화·주제 복귀)은 [응답 방향] 으로 붙이고, 정상 반론·분류 없음이면 붙이지 않는다")
+    void responseDirectionHint() {
+        DebatePromptInput base = input(BattleDifficulty.INTERMEDIATE);
+        List<DebatePromptInput.Turn> history = List.of(new DebatePromptInput.Turn(1, ClassDebateSpeaker.AI, "주장"),
+                new DebatePromptInput.Turn(1, ClassDebateSpeaker.USER, "반박"));
+        Function<ClassDebateResponseType, String> prompt = hint -> ClassDebatePrompts.user(new DebatePromptInput(
+                base.question(), base.description(), base.participant(), base.opponent(), base.philosopher(), base.difficulty(), 2, history, hint));
+
+        assertThat(prompt.apply(ClassDebateResponseType.RETURN_TO_TOPIC))
+                .contains("[응답 방향] (서버가 직전 참가자 반박을 분류한 결과입니다)\n직전 반박은 이번 주제와 관련이 없습니다.");
+        assertThat(prompt.apply(ClassDebateResponseType.CLARIFY)).contains("이유가 분명하지 않습니다");
+        assertThat(prompt.apply(ClassDebateResponseType.NORMAL)).doesNotContain("[응답 방향]");
+        assertThat(prompt.apply(null)).doesNotContain("[응답 방향]");
     }
 
     private static DebatePromptInput input(BattleDifficulty difficulty) {
@@ -75,6 +93,7 @@ class ClassDebatePromptsTest {
                 PhilosopherType.KANT,
                 difficulty,
                 1,
-                List.of());
+                List.of(),
+                null);
     }
 }

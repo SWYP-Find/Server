@@ -1048,6 +1048,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 - `GET /api/v1/classes/{classId}/result/my-report`
 - 참여 완료자에게 마감 후 제공한다.
 - 글 없이 투표만 했으면 `LIMITED`이고, 서버 템플릿으로 채워진다.
+- 글은 있지만 AI가 자동 재시도까지 원문 근거를 찾지 못해도 `FAILED`가 아니라 `LIMITED`이고, 서버 템플릿으로 채워진다(아래 참고).
 
 ```json
 {
@@ -1083,6 +1084,8 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 - `strength`, `nextFocus`는 기록으로 확인되지 않으면 null이다.
 - `midVotes`는 중간투표가 있는 콘텐츠에서 선택 지점마다 고른 선택지다(6.5와 같은 형태). 없으면 빈 배열이다. 중간 선택은 AI 피드백 입력에도 들어간다.
 - 글 없이 투표만 한 `LIMITED` 템플릿은 중간 선택이 있으면 "… 콘텐츠 중간에는 '무죄' 쪽을 골랐어요."를 덧붙인다.
+- 짧거나 이유가 드러나지 않는 글만 있으면 AI가 `analysisStatus=LIMITED`로 쓴다. 이때 `strength`는 null이고, `nextFocus`는 이유를 덧붙여 보라는 안내다. `state`는 `SUCCEEDED`다.
+- 원문 근거를 끝내 찾지 못한 `LIMITED` 템플릿은 headline "선택의 이유가 글에 아직 드러나지 않았어요", `nextFocus` "선택의 이유 덧붙이기", `evidence`는 빈 배열이다.
 - `evidence[].content`는 현재 기준 원문이다. 삭제·숨김된 글은 목록에서 빠진다.
 - `coverage=partial`은 분량 제한으로 일부 글을 빼고 분석했다는 뜻이다. 뺀 글 수는 `excludedCount`에 있다.
 - 참여하지 않는 운영자는 403 `CLASS_403_MEMBER`다.

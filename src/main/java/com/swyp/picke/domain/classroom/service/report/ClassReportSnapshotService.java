@@ -40,7 +40,8 @@ import org.springframework.transaction.annotation.Transactional;
  * <ul>
  *   <li>createSnapshots: 마감 감지 시 1회. CLASS_SUMMARY(통계 스냅샷) + 참여 완료자별 MEMBER_FEEDBACK(PENDING)</li>
  *   <li>prepare: 입력 생성. 글이 없으면 AI 없이 템플릿(LIMITED)으로 끝내고, 아니면 ai_jobs 를 만들고 GENERATING</li>
- *   <li>complete / fail: 결과 반영. 실패는 자동 2회까지 재시도(PENDING 복귀), 그 뒤 FAILED</li>
+ *   <li>complete / fail: 결과 반영. 실패는 자동 2회까지 재시도(PENDING 복귀), 그 뒤 FAILED.
+ *       개인 리포트가 근거 누락(EVIDENCE_MISSING)으로 끝나면 FAILED 대신 서버 템플릿(LIMITED)</li>
  * </ul>
  * 입력 분량 상한(PRD §12·§14 토큰)은 글자 수로 근사한다 (한글 1자 ≈ 1토큰 이상이므로 보수적).
  */
@@ -170,6 +171,12 @@ public class ClassReportSnapshotService {
 
     /** rejected=true 는 검증 실패(응답은 왔지만 규칙 위반), false 는 제공자 장애 */
     public void fail(Long reportId, Long jobId, String errorCode, boolean rejected, LocalDateTime now) {
+        fail(reportId, jobId, errorCode, rejected, null, now);
+    }
+
+    /** fallbackContent 가 있으면 자동 재시도를 다 쓴 뒤 FAILED 대신 그 템플릿으로 LIMITED 게시한다 */
+    public void fail(Long reportId, Long jobId, String errorCode, boolean rejected, Map<String, Object> fallbackContent,
+                     LocalDateTime now) {
         ClassReport report = classReportRepository.findById(reportId).orElseThrow();
         AiJob job = aiJobRepository.findById(jobId).orElseThrow();
         if (rejected) {
@@ -177,13 +184,16 @@ public class ClassReportSnapshotService {
         } else {
             job.fail(errorCode, now);
         }
+        log.warn("[ClassReport] generation failed reportId={} type={} attempt={} code={} rejected={}",
+                reportId, report.getType(), job.getAttempt(), errorCode, rejected);
         if (job.getAttempt() < MAX_AUTO_ATTEMPTS) {
             report.requeue();
+        } else if (fallbackContent != null) {
+            report.limit(fallbackContent, now);
+            log.warn("[ClassReport] fallback to template reportId={} type={} code={}", reportId, report.getType(), errorCode);
         } else {
             report.fail();
         }
-        log.warn("[ClassReport] generation failed reportId={} type={} attempt={} code={} rejected={}",
-                reportId, report.getType(), job.getAttempt(), errorCode, rejected);
     }
 
     /** 서버 중단 등으로 GENERATING 에 멈춘 리포트 복구 */

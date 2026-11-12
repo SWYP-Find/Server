@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.classroom.service.report;
 
 import com.swyp.picke.domain.classroom.dto.response.ClassMidVoteInfo;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -14,10 +15,13 @@ import java.util.Set;
  * AI 응답을 게시 가능한 content 로 바꾸며 PRD §13·§14 의 근거 검증을 수행한다.
  * <ul>
  *   <li>evidence_refs 의 source_id 는 본인 발언이어야 하고 quote 는 그 원문에 실제로 포함돼야 한다. 아니면 그 ref 를 버린다</li>
- *   <li>judgment_basis 에 유효 근거가 하나도 없으면 게시하지 않는다(EVIDENCE_MISSING). strength / next_focus 는 근거 없으면 null</li>
+ *   <li>judgment_basis 에 유효 근거가 하나도 없으면 게시하지 않는다(EVIDENCE_MISSING). strength / next_focus 는 근거 없으면 null.
+ *       단 AI 가 LIMITED 로 낸 next_focus 는 judgment_basis 근거를 함께 쓴다.
+ *       자동 재시도까지 근거가 없으면 생성 서비스가 {@link #insufficientMemberFeedback} 템플릿으로 대체한다</li>
  *   <li>길이는 규정의 20% 까지만 허용하고 넘으면 거절한다 (자르면 문장이 깨진다)</li>
  * </ul>
  */
+@Slf4j
 @Component
 public class ClassReportContentValidator {
 
@@ -49,14 +53,23 @@ public class ClassReportContentValidator {
             String sourceId = ReportContent.str(ref, "source_id");
             String quote = ReportContent.str(ref, "quote");
             if (field == null || sourceId == null || quote == null || quote.isBlank()) {
+                log.warn("[ClassReport] evidence dropped field={} source_id={} reason=INCOMPLETE", field, sourceId);
                 continue;
             }
             if (!FIELD_JUDGMENT_BASIS.equals(field) && !FIELD_STRENGTH.equals(field) && !FIELD_NEXT_FOCUS.equals(field)) {
+                log.warn("[ClassReport] evidence dropped field={} source_id={} reason=UNKNOWN_FIELD", field, sourceId);
                 continue;
             }
+            // 존재하지 않는 발언·타인 발언·원문에 없는 인용은 근거로 쓰지 않는다. 로그에는 원문·인용을 남기지 않는다
             MemberFeedbackInput.Statement statement = input.findStatement(sourceId.trim());
-            if (statement == null || !contains(statement.content(), quote)) {
-                continue; // 존재하지 않는 발언·타인 발언·원문에 없는 인용은 근거로 쓰지 않는다
+            if (statement == null) {
+                log.warn("[ClassReport] evidence dropped field={} source_id={} reason=NOT_OWN_STATEMENT", field, sourceId);
+                continue;
+            }
+            if (!contains(statement.content(), quote)) {
+                log.warn("[ClassReport] evidence dropped field={} source_id={} reason=QUOTE_NOT_IN_CONTENT quote_length={}",
+                        field, sourceId, quote.length());
+                continue;
             }
             Map<String, Object> valid = new LinkedHashMap<>();
             valid.put("field", field);
@@ -69,6 +82,18 @@ public class ClassReportContentValidator {
         if (!fieldsWithEvidence.contains(FIELD_JUDGMENT_BASIS)) {
             throw new ReportValidationException("EVIDENCE_MISSING");
         }
+        boolean aiLimited = "LIMITED".equalsIgnoreCase(ReportContent.str(json, "analysis_status"));
+        if (aiLimited && nextFocus != null && !fieldsWithEvidence.contains(FIELD_NEXT_FOCUS)) {
+            // 이유가 드러나지 않은 글이면 보완점(이유 덧붙이기)도 판단 기준과 같은 글에서 나온다. AI 가 근거를 빠뜨리는 경우가 많아 서버가 채운다
+            for (Map<String, Object> ref : List.copyOf(refs)) {
+                if (FIELD_JUDGMENT_BASIS.equals(ref.get("field"))) {
+                    Map<String, Object> copy = new LinkedHashMap<>(ref);
+                    copy.put("field", FIELD_NEXT_FOCUS);
+                    refs.add(copy);
+                }
+            }
+            fieldsWithEvidence.add(FIELD_NEXT_FOCUS);
+        }
         if (strength != null && !fieldsWithEvidence.contains(FIELD_STRENGTH)) {
             strength = null;
             refs.removeIf(r -> FIELD_STRENGTH.equals(r.get("field")));
@@ -78,7 +103,7 @@ public class ClassReportContentValidator {
             refs.removeIf(r -> FIELD_NEXT_FOCUS.equals(r.get("field")));
         }
 
-        String analysisStatus = "LIMITED".equalsIgnoreCase(ReportContent.str(json, "analysis_status")) ? "LIMITED" : "SUFFICIENT";
+        String analysisStatus = aiLimited ? "LIMITED" : "SUFFICIENT";
         if (strength == null && nextFocus == null) {
             analysisStatus = "LIMITED";
         }
@@ -135,6 +160,26 @@ public class ClassReportContentValidator {
     /** 투표만 있을 때의 서버 템플릿 (PRD §13 자료 부족 처리) */
     public static Map<String, Object> limitedMemberFeedback(MemberFeedbackInput.OptionInfo pre, List<ClassMidVoteInfo> mid,
                                                             MemberFeedbackInput.OptionInfo post) {
+        return limitedTemplate("선택의 이유를 확인할 글이 아직 없어요", null,
+                "지금의 선택을 한 가장 중요한 이유는 무엇인가요?", pre, mid, post, "full", 0);
+    }
+
+    /**
+     * 글은 있지만 AI 가 원문에서 판단 근거를 찾지 못했을 때의 서버 템플릿 (엣지 케이스 PRD 3.1 분석 제한).
+     * 근거 없는 AI 문장은 쓰지 않고, 짧은 답변을 낮게 평가하지 않는 보완점만 고정 문구로 둔다 (3.4).
+     */
+    public static Map<String, Object> insufficientMemberFeedback(MemberFeedbackInput input) {
+        Map<String, Object> nextFocus = new LinkedHashMap<>();
+        nextFocus.put("title", "선택의 이유 덧붙이기");
+        nextFocus.put("body", "어떤 점 때문에 이 선택을 했는지 한 가지만 구체적으로 적어 보면, 내 판단 기준이 더 잘 드러나요.");
+        return limitedTemplate("선택의 이유가 글에 아직 드러나지 않았어요", nextFocus,
+                "이 선택을 하게 만든 가장 결정적인 이유는 무엇인가요?",
+                input.preOption(), input.midChoices(), input.postOption(), input.coverage(), input.excludedCount());
+    }
+
+    private static Map<String, Object> limitedTemplate(String headline, Map<String, Object> nextFocus, String nextQuestion,
+                                                       MemberFeedbackInput.OptionInfo pre, List<ClassMidVoteInfo> mid,
+                                                       MemberFeedbackInput.OptionInfo post, String coverage, int excludedCount) {
         String judgmentBasis;
         if (pre != null && post != null && !pre.optionId().equals(post.optionId())) {
             judgmentBasis = "선택이 " + pre.title() + "에서 " + post.title() + "로 바뀌었어요.";
@@ -152,15 +197,15 @@ public class ClassReportContentValidator {
             judgmentBasis += " 콘텐츠 중간에는 " + String.join(", ", labels) + " 쪽을 골랐어요.";
         }
         Map<String, Object> content = new LinkedHashMap<>();
-        content.put("headline", "선택의 이유를 확인할 글이 아직 없어요");
+        content.put("headline", headline);
         content.put("judgment_basis", judgmentBasis);
         content.put("strength", null);
-        content.put("next_focus", null);
-        content.put("next_question", "지금의 선택을 한 가장 중요한 이유는 무엇인가요?");
+        content.put("next_focus", nextFocus);
+        content.put("next_question", nextQuestion);
         content.put("evidence_refs", List.of());
         content.put("analysis_status", "LIMITED");
-        content.put("coverage", "full");
-        content.put("excluded_count", 0);
+        content.put("coverage", coverage);
+        content.put("excluded_count", excludedCount);
         content.put("pre_option_id", pre == null ? null : pre.optionId());
         content.put("mid_choices", midChoices(mid));
         content.put("post_option_id", post == null ? null : post.optionId());

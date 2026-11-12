@@ -81,6 +81,51 @@ class ClassReportContentValidatorTest {
     }
 
     @Test
+    @DisplayName("선택지·입장 문구를 인용하면 원문에 없으므로 버리고 judgment_basis 근거 누락으로 거절한다")
+    void rejectsStanceQuote() {
+        Map<String, Object> json = baseJson();
+        json.put("evidence_refs", List.of(ref("judgment_basis", "p:10", "찬성"), ref("judgment_basis", "p:10", "선택지 2")));
+
+        assertThatThrownBy(() -> validator.validateMemberFeedback(json, input(0)))
+                .isInstanceOf(ReportValidationException.class)
+                .hasMessage("EVIDENCE_MISSING");
+    }
+
+    @Test
+    @DisplayName("AI 가 LIMITED 로 낸 보완점에 근거가 없으면 판단 기준 근거를 함께 쓴다 (SUFFICIENT 는 그대로 null)")
+    void limitedNextFocusReusesJudgmentEvidence() {
+        Map<String, Object> json = baseJson();
+        json.put("strength", null);
+        json.put("analysis_status", "LIMITED");
+        json.put("evidence_refs", List.of(ref("judgment_basis", "p:10", "데이터가 더 필요해요")));
+
+        Map<String, Object> content = validator.validateMemberFeedback(json, input(0));
+
+        assertThat(content.get("next_focus")).isNotNull();
+        assertThat(content).containsEntry("analysis_status", "LIMITED");
+        List<Map<String, Object>> refs = ReportContent.mapList(content, "evidence_refs");
+        assertThat(refs).extracting(r -> r.get("field")).containsExactly("judgment_basis", "next_focus");
+
+        json.put("analysis_status", "SUFFICIENT");
+        assertThat(validator.validateMemberFeedback(json, input(0)).get("next_focus")).isNull();
+    }
+
+    @Test
+    @DisplayName("근거 누락 대체 템플릿은 AI 문장 없이 투표 기록과 고정 보완점으로 LIMITED 를 만든다")
+    void insufficientTemplate() {
+        Map<String, Object> content = ClassReportContentValidator.insufficientMemberFeedback(input(2));
+
+        assertThat(content).containsEntry("headline", "선택의 이유가 글에 아직 드러나지 않았어요")
+                .containsEntry("judgment_basis", "선택이 선택지 1에서 선택지 2로 바뀌었어요.")
+                .containsEntry("analysis_status", "LIMITED")
+                .containsEntry("coverage", "partial")
+                .containsEntry("excluded_count", 2)
+                .containsEntry("strength", null)
+                .containsEntry("evidence_refs", List.of());
+        assertThat(ReportContent.map(content, "next_focus")).containsEntry("title", "선택의 이유 덧붙이기");
+    }
+
+    @Test
     @DisplayName("강점·보완점 모두 근거가 없으면 null 이 되고 analysis_status 는 LIMITED, 제외된 글이 있으면 coverage=partial")
     void limitedWhenNoSectionEvidence() {
         Map<String, Object> json = baseJson();

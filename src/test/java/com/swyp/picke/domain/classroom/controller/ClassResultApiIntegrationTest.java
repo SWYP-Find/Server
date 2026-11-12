@@ -458,6 +458,48 @@ class ClassResultApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("자동 재시도까지 원문 근거를 못 찾으면 FAILED 대신 서버 템플릿(LIMITED)으로 게시한다")
+    void evidenceMissingTwice_fallsBackToTemplate() throws Exception {
+        ClassInfo cls = createClass(false);
+        User student = newUser("학생A");
+        String token = tokenOf(student);
+        join(token, cls.inviteCode, "학생A");
+        completeParticipation(token, cls, optionA, optionB, "그냥 그렇게 생각해요 잘 모르겠어요");
+
+        // 두 번 모두 원문이 아닌 입장 문구를 인용 → 근거 누락
+        when(aiClient.chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
+                .thenAnswer(inv -> {
+                    String prompt = inv.getArgument(1);
+                    String sourceId = prompt.substring(prompt.indexOf("source_id=") + "source_id=".length()).split(" ")[0];
+                    return new ClassReportAiClient.AiChatResult(Map.of(
+                            "headline", "h", "judgment_basis", "j", "next_question", "q",
+                            "evidence_refs", List.of(Map.of("field", "judgment_basis", "source_id", sourceId, "quote", optionB.getStance()))
+                    ), "{}", 10, 5);
+                });
+
+        closeClass(cls.classId);
+        LocalDateTime now = LocalDateTime.now();
+        generationService.runOnce(now);
+        generationService.runOnce(now.plusMinutes(1));
+
+        ClassReport report = classReportRepository.findAll().stream()
+                .filter(r -> r.getType() == ClassReportType.MEMBER_FEEDBACK).findFirst().orElseThrow();
+        assertThat(report.getStatus()).isEqualTo(ClassReportStatus.LIMITED);
+        assertThat(jobOf(report).getStatus()).isEqualTo(AiJobStatus.REJECTED);
+        assertThat(jobOf(report).getErrorCode()).isEqualTo("EVIDENCE_MISSING");
+
+        mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("LIMITED"))
+                .andExpect(jsonPath("$.data.feedback.headline").value("선택의 이유가 글에 아직 드러나지 않았어요"))
+                .andExpect(jsonPath("$.data.feedback.judgmentBasis").value("선택이 선택지 1에서 선택지 2로 바뀌었어요."))
+                .andExpect(jsonPath("$.data.feedback.nextFocus.title").value("선택의 이유 덧붙이기"))
+                .andExpect(jsonPath("$.data.feedback.strength").doesNotExist())
+                .andExpect(jsonPath("$.data.feedback.evidence", hasSize(0)))
+                .andExpect(jsonPath("$.data.feedback.analysisStatus").value("LIMITED"));
+    }
+
+    @Test
     @DisplayName("이용권 종료 + 30일이 지나면 결과·리포트 조회가 409 CLASS_409_RESULT_EXPIRED")
     void readGraceExpired() throws Exception {
         ClassInfo cls = createClass(true);

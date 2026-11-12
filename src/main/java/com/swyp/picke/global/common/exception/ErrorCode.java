@@ -186,7 +186,7 @@ public enum ErrorCode {
 
     // Classroom result / AI report (클래스 결과·리포트)
     CLASS_RESULT_EXPIRED(HttpStatus.CONFLICT, "CLASS_409_RESULT_EXPIRED", "결과 열람 기간이 끝났습니다."),
-    CLASS_REPORT_NOT_RETRYABLE(HttpStatus.CONFLICT, "CLASS_409_REPORT_RETRY", "지금은 AI 요약을 다시 시도할 수 없습니다."),
+    CLASS_REPORT_NOT_RETRYABLE(HttpStatus.CONFLICT, "CLASS_409_REPORT_RETRY", "지금은 AI 리포트를 다시 시도할 수 없습니다."),
 
     // Classroom custom topic (커스텀 배틀 AI 주제 제안·검증)
     CLASS_TOPIC_DRAFT_NOT_FOUND(HttpStatus.NOT_FOUND, "CLASS_404_TOPIC_DRAFT", "존재하지 않는 주제 초안입니다."),
@@ -209,6 +209,8 @@ public enum ErrorCode {
     CLASS_DEBATE_REPLY_INVALID(HttpStatus.BAD_REQUEST, "CLASS_400_DEBATE_REPLY", "반박은 50자 이상 500자 이하로 적어 주세요."),
     CLASS_DEBATE_REPLY_PERSONAL_INFO(HttpStatus.BAD_REQUEST, "CLASS_400_DEBATE_PERSONAL_INFO", "전화번호·이메일 같은 개인정보는 지우고 보내 주세요."),
     CLASS_DEBATE_REPLY_BLOCKED(HttpStatus.BAD_REQUEST, "CLASS_400_DEBATE_BLOCKED", "다른 사람을 위협하거나 해칠 수 있는 표현은 보낼 수 없어요. 내용을 고쳐 주세요."),
+    CLASS_DEBATE_REPLY_MEANINGLESS(HttpStatus.BAD_REQUEST, "CLASS_400_DEBATE_MEANINGLESS", "내용을 알 수 있는 문장으로 생각을 적어 주세요."),
+    CLASS_DEBATE_REPLY_INJECTION(HttpStatus.BAD_REQUEST, "CLASS_400_DEBATE_INJECTION", "AI의 역할이나 규칙을 바꾸는 요청은 보낼 수 없어요. 주제에 대한 내 생각을 적어 주세요."),
     CLASS_DEBATE_NOT_RETRYABLE(HttpStatus.CONFLICT, "CLASS_409_DEBATE_RETRY", "지금은 다시 시도할 수 없어요."),
     CLASS_DEBATE_NOT_COMPLETED(HttpStatus.CONFLICT, "CLASS_409_DEBATE_INCOMPLETE", "AI 철학자와의 토론을 마친 뒤 사후투표를 할 수 있어요."),
     CLASS_MID_VOTE_NOT_SUPPORTED(HttpStatus.CONFLICT, "CLASS_409_MID_VOTE", "중간투표가 없는 배틀입니다."),

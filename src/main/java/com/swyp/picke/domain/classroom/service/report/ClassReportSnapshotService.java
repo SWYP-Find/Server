@@ -4,13 +4,18 @@ import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.repository.BattleOptionRepository;
 import com.swyp.picke.domain.classroom.entity.AiJob;
+import com.swyp.picke.domain.classroom.entity.ClassDebateMessage;
+import com.swyp.picke.domain.classroom.entity.ClassDebateSession;
 import com.swyp.picke.domain.classroom.entity.ClassMember;
 import com.swyp.picke.domain.classroom.entity.ClassReport;
 import com.swyp.picke.domain.classroom.entity.Classroom;
 import com.swyp.picke.domain.classroom.enums.AiJobType;
+import com.swyp.picke.domain.classroom.enums.ClassDebateSpeaker;
 import com.swyp.picke.domain.classroom.enums.ClassReportStatus;
 import com.swyp.picke.domain.classroom.enums.ClassReportType;
 import com.swyp.picke.domain.classroom.repository.AiJobRepository;
+import com.swyp.picke.domain.classroom.repository.ClassDebateMessageRepository;
+import com.swyp.picke.domain.classroom.repository.ClassDebateSessionRepository;
 import com.swyp.picke.domain.classroom.repository.ClassReportRepository;
 import com.swyp.picke.domain.classroom.repository.ClassroomRepository;
 import com.swyp.picke.domain.classroom.service.ClassMidVoteService;
@@ -25,10 +30,13 @@ import com.swyp.picke.domain.vote.repository.BattleVoteRepository;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -40,7 +48,8 @@ import org.springframework.transaction.annotation.Transactional;
  * <ul>
  *   <li>createSnapshots: 마감 감지 시 1회. CLASS_SUMMARY(통계 스냅샷) + 참여 완료자별 MEMBER_FEEDBACK(PENDING)</li>
  *   <li>prepare: 입력 생성. 글이 없으면 AI 없이 템플릿(LIMITED)으로 끝내고, 아니면 ai_jobs 를 만들고 GENERATING</li>
- *   <li>complete / fail: 결과 반영. 실패는 자동 2회까지 재시도(PENDING 복귀), 그 뒤 FAILED</li>
+ *   <li>complete / fail: 결과 반영. 실패는 자동 2회까지 재시도(PENDING 복귀), 그 뒤 FAILED.
+ *       개인 리포트가 근거 누락(EVIDENCE_MISSING)으로 끝나면 FAILED 대신 서버 템플릿(LIMITED)</li>
  * </ul>
  * 입력 분량 상한(PRD §12·§14 토큰)은 글자 수로 근사한다 (한글 1자 ≈ 1토큰 이상이므로 보수적).
  */
@@ -78,6 +87,8 @@ public class ClassReportSnapshotService {
     private final PerspectiveCommentRepository perspectiveCommentRepository;
     private final ClassReportAiClient aiClient;
     private final ClassMidVoteService classMidVoteService;
+    private final ClassDebateSessionRepository debateSessionRepository;
+    private final ClassDebateMessageRepository debateMessageRepository;
 
     /** prepare 결과. needsAi=false 면 이미 템플릿으로 끝난 것 */
     public record Prepared(Long reportId, Long jobId, ClassReportType type, boolean needsAi,
@@ -161,7 +172,9 @@ public class ClassReportSnapshotService {
         ClassReport report = classReportRepository.findById(reportId).orElseThrow();
         AiJob job = aiJobRepository.findById(jobId).orElseThrow();
         job.succeed(result.inputTokens(), result.outputTokens(), now);
-        if (report.getType() == ClassReportType.MEMBER_FEEDBACK) {
+        if (report.getType() == ClassReportType.MEMBER_FEEDBACK && validated.get("limited_reason") != null) {
+            report.limit(validated, now); // AI 가 분석할 이유가 없다고 판단해 서버 템플릿으로 대체한 경우
+        } else if (report.getType() == ClassReportType.MEMBER_FEEDBACK) {
             report.complete(validated, now);
         } else {
             report.complete(withInsight(report.getContent(), validated), now);
@@ -170,6 +183,12 @@ public class ClassReportSnapshotService {
 
     /** rejected=true 는 검증 실패(응답은 왔지만 규칙 위반), false 는 제공자 장애 */
     public void fail(Long reportId, Long jobId, String errorCode, boolean rejected, LocalDateTime now) {
+        fail(reportId, jobId, errorCode, rejected, null, now);
+    }
+
+    /** fallbackContent 가 있으면 자동 재시도를 다 쓴 뒤 FAILED 대신 그 템플릿으로 LIMITED 게시한다 */
+    public void fail(Long reportId, Long jobId, String errorCode, boolean rejected, Map<String, Object> fallbackContent,
+                     LocalDateTime now) {
         ClassReport report = classReportRepository.findById(reportId).orElseThrow();
         AiJob job = aiJobRepository.findById(jobId).orElseThrow();
         if (rejected) {
@@ -177,13 +196,16 @@ public class ClassReportSnapshotService {
         } else {
             job.fail(errorCode, now);
         }
+        log.warn("[ClassReport] generation failed reportId={} type={} attempt={} code={} rejected={}",
+                reportId, report.getType(), job.getAttempt(), errorCode, rejected);
         if (job.getAttempt() < MAX_AUTO_ATTEMPTS) {
             report.requeue();
+        } else if (fallbackContent != null) {
+            report.limit(fallbackContent, now);
+            log.warn("[ClassReport] fallback to template reportId={} type={} code={}", reportId, report.getType(), errorCode);
         } else {
             report.fail();
         }
-        log.warn("[ClassReport] generation failed reportId={} type={} attempt={} code={} rejected={}",
-                reportId, report.getType(), job.getAttempt(), errorCode, rejected);
     }
 
     /** 서버 중단 등으로 GENERATING 에 멈춘 리포트 복구 */
@@ -207,7 +229,10 @@ public class ClassReportSnapshotService {
 
     // ===== 입력 생성 =====
 
-    /** 개인 리포트 입력: 본인 PUBLISHED 의견 전부 + 본인 댓글 최신 20건, 합쳐서 8,000자 안에서 오래된 댓글부터 제외 */
+    /**
+     * 개인 리포트 입력: 본인 PUBLISHED 의견 전부 + 커스텀 배틀 토론 반박 전부(최대 3건) + 본인 댓글 최신 20건,
+     * 합쳐서 8,000자 안에서 오래된 댓글부터 제외. 같은 내용을 반복한 발언은 처음 것만 남긴다 (엣지 케이스 PRD RP-10·EX-05 중복 논거 집계 금지)
+     */
     public MemberFeedbackInput buildMemberInput(Classroom classroom, ClassMember member) {
         Battle battle = classroom.getBattle();
         Long classId = classroom.getId();
@@ -232,30 +257,41 @@ public class ClassReportSnapshotService {
             perspectives.add(new MemberFeedbackInput.Statement(
                     MemberFeedbackInput.sourceId(MemberFeedbackInput.SOURCE_PERSPECTIVE, p.getId()),
                     MemberFeedbackInput.SOURCE_PERSPECTIVE, p.getId(), p.getCreatedAt(),
-                    p.getOption() == null ? null : p.getOption().getStance(), p.getContent(), null));
+                    p.getOption() == null ? null : p.getOption().getStance(), ReportProfanityMasker.mask(p.getContent()), null));
         }
+        Set<String> seen = new HashSet<>();
+        for (MemberFeedbackInput.Statement p : perspectives) {
+            seen.add(dedupKey(p.content()));
+        }
+        List<MemberFeedbackInput.Statement> debateReplies = debateReplies(classId, member, seen);
         List<MemberFeedbackInput.Statement> comments = new ArrayList<>();
         for (PerspectiveComment c : perspectiveCommentRepository.findByClassroomIdAndUserIdAndHiddenFalseOrderByCreatedAtAsc(classId, userId)) {
+            String content = ReportProfanityMasker.mask(c.getContent());
+            if (!seen.add(dedupKey(content))) {
+                continue;
+            }
             Perspective parent = c.getPerspective();
             boolean parentIsMine = parent != null && Objects.equals(parent.getUser().getId(), userId);
-            String parentContext = parent == null || parentIsMine ? null : truncate(parent.getContent(), PARENT_CONTEXT_MAX_CHARS);
+            String parentContext = parent == null || parentIsMine ? null
+                    : truncate(ReportProfanityMasker.mask(parent.getContent()), PARENT_CONTEXT_MAX_CHARS);
             comments.add(new MemberFeedbackInput.Statement(
                     MemberFeedbackInput.sourceId(MemberFeedbackInput.SOURCE_COMMENT, c.getId()),
                     MemberFeedbackInput.SOURCE_COMMENT, c.getId(), c.getCreatedAt(),
                     parent == null || parent.getOption() == null ? null : parent.getOption().getStance(),
-                    c.getContent(), parentContext));
+                    content, parentContext));
         }
         int excluded = 0;
         while (comments.size() > MEMBER_COMMENT_MAX_COUNT) {
             comments.remove(0);
             excluded++;
         }
-        int chars = chars(perspectives) + chars(comments);
+        int chars = chars(perspectives) + chars(debateReplies) + chars(comments);
         while (chars > MEMBER_INPUT_MAX_CHARS && !comments.isEmpty()) {
             chars -= chars(List.of(comments.remove(0)));
             excluded++;
         }
         List<MemberFeedbackInput.Statement> statements = new ArrayList<>(perspectives);
+        statements.addAll(debateReplies);
         statements.addAll(comments);
         statements.sort(Comparator.comparing(MemberFeedbackInput.Statement::createdAt, Comparator.nullsLast(Comparator.naturalOrder())));
         return new MemberFeedbackInput(battle.getTitle(), battle.getSummary(), new ArrayList<>(optionById.values()),
@@ -263,8 +299,39 @@ public class ClassReportSnapshotService {
     }
 
     /**
+     * 커스텀 배틀 토론 반박 (엣지 케이스 PRD EX-02 "배틀 대화와 댓글 분석 구분"). 직전 AI 철학자 주장은 맥락으로만 붙인다
+     * (3.4 "AI 유도 질문과 자발적 의견 구분", "AI 응답을 사용자 의견으로 취급하지 않음").
+     * 입력 분류에서 분석 불가로 저장된 반박은 뺀다(4.1). 분류가 없는 반박은 넣고 리포트 AI 가 판단한다.
+     * 토론은 1:1 대화라 공개 의견 요약(인사이트)에는 넣지 않는다.
+     */
+    private List<MemberFeedbackInput.Statement> debateReplies(Long classId, ClassMember member, Set<String> seen) {
+        List<MemberFeedbackInput.Statement> replies = new ArrayList<>();
+        ClassDebateSession session = debateSessionRepository.findByClassroomIdAndMemberId(classId, member.getId()).orElse(null);
+        if (session == null) {
+            return replies;
+        }
+        String stance = session.getParticipantOption() == null ? null : session.getParticipantOption().getStance();
+        String lastArgument = null;
+        for (ClassDebateMessage m : debateMessageRepository.findBySessionIdOrderByRoundIndexAscIdAsc(session.getId())) {
+            if (m.getSpeaker() == ClassDebateSpeaker.AI) {
+                lastArgument = m.getContent();
+                continue;
+            }
+            String content = ReportProfanityMasker.mask(m.getContent());
+            if (Boolean.FALSE.equals(m.getValidForAnalysis()) || !seen.add(dedupKey(content))) {
+                continue;
+            }
+            replies.add(new MemberFeedbackInput.Statement(
+                    MemberFeedbackInput.sourceId(MemberFeedbackInput.SOURCE_DEBATE, m.getId()),
+                    MemberFeedbackInput.SOURCE_DEBATE, m.getId(), m.getCreatedAt(), stance, content,
+                    lastArgument == null ? null : truncate(ReportProfanityMasker.mask(lastArgument), PARENT_CONTEXT_MAX_CHARS)));
+        }
+        return replies;
+    }
+
+    /**
      * 인사이트 입력: 공개 의견·댓글을 작성자별 최신 2건으로 추리고 입장을 번갈아 섞어 최대 60건, 12,000자.
-     * 작성자는 익명 번호로만 표기한다 (PRD §14).
+     * 작성자는 익명 번호로만 표기한다 (PRD §14). 한 작성자가 같은 내용을 반복한 글은 처음 것만 남긴다 (RP-10).
      */
     public ClassInsightInput buildInsightInput(Classroom classroom, Map<String, Object> snapshot) {
         Battle battle = classroom.getBattle();
@@ -282,7 +349,7 @@ public class ClassReportSnapshotService {
                     MemberFeedbackInput.sourceId(MemberFeedbackInput.SOURCE_PERSPECTIVE, p.getId()),
                     MemberFeedbackInput.SOURCE_PERSPECTIVE, p.getId(), 0,
                     p.getOption() == null ? null : p.getOption().getId(),
-                    p.getOption() == null ? null : p.getOption().getStance(), p.getContent(), null)));
+                    p.getOption() == null ? null : p.getOption().getStance(), ReportProfanityMasker.mask(p.getContent()), null)));
         }
         for (PerspectiveComment c : perspectiveCommentRepository.findByClassroomIdAndHiddenFalseOrderByCreatedAtAsc(classId)) {
             Perspective parent = c.getPerspective();
@@ -293,14 +360,18 @@ public class ClassReportSnapshotService {
                     MemberFeedbackInput.sourceId(MemberFeedbackInput.SOURCE_COMMENT, c.getId()),
                     MemberFeedbackInput.SOURCE_COMMENT, c.getId(), 0,
                     parent.getOption() == null ? null : parent.getOption().getId(),
-                    parent.getOption() == null ? null : parent.getOption().getStance(), c.getContent(),
+                    parent.getOption() == null ? null : parent.getOption().getStance(), ReportProfanityMasker.mask(c.getContent()),
                     MemberFeedbackInput.sourceId(MemberFeedbackInput.SOURCE_PERSPECTIVE, parent.getId()))));
         }
 
         // 작성자 익명 번호 (첫 등장 순) + 작성자별 최신 2건
         Map<Long, Integer> authorNo = new LinkedHashMap<>();
         Map<Long, List<Raw>> byAuthor = new LinkedHashMap<>();
+        Set<String> seenByAuthor = new HashSet<>();
         for (Raw raw : raws) {
+            if (!seenByAuthor.add(raw.userId() + ":" + dedupKey(raw.post().content()))) {
+                continue;
+            }
             authorNo.computeIfAbsent(raw.userId(), id -> authorNo.size() + 1);
             byAuthor.computeIfAbsent(raw.userId(), id -> new ArrayList<>()).add(raw);
         }
@@ -359,6 +430,11 @@ public class ClassReportSnapshotService {
         Map<String, Object> content = snapshot == null ? new LinkedHashMap<>() : new LinkedHashMap<>(snapshot);
         content.put(KEY_INSIGHT, insight);
         return content;
+    }
+
+    /** 중복 판정용. 공백·대소문자 차이는 같은 글로 본다 */
+    static String dedupKey(String content) {
+        return content == null ? "" : content.replaceAll("\\s+", "").toLowerCase(Locale.ROOT);
     }
 
     private static int chars(List<MemberFeedbackInput.Statement> statements) {

@@ -106,7 +106,7 @@
 
 **마감 후: 결과 확인**
 - 결과: `GET /classes/{id}/result`
-- 내 AI 피드백: `GET /classes/{id}/result/my-report`
+- 내 AI 피드백: `GET /classes/{id}/result/my-report` (실패 시 재시도 `POST /classes/{id}/result/my-report/retry`)
 - 인사이트(운영자): `GET /classes/{id}/result/insight`
 
 ---
@@ -911,7 +911,15 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 - 저장 전에 차단 대상인지 검사한다. 차단되면 저장하지 않고 라운드도 쓰지 않으므로, 고쳐서 같은 라운드로 다시 보내면 된다.
   - 개인정보는 서버 규칙으로 검사한다.
   - 위협·위협성 혐오·미성년자 성적 표현·자해 방법·폭력적 불법행위는 OpenAI Moderation으로 검사한다. 폭력·범죄를 다루는 정상 논증은 막지 않는다.
+  - 반복 문자·자음처럼 내용을 알 수 없는 입력은 서버 규칙으로 먼저 거르고, 입력 분류 AI로 한 번 더 본다(엣지 케이스 EC-07).
+  - AI의 역할·규칙을 바꾸거나 정답·시스템 지시를 요구하는 입력(프롬프트 인젝션)은 입력 분류 AI로 검사한다(EC-08). AI·규칙을 주제로 한 정상 토론은 막지 않는다.
   - 검사 API에 장애가 나면 막지 않고 통과시킨다.
+- 접수한 반박에는 입력 분류 결과를 함께 저장한다(엣지 케이스 4.1). 응답에는 내려주지 않는다.
+  - `input_types`: NORMAL / SHORT_VALID / INSUFFICIENT / OFF_TOPIC / PROFANITY / AGGRESSIVE (여러 개 가능)
+  - `valid_for_analysis`: 논거가 있는 반박인지 (NORMAL·SHORT_VALID)
+  - `valid_argument`: 확인된 주장·이유 한 문장
+  - `response_type`: 이어질 AI 응답 성격. NORMAL(정상 반론) / CLARIFY(논거 구체화) / RETURN_TO_TOPIC(주제 복귀). 3라운드 반박은 null
+  - 분류 장애면 모두 null로 두고 접수한다.
 - `requestKey`는 중복 전송을 막는 키다. 64자 이하이고 UUID를 권장한다.
   - 같은 반박을 다시 보낼 때는 같은 키를 쓴다. 같은 키로 다시 보내면 저장된 결과를 그대로 돌려준다.
 - 반박을 저장한 뒤 다음 라운드 AI 주장을 생성한다.
@@ -922,6 +930,8 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 | 반박 길이 위반 | 400 `CLASS_400_DEBATE_REPLY` |
 | 개인정보(전화번호·이메일·주민등록번호·카드번호) 포함 | 400 `CLASS_400_DEBATE_PERSONAL_INFO` |
 | 위협 등 차단 대상 표현 | 400 `CLASS_400_DEBATE_BLOCKED` |
+| 내용을 알 수 없는 입력 (반복 문자·자음 등) | 400 `CLASS_400_DEBATE_MEANINGLESS` |
+| 프롬프트 인젝션 | 400 `CLASS_400_DEBATE_INJECTION` |
 | 다른 키로 같은 라운드를 다시 제출 | 409 `CLASS_409_DEBATE_ROUND` |
 | 반박을 받을 수 없는 상태 (생성 중·실패·완료) | 409 `CLASS_409_DEBATE_STATE` |
 | 시작 전 | 404 `CLASS_404_DEBATE` |
@@ -990,7 +1000,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 | `NOT_ELIGIBLE` | 참여 미완료라 개인 리포트 없음 | |
 | `PENDING` / `GENERATING` | 생성 대기 / 생성 중 | "생각을 정리하고 있어요" |
 | `SUCCEEDED` | 생성 완료 | |
-| `LIMITED` | 자료가 부족해 템플릿으로 대신함 | "판단의 이유를 살펴볼 글이 아직 충분하지 않아요" |
+| `LIMITED` | 분석 불가라 템플릿으로 대신함. 개인 리포트는 사유가 `feedback.limitedReason`에 있다 | 개인 리포트: `feedback.headline`·`limitedMessage`·`limitedNotice` (PRD 엣지 케이스 3.3) / 인사이트: "판단의 이유를 살펴볼 글이 아직 충분하지 않아요" |
 | `FAILED` | 생성 실패 | "AI 요약을 준비하지 못했어요" |
 
 ### 8.1 클래스 결과 (정량 통계)
@@ -1047,7 +1057,9 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 ### 8.2 내 AI 피드백
 - `GET /api/v1/classes/{classId}/result/my-report`
 - 참여 완료자에게 마감 후 제공한다.
-- 글 없이 투표만 했으면 `LIMITED`이고, 서버 템플릿으로 채워진다.
+- 분석할 수 없으면 `LIMITED`이고, 서버 템플릿(엣지 케이스 PRD 3.3)으로 채워진다. 사유는 `feedback.limitedReason`이다.
+  - `NO_POST` (Case B): 글 없이 투표만 했다.
+  - `INSUFFICIENT_EVIDENCE` (Case A): 글은 있지만 이유를 읽을 수 없다("몰라요"·무관한 글·비속어만 등). AI가 그렇게 판단했거나, 자동 재시도까지 원문 근거를 찾지 못한 경우다.
 
 ```json
 {
@@ -1055,6 +1067,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
   "data": {
     "classId": 5,
     "state": "SUCCEEDED",
+    "retryable": false,
     "closeAt": "2026-12-31T23:59:59",
     "preOption": { "optionId": 31, "title": "창작이다", "stance": "..." },
     "midVotes": [],
@@ -1068,9 +1081,13 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
       "nextFocus": { "title": "...", "body": "..." },
       "nextQuestion": "...",
       "evidence": [
-        { "field": "judgment_basis", "sourceType": "PERSPECTIVE", "sourceId": 50, "quote": "...", "content": "...", "createdAt": "2026-10-21T12:00:00" }
+        { "field": "judgment_basis", "sourceType": "PERSPECTIVE", "sourceId": 50, "quote": "...", "content": "...", "createdAt": "2026-10-21T12:00:00" },
+        { "field": "strength", "sourceType": "DEBATE", "sourceId": 77, "quote": "...", "content": "...", "createdAt": "2026-10-21T12:05:00" }
       ],
       "analysisStatus": "SUFFICIENT",
+      "limitedReason": null,
+      "limitedMessage": null,
+      "limitedNotice": null,
       "coverage": "full",
       "excludedCount": 0
     },
@@ -1082,12 +1099,37 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 - `feedback`은 `state`가 `SUCCEEDED`나 `LIMITED`일 때만 있다. 그 외에는 null이다.
 - `strength`, `nextFocus`는 기록으로 확인되지 않으면 null이다.
 - `midVotes`는 중간투표가 있는 콘텐츠에서 선택 지점마다 고른 선택지다(6.5와 같은 형태). 없으면 빈 배열이다. 중간 선택은 AI 피드백 입력에도 들어간다.
-- 글 없이 투표만 한 `LIMITED` 템플릿은 중간 선택이 있으면 "… 콘텐츠 중간에는 '무죄' 쪽을 골랐어요."를 덧붙인다.
+- `LIMITED` 템플릿 문구
+
+| limitedReason | headline | limitedMessage | limitedNotice |
+|---|---|---|---|
+| `NO_POST` | 작성된 의견이 없어요. | 배틀에 참여했지만 작성된 의견이 없어 사고 과정 분석을 제공하지 않습니다. | 참여 여부와 투표 결과는 확인할 수 있습니다. |
+| `INSUFFICIENT_EVIDENCE` | 의견 분석을 진행하지 못했어요. | 작성된 의견에서 주제와 관련된 주장이나 근거를 충분히 확인하기 어려워 사고 과정 분석을 제공하지 않습니다. | 투표 결과와 참여 기록은 정상적으로 확인할 수 있습니다. |
+
+- `LIMITED` 템플릿의 `judgmentBasis`는 선택 기록만 말한다(예: "선택이 A에서 B로 바뀌었어요."). 바뀐 이유는 추론하지 않는다. 중간 선택이 있으면 "… 콘텐츠 중간에는 '무죄' 쪽을 골랐어요."를 덧붙인다.
+- `LIMITED` 템플릿은 `strength`, `nextFocus`, `nextQuestion`이 null이고 `evidence`는 빈 배열이다.
+- AI 피드백(`SUCCEEDED`)이라도 근거가 적으면 `analysisStatus=LIMITED`이고 확인되지 않는 항목은 null이다. 이때 `limitedReason`은 null이다.
 - `evidence[].content`는 현재 기준 원문이다. 삭제·숨김된 글은 목록에서 빠진다.
 - `coverage=partial`은 분량 제한으로 일부 글을 빼고 분석했다는 뜻이다. 뺀 글 수는 `excludedCount`에 있다.
+- AI에는 비속어를 `***`로 가려서 넘긴다. 비속어가 섞여도 이유가 있으면 분석하고, `evidence[].quote`에는 비속어가 들어간 구간을 넣지 않는다. 원문(`content`)은 그대로다.
+- 같은 내용을 반복한 댓글은 처음 것만 분석한다(공백·대소문자 차이는 같은 글로 본다).
+- 커스텀 배틀 클래스는 본인 토론 반박도 분석한다(엣지 케이스 EX-02). 근거는 `evidence[].sourceType=DEBATE`, `sourceId`는 토론 메시지 ID다.
+  - 입력 분류에서 분석 불가(주제 무관·이유 부족 등)로 저장된 반박은 빼고, 직전 AI 철학자 주장은 맥락으로만 쓴다(인용하지 않음).
+  - 토론은 1:1 대화라 인사이트(8.3)에는 들어가지 않는다.
+- 생성에 실패하면 `FAILED`이고, 수동 재시도가 남았으면 `retryable`이 true다. 재시도는 8.2.1을 쓴다.
 - 참여하지 않는 운영자는 403 `CLASS_403_MEMBER`다.
 
-### 8.2.1 내 활동 (리포트 화면)
+### 8.2.1 내 AI 피드백 재시도
+- `POST /api/v1/classes/{classId}/result/my-report/retry`
+- `FAILED`이고 `retryable`이 true일 때만 할 수 있다. 자동 2회 실패 뒤 1회 더 할 수 있다.
+- 대기열에 다시 넣고 8.2와 같은 형태로 `PENDING`을 돌려준다. 1분 안에 다시 생성된다.
+
+| 상황 | 응답 |
+|---|---|
+| 다시 시도할 수 없는 상태 | 409 `CLASS_409_REPORT_RETRY` |
+| 참여하지 않는 운영자 | 403 `CLASS_403_MEMBER` |
+
+### 8.2.2 내 활동 (리포트 화면)
 - `GET /api/v1/classes/{classId}/result/my-activity?cursor={createdAt}&size=20`
 - 참여 중인 멤버만 조회할 수 있다. 기본 페이지 크기는 20, 최대 100이다.
 - `receivedLikeCount`는 공개된 내 의견·댓글에 받은 좋아요 수 합계다. `comments`는 공개 상태인 내 댓글 목록이며, 최신순 커서 페이지네이션을 사용한다.
@@ -1369,6 +1411,8 @@ PRD "등록기한 30일·7일 전 알림은 허용된 연락 수단에서만 발
 | `CLASS_400_DEBATE_REPLY` | 400 | 반박은 50자 이상 500자 이하로 적어 주세요. |
 | `CLASS_400_DEBATE_PERSONAL_INFO` | 400 | 전화번호·이메일 같은 개인정보는 지우고 보내 주세요. |
 | `CLASS_400_DEBATE_BLOCKED` | 400 | 다른 사람을 위협하거나 해칠 수 있는 표현은 보낼 수 없어요. 내용을 고쳐 주세요. |
+| `CLASS_400_DEBATE_MEANINGLESS` | 400 | 내용을 알 수 있는 문장으로 생각을 적어 주세요. |
+| `CLASS_400_DEBATE_INJECTION` | 400 | AI의 역할이나 규칙을 바꾸는 요청은 보낼 수 없어요. 주제에 대한 내 생각을 적어 주세요. |
 | `CLASS_403_TICKET` | 403 | 사용 중인 이용권이 없어 클래스를 만들 수 없습니다. |
 | `CLASS_403_OWNER` | 403 | 클래스 운영자만 할 수 있습니다. |
 | `CLASS_403_MEMBER` | 403 | 클래스 멤버만 볼 수 있습니다. |
@@ -1398,7 +1442,7 @@ PRD "등록기한 30일·7일 전 알림은 허용된 연락 수단에서만 발
 | `CLASS_404_MID_VOTE_OPTION` | 404 | 존재하지 않는 중간투표 선택지입니다. |
 | `CLASS_409_PERSPECTIVE_REQUIRED` | 409 | 의견 작성이 필수인 클래스의 의견은 삭제할 수 없어요. 내용을 수정해 주세요. |
 | `CLASS_409_RESULT_EXPIRED` | 409 | 결과 열람 기간이 끝났습니다. |
-| `CLASS_409_REPORT_RETRY` | 409 | 지금은 AI 요약을 다시 시도할 수 없습니다. |
+| `CLASS_409_REPORT_RETRY` | 409 | 지금은 AI 리포트를 다시 시도할 수 없습니다. |
 | `CLASS_409_TOPIC_DRAFT_USED` | 409 | 이 주제 초안으로 이미 만든 클래스가 있습니다. |
 | `CLASS_409_TOPIC_GENERATING` | 409 | 주제를 만들고 있어요. 잠시 후 다시 확인해 주세요. |
 | `CLASS_409_TOPIC_SUGGEST_LIMIT` | 409 | 이 초안의 주제 추천 횟수를 모두 사용했습니다. |

@@ -5,14 +5,17 @@ import com.swyp.picke.domain.classroom.dto.response.ClassInsightResponse;
 import com.swyp.picke.domain.classroom.dto.response.ClassMyReportResponse;
 import com.swyp.picke.domain.classroom.dto.response.ClassMyActivityResponse;
 import com.swyp.picke.domain.classroom.dto.response.ClassResultResponse;
+import com.swyp.picke.domain.classroom.entity.ClassDebateMessage;
 import com.swyp.picke.domain.classroom.entity.ClassMember;
 import com.swyp.picke.domain.classroom.entity.ClassReport;
 import com.swyp.picke.domain.classroom.entity.Classroom;
 import com.swyp.picke.domain.classroom.enums.ClassBattleType;
+import com.swyp.picke.domain.classroom.enums.ClassDebateSpeaker;
 import com.swyp.picke.domain.classroom.enums.ClassMemberRole;
 import com.swyp.picke.domain.classroom.enums.ClassReportStatus;
 import com.swyp.picke.domain.classroom.enums.ClassReportType;
 import com.swyp.picke.domain.classroom.enums.ClassReportViewState;
+import com.swyp.picke.domain.classroom.repository.ClassDebateMessageRepository;
 import com.swyp.picke.domain.classroom.repository.ClassReportRepository;
 import com.swyp.picke.domain.classroom.service.ClassAccessService.ClassAccess;
 import com.swyp.picke.domain.classroom.service.report.ClassReportSnapshotService;
@@ -60,6 +63,7 @@ public class ClassResultServiceImpl implements ClassResultService {
     private final ClassReportRepository classReportRepository;
     private final ClassResultStatsCalculator statsCalculator;
     private final ClassMidVoteService classMidVoteService;
+    private final ClassDebateMessageRepository debateMessageRepository;
     private final BattleVoteRepository battleVoteRepository;
     private final PerspectiveRepository perspectiveRepository;
     private final PerspectiveCommentRepository perspectiveCommentRepository;
@@ -123,7 +127,7 @@ public class ClassResultServiceImpl implements ClassResultService {
             generatedAt = report.getGeneratedAt();
         }
         return new ClassMyReportResponse(
-                classId, state, classroom.getEffectiveCloseAt(),
+                classId, state, report != null && isRetryable(report), classroom.getEffectiveCloseAt(),
                 toOption(vote == null ? null : vote.getPreVoteOption()),
                 classMidVoteService.choicesOf(classroom, vote),
                 toOption(vote == null ? null : vote.getPostVoteOption()),
@@ -188,6 +192,24 @@ public class ClassResultServiceImpl implements ClassResultService {
         return toInsight(classId, summary, access.classroom().isClosed(now));
     }
 
+    @Override
+    @Transactional
+    public ClassMyReportResponse retryMyReport(Long userId, Long classId) {
+        LocalDateTime now = LocalDateTime.now(KST);
+        ClassAccess access = classAccessService.requireResultReadable(classId, userId, now);
+        ClassMember member = access.member();
+        if (member == null) {
+            throw new CustomException(ErrorCode.CLASS_MEMBER_ONLY);
+        }
+        ClassReport report = access.classroom().isClosed(now) ? classReportRepository
+                .findByClassroomIdAndMemberIdAndType(classId, member.getId(), ClassReportType.MEMBER_FEEDBACK).orElse(null) : null;
+        if (report == null || !isRetryable(report)) {
+            throw new CustomException(ErrorCode.CLASS_REPORT_NOT_RETRYABLE);
+        }
+        report.requeue(); // 스케줄러가 다음 틱에 같은 ai_job 으로 다시 시도한다
+        return getMyReport(userId, classId);
+    }
+
     // ===== 상태 판정 =====
 
     private ClassAccess requireOwner(Long classId, Long userId, LocalDateTime now) {
@@ -241,11 +263,11 @@ public class ClassResultServiceImpl implements ClassResultService {
         };
     }
 
-    private static boolean isRetryable(ClassReport summary) {
-        if (summary.getStatus() != ClassReportStatus.FAILED) {
+    private static boolean isRetryable(ClassReport report) {
+        if (report.getStatus() != ClassReportStatus.FAILED) {
             return false;
         }
-        return summary.getAiJob() == null || summary.getAiJob().getAttempt() < ClassReportSnapshotService.MAX_MANUAL_ATTEMPTS;
+        return report.getAiJob() == null || report.getAiJob().getAttempt() < ClassReportSnapshotService.MAX_MANUAL_ATTEMPTS;
     }
 
     // ===== 응답 변환 =====
@@ -343,6 +365,14 @@ public class ClassResultServiceImpl implements ClassResultService {
                 }
                 text = p.getContent();
                 createdAt = p.getCreatedAt();
+            } else if (MemberFeedbackInput.SOURCE_DEBATE.equals(sourceType)) {
+                ClassDebateMessage m = debateMessageRepository.findById(sourceId).orElse(null);
+                if (m == null || m.getSpeaker() != ClassDebateSpeaker.USER
+                        || !Objects.equals(m.getSession().getMember().getUser().getId(), userId)) {
+                    continue;
+                }
+                text = m.getContent();
+                createdAt = m.getCreatedAt();
             } else {
                 PerspectiveComment c = perspectiveCommentRepository.findById(sourceId).orElse(null);
                 if (c == null || c.isHidden() || !Objects.equals(c.getUser().getId(), userId)) {
@@ -362,6 +392,9 @@ public class ClassResultServiceImpl implements ClassResultService {
                 ReportContent.str(content, "next_question"),
                 evidence,
                 ReportContent.str(content, "analysis_status"),
+                ReportContent.str(content, "limited_reason"),
+                ReportContent.str(content, "limited_message"),
+                ReportContent.str(content, "limited_notice"),
                 ReportContent.str(content, "coverage"),
                 ReportContent.asInt(content, "excluded_count"));
     }

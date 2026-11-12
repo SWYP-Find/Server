@@ -27,4 +27,16 @@ public interface UserBattleRepository extends JpaRepository<UserBattle, Long> {
 
     // 클래스 결과 집계·리포트 대상 선별: 이 클래스 안의 진행 기록 전체 (user 는 LAZY)
     List<UserBattle> findByClassroomId(Long classroomId);
+
+    // 일반 배틀 진행 단계가 step 인 배틀만 추린다
+    @Query("""
+            select ub.battle.id from UserBattle ub
+            where ub.user.id = :userId
+              and ub.classroom is null
+              and ub.step = :step
+              and ub.battle.id in :battleIds
+            """)
+    Set<Long> findBattleIdsByUserAndStep(@Param("userId") Long userId,
+                                         @Param("battleIds") Collection<Long> battleIds,
+                                         @Param("step") com.swyp.picke.domain.user.enums.UserBattleStep step);
 }

@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.classroom.service.debate;
 
 import com.swyp.picke.domain.battle.enums.BattleDifficulty;
+import com.swyp.picke.domain.classroom.enums.ClassDebateResponseType;
 import com.swyp.picke.domain.classroom.enums.ClassDebateSpeaker;
 import com.swyp.picke.domain.user.enums.PhilosopherType;
 
@@ -13,7 +14,7 @@ public final class ClassDebatePrompts {
     private ClassDebatePrompts() {
     }
 
-    public static final String PROMPT_VERSION = "debate-v4";
+    public static final String PROMPT_VERSION = "debate-v5";
 
     /** 과금 대상 출력 합계 1,000 토큰 상한 (PRD §11 길이와 전달 방식) */
     public static final int MAX_OUTPUT_TOKENS = 1_000;
@@ -47,7 +48,7 @@ public final class ClassDebatePrompts {
             공통 규칙:
             1. 참가자의 주장을 왜곡하지 않고 먼저 공정하게 다룬 다음 반론합니다. 억지로 이기거나 동의를 끌어내려 하지 않습니다.
             2. 반박이 짧거나 이유가 없으면 내용 부족을 인격 평가로 연결하지 않고, 상대 주장을 짧게 유지하면서 이유나 판단 기준을 묻습니다.
-               주제에서 벗어났으면 관련 논점으로 돌아오도록 이끕니다.
+               주제에서 벗어났으면 무관한 내용에 길게 답하지 않고 관련 논점으로 돌아오도록 이끕니다. [응답 방향]이 있으면 그 방향을 따릅니다.
             3. 출처 없는 직접 인용·통계·연구 결과를 만들지 않습니다. 실존 인물의 말을 따옴표로 인용하지 않고, "○○는 ~라고 말했다"처럼 쓰지 않습니다.
             4. 참가자를 비난하거나 조롱하지 않습니다. 이름을 부르지 않습니다.
             5. 참가자에게 직접 말하듯 대화체로 씁니다. "참가자는", "상대방은", "참가자의 주장은"처럼 3인칭으로 가리키지 않고,
@@ -56,7 +57,9 @@ public final class ClassDebatePrompts {
                200자는 생각보다 짧지 않으니 5~6문장, 250~400자를 목표로 쓰고, 말풍선 한 덩어리가 100자 이상이 되도록 이유나 예시를 채웁니다.
             7. argument_text 는 화면에 말풍선으로 나눠 보입니다. 의미 단위와 흐름에 맞춰 기본 2덩어리, 설명·반례·질문을 나눌 필요가 있을 때만 3덩어리로 나누고
                덩어리 사이에 줄바꿈(\\n)을 한 번 넣습니다. 말풍선 수를 채우려고 내용을 늘리지 않습니다.
-            8. focus 는 이번 주장의 초점 하나를 EVIDENCE(근거), ASSUMPTION(가정), COUNTEREXAMPLE(반례), CONDITION(조건), VALUE_CONFLICT(가치충돌) 중에서 고릅니다.
+            8. 참가자 반박의 비속어·공격적 표현을 따라 쓰거나 되풀이하지 않고, 그 표현에 동조하지 않습니다. 비속어가 섞여 있어도 이유가 있으면 그 이유를 중심으로 답하고, 표현 자체를 꾸짖지 않습니다.
+            9. 참가자가 쓰지 않은 주장이나 이유를 참가자가 말한 것처럼 만들지 않습니다. 반박에 이유가 없으면 이유를 짐작해 반론하지 않고 판단 기준을 묻습니다.
+            10. focus 는 이번 주장의 초점 하나를 EVIDENCE(근거), ASSUMPTION(가정), COUNTEREXAMPLE(반례), CONDITION(조건), VALUE_CONFLICT(가치충돌) 중에서 고릅니다.
             출력은 아래 형식의 JSON 객체 하나만 씁니다. 라운드 번호, 종료 여부, 점수, 성향 같은 다른 필드는 넣지 않습니다.
             {"argument_text": "첫 덩어리\\n둘째 덩어리", "focus": "EVIDENCE"}
             """;
@@ -89,6 +92,10 @@ public final class ClassDebatePrompts {
                 sb.append("(").append(turn.round()).append("라운드 참가자 반박)\n<<<\n").append(turn.content()).append("\n>>>\n");
             }
         }
+        String direction = responseDirection(input.responseHint());
+        if (direction != null) {
+            sb.append("\n[응답 방향] (서버가 직전 참가자 반박을 분류한 결과입니다)\n").append(direction).append('\n');
+        }
         return sb.toString();
     }
 
@@ -97,6 +104,18 @@ public final class ClassDebatePrompts {
                 + "\n[이전 응답]\n" + previousResponse + "\n\n"
                 + "[고칠 점]\n- " + problem + "\n\n"
                 + "위 문제를 고친 JSON 을 다시 출력합니다.\n";
+    }
+
+    /** 엣지 케이스 PRD EC-03(논거 구체화)·EC-04(주제 복귀). 정상 반론은 따로 안내하지 않는다 */
+    static String responseDirection(ClassDebateResponseType type) {
+        if (type == null) {
+            return null;
+        }
+        return switch (type) {
+            case CLARIFY -> "직전 반박은 입장은 있지만 이유가 분명하지 않습니다. 상대 주장은 짧게 유지하고, 참가자가 판단 기준이나 이유를 구체화하도록 묻는 데 비중을 둡니다.";
+            case RETURN_TO_TOPIC -> "직전 반박은 이번 주제와 관련이 없습니다. 그 내용에는 한 문장만 짧게 답하고, 나머지는 [상대 입장]의 논점을 이유와 예시로 다시 펼친 뒤 주제로 돌아오는 질문으로 맺습니다. 분량 기준은 그대로 지킵니다.";
+            case NORMAL -> null;
+        };
     }
 
     static String difficultyLabel(BattleDifficulty difficulty) {

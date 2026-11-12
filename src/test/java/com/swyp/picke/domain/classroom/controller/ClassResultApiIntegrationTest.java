@@ -31,13 +31,19 @@ import com.swyp.picke.domain.battle.enums.BattleStatus;
 import com.swyp.picke.domain.battle.repository.BattleOptionRepository;
 import com.swyp.picke.domain.battle.repository.BattleRepository;
 import com.swyp.picke.domain.classroom.entity.AiJob;
+import com.swyp.picke.domain.classroom.entity.ClassDebateMessage;
+import com.swyp.picke.domain.classroom.entity.ClassDebateSession;
+import com.swyp.picke.domain.classroom.entity.ClassMember;
 import com.swyp.picke.domain.classroom.entity.ClassReport;
 import com.swyp.picke.domain.classroom.entity.Classroom;
 import com.swyp.picke.domain.classroom.enums.AiJobStatus;
 import com.swyp.picke.domain.classroom.enums.AiJobType;
+import com.swyp.picke.domain.classroom.enums.ClassDebateSpeaker;
 import com.swyp.picke.domain.classroom.enums.ClassReportStatus;
 import com.swyp.picke.domain.classroom.enums.ClassReportType;
 import com.swyp.picke.domain.classroom.repository.AiJobRepository;
+import com.swyp.picke.domain.classroom.repository.ClassDebateMessageRepository;
+import com.swyp.picke.domain.classroom.repository.ClassDebateSessionRepository;
 import com.swyp.picke.domain.classroom.repository.ClassMemberRepository;
 import com.swyp.picke.domain.classroom.repository.ClassReportRepository;
 import com.swyp.picke.domain.classroom.repository.ClassroomRepository;
@@ -57,6 +63,7 @@ import com.swyp.picke.domain.ticket.enums.RewardTier;
 import com.swyp.picke.domain.ticket.repository.ClassTicketRepository;
 import com.swyp.picke.domain.ticket.repository.FundingOrderRepository;
 import com.swyp.picke.domain.user.entity.User;
+import com.swyp.picke.domain.user.enums.PhilosopherType;
 import com.swyp.picke.domain.user.entity.UserProfile;
 import com.swyp.picke.domain.user.enums.CharacterType;
 import com.swyp.picke.domain.user.enums.UserRole;
@@ -121,6 +128,8 @@ class ClassResultApiIntegrationTest {
     @Autowired private PerspectiveCommentRepository perspectiveCommentRepository;
     @Autowired private ClassReportRepository classReportRepository;
     @Autowired private AiJobRepository aiJobRepository;
+    @Autowired private ClassDebateSessionRepository debateSessionRepository;
+    @Autowired private ClassDebateMessageRepository debateMessageRepository;
     @Autowired private ClassReportGenerationService generationService;
 
     @MockitoBean
@@ -168,6 +177,8 @@ class ClassResultApiIntegrationTest {
     private void cleanUp() {
         classReportRepository.deleteAll();
         aiJobRepository.deleteAll();
+        debateMessageRepository.deleteAll();
+        debateSessionRepository.deleteAll();
         perspectiveCommentRepository.deleteAll();
         perspectiveRepository.deleteAll();
         classMidVoteRepository.deleteAll();
@@ -327,9 +338,11 @@ class ClassResultApiIntegrationTest {
         mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.state").value("LIMITED"))
-                .andExpect(jsonPath("$.data.feedback.headline").value("선택의 이유를 확인할 글이 아직 없어요"))
+                .andExpect(jsonPath("$.data.feedback.headline").value("작성된 의견이 없어요."))
+                .andExpect(jsonPath("$.data.feedback.limitedReason").value("NO_POST"))
+                .andExpect(jsonPath("$.data.feedback.limitedNotice").value("참여 여부와 투표 결과는 확인할 수 있습니다."))
                 .andExpect(jsonPath("$.data.feedback.judgmentBasis").value("선택이 선택지 1에서 선택지 2로 바뀌었어요."))
-                .andExpect(jsonPath("$.data.feedback.nextQuestion").value("지금의 선택을 한 가장 중요한 이유는 무엇인가요?"))
+                .andExpect(jsonPath("$.data.feedback.nextQuestion").doesNotExist())
                 .andExpect(jsonPath("$.data.feedback.strength").doesNotExist())
                 .andExpect(jsonPath("$.data.feedback.nextFocus").doesNotExist())
                 .andExpect(jsonPath("$.data.feedback.evidence", hasSize(0)));
@@ -455,6 +468,190 @@ class ClassResultApiIntegrationTest {
         mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.state").value("SUCCEEDED"));
+    }
+
+    @Test
+    @DisplayName("개인 리포트: 제공자 장애로 자동 2회 실패 → FAILED + retryable → 본인 재시도 → 성공, 이후에는 재시도 불가")
+    void memberReport_retryFlow() throws Exception {
+        ClassInfo cls = createClass(false);
+        User student = newUser("학생A");
+        String token = tokenOf(student);
+        join(token, cls.inviteCode, "학생A");
+        completeParticipation(token, cls, optionA, optionB, "효과가 입증되지 않아 반대합니다. 표본이 너무 작아요.");
+        when(aiClient.chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
+                .thenThrow(new RuntimeException("provider down"));
+
+        closeClass(cls.classId);
+        LocalDateTime now = LocalDateTime.now();
+        // 생성 전(PENDING)에는 재시도할 수 없다
+        mockMvc.perform(post(result(cls) + "/my-report/retry").header("Authorization", "Bearer " + token))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_REPORT_RETRY"));
+        generationService.runOnce(now);
+        generationService.runOnce(now.plusMinutes(1));
+
+        mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("FAILED"))
+                .andExpect(jsonPath("$.data.retryable").value(true))
+                .andExpect(jsonPath("$.data.feedback").doesNotExist());
+
+        // thenThrow 로 막아 둔 메서드라 when(...) 대신 doAnswer 로 바꾼다
+        org.mockito.Mockito.doAnswer(inv -> memberFeedbackAnswer(inv.getArgument(1)))
+                .when(aiClient).chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt());
+        mockMvc.perform(post(result(cls) + "/my-report/retry").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("PENDING"))
+                .andExpect(jsonPath("$.data.retryable").value(false));
+        generationService.runOnce(now.plusMinutes(2));
+        mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("SUCCEEDED"))
+                .andExpect(jsonPath("$.data.retryable").value(false));
+        mockMvc.perform(post(result(cls) + "/my-report/retry").header("Authorization", "Bearer " + token))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("토론 반박은 개인 리포트에 '토론 반박'으로 들어가고 직전 AI 주장은 맥락으로만 붙는다. 분석 불가로 분류된 반박은 빠지고, 근거는 DEBATE 로 보인다 (EX-02)")
+    void debateReplies_inMemberReport() throws Exception {
+        ClassInfo cls = createClass(false);
+        User student = newUser("학생A");
+        String token = tokenOf(student);
+        join(token, cls.inviteCode, "학생A");
+        completeParticipation(token, cls, optionA, optionB, "효과가 입증되지 않아 반대합니다. 표본이 너무 작아요.");
+        Classroom classroom = classroomRepository.findById(cls.classId).orElseThrow();
+        ClassMember member = classMemberRepository.findAll().stream()
+                .filter(m -> m.getUser().getId().equals(student.getId())).findFirst().orElseThrow();
+        ClassDebateSession session = debateSessionRepository.save(ClassDebateSession.builder()
+                .classroom(classroom).member(member).participantOption(optionB).opponentOption(optionA)
+                .philosopher(PhilosopherType.SOCRATES).now(LocalDateTime.now()).build());
+        debateMessageRepository.save(ClassDebateMessage.builder().session(session).roundIndex(1).speaker(ClassDebateSpeaker.AI)
+                .content("표본이 작아도 효과가 보이면 충분하지 않을까요?").build());
+        ClassDebateMessage valid = debateMessageRepository.save(ClassDebateMessage.builder().session(session).roundIndex(1)
+                .speaker(ClassDebateSpeaker.USER).content("표본이 작으면 우연일 수 있어서 반복 실험으로 확인해야 한다고 생각해요.")
+                .validForAnalysis(true).build());
+        debateMessageRepository.save(ClassDebateMessage.builder().session(session).roundIndex(2).speaker(ClassDebateSpeaker.AI)
+                .content("반복 실험이 불가능한 경우는요?").build());
+        ClassDebateMessage offTopic = debateMessageRepository.save(ClassDebateMessage.builder().session(session).roundIndex(2)
+                .speaker(ClassDebateSpeaker.USER).content("오늘 점심은 김치찌개를 먹고 싶어요.").validForAnalysis(false).build());
+
+        String debateId = "d:" + valid.getId();
+        when(aiClient.chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
+                .thenReturn(new ClassReportAiClient.AiChatResult(Map.of(
+                        "headline", "반복 확인을 중시하는 판단", "judgment_basis", "우연을 배제하려고 반복 확인을 기준으로 삼았어요.",
+                        "next_question", "반복 실험이 어려울 때는 무엇으로 확인할 수 있을까요?",
+                        "evidence_refs", List.of(Map.of("field", "judgment_basis", "source_id", debateId, "quote", "반복 실험으로 확인해야")),
+                        "analysis_status", "SUFFICIENT"), "{}", 10, 5));
+
+        closeClass(cls.classId);
+        generationService.runOnce(LocalDateTime.now());
+
+        verify(aiClient).chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), argThat(prompt -> prompt.contains("source_id=" + debateId)
+                && prompt.contains("종류=토론 반박")
+                && prompt.contains("(직전 AI 철학자 주장, 맥락 전용·인용 금지: \"표본이 작아도 효과가 보이면 충분하지 않을까요?\")")
+                && !prompt.contains("d:" + offTopic.getId())
+                && !prompt.contains("김치찌개")), anyInt());
+        mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("SUCCEEDED"))
+                .andExpect(jsonPath("$.data.feedback.evidence", hasSize(1)))
+                .andExpect(jsonPath("$.data.feedback.evidence[0].sourceType").value("DEBATE"))
+                .andExpect(jsonPath("$.data.feedback.evidence[0].sourceId").value(valid.getId()))
+                .andExpect(jsonPath("$.data.feedback.evidence[0].content").value("표본이 작으면 우연일 수 있어서 반복 실험으로 확인해야 한다고 생각해요."));
+    }
+
+    @Test
+    @DisplayName("같은 내용을 반복한 댓글은 개인 리포트 AI 입력에 한 번만 들어간다 (RP-10)")
+    void duplicateComments_mergedInMemberInput() throws Exception {
+        ClassInfo cls = createClass(false);
+        User student = newUser("학생A");
+        String token = tokenOf(student);
+        join(token, cls.inviteCode, "학생A");
+        completeParticipation(token, cls, optionA, optionB, "효과가 입증되지 않아 반대합니다. 표본이 너무 작아요.");
+        Perspective mine = perspectiveRepository.findAll().get(0);
+        Classroom classroom = classroomRepository.findById(cls.classId).orElseThrow();
+        for (String content : List.of("표본 크기가 중요해요.", "표본 크기가 중요해요.", "표본  크기가 중요해요. ", "효과가 입증되지 않아 반대합니다. 표본이 너무 작아요.")) {
+            perspectiveCommentRepository.save(PerspectiveComment.builder()
+                    .perspective(mine).user(student).classroom(classroom).content(content).build());
+        }
+        stubMemberFeedback();
+
+        closeClass(cls.classId);
+        generationService.runOnce(LocalDateTime.now());
+
+        verify(aiClient).chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM),
+                argThat(prompt -> prompt.contains("(시간순, 총 2건)") && prompt.split("표본 크기가 중요해요", -1).length == 2), anyInt());
+    }
+
+    @Test
+    @DisplayName("AI 가 이유를 읽을 글이 없다고(INSUFFICIENT) 판단하면 재시도 없이 근거 부족 템플릿(LIMITED)으로 게시한다")
+    void insufficientFromAi_isLimitedWithoutRetry() throws Exception {
+        ClassInfo cls = createClass(false);
+        User student = newUser("학생A");
+        String token = tokenOf(student);
+        join(token, cls.inviteCode, "학생A");
+        completeParticipation(token, cls, optionA, optionB, "그냥 그렇게 생각해요 잘 모르겠어요");
+        when(aiClient.chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
+                .thenReturn(new ClassReportAiClient.AiChatResult(Map.of("analysis_status", "INSUFFICIENT"), "{}", 10, 5));
+
+        closeClass(cls.classId);
+        generationService.runOnce(LocalDateTime.now());
+
+        ClassReport report = classReportRepository.findAll().stream()
+                .filter(r -> r.getType() == ClassReportType.MEMBER_FEEDBACK).findFirst().orElseThrow();
+        assertThat(report.getStatus()).isEqualTo(ClassReportStatus.LIMITED);
+        assertThat(jobOf(report).getStatus()).isEqualTo(AiJobStatus.SUCCEEDED);
+        verify(aiClient, times(1)).chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt());
+        mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("LIMITED"))
+                .andExpect(jsonPath("$.data.feedback.limitedReason").value("INSUFFICIENT_EVIDENCE"));
+    }
+
+    @Test
+    @DisplayName("자동 재시도까지 원문 근거를 못 찾으면 FAILED 대신 서버 템플릿(LIMITED)으로 게시한다")
+    void evidenceMissingTwice_fallsBackToTemplate() throws Exception {
+        ClassInfo cls = createClass(false);
+        User student = newUser("학생A");
+        String token = tokenOf(student);
+        join(token, cls.inviteCode, "학생A");
+        completeParticipation(token, cls, optionA, optionB, "그냥 그렇게 생각해요 잘 모르겠어요");
+
+        // 두 번 모두 원문이 아닌 입장 문구를 인용 → 근거 누락
+        when(aiClient.chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
+                .thenAnswer(inv -> {
+                    String prompt = inv.getArgument(1);
+                    String sourceId = prompt.substring(prompt.indexOf("source_id=") + "source_id=".length()).split(" ")[0];
+                    return new ClassReportAiClient.AiChatResult(Map.of(
+                            "headline", "h", "judgment_basis", "j", "next_question", "q",
+                            "evidence_refs", List.of(Map.of("field", "judgment_basis", "source_id", sourceId, "quote", optionB.getStance()))
+                    ), "{}", 10, 5);
+                });
+
+        closeClass(cls.classId);
+        LocalDateTime now = LocalDateTime.now();
+        generationService.runOnce(now);
+        generationService.runOnce(now.plusMinutes(1));
+
+        ClassReport report = classReportRepository.findAll().stream()
+                .filter(r -> r.getType() == ClassReportType.MEMBER_FEEDBACK).findFirst().orElseThrow();
+        assertThat(report.getStatus()).isEqualTo(ClassReportStatus.LIMITED);
+        assertThat(jobOf(report).getStatus()).isEqualTo(AiJobStatus.REJECTED);
+        assertThat(jobOf(report).getErrorCode()).isEqualTo("EVIDENCE_MISSING");
+
+        mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("LIMITED"))
+                .andExpect(jsonPath("$.data.feedback.headline").value("의견 분석을 진행하지 못했어요."))
+                .andExpect(jsonPath("$.data.feedback.limitedReason").value("INSUFFICIENT_EVIDENCE"))
+                .andExpect(jsonPath("$.data.feedback.limitedMessage").value("작성된 의견에서 주제와 관련된 주장이나 근거를 충분히 확인하기 어려워 사고 과정 분석을 제공하지 않습니다."))
+                .andExpect(jsonPath("$.data.feedback.judgmentBasis").value("선택이 선택지 1에서 선택지 2로 바뀌었어요."))
+                .andExpect(jsonPath("$.data.feedback.nextFocus").doesNotExist())
+                .andExpect(jsonPath("$.data.feedback.nextQuestion").doesNotExist())
+                .andExpect(jsonPath("$.data.feedback.strength").doesNotExist())
+                .andExpect(jsonPath("$.data.feedback.evidence", hasSize(0)))
+                .andExpect(jsonPath("$.data.feedback.analysisStatus").value("LIMITED"));
     }
 
     @Test

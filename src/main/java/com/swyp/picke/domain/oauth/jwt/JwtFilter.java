@@ -84,6 +84,14 @@ public class JwtFilter extends OncePerRequestFilter {
             "/error"
     );
 
+    /**
+     * 토큰이 없어도 통과하지만, 토큰이 있으면 검증해 사용자를 식별하는 경로.
+     * WHITELIST는 필터 자체를 건너뛰어 로그인 사용자도 식별되지 않으므로 분리한다.
+     */
+    private static final Set<String> OPTIONAL_AUTH_PATHS = Set.of(
+            "/api/v1/perspectives/weekly-best"
+    );
+
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
         String requestUri = request.getRequestURI();
@@ -127,7 +135,7 @@ public class JwtFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 recordActivity(userId);
 
-            } else {
+            } else if (!OPTIONAL_AUTH_PATHS.contains(requestUri)) {
                 // shouldNotFilter가 잡지 못한 주소 중 토큰이 없다면 무조건 401 차단
                 log.warn("[JwtFilter] Token missing for secured URI: {}", requestUri);
                 setErrorResponse(response, ErrorCode.AUTH_UNAUTHORIZED);

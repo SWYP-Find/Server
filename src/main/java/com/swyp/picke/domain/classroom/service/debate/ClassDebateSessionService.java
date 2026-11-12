@@ -113,7 +113,8 @@ public class ClassDebateSessionService {
      * 같은 키 재전송은 아무것도 바꾸지 않고(null), 다른 키로 같은 라운드 재제출은 409 (PRD §8 재접속과 중복 전송).
      */
     @Transactional
-    public PreparedTurn reply(Long userId, Long classId, ClassDebateReplyRequest request, String model, LocalDateTime now) {
+    public PreparedTurn reply(Long userId, Long classId, ClassDebateReplyRequest request, ClassDebateInputClassifier.Result classification,
+                              String model, LocalDateTime now) {
         ClassAccess access = classAccessService.requireWritable(classId, userId, now);
         Classroom classroom = requireCustom(access.classroom());
         ClassDebateSession session = sessionRepository.findForUpdate(classId, access.member().getId())
@@ -141,6 +142,11 @@ public class ClassDebateSessionService {
                 .speaker(ClassDebateSpeaker.USER)
                 .content(content)
                 .requestKey(request.requestKey())
+                .inputTypes(classification == null ? null : classification.typesValue())
+                .validForAnalysis(classification == null ? null : classification.validForAnalysis())
+                .validArgument(classification == null ? null : classification.validArgument())
+                // 3번째 반박 뒤에는 AI 응답이 없다 (엣지 케이스 PRD 2.3)
+                .responseType(classification == null || round == ClassDebateSession.ROUNDS ? null : classification.responseType())
                 .build());
 
         if (round == ClassDebateSession.ROUNDS) {
@@ -152,6 +158,30 @@ public class ClassDebateSessionService {
         session.startGenerating(round + 1, now);
         AiJob job = startJob(session, round + 1, model, now);
         return new PreparedTurn(session.getId(), job.getId(), round + 1, promptInput(session));
+    }
+
+    /**
+     * 입력 분류 맥락 (잠금 없이 읽음). 반박을 받을 수 있는 상태가 아니면 null 이고, 그 요청은 {@link #reply} 에서 같은 에러로 거절된다.
+     */
+    public ClassDebateInputClassifier.Context classifyContext(Long userId, Long classId, int roundIndex) {
+        ClassAccess access;
+        try {
+            access = classAccessService.requireReadable(classId, userId);
+        } catch (CustomException e) {
+            return null;
+        }
+        if (access.member() == null) {
+            return null;
+        }
+        ClassDebateSession session = sessionRepository.findByClassroomIdAndMemberId(classId, access.member().getId()).orElse(null);
+        if (session == null || session.getStatus() != ClassDebateStatus.WAITING_USER || session.getRound() != roundIndex) {
+            return null;
+        }
+        String lastArgument = messageRepository.findBySessionIdAndRoundIndexAndSpeaker(session.getId(), roundIndex, ClassDebateSpeaker.AI)
+                .map(ClassDebateMessage::getContent)
+                .orElse(null);
+        return new ClassDebateInputClassifier.Context(session.getClassroom().getBattle().getTitle(),
+                session.getParticipantOption().getTitle(), lastArgument);
     }
 
     // ---------- 재시도 ----------

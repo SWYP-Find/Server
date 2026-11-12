@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.classroom.entity;
 
 import com.swyp.picke.domain.classroom.enums.ClassDebateFocus;
+import com.swyp.picke.domain.classroom.enums.ClassDebateResponseType;
 import com.swyp.picke.domain.classroom.enums.ClassDebateSpeaker;
 import com.swyp.picke.global.common.BaseEntity;
 import jakarta.persistence.Column;
@@ -57,9 +58,30 @@ public class ClassDebateMessage extends BaseEntity {
     @Column(name = "request_key", length = 64)
     private String requestKey;
 
+    /**
+     * 참가자 반박의 입력 유형 (엣지 케이스 PRD 4.1 input_type, 다중). 쉼표로 이은 {@link com.swyp.picke.domain.classroom.enums.ClassDebateInputType} 이름.
+     * AI 판단이므로 리포트 근거는 원문을 우선한다 (EX-04). 분류하지 못했거나 AI 주장이면 null
+     */
+    @Column(name = "input_types", length = 120)
+    private String inputTypes;
+
+    /** 리포트 분석에 쓸 수 있는 반박인지 (4.1 is_valid_for_analysis). 분류하지 못했으면 null */
+    @Column(name = "valid_for_analysis")
+    private Boolean validForAnalysis;
+
+    /** 반박에서 확인된 주장·이유 한 문장 (4.1 valid_argument). 없으면 null */
+    @Column(name = "valid_argument", columnDefinition = "TEXT")
+    private String validArgument;
+
+    /** 이 반박에 이어질 AI 응답의 성격 (4.1 response_type). 3번째 반박·분류 실패·AI 주장은 null */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "response_type", length = 20)
+    private ClassDebateResponseType responseType;
+
     @Builder
     private ClassDebateMessage(ClassDebateSession session, int roundIndex, ClassDebateSpeaker speaker, String content,
-                               ClassDebateFocus focus, Long replyToMessageId, String requestKey) {
+                               ClassDebateFocus focus, Long replyToMessageId, String requestKey,
+                               String inputTypes, Boolean validForAnalysis, String validArgument, ClassDebateResponseType responseType) {
         this.session = session;
         this.roundIndex = roundIndex;
         this.speaker = speaker;
@@ -67,5 +89,9 @@ public class ClassDebateMessage extends BaseEntity {
         this.focus = focus;
         this.replyToMessageId = replyToMessageId;
         this.requestKey = requestKey;
+        this.inputTypes = inputTypes;
+        this.validForAnalysis = validForAnalysis;
+        this.validArgument = validArgument;
+        this.responseType = responseType;
     }
 }

@@ -57,9 +57,11 @@ public class ClassDebateService {
     }
 
     public ClassDebateResponse reply(Long userId, Long classId, ClassDebateReplyRequest request) {
-        // 외부 검사는 세션 잠금 밖에서 한다. 차단되면 저장·라운드 소비 없이 끝난다
-        inputGuard.check(request.content());
-        ClassDebateSessionService.PreparedTurn turn = sessionService.reply(userId, classId, request, aiClient.getDebateModel(), now());
+        // 외부 검사·분류는 세션 잠금 밖에서 한다. 차단·반려되면 저장·라운드 소비 없이 끝난다
+        ClassDebateInputClassifier.Context context = sessionService.classifyContext(userId, classId, request.roundIndex());
+        ClassDebateInputClassifier.Result classification = inputGuard.check(request.content(), context);
+        ClassDebateSessionService.PreparedTurn turn = sessionService.reply(userId, classId, request, classification,
+                aiClient.getDebateModel(), now());
         if (turn != null) {
             generate(turn);
         }

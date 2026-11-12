@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.classroom.service.report;
 
 import com.swyp.picke.domain.classroom.dto.response.ClassMidVoteInfo;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -14,10 +15,13 @@ import java.util.Set;
  * AI 응답을 게시 가능한 content 로 바꾸며 PRD §13·§14 의 근거 검증을 수행한다.
  * <ul>
  *   <li>evidence_refs 의 source_id 는 본인 발언이어야 하고 quote 는 그 원문에 실제로 포함돼야 한다. 아니면 그 ref 를 버린다</li>
- *   <li>judgment_basis 에 유효 근거가 하나도 없으면 게시하지 않는다(EVIDENCE_MISSING). strength / next_focus 는 근거 없으면 null</li>
+ *   <li>judgment_basis 에 유효 근거가 하나도 없으면 게시하지 않는다(EVIDENCE_MISSING). strength / next_focus 는 근거 없으면 null.
+ *       자동 재시도까지 근거가 없으면 생성 서비스가 {@link #insufficientMemberFeedback} 템플릿으로 대체한다</li>
+ *   <li>AI 가 analysis_status=INSUFFICIENT(이유를 읽을 글이 없음)를 내면 AI 문장 없이 같은 템플릿을 쓴다 (엣지 케이스 PRD RP-04~06)</li>
  *   <li>길이는 규정의 20% 까지만 허용하고 넘으면 거절한다 (자르면 문장이 깨진다)</li>
  * </ul>
  */
+@Slf4j
 @Component
 public class ClassReportContentValidator {
 
@@ -35,7 +39,14 @@ public class ClassReportContentValidator {
     static final String FIELD_STRENGTH = "strength";
     static final String FIELD_NEXT_FOCUS = "next_focus";
 
+    /** 분석 불가 사유 (엣지 케이스 PRD 3.3). content.limited_reason 에 저장한다 */
+    public static final String LIMITED_NO_POST = "NO_POST";
+    public static final String LIMITED_INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE";
+
     public Map<String, Object> validateMemberFeedback(Map<String, Object> json, MemberFeedbackInput input) {
+        if ("INSUFFICIENT".equalsIgnoreCase(ReportContent.str(json, "analysis_status"))) {
+            return insufficientMemberFeedback(input);
+        }
         String headline = requireText(json, "headline", HEADLINE_MAX);
         String judgmentBasis = requireText(json, "judgment_basis", JUDGMENT_BASIS_MAX);
         String nextQuestion = requireText(json, "next_question", NEXT_QUESTION_MAX);
@@ -49,14 +60,23 @@ public class ClassReportContentValidator {
             String sourceId = ReportContent.str(ref, "source_id");
             String quote = ReportContent.str(ref, "quote");
             if (field == null || sourceId == null || quote == null || quote.isBlank()) {
+                log.warn("[ClassReport] evidence dropped field={} source_id={} reason=INCOMPLETE", field, sourceId);
                 continue;
             }
             if (!FIELD_JUDGMENT_BASIS.equals(field) && !FIELD_STRENGTH.equals(field) && !FIELD_NEXT_FOCUS.equals(field)) {
+                log.warn("[ClassReport] evidence dropped field={} source_id={} reason=UNKNOWN_FIELD", field, sourceId);
                 continue;
             }
+            // 존재하지 않는 발언·타인 발언·원문에 없는 인용은 근거로 쓰지 않는다. 로그에는 원문·인용을 남기지 않는다
             MemberFeedbackInput.Statement statement = input.findStatement(sourceId.trim());
-            if (statement == null || !contains(statement.content(), quote)) {
-                continue; // 존재하지 않는 발언·타인 발언·원문에 없는 인용은 근거로 쓰지 않는다
+            if (statement == null) {
+                log.warn("[ClassReport] evidence dropped field={} source_id={} reason=NOT_OWN_STATEMENT", field, sourceId);
+                continue;
+            }
+            if (!contains(statement.content(), quote)) {
+                log.warn("[ClassReport] evidence dropped field={} source_id={} reason=QUOTE_NOT_IN_CONTENT quote_length={}",
+                        field, sourceId, quote.length());
+                continue;
             }
             Map<String, Object> valid = new LinkedHashMap<>();
             valid.put("field", field);
@@ -91,6 +111,9 @@ public class ClassReportContentValidator {
         content.put("next_question", nextQuestion);
         content.put("evidence_refs", refs);
         content.put("analysis_status", analysisStatus);
+        content.put("limited_reason", null);
+        content.put("limited_message", null);
+        content.put("limited_notice", null);
         content.put("coverage", input.coverage());
         content.put("excluded_count", input.excludedCount());
         content.put("pre_option_id", input.preOption() == null ? null : input.preOption().optionId());
@@ -132,9 +155,29 @@ public class ClassReportContentValidator {
 
     // ===== 템플릿 (AI 호출 없음) =====
 
-    /** 투표만 있을 때의 서버 템플릿 (PRD §13 자료 부족 처리) */
+    /** 글 없이 투표만 했을 때의 서버 템플릿 (엣지 케이스 PRD 3.3 Case B). 사고 과정 분석은 하지 않고 선택 기록만 보여준다 */
     public static Map<String, Object> limitedMemberFeedback(MemberFeedbackInput.OptionInfo pre, List<ClassMidVoteInfo> mid,
                                                             MemberFeedbackInput.OptionInfo post) {
+        return limitedTemplate(LIMITED_NO_POST, "작성된 의견이 없어요.",
+                "배틀에 참여했지만 작성된 의견이 없어 사고 과정 분석을 제공하지 않습니다.",
+                "참여 여부와 투표 결과는 확인할 수 있습니다.", pre, mid, post, "full", 0);
+    }
+
+    /**
+     * 글은 있지만 판단 근거를 확인할 수 없을 때의 서버 템플릿 (엣지 케이스 PRD 3.3 Case A).
+     * 근거 없는 AI 문장은 쓰지 않는다 (3.4 "부족한 사실을 명시하고 해당 항목의 분석을 생략").
+     */
+    public static Map<String, Object> insufficientMemberFeedback(MemberFeedbackInput input) {
+        return limitedTemplate(LIMITED_INSUFFICIENT_EVIDENCE, "의견 분석을 진행하지 못했어요.",
+                "작성된 의견에서 주제와 관련된 주장이나 근거를 충분히 확인하기 어려워 사고 과정 분석을 제공하지 않습니다.",
+                "투표 결과와 참여 기록은 정상적으로 확인할 수 있습니다.",
+                input.preOption(), input.midChoices(), input.postOption(), input.coverage(), input.excludedCount());
+    }
+
+    /** judgment_basis 에는 선택 기록만 쓴다. 바뀐 이유는 추론하지 않는다 (EX-03) */
+    private static Map<String, Object> limitedTemplate(String reason, String headline, String message, String notice,
+                                                       MemberFeedbackInput.OptionInfo pre, List<ClassMidVoteInfo> mid,
+                                                       MemberFeedbackInput.OptionInfo post, String coverage, int excludedCount) {
         String judgmentBasis;
         if (pre != null && post != null && !pre.optionId().equals(post.optionId())) {
             judgmentBasis = "선택이 " + pre.title() + "에서 " + post.title() + "로 바뀌었어요.";
@@ -152,15 +195,18 @@ public class ClassReportContentValidator {
             judgmentBasis += " 콘텐츠 중간에는 " + String.join(", ", labels) + " 쪽을 골랐어요.";
         }
         Map<String, Object> content = new LinkedHashMap<>();
-        content.put("headline", "선택의 이유를 확인할 글이 아직 없어요");
+        content.put("headline", headline);
         content.put("judgment_basis", judgmentBasis);
         content.put("strength", null);
         content.put("next_focus", null);
-        content.put("next_question", "지금의 선택을 한 가장 중요한 이유는 무엇인가요?");
+        content.put("next_question", null);
         content.put("evidence_refs", List.of());
         content.put("analysis_status", "LIMITED");
-        content.put("coverage", "full");
-        content.put("excluded_count", 0);
+        content.put("limited_reason", reason);
+        content.put("limited_message", message);
+        content.put("limited_notice", notice);
+        content.put("coverage", coverage);
+        content.put("excluded_count", excludedCount);
         content.put("pre_option_id", pre == null ? null : pre.optionId());
         content.put("mid_choices", midChoices(mid));
         content.put("post_option_id", post == null ? null : post.optionId());

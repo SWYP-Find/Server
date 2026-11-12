@@ -27,6 +27,7 @@ public class ClassReportGenerationService {
     /** 한 번의 스케줄 틱에서 처리할 최대 리포트 수 (호출당 최대 45초 × 10 = 틱 사이 간격 안에 끝나도록) */
     static final int BATCH_SIZE = 10;
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    private static final String EVIDENCE_MISSING = "EVIDENCE_MISSING";
 
     private final ClassroomRepository classroomRepository;
     private final ClassReportRepository classReportRepository;
@@ -86,7 +87,11 @@ public class ClassReportGenerationService {
                 validated = validator.validateClassInsight(result.json(), prepared.insightInput());
             }
         } catch (ReportValidationException e) {
-            snapshotService.fail(reportId, prepared.jobId(), e.getCode(), true, LocalDateTime.now(KST));
+            // 글은 있는데 원문 근거를 못 찾으면 실패 대신 분석 제한으로 보여준다 (엣지 케이스 PRD 3.1)
+            Map<String, Object> fallback = prepared.type() == ClassReportType.MEMBER_FEEDBACK && EVIDENCE_MISSING.equals(e.getCode())
+                    ? ClassReportContentValidator.insufficientMemberFeedback(prepared.memberInput())
+                    : null;
+            snapshotService.fail(reportId, prepared.jobId(), e.getCode(), true, fallback, LocalDateTime.now(KST));
             return;
         } catch (Exception e) {
             log.warn("[ClassReport] provider call failed reportId={} : {}", reportId, e.toString());

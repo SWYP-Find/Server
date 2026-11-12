@@ -327,9 +327,11 @@ class ClassResultApiIntegrationTest {
         mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.state").value("LIMITED"))
-                .andExpect(jsonPath("$.data.feedback.headline").value("선택의 이유를 확인할 글이 아직 없어요"))
+                .andExpect(jsonPath("$.data.feedback.headline").value("작성된 의견이 없어요."))
+                .andExpect(jsonPath("$.data.feedback.limitedReason").value("NO_POST"))
+                .andExpect(jsonPath("$.data.feedback.limitedNotice").value("참여 여부와 투표 결과는 확인할 수 있습니다."))
                 .andExpect(jsonPath("$.data.feedback.judgmentBasis").value("선택이 선택지 1에서 선택지 2로 바뀌었어요."))
-                .andExpect(jsonPath("$.data.feedback.nextQuestion").value("지금의 선택을 한 가장 중요한 이유는 무엇인가요?"))
+                .andExpect(jsonPath("$.data.feedback.nextQuestion").doesNotExist())
                 .andExpect(jsonPath("$.data.feedback.strength").doesNotExist())
                 .andExpect(jsonPath("$.data.feedback.nextFocus").doesNotExist())
                 .andExpect(jsonPath("$.data.feedback.evidence", hasSize(0)));
@@ -455,6 +457,76 @@ class ClassResultApiIntegrationTest {
         mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.state").value("SUCCEEDED"));
+    }
+
+    @Test
+    @DisplayName("AI 가 이유를 읽을 글이 없다고(INSUFFICIENT) 판단하면 재시도 없이 근거 부족 템플릿(LIMITED)으로 게시한다")
+    void insufficientFromAi_isLimitedWithoutRetry() throws Exception {
+        ClassInfo cls = createClass(false);
+        User student = newUser("학생A");
+        String token = tokenOf(student);
+        join(token, cls.inviteCode, "학생A");
+        completeParticipation(token, cls, optionA, optionB, "그냥 그렇게 생각해요 잘 모르겠어요");
+        when(aiClient.chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
+                .thenReturn(new ClassReportAiClient.AiChatResult(Map.of("analysis_status", "INSUFFICIENT"), "{}", 10, 5));
+
+        closeClass(cls.classId);
+        generationService.runOnce(LocalDateTime.now());
+
+        ClassReport report = classReportRepository.findAll().stream()
+                .filter(r -> r.getType() == ClassReportType.MEMBER_FEEDBACK).findFirst().orElseThrow();
+        assertThat(report.getStatus()).isEqualTo(ClassReportStatus.LIMITED);
+        assertThat(jobOf(report).getStatus()).isEqualTo(AiJobStatus.SUCCEEDED);
+        verify(aiClient, times(1)).chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt());
+        mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("LIMITED"))
+                .andExpect(jsonPath("$.data.feedback.limitedReason").value("INSUFFICIENT_EVIDENCE"));
+    }
+
+    @Test
+    @DisplayName("자동 재시도까지 원문 근거를 못 찾으면 FAILED 대신 서버 템플릿(LIMITED)으로 게시한다")
+    void evidenceMissingTwice_fallsBackToTemplate() throws Exception {
+        ClassInfo cls = createClass(false);
+        User student = newUser("학생A");
+        String token = tokenOf(student);
+        join(token, cls.inviteCode, "학생A");
+        completeParticipation(token, cls, optionA, optionB, "그냥 그렇게 생각해요 잘 모르겠어요");
+
+        // 두 번 모두 원문이 아닌 입장 문구를 인용 → 근거 누락
+        when(aiClient.chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
+                .thenAnswer(inv -> {
+                    String prompt = inv.getArgument(1);
+                    String sourceId = prompt.substring(prompt.indexOf("source_id=") + "source_id=".length()).split(" ")[0];
+                    return new ClassReportAiClient.AiChatResult(Map.of(
+                            "headline", "h", "judgment_basis", "j", "next_question", "q",
+                            "evidence_refs", List.of(Map.of("field", "judgment_basis", "source_id", sourceId, "quote", optionB.getStance()))
+                    ), "{}", 10, 5);
+                });
+
+        closeClass(cls.classId);
+        LocalDateTime now = LocalDateTime.now();
+        generationService.runOnce(now);
+        generationService.runOnce(now.plusMinutes(1));
+
+        ClassReport report = classReportRepository.findAll().stream()
+                .filter(r -> r.getType() == ClassReportType.MEMBER_FEEDBACK).findFirst().orElseThrow();
+        assertThat(report.getStatus()).isEqualTo(ClassReportStatus.LIMITED);
+        assertThat(jobOf(report).getStatus()).isEqualTo(AiJobStatus.REJECTED);
+        assertThat(jobOf(report).getErrorCode()).isEqualTo("EVIDENCE_MISSING");
+
+        mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("LIMITED"))
+                .andExpect(jsonPath("$.data.feedback.headline").value("의견 분석을 진행하지 못했어요."))
+                .andExpect(jsonPath("$.data.feedback.limitedReason").value("INSUFFICIENT_EVIDENCE"))
+                .andExpect(jsonPath("$.data.feedback.limitedMessage").value("작성된 의견에서 주제와 관련된 주장이나 근거를 충분히 확인하기 어려워 사고 과정 분석을 제공하지 않습니다."))
+                .andExpect(jsonPath("$.data.feedback.judgmentBasis").value("선택이 선택지 1에서 선택지 2로 바뀌었어요."))
+                .andExpect(jsonPath("$.data.feedback.nextFocus").doesNotExist())
+                .andExpect(jsonPath("$.data.feedback.nextQuestion").doesNotExist())
+                .andExpect(jsonPath("$.data.feedback.strength").doesNotExist())
+                .andExpect(jsonPath("$.data.feedback.evidence", hasSize(0)))
+                .andExpect(jsonPath("$.data.feedback.analysisStatus").value("LIMITED"));
     }
 
     @Test

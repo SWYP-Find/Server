@@ -990,7 +990,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 | `NOT_ELIGIBLE` | 참여 미완료라 개인 리포트 없음 | |
 | `PENDING` / `GENERATING` | 생성 대기 / 생성 중 | "생각을 정리하고 있어요" |
 | `SUCCEEDED` | 생성 완료 | |
-| `LIMITED` | 자료가 부족해 템플릿으로 대신함 | "판단의 이유를 살펴볼 글이 아직 충분하지 않아요" |
+| `LIMITED` | 분석 불가라 템플릿으로 대신함. 개인 리포트는 사유가 `feedback.limitedReason`에 있다 | 개인 리포트: `feedback.headline`·`limitedMessage`·`limitedNotice` (PRD 엣지 케이스 3.3) / 인사이트: "판단의 이유를 살펴볼 글이 아직 충분하지 않아요" |
 | `FAILED` | 생성 실패 | "AI 요약을 준비하지 못했어요" |
 
 ### 8.1 클래스 결과 (정량 통계)
@@ -1047,7 +1047,9 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 ### 8.2 내 AI 피드백
 - `GET /api/v1/classes/{classId}/result/my-report`
 - 참여 완료자에게 마감 후 제공한다.
-- 글 없이 투표만 했으면 `LIMITED`이고, 서버 템플릿으로 채워진다.
+- 분석할 수 없으면 `LIMITED`이고, 서버 템플릿(엣지 케이스 PRD 3.3)으로 채워진다. 사유는 `feedback.limitedReason`이다.
+  - `NO_POST` (Case B): 글 없이 투표만 했다.
+  - `INSUFFICIENT_EVIDENCE` (Case A): 글은 있지만 이유를 읽을 수 없다("몰라요"·무관한 글·비속어만 등). AI가 그렇게 판단했거나, 자동 재시도까지 원문 근거를 찾지 못한 경우다.
 
 ```json
 {
@@ -1071,6 +1073,9 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
         { "field": "judgment_basis", "sourceType": "PERSPECTIVE", "sourceId": 50, "quote": "...", "content": "...", "createdAt": "2026-10-21T12:00:00" }
       ],
       "analysisStatus": "SUFFICIENT",
+      "limitedReason": null,
+      "limitedMessage": null,
+      "limitedNotice": null,
       "coverage": "full",
       "excludedCount": 0
     },
@@ -1082,7 +1087,16 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 - `feedback`은 `state`가 `SUCCEEDED`나 `LIMITED`일 때만 있다. 그 외에는 null이다.
 - `strength`, `nextFocus`는 기록으로 확인되지 않으면 null이다.
 - `midVotes`는 중간투표가 있는 콘텐츠에서 선택 지점마다 고른 선택지다(6.5와 같은 형태). 없으면 빈 배열이다. 중간 선택은 AI 피드백 입력에도 들어간다.
-- 글 없이 투표만 한 `LIMITED` 템플릿은 중간 선택이 있으면 "… 콘텐츠 중간에는 '무죄' 쪽을 골랐어요."를 덧붙인다.
+- `LIMITED` 템플릿 문구
+
+| limitedReason | headline | limitedMessage | limitedNotice |
+|---|---|---|---|
+| `NO_POST` | 작성된 의견이 없어요. | 배틀에 참여했지만 작성된 의견이 없어 사고 과정 분석을 제공하지 않습니다. | 참여 여부와 투표 결과는 확인할 수 있습니다. |
+| `INSUFFICIENT_EVIDENCE` | 의견 분석을 진행하지 못했어요. | 작성된 의견에서 주제와 관련된 주장이나 근거를 충분히 확인하기 어려워 사고 과정 분석을 제공하지 않습니다. | 투표 결과와 참여 기록은 정상적으로 확인할 수 있습니다. |
+
+- `LIMITED` 템플릿의 `judgmentBasis`는 선택 기록만 말한다(예: "선택이 A에서 B로 바뀌었어요."). 바뀐 이유는 추론하지 않는다. 중간 선택이 있으면 "… 콘텐츠 중간에는 '무죄' 쪽을 골랐어요."를 덧붙인다.
+- `LIMITED` 템플릿은 `strength`, `nextFocus`, `nextQuestion`이 null이고 `evidence`는 빈 배열이다.
+- AI 피드백(`SUCCEEDED`)이라도 근거가 적으면 `analysisStatus=LIMITED`이고 확인되지 않는 항목은 null이다. 이때 `limitedReason`은 null이다.
 - `evidence[].content`는 현재 기준 원문이다. 삭제·숨김된 글은 목록에서 빠진다.
 - `coverage=partial`은 분량 제한으로 일부 글을 빼고 분석했다는 뜻이다. 뺀 글 수는 `excludedCount`에 있다.
 - 참여하지 않는 운영자는 403 `CLASS_403_MEMBER`다.

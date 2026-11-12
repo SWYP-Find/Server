@@ -9,7 +9,7 @@ import java.util.List;
 public record ClassMyReportResponse(
         @Schema(description = "클래스 ID") Long classId,
         @Schema(description = "상태. BEFORE_CLOSE = 마감 전(\"{closeAt} 이후 AI 피드백이 제공돼요\"), NOT_ELIGIBLE = 참여 미완료, "
-                + "PENDING/GENERATING = 생성 중, SUCCEEDED = AI 피드백, LIMITED = 글이 없어 템플릿, FAILED = 생성 실패") ClassReportViewState state,
+                + "PENDING/GENERATING = 생성 중, SUCCEEDED = AI 피드백, LIMITED = 분석 불가 템플릿(사유는 feedback.limitedReason), FAILED = 생성 실패") ClassReportViewState state,
         @Schema(description = "실제 마감 시각") LocalDateTime closeAt,
         @Schema(description = "사전투표 선택지") Option preOption,
         @Schema(description = "선택 지점별 중간투표. 중간투표가 없는 배틀이거나 고르지 않았으면 빈 배열") List<ClassMidVoteInfo> midVotes,
@@ -29,9 +29,13 @@ public record ClassMyReportResponse(
             @Schema(description = "판단 기준과 변화 (150자 이하)") String judgmentBasis,
             @Schema(description = "잘한 점 1개 또는 null") Section strength,
             @Schema(description = "다음에 해볼 것 1개 또는 null") Section nextFocus,
-            @Schema(description = "다음 질문") String nextQuestion,
+            @Schema(description = "다음 질문. 분석 불가 템플릿이면 null") String nextQuestion,
             @Schema(description = "근거가 된 내 발언. 원문은 현재 상태로 다시 조회한다") List<Evidence> evidence,
             @Schema(description = "SUFFICIENT / LIMITED") String analysisStatus,
+            @Schema(description = "분석 불가 사유. NO_POST = 작성한 글 없음(PRD Case B), INSUFFICIENT_EVIDENCE = 글은 있지만 근거 부족(Case A). "
+                    + "AI 피드백이면 null") String limitedReason,
+            @Schema(description = "분석 불가 본문 (PRD 3.3). AI 피드백이면 null") String limitedMessage,
+            @Schema(description = "분석 불가 보조 문구 (PRD 3.3). AI 피드백이면 null") String limitedNotice,
             @Schema(description = "full / partial (분량 제한으로 일부 글 제외)") String coverage,
             @Schema(description = "분량 제한으로 제외된 글 수") int excludedCount
     ) {

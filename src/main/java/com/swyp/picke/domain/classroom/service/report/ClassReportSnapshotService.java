@@ -162,7 +162,9 @@ public class ClassReportSnapshotService {
         ClassReport report = classReportRepository.findById(reportId).orElseThrow();
         AiJob job = aiJobRepository.findById(jobId).orElseThrow();
         job.succeed(result.inputTokens(), result.outputTokens(), now);
-        if (report.getType() == ClassReportType.MEMBER_FEEDBACK) {
+        if (report.getType() == ClassReportType.MEMBER_FEEDBACK && validated.get("limited_reason") != null) {
+            report.limit(validated, now); // AI 가 분석할 이유가 없다고 판단해 서버 템플릿으로 대체한 경우
+        } else if (report.getType() == ClassReportType.MEMBER_FEEDBACK) {
             report.complete(validated, now);
         } else {
             report.complete(withInsight(report.getContent(), validated), now);

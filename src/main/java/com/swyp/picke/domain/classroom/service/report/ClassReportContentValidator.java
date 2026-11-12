@@ -16,8 +16,8 @@ import java.util.Set;
  * <ul>
  *   <li>evidence_refs 의 source_id 는 본인 발언이어야 하고 quote 는 그 원문에 실제로 포함돼야 한다. 아니면 그 ref 를 버린다</li>
  *   <li>judgment_basis 에 유효 근거가 하나도 없으면 게시하지 않는다(EVIDENCE_MISSING). strength / next_focus 는 근거 없으면 null.
- *       단 AI 가 LIMITED 로 낸 next_focus 는 judgment_basis 근거를 함께 쓴다.
  *       자동 재시도까지 근거가 없으면 생성 서비스가 {@link #insufficientMemberFeedback} 템플릿으로 대체한다</li>
+ *   <li>AI 가 analysis_status=INSUFFICIENT(이유를 읽을 글이 없음)를 내면 AI 문장 없이 같은 템플릿을 쓴다 (엣지 케이스 PRD RP-04~06)</li>
  *   <li>길이는 규정의 20% 까지만 허용하고 넘으면 거절한다 (자르면 문장이 깨진다)</li>
  * </ul>
  */
@@ -39,7 +39,14 @@ public class ClassReportContentValidator {
     static final String FIELD_STRENGTH = "strength";
     static final String FIELD_NEXT_FOCUS = "next_focus";
 
+    /** 분석 불가 사유 (엣지 케이스 PRD 3.3). content.limited_reason 에 저장한다 */
+    public static final String LIMITED_NO_POST = "NO_POST";
+    public static final String LIMITED_INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE";
+
     public Map<String, Object> validateMemberFeedback(Map<String, Object> json, MemberFeedbackInput input) {
+        if ("INSUFFICIENT".equalsIgnoreCase(ReportContent.str(json, "analysis_status"))) {
+            return insufficientMemberFeedback(input);
+        }
         String headline = requireText(json, "headline", HEADLINE_MAX);
         String judgmentBasis = requireText(json, "judgment_basis", JUDGMENT_BASIS_MAX);
         String nextQuestion = requireText(json, "next_question", NEXT_QUESTION_MAX);
@@ -82,18 +89,6 @@ public class ClassReportContentValidator {
         if (!fieldsWithEvidence.contains(FIELD_JUDGMENT_BASIS)) {
             throw new ReportValidationException("EVIDENCE_MISSING");
         }
-        boolean aiLimited = "LIMITED".equalsIgnoreCase(ReportContent.str(json, "analysis_status"));
-        if (aiLimited && nextFocus != null && !fieldsWithEvidence.contains(FIELD_NEXT_FOCUS)) {
-            // 이유가 드러나지 않은 글이면 보완점(이유 덧붙이기)도 판단 기준과 같은 글에서 나온다. AI 가 근거를 빠뜨리는 경우가 많아 서버가 채운다
-            for (Map<String, Object> ref : List.copyOf(refs)) {
-                if (FIELD_JUDGMENT_BASIS.equals(ref.get("field"))) {
-                    Map<String, Object> copy = new LinkedHashMap<>(ref);
-                    copy.put("field", FIELD_NEXT_FOCUS);
-                    refs.add(copy);
-                }
-            }
-            fieldsWithEvidence.add(FIELD_NEXT_FOCUS);
-        }
         if (strength != null && !fieldsWithEvidence.contains(FIELD_STRENGTH)) {
             strength = null;
             refs.removeIf(r -> FIELD_STRENGTH.equals(r.get("field")));
@@ -103,7 +98,7 @@ public class ClassReportContentValidator {
             refs.removeIf(r -> FIELD_NEXT_FOCUS.equals(r.get("field")));
         }
 
-        String analysisStatus = aiLimited ? "LIMITED" : "SUFFICIENT";
+        String analysisStatus = "LIMITED".equalsIgnoreCase(ReportContent.str(json, "analysis_status")) ? "LIMITED" : "SUFFICIENT";
         if (strength == null && nextFocus == null) {
             analysisStatus = "LIMITED";
         }
@@ -116,6 +111,9 @@ public class ClassReportContentValidator {
         content.put("next_question", nextQuestion);
         content.put("evidence_refs", refs);
         content.put("analysis_status", analysisStatus);
+        content.put("limited_reason", null);
+        content.put("limited_message", null);
+        content.put("limited_notice", null);
         content.put("coverage", input.coverage());
         content.put("excluded_count", input.excludedCount());
         content.put("pre_option_id", input.preOption() == null ? null : input.preOption().optionId());
@@ -157,27 +155,27 @@ public class ClassReportContentValidator {
 
     // ===== 템플릿 (AI 호출 없음) =====
 
-    /** 투표만 있을 때의 서버 템플릿 (PRD §13 자료 부족 처리) */
+    /** 글 없이 투표만 했을 때의 서버 템플릿 (엣지 케이스 PRD 3.3 Case B). 사고 과정 분석은 하지 않고 선택 기록만 보여준다 */
     public static Map<String, Object> limitedMemberFeedback(MemberFeedbackInput.OptionInfo pre, List<ClassMidVoteInfo> mid,
                                                             MemberFeedbackInput.OptionInfo post) {
-        return limitedTemplate("선택의 이유를 확인할 글이 아직 없어요", null,
-                "지금의 선택을 한 가장 중요한 이유는 무엇인가요?", pre, mid, post, "full", 0);
+        return limitedTemplate(LIMITED_NO_POST, "작성된 의견이 없어요.",
+                "배틀에 참여했지만 작성된 의견이 없어 사고 과정 분석을 제공하지 않습니다.",
+                "참여 여부와 투표 결과는 확인할 수 있습니다.", pre, mid, post, "full", 0);
     }
 
     /**
-     * 글은 있지만 AI 가 원문에서 판단 근거를 찾지 못했을 때의 서버 템플릿 (엣지 케이스 PRD 3.1 분석 제한).
-     * 근거 없는 AI 문장은 쓰지 않고, 짧은 답변을 낮게 평가하지 않는 보완점만 고정 문구로 둔다 (3.4).
+     * 글은 있지만 판단 근거를 확인할 수 없을 때의 서버 템플릿 (엣지 케이스 PRD 3.3 Case A).
+     * 근거 없는 AI 문장은 쓰지 않는다 (3.4 "부족한 사실을 명시하고 해당 항목의 분석을 생략").
      */
     public static Map<String, Object> insufficientMemberFeedback(MemberFeedbackInput input) {
-        Map<String, Object> nextFocus = new LinkedHashMap<>();
-        nextFocus.put("title", "선택의 이유 덧붙이기");
-        nextFocus.put("body", "어떤 점 때문에 이 선택을 했는지 한 가지만 구체적으로 적어 보면, 내 판단 기준이 더 잘 드러나요.");
-        return limitedTemplate("선택의 이유가 글에 아직 드러나지 않았어요", nextFocus,
-                "이 선택을 하게 만든 가장 결정적인 이유는 무엇인가요?",
+        return limitedTemplate(LIMITED_INSUFFICIENT_EVIDENCE, "의견 분석을 진행하지 못했어요.",
+                "작성된 의견에서 주제와 관련된 주장이나 근거를 충분히 확인하기 어려워 사고 과정 분석을 제공하지 않습니다.",
+                "투표 결과와 참여 기록은 정상적으로 확인할 수 있습니다.",
                 input.preOption(), input.midChoices(), input.postOption(), input.coverage(), input.excludedCount());
     }
 
-    private static Map<String, Object> limitedTemplate(String headline, Map<String, Object> nextFocus, String nextQuestion,
+    /** judgment_basis 에는 선택 기록만 쓴다. 바뀐 이유는 추론하지 않는다 (EX-03) */
+    private static Map<String, Object> limitedTemplate(String reason, String headline, String message, String notice,
                                                        MemberFeedbackInput.OptionInfo pre, List<ClassMidVoteInfo> mid,
                                                        MemberFeedbackInput.OptionInfo post, String coverage, int excludedCount) {
         String judgmentBasis;
@@ -200,10 +198,13 @@ public class ClassReportContentValidator {
         content.put("headline", headline);
         content.put("judgment_basis", judgmentBasis);
         content.put("strength", null);
-        content.put("next_focus", nextFocus);
-        content.put("next_question", nextQuestion);
+        content.put("next_focus", null);
+        content.put("next_question", null);
         content.put("evidence_refs", List.of());
         content.put("analysis_status", "LIMITED");
+        content.put("limited_reason", reason);
+        content.put("limited_message", message);
+        content.put("limited_notice", notice);
         content.put("coverage", coverage);
         content.put("excluded_count", excludedCount);
         content.put("pre_option_id", pre == null ? null : pre.optionId());

@@ -92,37 +92,32 @@ class ClassReportContentValidatorTest {
     }
 
     @Test
-    @DisplayName("AI 가 LIMITED 로 낸 보완점에 근거가 없으면 판단 기준 근거를 함께 쓴다 (SUFFICIENT 는 그대로 null)")
-    void limitedNextFocusReusesJudgmentEvidence() {
-        Map<String, Object> json = baseJson();
-        json.put("strength", null);
-        json.put("analysis_status", "LIMITED");
-        json.put("evidence_refs", List.of(ref("judgment_basis", "p:10", "데이터가 더 필요해요")));
+    @DisplayName("AI 가 INSUFFICIENT 를 내면 AI 문장 없이 근거 부족 템플릿(Case A)을 쓴다")
+    void insufficientFromAi() {
+        Map<String, Object> content = validator.validateMemberFeedback(Map.of("analysis_status", "INSUFFICIENT"), input(0));
 
-        Map<String, Object> content = validator.validateMemberFeedback(json, input(0));
-
-        assertThat(content.get("next_focus")).isNotNull();
-        assertThat(content).containsEntry("analysis_status", "LIMITED");
-        List<Map<String, Object>> refs = ReportContent.mapList(content, "evidence_refs");
-        assertThat(refs).extracting(r -> r.get("field")).containsExactly("judgment_basis", "next_focus");
-
-        json.put("analysis_status", "SUFFICIENT");
-        assertThat(validator.validateMemberFeedback(json, input(0)).get("next_focus")).isNull();
+        assertThat(content).containsEntry("limited_reason", "INSUFFICIENT_EVIDENCE")
+                .containsEntry("headline", "의견 분석을 진행하지 못했어요.")
+                .containsEntry("analysis_status", "LIMITED");
     }
 
     @Test
-    @DisplayName("근거 누락 대체 템플릿은 AI 문장 없이 투표 기록과 고정 보완점으로 LIMITED 를 만든다")
+    @DisplayName("근거 부족 템플릿(Case A)은 PRD 3.3 문구와 선택 기록만 담고 강점·보완점·다음 질문은 없다")
     void insufficientTemplate() {
         Map<String, Object> content = ClassReportContentValidator.insufficientMemberFeedback(input(2));
 
-        assertThat(content).containsEntry("headline", "선택의 이유가 글에 아직 드러나지 않았어요")
+        assertThat(content).containsEntry("headline", "의견 분석을 진행하지 못했어요.")
+                .containsEntry("limited_reason", "INSUFFICIENT_EVIDENCE")
+                .containsEntry("limited_message", "작성된 의견에서 주제와 관련된 주장이나 근거를 충분히 확인하기 어려워 사고 과정 분석을 제공하지 않습니다.")
+                .containsEntry("limited_notice", "투표 결과와 참여 기록은 정상적으로 확인할 수 있습니다.")
                 .containsEntry("judgment_basis", "선택이 선택지 1에서 선택지 2로 바뀌었어요.")
                 .containsEntry("analysis_status", "LIMITED")
                 .containsEntry("coverage", "partial")
                 .containsEntry("excluded_count", 2)
                 .containsEntry("strength", null)
+                .containsEntry("next_focus", null)
+                .containsEntry("next_question", null)
                 .containsEntry("evidence_refs", List.of());
-        assertThat(ReportContent.map(content, "next_focus")).containsEntry("title", "선택의 이유 덧붙이기");
     }
 
     @Test
@@ -179,12 +174,15 @@ class ClassReportContentValidatorTest {
     }
 
     @Test
-    @DisplayName("투표만 한 사람의 템플릿은 선택 변화만 말하고 강점·보완점은 null 이다")
+    @DisplayName("투표만 한 사람의 템플릿(Case B)은 선택 변화만 말하고 강점·보완점·다음 질문은 null 이다")
     void limitedTemplate() {
         Map<String, Object> changed = ClassReportContentValidator.limitedMemberFeedback(A, null, B);
         assertThat(changed).containsEntry("judgment_basis", "선택이 선택지 1에서 선택지 2로 바뀌었어요.")
-                .containsEntry("headline", "선택의 이유를 확인할 글이 아직 없어요")
-                .containsEntry("next_question", "지금의 선택을 한 가장 중요한 이유는 무엇인가요?")
+                .containsEntry("headline", "작성된 의견이 없어요.")
+                .containsEntry("limited_reason", "NO_POST")
+                .containsEntry("limited_message", "배틀에 참여했지만 작성된 의견이 없어 사고 과정 분석을 제공하지 않습니다.")
+                .containsEntry("limited_notice", "참여 여부와 투표 결과는 확인할 수 있습니다.")
+                .containsEntry("next_question", null)
                 .containsEntry("analysis_status", "LIMITED");
         assertThat(changed.get("strength")).isNull();
         assertThat(changed.get("next_focus")).isNull();

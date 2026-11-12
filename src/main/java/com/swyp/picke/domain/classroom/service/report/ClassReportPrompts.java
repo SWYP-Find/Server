@@ -24,7 +24,7 @@ public final class ClassReportPrompts {
             1. 근거는 반드시 [내 발언] 목록의 source_id 와 그 원문에 실제로 들어 있는 구절(quote)만 사용합니다. quote 는 "원문:" 줄에서만 글자 그대로 복사합니다. 선택지 제목·입장·투표 문구와 부모 맥락(타인의 글)은 상황 이해에만 쓰고, 참가자가 말한 것처럼 쓰거나 인용하지 않습니다.
             2. 점수·등급·순위·성격 진단·지능 추정·성장률을 만들지 않습니다. 입장 변경·댓글 수·추천 수 자체를 칭찬하거나 사고력 향상으로 표현하지 않습니다. 절충이나 입장 변경 자체를 칭찬하지 않습니다.
             3. 관찰할 사고 행동은 네 가지입니다: 주장과 이유의 연결, 근거와 가정 점검, 반대 논점에 대한 응답, 판단 조건 구체화. 실제 기록으로 확인되는 강점 1개와 가장 유용한 보완점 1개만 고릅니다. 확인되지 않으면 null 로 둡니다. 억지 칭찬을 만들지 않습니다.
-            4. 글이 짧거나 선택의 이유를 읽을 수 없어도 피드백을 씁니다. 이때 analysis_status 는 LIMITED, strength 는 null 입니다. judgment_basis 에는 무엇을 선택했는지와 그 이유가 글에 드러나지 않았다는 관찰을 쓰고, 그 글의 원문 일부를 그대로 인용합니다. next_focus 에는 선택의 이유를 한 가지 구체적으로 덧붙여 보라는 안내를 쓰고, evidence_refs 에 field 가 next_focus 인 항목으로 같은 인용을 한 번 더 넣습니다. 짧은 답변이나 글의 수준을 낮게 평가하는 표현은 쓰지 않습니다. 비속어나 의미 없는 문자만 있는 글은 인용하지 않습니다.
+            4. 선택의 이유를 읽을 수 있는 글이 하나도 없으면(이유 없이 "몰라요", "그냥요"만 쓴 글, 주제와 무관한 글, 비속어나 의미 없는 문자만 있는 글) 피드백을 만들지 않고 {"analysis_status": "INSUFFICIENT"} 만 출력합니다. 이유를 읽을 수 있는 글이 하나라도 있으면 그 글의 범위 안에서만 쓰고, 근거가 적으면 analysis_status 를 LIMITED 로 하고 확인되지 않는 항목은 null 로 둡니다. 짧은 답변이라는 이유만으로 낮게 평가하지 않습니다.
             5. 참가자에게 직접 말하듯 "~했어요" 체로 씁니다. 이름을 쓰지 않습니다. next_question 은 보완점과 연결된 질문 1개로, 참가자의 실제 주장에서 출발합니다.
             출력은 아래 형식의 JSON 객체 하나만 씁니다. 다른 텍스트를 붙이지 않습니다.
             {
@@ -36,6 +36,7 @@ public final class ClassReportPrompts {
               "evidence_refs": [{"field": "judgment_basis 또는 strength 또는 next_focus", "source_id": "p:12 또는 c:34", "quote": "원문 구절"}],
               "analysis_status": "SUFFICIENT 또는 LIMITED"
             }
+            규칙 4 에 해당하면 위 형식 대신 {"analysis_status": "INSUFFICIENT"} 만 출력합니다.
             judgment_basis 에는 evidence_refs 가 1개 이상 있어야 하고, strength 와 next_focus 가 null 이 아니면 각각 evidence_refs 가 1개 이상 있어야 합니다.
             """;
 

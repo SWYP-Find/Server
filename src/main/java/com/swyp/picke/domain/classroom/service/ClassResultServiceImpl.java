@@ -362,6 +362,9 @@ public class ClassResultServiceImpl implements ClassResultService {
                 ReportContent.str(content, "next_question"),
                 evidence,
                 ReportContent.str(content, "analysis_status"),
+                ReportContent.str(content, "limited_reason"),
+                ReportContent.str(content, "limited_message"),
+                ReportContent.str(content, "limited_notice"),
                 ReportContent.str(content, "coverage"),
                 ReportContent.asInt(content, "excluded_count"));
     }

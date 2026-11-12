@@ -4,13 +4,18 @@ import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.repository.BattleOptionRepository;
 import com.swyp.picke.domain.classroom.entity.AiJob;
+import com.swyp.picke.domain.classroom.entity.ClassDebateMessage;
+import com.swyp.picke.domain.classroom.entity.ClassDebateSession;
 import com.swyp.picke.domain.classroom.entity.ClassMember;
 import com.swyp.picke.domain.classroom.entity.ClassReport;
 import com.swyp.picke.domain.classroom.entity.Classroom;
 import com.swyp.picke.domain.classroom.enums.AiJobType;
+import com.swyp.picke.domain.classroom.enums.ClassDebateSpeaker;
 import com.swyp.picke.domain.classroom.enums.ClassReportStatus;
 import com.swyp.picke.domain.classroom.enums.ClassReportType;
 import com.swyp.picke.domain.classroom.repository.AiJobRepository;
+import com.swyp.picke.domain.classroom.repository.ClassDebateMessageRepository;
+import com.swyp.picke.domain.classroom.repository.ClassDebateSessionRepository;
 import com.swyp.picke.domain.classroom.repository.ClassReportRepository;
 import com.swyp.picke.domain.classroom.repository.ClassroomRepository;
 import com.swyp.picke.domain.classroom.service.ClassMidVoteService;
@@ -82,6 +87,8 @@ public class ClassReportSnapshotService {
     private final PerspectiveCommentRepository perspectiveCommentRepository;
     private final ClassReportAiClient aiClient;
     private final ClassMidVoteService classMidVoteService;
+    private final ClassDebateSessionRepository debateSessionRepository;
+    private final ClassDebateMessageRepository debateMessageRepository;
 
     /** prepare 결과. needsAi=false 면 이미 템플릿으로 끝난 것 */
     public record Prepared(Long reportId, Long jobId, ClassReportType type, boolean needsAi,
@@ -223,8 +230,8 @@ public class ClassReportSnapshotService {
     // ===== 입력 생성 =====
 
     /**
-     * 개인 리포트 입력: 본인 PUBLISHED 의견 전부 + 본인 댓글 최신 20건, 합쳐서 8,000자 안에서 오래된 댓글부터 제외.
-     * 같은 내용을 반복한 댓글은 처음 것만 남긴다 (엣지 케이스 PRD RP-10·EX-05 중복 논거 집계 금지)
+     * 개인 리포트 입력: 본인 PUBLISHED 의견 전부 + 커스텀 배틀 토론 반박 전부(최대 3건) + 본인 댓글 최신 20건,
+     * 합쳐서 8,000자 안에서 오래된 댓글부터 제외. 같은 내용을 반복한 발언은 처음 것만 남긴다 (엣지 케이스 PRD RP-10·EX-05 중복 논거 집계 금지)
      */
     public MemberFeedbackInput buildMemberInput(Classroom classroom, ClassMember member) {
         Battle battle = classroom.getBattle();
@@ -256,6 +263,7 @@ public class ClassReportSnapshotService {
         for (MemberFeedbackInput.Statement p : perspectives) {
             seen.add(dedupKey(p.content()));
         }
+        List<MemberFeedbackInput.Statement> debateReplies = debateReplies(classId, member, seen);
         List<MemberFeedbackInput.Statement> comments = new ArrayList<>();
         for (PerspectiveComment c : perspectiveCommentRepository.findByClassroomIdAndUserIdAndHiddenFalseOrderByCreatedAtAsc(classId, userId)) {
             String content = ReportProfanityMasker.mask(c.getContent());
@@ -277,16 +285,48 @@ public class ClassReportSnapshotService {
             comments.remove(0);
             excluded++;
         }
-        int chars = chars(perspectives) + chars(comments);
+        int chars = chars(perspectives) + chars(debateReplies) + chars(comments);
         while (chars > MEMBER_INPUT_MAX_CHARS && !comments.isEmpty()) {
             chars -= chars(List.of(comments.remove(0)));
             excluded++;
         }
         List<MemberFeedbackInput.Statement> statements = new ArrayList<>(perspectives);
+        statements.addAll(debateReplies);
         statements.addAll(comments);
         statements.sort(Comparator.comparing(MemberFeedbackInput.Statement::createdAt, Comparator.nullsLast(Comparator.naturalOrder())));
         return new MemberFeedbackInput(battle.getTitle(), battle.getSummary(), new ArrayList<>(optionById.values()),
                 pre, mid, post, statements, excluded);
+    }
+
+    /**
+     * 커스텀 배틀 토론 반박 (엣지 케이스 PRD EX-02 "배틀 대화와 댓글 분석 구분"). 직전 AI 철학자 주장은 맥락으로만 붙인다
+     * (3.4 "AI 유도 질문과 자발적 의견 구분", "AI 응답을 사용자 의견으로 취급하지 않음").
+     * 입력 분류에서 분석 불가로 저장된 반박은 뺀다(4.1). 분류가 없는 반박은 넣고 리포트 AI 가 판단한다.
+     * 토론은 1:1 대화라 공개 의견 요약(인사이트)에는 넣지 않는다.
+     */
+    private List<MemberFeedbackInput.Statement> debateReplies(Long classId, ClassMember member, Set<String> seen) {
+        List<MemberFeedbackInput.Statement> replies = new ArrayList<>();
+        ClassDebateSession session = debateSessionRepository.findByClassroomIdAndMemberId(classId, member.getId()).orElse(null);
+        if (session == null) {
+            return replies;
+        }
+        String stance = session.getParticipantOption() == null ? null : session.getParticipantOption().getStance();
+        String lastArgument = null;
+        for (ClassDebateMessage m : debateMessageRepository.findBySessionIdOrderByRoundIndexAscIdAsc(session.getId())) {
+            if (m.getSpeaker() == ClassDebateSpeaker.AI) {
+                lastArgument = m.getContent();
+                continue;
+            }
+            String content = ReportProfanityMasker.mask(m.getContent());
+            if (Boolean.FALSE.equals(m.getValidForAnalysis()) || !seen.add(dedupKey(content))) {
+                continue;
+            }
+            replies.add(new MemberFeedbackInput.Statement(
+                    MemberFeedbackInput.sourceId(MemberFeedbackInput.SOURCE_DEBATE, m.getId()),
+                    MemberFeedbackInput.SOURCE_DEBATE, m.getId(), m.getCreatedAt(), stance, content,
+                    lastArgument == null ? null : truncate(ReportProfanityMasker.mask(lastArgument), PARENT_CONTEXT_MAX_CHARS)));
+        }
+        return replies;
     }
 
     /**

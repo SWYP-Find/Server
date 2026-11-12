@@ -1081,7 +1081,8 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
       "nextFocus": { "title": "...", "body": "..." },
       "nextQuestion": "...",
       "evidence": [
-        { "field": "judgment_basis", "sourceType": "PERSPECTIVE", "sourceId": 50, "quote": "...", "content": "...", "createdAt": "2026-10-21T12:00:00" }
+        { "field": "judgment_basis", "sourceType": "PERSPECTIVE", "sourceId": 50, "quote": "...", "content": "...", "createdAt": "2026-10-21T12:00:00" },
+        { "field": "strength", "sourceType": "DEBATE", "sourceId": 77, "quote": "...", "content": "...", "createdAt": "2026-10-21T12:05:00" }
       ],
       "analysisStatus": "SUFFICIENT",
       "limitedReason": null,
@@ -1112,6 +1113,9 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 - `coverage=partial`은 분량 제한으로 일부 글을 빼고 분석했다는 뜻이다. 뺀 글 수는 `excludedCount`에 있다.
 - AI에는 비속어를 `***`로 가려서 넘긴다. 비속어가 섞여도 이유가 있으면 분석하고, `evidence[].quote`에는 비속어가 들어간 구간을 넣지 않는다. 원문(`content`)은 그대로다.
 - 같은 내용을 반복한 댓글은 처음 것만 분석한다(공백·대소문자 차이는 같은 글로 본다).
+- 커스텀 배틀 클래스는 본인 토론 반박도 분석한다(엣지 케이스 EX-02). 근거는 `evidence[].sourceType=DEBATE`, `sourceId`는 토론 메시지 ID다.
+  - 입력 분류에서 분석 불가(주제 무관·이유 부족 등)로 저장된 반박은 빼고, 직전 AI 철학자 주장은 맥락으로만 쓴다(인용하지 않음).
+  - 토론은 1:1 대화라 인사이트(8.3)에는 들어가지 않는다.
 - 생성에 실패하면 `FAILED`이고, 수동 재시도가 남았으면 `retryable`이 true다. 재시도는 8.2.1을 쓴다.
 - 참여하지 않는 운영자는 403 `CLASS_403_MEMBER`다.
 

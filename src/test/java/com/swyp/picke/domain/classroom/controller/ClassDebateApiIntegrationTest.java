@@ -311,6 +311,14 @@ class ClassDebateApiIntegrationTest {
         reply(1, injection, "key-injection")
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("CLASS_400_DEBATE_INJECTION"));
+        // 반려돼도 분류 호출 비용은 기록한다 (규칙으로 거른 무의미 입력은 호출이 없어 기록 없음)
+        assertThat(classifyJobs()).singleElement().satisfies(job -> {
+            assertThat(job.getStatus()).isEqualTo(AiJobStatus.SUCCEEDED);
+            assertThat(job.getModel()).isEqualTo("test-model");
+            assertThat(job.getInputTokens()).isEqualTo(300);
+            assertThat(job.getOutputTokens()).isEqualTo(150);
+            assertThat(job.getIdempotencyKey()).endsWith(":1:key-injection");
+        });
 
         String padded = longText("ㅁㄴㅇㄹ");
         stubClassification(padded, List.of("MEANINGLESS"), null);
@@ -322,6 +330,7 @@ class ClassDebateApiIntegrationTest {
         reply(1, longText("고친 반박"), "key-fixed")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.round").value(2));
+        assertThat(classifyJobs()).hasSize(2); // 인젝션 + 무의미(AI 판정). 분류 응답이 없는(장애) "고친 반박"은 기록하지 않는다
     }
 
     @Test
@@ -524,6 +533,10 @@ class ClassDebateApiIntegrationTest {
         json.put("valid_argument", validArgument);
         when(aiClient.chatJson(eq("test-model"), eq(ClassDebateInputClassifier.SYSTEM), argThat(p -> p != null && p.contains(reply)), anyInt()))
                 .thenReturn(result(json));
+    }
+
+    private List<AiJob> classifyJobs() {
+        return aiJobRepository.findAll().stream().filter(j -> j.getType() == AiJobType.DEBATE_INPUT_CLASSIFY).toList();
     }
 
     private ClassDebateMessage userMessage(int round) {

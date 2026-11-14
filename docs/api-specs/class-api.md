@@ -10,6 +10,7 @@
 `src/main/java/com/swyp/picke/domain/classroom/controller/ClassDebateController.java`  
 `src/main/java/com/swyp/picke/domain/classroom/controller/ClassResultController.java`  
 `src/main/java/com/swyp/picke/domain/admin/controller/AdminBattleController.java`  
+`src/main/java/com/swyp/picke/domain/admin/controller/AdminClassroomController.java`<br>
 `src/main/java/com/swyp/picke/domain/admin/controller/AdminFundingController.java`
 
 ## 목차
@@ -23,7 +24,7 @@
 6. 클래스 배틀 진행 (투표·TTS·의견·댓글)
 7. AI 철학자 토론 (커스텀 배틀)
 8. 결과·AI 리포트
-9. 어드민 (배틀 클래스 설정, 펀딩·이용권)
+9. 어드민 (배틀 설정, 펀딩·이용권, 클래스 관리)
 10. 에러 코드 모음
 
 ---
@@ -1256,7 +1257,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 { "fundingOrderIds": [1, 2, 3] }
 ```
 
-- 본문을 비우거나 `fundingOrderIds`를 비우면 발급 가능한 전체 주문에 발급한다. 발급 가능한 주문은 결제 확정, 수량 1, 미발급인 주문이다.
+- 본문을 비우거나 `fundingOrderIds`를 비우면 발급 가능한 전체 주문에 발급한다. 발급 가능한 주문은 결제 확정·결제일 존재·미발급 수량이 남은 주문이다. 주문 수량만큼 코드를 발급한다.
 - 이미 살아 있는 이용권이 있는 주문은 건너뛴다. 그래서 다시 실행해도 중복 발급되지 않는다.
 
 ```json
@@ -1326,12 +1327,17 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 | `paymentStatus` | 결제 상태 필터 |
 | `ticketStatus` | `UNREGISTERED` / `ACTIVE` / `EXPIRED` / `REGISTER_EXPIRED` / `REVOKED` |
 | `codeStatus` | `ISSUED` / `DELIVERED` / `CLAIMED` / `REVOKED` |
-| `keyword` | order_id / 후원자명 / 이메일 부분 일치 |
+| `campaignId` | 캠페인 ID |
+| `capacity` | 이용권 정원 |
+| `deliveryStatus` | 주문 단위 `PENDING` / `SENT` / `FAILED` |
+| `keyword` | 주문번호 / 후원자명 / 이메일·전화번호 / 텀블벅 후원번호 |
 | `page`, `size` | 기본 0, 20 |
 
 - 응답: `items[]`, `page`, `size`, `totalElements`, `hasNext`
 - `items[]`에는 주문 정보가 들어간다: `fundingOrderId`, `platform`, `campaignId`, `orderId`, `rewardTier`, `quantity`, 후원자 정보, `paymentStatus`, `paidAt`, `issuable`
-- `items[].ticket`은 살아 있는 이용권 요약이고, 없으면 null이다. 필드는 `ticketId`, `capacity`, `codeStatus`, `status`, `deliveredAt`, `registerBy`, `activatedAt`, `expiresAt`, `registeredUserId`, `registeredNickname`다.
+- `items[].tickets[]`에는 살아 있는 이용권별 `ticketId`, `capacity`, `codeStatus`, `status`, `deliveredAt`, `registerBy`, `activatedAt`, `expiresAt`, `registeredUserId`, `registeredNickname`, `codeSuffix`, `deliveryStatus`가 들어간다. 하위 호환을 위해 `items[].ticket`에도 첫 이용권 요약을 반환하고, 없으면 null이다.
+- `items[].deliveryStatus`는 주문 단위 상태다. 모두 전달 성공이면 `SENT`, 하나라도 최신 결과가 실패면 `FAILED`, 나머지는 `PENDING`이다. `deliveryStatus` 필터도 같은 규칙을 쓴다.
+- 텀블벅 주문은 `items[].tumblbug`에 요금제·후원일시·상품·금액·후원번호 등 원본 정보를 포함할 수 있다.
 - 코드 원문과 해시는 내려가지 않는다.
 
 ### 9.8 펀딩·이용권 현황 요약
@@ -1341,6 +1347,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
   - 이용권: `issued`, `undelivered`, `delivered`, `registered`
   - 등록기한 알림 대상 수: `registerReminderD30`, `registerReminderD7` (9.9와 같은 기준)
 - 이용권 수치는 살아 있는(REVOKED가 아닌) 행 기준이다.
+- 발급 가능(`issuable`)은 결제 확정·결제일 존재·미발급 수량이 남은 주문 수다. 보류(`held`)는 결제 확정인데 결제일이 없거나 결제 대기·예약 상태인 주문 수다.
 
 ### 9.9 등록기한 임박 알림
 PRD "등록기한 30일·7일 전 알림은 허용된 연락 수단에서만 발송". 미등록 이용권은 앱 계정에 연결되지 않아 푸시를 보낼 수 없다. 그래서 코드 전달(9.4)처럼 운영자가 후원자 연락처로 보내고 결과를 기록한다. 대상은 조회 시점에 계산하므로 별도 배치가 없다.
@@ -1392,6 +1399,50 @@ PRD "등록기한 30일·7일 전 알림은 허용된 연락 수단에서만 발
 | 전달 완료·미등록 이용권이 아님 (미전달·등록 완료·무효화) | 409 `TICKET_409_STATE` |
 | 등록기한 경과 | 409 `TICKET_409_REG_EXP` |
 | `stage`·`channel`·`status` 누락 | 400 `COMMON_400` |
+
+---
+
+### 9.10 관리자 클래스 관리 화면
+
+아래 API는 관리자 전용이며 `ROLE_ADMIN`이 필요하다. 클래스의 OPEN/CLOSED 상태는 별도 상태 열이 아니라 조회 시점의 클래스 마감일·연결 이용권 종료일·이용권 무효화 여부로 계산한다. 삭제된 클래스(`status=DELETED`)는 목록과 통계에서 제외한다.
+
+**요약 카드**
+
+- `GET /api/v1/admin/classes/summary`
+- 응답: `totalClasses`, `ongoingClasses`, `participants`, `closingWithin30Days`
+- `totalClasses`: 삭제되지 않은 전체 클래스 수(종료된 클래스 포함)
+- `ongoingClasses`: 연결 이용권이 유효하고 클래스 마감일·이용권 종료일이 지나지 않은 수
+- `participants`: DB 상태가 ACTIVE인 클래스들의 `seatHeld=true` 좌석 수. 활동 후 나간 멤버도 좌석을 점유했다면 포함된다.
+- `closingWithin30Days`: 현재 진행 중이며 클래스 마감일 또는 이용권 종료일이 앞으로 30일 안에 있는 클래스 수. KST 기준이다.
+
+**목록**
+
+- `GET /api/v1/admin/classes?keyword=&state=&page=0&size=20`
+- `keyword`: 클래스명, 생성자 닉네임·userTag, 연결 배틀 제목 검색
+- `state`: `OPEN` 또는 `CLOSED`; 미입력 시 둘 다 반환
+- `page`: 0부터 시작, 기본값 0. 응답 `PageResponse.page`는 1부터 표시한다.
+- `size`: 기본값 20, 최대 100
+- 행 필드: `classId`, `name`, `ownerNickname`, `battleId`, `selectedContent`, `thumbnailUrl`, `battleType`, `participantCount`, `capacity`, `closeAt`, `state`, `createdAt`
+- `participantCount`는 좌석 점유(`seatHeld`) 인원이다. 현재 활성 멤버 수와 달라질 수 있다.
+
+**상세**
+
+- `GET /api/v1/admin/classes/{classId}`
+- 클래스 설정과 상태, 연결 콘텐츠, 이용권·구매 주문 요약, 좌석 점유 인원, 활성 멤버 및 진행 현황을 반환한다.
+- `ticket`은 코드 끝 4자리와 상태·기한을 포함하지만 원문 코드는 반환하지 않는다. 구매자 연락처와 사용자 계정 ID도 반환하지 않는다.
+- `progress.activeParticipants`, `completedParticipants`, `completionRate`는 현재 활성 멤버 기준이다. `participantCount`는 좌석 점유 인원 기준이므로 서로 다를 수 있다.
+- 멤버 행은 클래스 내 `displayName`, `role`, `characterUrl`, `joinedAt`, `completed`를 반환한다.
+
+**CSV 내보내기**
+
+- `GET /api/v1/admin/classes/export?keyword=&state=`
+- 목록과 같은 검색·상태 필터를 적용한다. 응답은 UTF-8 BOM이 포함된 `text/csv` 파일이다.
+
+| 상황 | 응답 |
+|---|---|
+| 잘못된 상태·페이지·크기 | 400 `COMMON_400` |
+| 클래스 없음 또는 삭제된 클래스 | 404 `CLASS_404` |
+| 관리자 권한 없음 | 403 |
 
 ---
 

@@ -49,4 +49,11 @@ public interface ClassMemberRepository extends JpaRepository<ClassMember, Long> 
             group by m.classroom.id
             """)
     List<Object[]> countSeatsHeldByClassroomIds(@Param("classroomIds") Collection<Long> classroomIds);
+
+    @Query("""
+            select count(m) from ClassMember m
+            where m.seatHeld = true
+              and m.classroom.status = com.swyp.picke.domain.classroom.enums.ClassStatus.ACTIVE
+            """)
+    long countSeatsHeldInActiveClasses();
 }

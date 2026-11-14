@@ -10,9 +10,17 @@ import com.swyp.picke.domain.battle.dto.parse.AdminBattleParseRequest;
 import com.swyp.picke.domain.battle.dto.parse.AdminBattleParseResponse;
 import com.swyp.picke.domain.admin.dto.battle.response.AdminBattleDeleteResponse;
 import com.swyp.picke.domain.admin.dto.battle.response.AdminBattleDetailResponse;
+import com.swyp.picke.domain.admin.dto.battle.response.AdminBattleCatalogItemResponse;
+import com.swyp.picke.domain.admin.dto.battle.response.AdminBattleCatalogSummaryResponse;
 import com.swyp.picke.domain.admin.dto.battle.request.AdminBattleUpdateRequest;
+import com.swyp.picke.domain.admin.service.AdminBattleCatalogService;
 import com.swyp.picke.domain.admin.service.AdminBattleService;
+import com.swyp.picke.domain.battle.enums.BattleCategory;
+import com.swyp.picke.domain.battle.enums.BattleDifficulty;
+import com.swyp.picke.global.common.exception.CustomException;
+import com.swyp.picke.global.common.exception.ErrorCode;
 import com.swyp.picke.global.common.response.ApiResponse;
+import com.swyp.picke.global.common.response.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -37,6 +45,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminBattleController {
 
     private final AdminBattleService adminBattleService;
+    private final AdminBattleCatalogService adminBattleCatalogService;
     private final BattleThumbnailCandidateService battleThumbnailCandidateService;
 
     @Operation(summary = "배틀 대본 붙여넣기 파싱 (미리보기용, 저장 안 함)")
@@ -117,6 +126,38 @@ public class AdminBattleController {
             @RequestParam(value = "status", required = false) String status
     ) {
         return ApiResponse.onSuccess(adminBattleService.getBattles(page, size, status));
+    }
+
+    @Operation(summary = "콘텐츠 관리 화면 요약 카드")
+    @GetMapping("/manage/summary")
+    public ApiResponse<AdminBattleCatalogSummaryResponse> getCatalogSummary() {
+        return ApiResponse.onSuccess(adminBattleCatalogService.getSummary());
+    }
+
+    @Operation(summary = "콘텐츠 관리 목록", description = "제목 검색, 난이도·카테고리·클래스 추천 필터와 페이지네이션을 지원합니다. 사용자 커스텀 콘텐츠와 삭제된 콘텐츠는 제외합니다.")
+    @GetMapping("/manage")
+    public ApiResponse<PageResponse<AdminBattleCatalogItemResponse>> getCatalogContents(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) BattleDifficulty difficulty,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) Boolean classRecommendable,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.onSuccess(adminBattleCatalogService.getContents(keyword, difficulty, parseCategory(category),
+                classRecommendable, page, size));
+    }
+
+    private BattleCategory parseCategory(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String normalized = value.strip();
+        for (BattleCategory category : BattleCategory.values()) {
+            if (category.name().equalsIgnoreCase(normalized) || category.getValue().equals(normalized)) {
+                return category;
+            }
+        }
+        throw new CustomException(ErrorCode.COMMON_INVALID_PARAMETER);
     }
 
     @Operation(summary = "기존 배틀에 BOT 관점 자동 생성")

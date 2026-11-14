@@ -28,7 +28,7 @@ public record FundingOrderSummaryResponse(
         @Schema(description = "살아 있는(REVOKED 아닌) 이용권. 없으면 null", nullable = true) Ticket ticket,
         @Schema(description = "주문 수량만큼 발급된 살아 있는 이용권 목록") List<Ticket> tickets,
         @Schema(description = "텀블벅 XLSX 원본 정보. CSV 주문은 null", nullable = true) TumblbugOrderDetailResponse tumblbug,
-        @Schema(description = "최근 전달 결과. 이력이 없으면 PENDING")
+        @Schema(description = "주문 단위 전달 결과: 모두 SENT면 SENT, 하나라도 FAILED면 FAILED, 나머지는 PENDING")
         DeliveryStatus deliveryStatus
 ) {
     public record Ticket(

@@ -6,8 +6,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public record FundingSummaryResponse(
         @Schema(description = "전체 주문 수") long totalOrders,
         @Schema(description = "결제 확정 주문 수") long paidConfirmed,
-        @Schema(description = "발급 가능 (결제 완료·남은 수량 있음)") long issuable,
-        @Schema(description = "보류 (결제 확정이지만 수량이 1이 아니거나 결제일 없음, 결제 대기·예약)") long held,
+        @Schema(description = "발급 가능 (결제 확정·결제일 존재·남은 수량 있음)") long issuable,
+        @Schema(description = "보류 (결제 확정인데 결제일이 없거나 결제 대기·예약 상태)") long held,
         @Schema(description = "발급된 이용권 수 (살아 있는 행)") long issued,
         @Schema(description = "미전달 (codeStatus=ISSUED)") long undelivered,
         @Schema(description = "전달 완료 (codeStatus=DELIVERED, 아직 미등록)") long delivered,

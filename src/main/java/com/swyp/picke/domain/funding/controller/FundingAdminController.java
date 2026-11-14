@@ -49,6 +49,12 @@ public class FundingAdminController {
                 registeredFrom, registeredTo, page, size));
     }
 
+    @Operation(summary = "펀딩 이용권 화면 요약", description = "전체 이용권, 이용 중, 미등록, 30일 이내 이용권 종료 예정 수를 조회합니다. REVOKED 이용권은 제외합니다.")
+    @GetMapping("/tickets/summary")
+    public ApiResponse<TicketAdminSummaryResponse> ticketSummary() {
+        return ApiResponse.onSuccess(fundingTicketQueryService.getSummary());
+    }
+
     @Operation(summary = "텀블벅 후원자 엑셀 자동 판별 및 미리보기", description = "선택한 리워드 시트에서 사진의 9개 표 열을 자동 판별합니다. 미리보기는 저장이나 코드 발급을 하지 않습니다.")
     @io.swagger.v3.oas.annotations.responses.ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "엑셀 검토 결과"),

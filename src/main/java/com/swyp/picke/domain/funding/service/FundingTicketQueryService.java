@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.funding.service;
 
 import com.swyp.picke.domain.funding.dto.response.TicketAdminRowResponse;
+import com.swyp.picke.domain.funding.dto.response.TicketAdminSummaryResponse;
 import com.swyp.picke.domain.ticket.entity.ClassTicket;
 import com.swyp.picke.domain.ticket.entity.FundingOrder;
 import com.swyp.picke.domain.ticket.enums.TicketStatus;
@@ -16,6 +17,7 @@ import jakarta.persistence.criteria.Root;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -32,6 +34,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class FundingTicketQueryService {
     private final ClassTicketRepository classTicketRepository;
+
+    public TicketAdminSummaryResponse getSummary() {
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
+        return new TicketAdminSummaryResponse(
+                classTicketRepository.countByStatusNot(TicketStatus.REVOKED),
+                classTicketRepository.countCurrentlyInUse(TicketStatus.ACTIVE, now),
+                classTicketRepository.countUnregistered(List.of(TicketStatus.UNREGISTERED, TicketStatus.REGISTER_EXPIRED)),
+                classTicketRepository.countExpiringBetween(TicketStatus.ACTIVE, now, now.plus(30, ChronoUnit.DAYS)));
+    }
 
     public PageResponse<TicketAdminRowResponse> searchTickets(String keyword, Integer capacity, TicketStatus status,
             LocalDate registeredFrom, LocalDate registeredTo, int page, int size) {

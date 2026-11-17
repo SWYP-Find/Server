@@ -22,7 +22,7 @@ class ClassDebateInputClassifierTest {
     private final ClassReportAiClient aiClient = mock(ClassReportAiClient.class);
     private final ClassDebateInputClassifier classifier = new ClassDebateInputClassifier(aiClient);
     private static final ClassDebateInputClassifier.Context CONTEXT =
-            new ClassDebateInputClassifier.Context("감정을 드러내지 않는 슬픔도 진짜 슬픔일까?", "진짜 슬픔이다", "직전 주장");
+            new ClassDebateInputClassifier.Context(1L, "감정을 드러내지 않는 슬픔도 진짜 슬픔일까?", "진짜 슬픔이다", "직전 주장");
 
     private ClassDebateInputClassifier.Result classify(List<String> types, String validArgument) {
         Map<String, Object> json = new HashMap<>();

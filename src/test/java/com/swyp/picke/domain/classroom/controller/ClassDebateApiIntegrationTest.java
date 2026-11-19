@@ -20,6 +20,7 @@ import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.enums.BattleCreatorType;
 import com.swyp.picke.domain.battle.repository.BattleOptionRepository;
+import com.swyp.picke.domain.battle.repository.BattleTagRepository;
 import com.swyp.picke.domain.battle.repository.BattleRepository;
 import com.swyp.picke.domain.classroom.entity.AiJob;
 import com.swyp.picke.domain.classroom.entity.ClassDebateMessage;
@@ -106,6 +107,7 @@ class ClassDebateApiIntegrationTest {
     @Autowired private ClassMemberRepository classMemberRepository;
     @Autowired private BattleRepository battleRepository;
     @Autowired private BattleOptionRepository battleOptionRepository;
+    @Autowired private BattleTagRepository battleTagRepository;
     @Autowired private BattleVoteRepository battleVoteRepository;
     @Autowired private UserBattleRepository userBattleRepository;
     @Autowired private ClassDebateSessionRepository sessionRepository;
@@ -173,6 +175,8 @@ class ClassDebateApiIntegrationTest {
         classroomRepository.deleteAll();
         versionRepository.deleteAll();
         draftRepository.deleteAll();
+        battleTagRepository.deleteAll(battleTagRepository.findAll().stream()
+                .filter(t -> customBattleIds.contains(t.getBattle().getId())).toList());
         battleOptionRepository.deleteAll(battleOptionRepository.findAll().stream()
                 .filter(o -> customBattleIds.contains(o.getBattle().getId())).toList());
         battleRepository.deleteAllById(customBattleIds);
@@ -197,6 +201,7 @@ class ClassDebateApiIntegrationTest {
                 .andExpect(jsonPath("$.data.opponentOption.optionId").value(optionB))
                 .andExpect(jsonPath("$.data.philosopher.code").value("ARISTOTLE"))
                 .andExpect(jsonPath("$.data.philosopher.name").value("아리스토텔레스"))
+                .andExpect(jsonPath("$.data.philosopher.imageUrl").value(org.hamcrest.Matchers.endsWith("/api/v1/resources/images/PHILOSOPHER/aristotle.png")))
                 .andExpect(jsonPath("$.data.aiNotice").exists())
                 .andExpect(jsonPath("$.data.messages", hasSize(1)))
                 .andExpect(jsonPath("$.data.messages[0].speaker").value("AI"))

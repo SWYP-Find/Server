@@ -398,8 +398,8 @@ public class AdminFundingService {
         boolean failed = deliveryStatus == com.swyp.picke.domain.funding.enums.DeliveryStatus.FAILED;
 
         Page<FundingOrder> result = fundingOrderRepository.searchOrders(
-                paymentStatus, ticketStatus, codeStatus, normalizedCampaignId, normalizedKeyword, rewardTier, sent, failed, pending,
-                PageRequest.of(pageNumber, pageSize));
+                paymentStatus, ticketStatus, codeStatus, normalizedCampaignId, normalizedKeyword, rewardTier,
+                sent, failed, pending, PageRequest.of(pageNumber, pageSize));
         List<Long> orderIds = result.getContent().stream().map(FundingOrder::getId).toList();
         Map<Long, TumblbugOrderDetailResponse> tumblbugDetails = tumblbugImportRecordService.getDetails(orderIds);
         Map<Long, List<ClassTicket>> liveTicketsByOrder = orderIds.isEmpty() ? Map.of()
@@ -444,7 +444,10 @@ public class AdminFundingService {
         long paid = fundingOrderRepository.countByPlatformAndCampaignIdAndPaymentStatus(
                 FundingPlatform.TUMBLBUG, normalizedCampaignId, PaymentStatus.PAID_CONFIRMED);
         long delivered = fundingOrderRepository.countDeliveredByTumblbugCampaign(normalizedCampaignId);
-        return new TumblbugCampaignDashboardResponse(normalizedCampaignId, total, paid, delivered, total - delivered);
+        long issuedCodes = classTicketRepository.countLiveTumblbugTickets(normalizedCampaignId);
+        long deliveredCodes = classTicketRepository.countDeliveredTumblbugTickets(normalizedCampaignId);
+        return new TumblbugCampaignDashboardResponse(normalizedCampaignId, total, paid, delivered, total - delivered,
+                issuedCodes, deliveredCodes, issuedCodes - deliveredCodes);
     }
 
     private static FundingOrderSummaryResponse toSummary(FundingOrder order, List<ClassTicket> tickets,
@@ -453,12 +456,13 @@ public class AdminFundingService {
         List<FundingOrderSummaryResponse.Ticket> ticketViews = new ArrayList<>();
         for (ClassTicket ticket : tickets) {
             User registrant = ticket.getRegisteredUser();
+            DeliveryStatus latestDelivery = deliveries.get(ticket.getId());
             ticketViews.add(new FundingOrderSummaryResponse.Ticket(ticket.getId(), ticket.getCapacity(),
                     ticket.getCodeStatus(), ticket.getStatus(), ticket.getDeliveredAt(), ticket.getRegisterBy(),
                     ticket.getActivatedAt(), ticket.getExpiresAt(),
                     registrant == null ? null : registrant.getId(),
                     registrant == null ? null : registrant.getNickname(), ticket.getCodeSuffix(),
-                    toDeliveryView(deliveries.get(ticket.getId()))));
+                    toDeliveryView(latestDelivery)));
         }
         boolean issuable = order.isIssuable() && ticketViews.size() < order.getQuantity();
         return new FundingOrderSummaryResponse(order.getId(), order.getPlatform(), order.getCampaignId(),

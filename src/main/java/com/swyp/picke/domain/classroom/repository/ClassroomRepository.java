@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -28,12 +29,85 @@ public interface ClassroomRepository extends JpaRepository<Classroom, Long> {
 
     List<Classroom> findByOwnerIdAndStatus(Long ownerId, ClassStatus status);
 
+    long countByStatus(ClassStatus status);
+
+    @Query("""
+            select count(c) from Classroom c
+            where c.status = com.swyp.picke.domain.classroom.enums.ClassStatus.ACTIVE
+              and c.ticket.status <> com.swyp.picke.domain.ticket.enums.TicketStatus.REVOKED
+              and (c.deadline is null or c.deadline > :now)
+              and (c.ticket.expiresAt is null or c.ticket.expiresAt > :now)
+            """)
+    long countOpenClasses(@Param("now") LocalDateTime now);
+
+    @Query("""
+            select count(c) from Classroom c
+            where c.status = com.swyp.picke.domain.classroom.enums.ClassStatus.ACTIVE
+              and c.ticket.status <> com.swyp.picke.domain.ticket.enums.TicketStatus.REVOKED
+              and (c.deadline is null or c.deadline > :now)
+              and (c.ticket.expiresAt is null or c.ticket.expiresAt > :now)
+              and ((c.deadline is not null and c.deadline <= :until)
+                   or (c.ticket.expiresAt is not null and c.ticket.expiresAt <= :until))
+            """)
+    long countClosingWithin(@Param("now") LocalDateTime now, @Param("until") LocalDateTime until);
+
     /** 중복 생성 판정용: 같은 운영자가 같은 요청 키로 만든 클래스 */
     Optional<Classroom> findByOwnerIdAndCreateRequestKey(Long ownerId, String createRequestKey);
 
     /** 중복 생성 판정용(요청 키가 없을 때): 같은 운영자가 같은 이름으로 최근에 만든 클래스 */
     List<Classroom> findByOwnerIdAndNameAndStatusAndCreatedAtAfterOrderByIdDesc(
             Long ownerId, String name, ClassStatus status, LocalDateTime createdAfter);
+
+    @Query(value = """
+            select c from Classroom c
+            join fetch c.owner
+            join fetch c.ticket
+            join fetch c.battle
+            where c.status = com.swyp.picke.domain.classroom.enums.ClassStatus.ACTIVE
+              and (:keyword is null
+                   or lower(c.name) like lower(concat('%', :keyword, '%'))
+                   or lower(c.owner.nickname) like lower(concat('%', :keyword, '%'))
+                   or lower(c.owner.userTag) like lower(concat('%', :keyword, '%'))
+                   or lower(c.battle.title) like lower(concat('%', :keyword, '%')))
+              and ((:includeOpen = true
+                    and c.ticket.status <> com.swyp.picke.domain.ticket.enums.TicketStatus.REVOKED
+                    and (c.deadline is null or c.deadline > :now)
+                    and (c.ticket.expiresAt is null or c.ticket.expiresAt > :now))
+                   or (:includeClosed = true
+                    and (c.ticket.status = com.swyp.picke.domain.ticket.enums.TicketStatus.REVOKED
+                         or (c.deadline is not null and c.deadline <= :now)
+                         or (c.ticket.expiresAt is not null and c.ticket.expiresAt <= :now))))
+            order by c.createdAt desc, c.id desc
+            """,
+            countQuery = """
+            select count(c) from Classroom c
+            where c.status = com.swyp.picke.domain.classroom.enums.ClassStatus.ACTIVE
+              and (:keyword is null
+                   or lower(c.name) like lower(concat('%', :keyword, '%'))
+                   or lower(c.owner.nickname) like lower(concat('%', :keyword, '%'))
+                   or lower(c.owner.userTag) like lower(concat('%', :keyword, '%'))
+                   or lower(c.battle.title) like lower(concat('%', :keyword, '%')))
+              and ((:includeOpen = true
+                    and c.ticket.status <> com.swyp.picke.domain.ticket.enums.TicketStatus.REVOKED
+                    and (c.deadline is null or c.deadline > :now)
+                    and (c.ticket.expiresAt is null or c.ticket.expiresAt > :now))
+                   or (:includeClosed = true
+                    and (c.ticket.status = com.swyp.picke.domain.ticket.enums.TicketStatus.REVOKED
+                         or (c.deadline is not null and c.deadline <= :now)
+                         or (c.ticket.expiresAt is not null and c.ticket.expiresAt <= :now))))
+            """)
+    Page<Classroom> searchAdminClasses(@Param("keyword") String keyword, @Param("now") LocalDateTime now,
+                                       @Param("includeOpen") boolean includeOpen,
+                                       @Param("includeClosed") boolean includeClosed, Pageable pageable);
+
+    @Query("""
+            select c from Classroom c
+            join fetch c.owner
+            join fetch c.ticket
+            join fetch c.battle
+            where c.id = :classId and c.status = com.swyp.picke.domain.classroom.enums.ClassStatus.ACTIVE
+            """)
+    Optional<Classroom> findActiveForAdmin(@Param("classId") Long classId);
 
     /**
      * 참여용: 정원 검사와 멤버 생성이 한 트랜잭션에서 직렬화되도록 클래스 행을 잠근다(SELECT ... FOR UPDATE).

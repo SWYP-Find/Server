@@ -112,6 +112,35 @@
 | 그 밖의 전환 (임시저장 → 공개, 공개 → 임시저장, 반려 등) | 409 `BATTLE_409_STATUS` |
 | 삭제된 배틀 | 404 `BATTLE_404` |
 
+### 2.8 콘텐츠 관리 화면 요약·목록
+
+아래 API는 관리자 전용이며 `ROLE_ADMIN`이 필요하다. 사용자 커스텀 배틀(`creatorType=USER`)과 삭제된 배틀은 통계와 목록에서 제외한다. ADMIN·AI가 만든 배틀은 상태와 관계없이 관리 대상에 포함한다.
+
+**요약 카드**
+
+- `GET /api/v1/admin/battles/manage/summary`
+- 응답: `totalContents`, `difficultyMissing`, `categoryMissing`, `classRecommended`
+- `totalContents`: 관리 대상 전체 배틀 수
+- `difficultyMissing`, `categoryMissing`: 난이도·카테고리가 비어 있는 배틀 수
+- `classRecommended`: 클래스 추천(`classRecommendable=true`)이 켜진 배틀 수
+
+**목록**
+
+- `GET /api/v1/admin/battles/manage?keyword=&difficulty=&category=&classRecommendable=&page=0&size=20`
+
+| Query | 설명 |
+|---|---|
+| `keyword` | 제목 부분 검색 |
+| `difficulty` | `BEGINNER`, `INTERMEDIATE`, `ADVANCED` |
+| `category` | enum 키(예: `PHILOSOPHY`) 또는 카테고리 라벨(예: `철학`) |
+| `classRecommendable` | 클래스 추천 여부 (`true` / `false`) |
+| `page` | 0부터 시작, 기본값 0. 응답 `PageResponse.page`는 1부터 표시 |
+| `size` | 기본값 20, 최대 100 |
+
+- 행 필드: `battleId`, `title`, `difficulty`, `category`, `classRecommendable`, `status`, `createdAt`
+- `GET /api/v1/admin/battles`의 기존 목록 계약은 변경하지 않는다.
+- 잘못된 필터·페이지·크기는 400 `COMMON_400`, 관리자 권한이 없으면 403을 반환한다.
+
 ---
 
 ## 3. 상태/정책 메모

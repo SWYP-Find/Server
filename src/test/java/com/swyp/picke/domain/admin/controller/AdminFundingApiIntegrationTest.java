@@ -111,7 +111,7 @@ class AdminFundingApiIntegrationTest {
         assertThat(first.get("errorCount").asInt()).isEqualTo(1);
         assertThat(first.get("errors").get(0).get("line").asInt()).isEqualTo(5);
         assertThat(first.get("errors").get(0).get("orderId").asText()).isEqualTo(prefix + "ORD-BAD");
-        assertThat(first.get("issuableCount").asLong()).isEqualTo(2);   // ORD-A, ORD-B(수량 2 도 수량만큼 발급, #586)
+        assertThat(first.get("issuableCount").asLong()).isEqualTo(2);   // ORD-A, ORD-B(수량 2)
         assertThat(first.get("heldCount").asLong()).isEqualTo(1);       // ORD-C(결제 대기)
         assertThat(first.get("fileHash").asText()).hasSize(64);
 
@@ -138,7 +138,7 @@ class AdminFundingApiIntegrationTest {
 
         // 수량 2 주문은 코드 2개를 받는다 (#586)
         JsonNode issued = postJson("/api/v1/admin/funding/tickets/issue", null, adminToken()).get("issued");
-        assertThat(issued).hasSize(3);
+        assertThat(issued).hasSize(3); // ORD-A 1개 + ORD-B 2개
         List<String> issuedOrders = new java.util.ArrayList<>();
         issued.forEach(node -> issuedOrders.add(node.get("orderId").asText()));
         assertThat(issuedOrders).containsExactlyInAnyOrder(prefix + "ORD-A", prefix + "ORD-B", prefix + "ORD-B");

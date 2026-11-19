@@ -26,6 +26,7 @@
 | 주문 저장·발급·디지털 선물 XLSX 생성 | `POST /admin/funding-orders/tumblbug/digital-gifts` |
 | 텀블벅 전달 결과 기록 | `PATCH /admin/funding-orders/tumblbug/digital-gifts/delivery` |
 | 이용권·등록자·등록일 검색 | `GET /admin/tickets` |
+| 이용권 관리 화면 요약 | `GET /admin/tickets/summary` |
 
 ## 텀블벅 XLSX
 
@@ -64,15 +65,76 @@
 이미 등록·취소되었거나 결과를 기록한 코드는 건너뛰고, 재발급 코드는 새 이용권 ID로 구분합니다.
 Start는 공통 `import` 또는 `manual` 경로로 등록하고 1:1 메시지로 직접 전달합니다. Run은 같은 경로에 더해 `digital-gifts` XLSX 경로를 쓸 수 있습니다. 실제 텀블벅 전달은 관리자가 수행합니다.
 
-## 검색과 클래스 연동
+## 펀딩 구매자 수동 등록
 
-주문 검색은 기존 `/admin/funding/orders` 한 곳에서 `campaignId`, `keyword`, `capacity`, `paymentStatus`, `deliveryStatus`, `ticketStatus`, `codeStatus`, `page`, `size`를 지원합니다. 캠페인 대시보드는 후원 주문 수·결제 완료·전달 완료·미전달 수를 캠페인 단위로 집계합니다.
-주문의 `deliveryStatus`는 살아 있는 이용권의 마지막 전달 기록 기준입니다. 모두 전달 완료면 `SENT`, 하나라도 실패면 `FAILED`, 그 밖에는 `PENDING`이며 같은 값으로 필터합니다.
-기존 주문 응답 필드를 유지하고 `tumblbug`에 요금제·후원일시·상품·금액·후원번호 등을, `tickets`에 발급된 티켓 목록과 전달 상태를 추가합니다. 대시보드는 관리자 전용 `GET /admin/funding/tickets/{ticketId}/code`를 코드 전체 보기·복사 시 호출합니다. 코드 조회는 감사 로그에 기록되고 응답은 캐시되지 않습니다.
-코드 암호화를 위해 `TICKET_CODE_ENCRYPTION_KEY`에 Base64 인코딩한 32바이트 키를 설정해야 합니다. 기존 코드 행은 해시만 저장되어 있어 코드 원문을 복구할 수 없습니다. 미등록 기존 코드는 재발급 후 새 코드 조회가 가능합니다.
-이용권 검색은 `keyword`, `capacity`, `status`, `registeredFrom`, `registeredTo`, `page`, `size`를 지원합니다.
-이용권 검색 응답의 연락처·코드를 마스킹하며 전체 코드 검색은 해시로 비교합니다.
-끝 4자리 검색은 통합 이후 발급·재발급한 코드에서 지원합니다. 기존 해시로 접미사를 복원할 수는 없습니다.
+관리자 화면의 `구매자 등록`에서 한 건을 입력할 때 사용합니다. XLSX를 올리는 `import`와 달리 한 구매자 정보를 JSON으로 등록합니다.
+
+- `POST /api/v1/admin/funding-orders/tumblbug/manual`
+- 관리자(`ROLE_ADMIN`) 전용이며 요청·응답은 캐시되지 않습니다.
+- 동일 캠페인·후원번호·리워드 행 조합이 이미 있으면 409 `FUNDING_DUPLICATE_SUPPORTER`입니다.
+- `paymentStatus=PAID_CONFIRMED`이면 구매 수량만큼 이용권 코드를 발급해 `issuedCodes[]`에 반환합니다. `RESERVED`이면 코드를 발급하지 않습니다.
+- `giftDeliveryStatus=SENT`는 실제 이메일/SMS를 발송하지 않고, 관리자가 텀블벅 또는 별도 수단으로 전달을 완료했다는 수동 이력을 기록합니다. `PENDING`은 전달 기록을 남기지 않습니다.
+
+**요청 예시**
+
+```json
+{
+  "plan": "RUN",
+  "campaignId": "picke-class-2026",
+  "campaignName": "픽케 클래스 펀딩",
+  "supporterNumber": "SUPPORTER-001",
+  "rewardLineId": "class-ticket-15",
+  "buyerName": "홍길동",
+  "rewardName": "클래스 15인 이용권",
+  "giftText": "선물 메시지",
+  "capacity": 15,
+  "quantity": 1,
+  "supportedAt": "2026-11-01T10:00:00",
+  "rewardAmount": 19900,
+  "additionalSupportAmount": 0,
+  "totalSupportAmount": 19900,
+  "paymentStatus": "PAID_CONFIRMED",
+  "giftDeliveryStatus": "PENDING"
+}
+```
+
+`capacity`는 5·15·30, `quantity`는 1~7입니다. 결제 상태는 `RESERVED` 또는 `PAID_CONFIRMED`, 전달 상태는 `PENDING` 또는 `SENT`입니다. `SENT`는 결제 완료 주문에만 허용됩니다. 금액은 0 이상이고 총 후원액은 리워드 금액과 추가 후원액 합계 이상이어야 합니다.
+
+응답에는 `fundingOrderId`, 캠페인·구매자·리워드 요약, 결제·선물 전달 상태, 발급 코드 `issuedCodes: [{ ticketId, code }]`가 들어갑니다. 이용권 코드 원문은 관리자 응답에서만 확인할 수 있습니다.
+
+현재 수동 입력 요청은 구매자 이름만 받고 이메일·전화번호 필드는 받지 않습니다. 화면의 구매자 등록 폼에서 연락처까지 입력·보관해야 한다면 DTO/API 확장이 필요합니다. CSV·텀블벅 엑셀 등록 경로와 수동 등록 경로는 입력 계약이 서로 다릅니다.
+
+## 관리자 주문·이용권 대시보드
+
+### 주문 목록·전달 상태
+
+`GET /api/v1/admin/funding/orders`는 `campaignId`, `paymentStatus`, `ticketStatus`, `codeStatus`, `keyword`, `capacity`, `deliveryStatus`, `page`, `size`를 지원합니다. `keyword`는 주문번호·후원자명·이메일·전화번호·텀블벅 후원번호를 검색합니다. 페이지는 0부터 시작하며 기본 크기는 20, 최대 크기는 100입니다.
+
+주문 `deliveryStatus`는 살아 있는 이용권들의 최신 전달 기록을 합산한 값입니다. 모두 성공(`SUCCESS`)이면 `SENT`, 하나라도 최신 기록이 실패(`FAILED`)면 `FAILED`, 그 외(미발급·미전달 포함)는 `PENDING`입니다. 같은 주문 단위 규칙으로 필터링하며 목록과 count query가 동일한 조건을 사용합니다.
+
+기존 주문 응답에 `tickets[]`의 이용권별 전달 결과와 `deliveryStatus`를 포함합니다. 텀블벅 주문은 `tumblbug`에 요금제·후원일시·상품·금액·후원번호 등 원본 정보를 포함합니다. 코드 원문·해시는 주문 목록에 포함하지 않습니다. 전체 코드 확인은 관리자 전용 `GET /api/v1/admin/funding/tickets/{ticketId}/code`로 하고, 조회 감사 로그를 남기며 캐시하지 않습니다.
+
+### 펀딩 현황
+
+`GET /api/v1/admin/funding/summary`의 주문 필드는 `totalOrders`, `paidConfirmed`, `issuable`, `held`, `refunded`, `canceled`입니다. `issuable`은 결제 확정·결제일 존재·미발급 수량이 남은 주문 수이고, `held`는 결제 확정인데 결제일이 없거나 결제 대기·예약 상태인 주문 수입니다. 이용권 필드는 무효화되지 않은 코드 행 기준 `issued`, `undelivered`, `delivered`, `registered`이며, 등록기한 알림 대상 수 `registerReminderD30`, `registerReminderD7`도 반환합니다.
+
+`POST /api/v1/admin/funding/imports`의 `issuableCount`, `heldCount`는 업로드 이후 전체 주문을 같은 기준으로 집계합니다. 결제 완료 주문은 `quantity`만큼 발급하므로 수량이 2 이상이라는 이유만으로 보류하지 않습니다. 코드 발급 규칙은 [클래스 API 명세 §9.2–9.3](docs/api-specs/class-api.md)을 참고하세요.
+
+### 텀블벅 캠페인 대시보드
+
+`GET /api/v1/admin/funding/orders/tumblbug/dashboard?campaignId=...`는 주문 단위 `supporterCount`, `paidConfirmed`, `delivered`, `undelivered`와 코드 단위 `issuedCodes`, `deliveredCodes`, `undeliveredCodes`를 반환합니다. 주문은 살아 있는 이용권이 모두 전달된 경우에만 전달 완료로 집계하고, 코드 수치는 이용권별 최신 전달 결과를 기준으로 계산합니다.
+
+### 이용권·등록자 요약과 검색
+
+`GET /api/v1/admin/tickets/summary`는 `totalTickets`, `inUse`, `unregistered`, `expiringWithin30Days`를 반환합니다. `totalTickets`는 REVOKED를 제외하고, `unregistered`는 등록기한이 지난 미등록 이용권도 포함합니다. `expiringWithin30Days`는 등록기한이 아니라 이용권 종료일이 30일 이내인 현재 이용 중 이용권 수이며 `inUse`와 겹칠 수 있습니다.
+
+`GET /api/v1/admin/tickets`는 `keyword`, `capacity`, `status`, `registeredFrom`, `registeredTo`, `page`, `size`를 지원합니다. 연락처와 코드는 마스킹하며 코드 검색은 SHA-256 해시 또는 통합 이후 저장된 끝 4자리로 비교합니다. 기존 해시로 끝 4자리를 복원할 수는 없습니다.
+
+### 클래스·콘텐츠 관리 API 명세
+
+클래스 목록·상세·요약·CSV 내보내기는 [클래스 API 명세 §9.10](docs/api-specs/class-api.md)을 참고하세요. 콘텐츠 관리 목록·요약은 [배틀 API 명세 §2.8](docs/api-specs/battle-api.md)을 참고하세요.
+
+코드 암호화를 위해 운영 환경에 `TICKET_CODE_ENCRYPTION_KEY`로 Base64 인코딩한 32바이트 키를 설정해야 합니다. 기존 해시 전용 코드 행은 원문 복구가 불가능하며, 미등록 기존 코드는 재발급해야 새 코드 조회가 가능합니다.
 
 클래스는 기존 `class_tickets`와 기존 이용권 확인 로직을 계속 사용합니다.
 스테이징된 `FundingTicketAccess`, `FundingTicketPolicy`는 계약 파일로만 유지합니다.

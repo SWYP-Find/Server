@@ -142,18 +142,19 @@ public class ClassMemberServiceImpl implements ClassMemberService {
         }
         List<ClassMember> members = classMemberRepository.findActiveMembers(classId);
         Long ownerId = classroom.getOwner().getId();
-        boolean ownerListed = members.stream().anyMatch(m -> Objects.equals(m.getUser().getId(), ownerId));
+        // 미참여 운영자 줄은 운영자 본인에게만 보인다. 참여자 명단에는 참여자만 나온다 (#665)
+        boolean addOwnerRow = Objects.equals(ownerId, userId)
+                && members.stream().noneMatch(m -> Objects.equals(m.getUser().getId(), ownerId));
         List<Long> userIds = new ArrayList<>(members.stream().map(m -> m.getUser().getId()).toList());
-        if (!ownerListed) {
+        if (addOwnerRow) {
             userIds.add(ownerId);
         }
         Map<Long, CharacterType> characters = userProfileRepository.findAllByUserIdIn(userIds).stream()
                 .collect(Collectors.toMap(p -> p.getUser().getId(), UserProfile::getCharacterType, (a, b) -> a));
 
         List<ClassMemberResponse> result = new ArrayList<>();
-        // 운영자는 참여 여부와 관계없이 맨 위 (#665)
-        if (!ownerListed) {
-            result.add(ClassMemberConverter.toNonParticipatingOwner(classroom, userId,
+        if (addOwnerRow) {
+            result.add(ClassMemberConverter.toNonParticipatingOwner(classroom,
                     imageUrls.avatar(characters.get(ownerId))));
         }
         members.forEach(m -> result.add(ClassMemberConverter.toResponse(m, userId,

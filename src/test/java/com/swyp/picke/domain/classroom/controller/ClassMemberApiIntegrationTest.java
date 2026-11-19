@@ -469,6 +469,107 @@ class ClassMemberApiIntegrationTest {
                 .andExpect(jsonPath("$.data.activeMemberCount").value(2));
     }
 
+    @Test
+    @DisplayName("운영자 참여: 생성 1/1 → 2명 참여 3/3 → 무활동 나가기 2/2 → 활동 후 나가기 2/1")
+    void counts_ownerParticipates() throws Exception {
+        assertCountsFlow(true);
+    }
+
+    @Test
+    @DisplayName("운영자 미참여: 생성 0/0 → 2명 참여 2/2 → 무활동 나가기 1/1 → 활동 후 나가기 1/0")
+    void counts_ownerNotParticipates() throws Exception {
+        assertCountsFlow(false);
+    }
+
+    /** memberCount(사용 좌석) / activeMemberCount(명단) 를 상세·목록·참여 확인·명단 API 에서 모두 확인한다 */
+    private void assertCountsFlow(boolean ownerParticipates) throws Exception {
+        int o = ownerParticipates ? 1 : 0;
+        ClassInfo cls = createClass(ownerParticipates);
+        assertCounts(cls, o, o);
+
+        User quiet = newUser("조용학생");
+        User active = newUser("활동학생");
+        join(tokenOf(quiet), cls.inviteCode, "조용학생").andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.memberCount").value(o + 1))
+                .andExpect(jsonPath("$.data.activeMemberCount").value(o + 1));
+        join(tokenOf(active), cls.inviteCode, "활동학생").andExpect(status().isOk());
+        assertCounts(cls, o + 2, o + 2);
+
+        // 활동 없이 나가면 좌석도 돌려준다
+        mockMvc.perform(delete("/api/v1/classes/" + cls.classId + "/members/me")
+                        .header("Authorization", "Bearer " + tokenOf(quiet)))
+                .andExpect(status().isOk());
+        assertCounts(cls, o + 1, o + 1);
+
+        // 사전투표 후 나가면 좌석은 남고 명단만 줄어든다
+        userBattleRepository.save(UserBattle.builder().user(active).battle(battle)
+                .classroom(classroomRepository.findById(cls.classId).orElseThrow())
+                .step(UserBattleStep.TTS_LISTENING).build());
+        mockMvc.perform(delete("/api/v1/classes/" + cls.classId + "/members/me")
+                        .header("Authorization", "Bearer " + tokenOf(active)))
+                .andExpect(status().isOk());
+        assertCounts(cls, o + 1, o);
+    }
+
+    @Test
+    @DisplayName("운영자 참여: 명단은 운영자, 참여자1, 참여자2 순서 (#665)")
+    void members_ownerFirst_participating() throws Exception {
+        assertOwnerFirst(true);
+    }
+
+    @Test
+    @DisplayName("운영자 미참여: 명단 맨 위에 운영자 줄(memberId 없음, participating false)이 붙는다 (#665)")
+    void members_ownerFirst_notParticipating() throws Exception {
+        assertOwnerFirst(false);
+    }
+
+    private void assertOwnerFirst(boolean participates) throws Exception {
+        {
+            ClassInfo cls = createClass(participates);
+            User first = newUser("참여자1");
+            User second = newUser("참여자2");
+            join(tokenOf(first), cls.inviteCode, "참여자1").andExpect(status().isOk());
+            join(tokenOf(second), cls.inviteCode, "참여자2").andExpect(status().isOk());
+
+            mockMvc.perform(get("/api/v1/classes/" + cls.classId + "/members").header("Authorization", "Bearer " + ownerToken))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data", hasSize(3)))
+                    .andExpect(jsonPath("$.data[0].role").value("OWNER"))
+                    .andExpect(jsonPath("$.data[0].displayName").value("선생님"))
+                    .andExpect(jsonPath("$.data[0].me").value(true))
+                    .andExpect(jsonPath("$.data[0].participating").value(participates))
+                    .andExpect(participates
+                            ? jsonPath("$.data[0].memberId").isNumber()
+                            : jsonPath("$.data[0].memberId").doesNotExist())
+                    .andExpect(jsonPath("$.data[1].displayName").value("참여자1"))
+                    .andExpect(jsonPath("$.data[1].participating").value(true))
+                    .andExpect(jsonPath("$.data[2].displayName").value("참여자2"));
+            // 참여자가 봐도 같은 순서, 운영자 줄의 me 는 false
+            mockMvc.perform(get("/api/v1/classes/" + cls.classId + "/members").header("Authorization", "Bearer " + tokenOf(first)))
+                    .andExpect(jsonPath("$.data", hasSize(3)))
+                    .andExpect(jsonPath("$.data[0].role").value("OWNER"))
+                    .andExpect(jsonPath("$.data[0].me").value(false))
+                    .andExpect(jsonPath("$.data[1].me").value(true));
+            // 멤버 수는 그대로 (미참여 운영자 포함 여부는 기획 확인 대기)
+            mockMvc.perform(get("/api/v1/classes/" + cls.classId).header("Authorization", "Bearer " + ownerToken))
+                    .andExpect(jsonPath("$.data.activeMemberCount").value(participates ? 3 : 2));
+        }
+    }
+
+    private void assertCounts(ClassInfo cls, int seats, int activeMembers) throws Exception {
+        mockMvc.perform(get("/api/v1/classes/" + cls.classId).header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.memberCount").value(seats))
+                .andExpect(jsonPath("$.data.activeMemberCount").value(activeMembers));
+        mockMvc.perform(get("/api/v1/classes").header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.data[0].memberCount").value(seats))
+                .andExpect(jsonPath("$.data[0].activeMemberCount").value(activeMembers));
+        preview(tokenOf(newUser("확인학생")), cls.inviteCode)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.memberCount").value(seats))
+                .andExpect(jsonPath("$.data.activeMemberCount").value(activeMembers));
+    }
+
     // ===== 헬퍼 =====
 
     private record ClassInfo(long classId, String inviteCode) {

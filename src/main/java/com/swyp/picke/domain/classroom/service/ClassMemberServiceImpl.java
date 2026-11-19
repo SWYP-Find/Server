@@ -25,6 +25,7 @@ import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -140,13 +141,24 @@ public class ClassMemberServiceImpl implements ClassMemberService {
             throw new CustomException(ErrorCode.CLASS_MEMBER_ONLY);
         }
         List<ClassMember> members = classMemberRepository.findActiveMembers(classId);
-        Map<Long, CharacterType> characters = userProfileRepository.findAllByUserIdIn(
-                        members.stream().map(m -> m.getUser().getId()).toList()).stream()
+        Long ownerId = classroom.getOwner().getId();
+        boolean ownerListed = members.stream().anyMatch(m -> Objects.equals(m.getUser().getId(), ownerId));
+        List<Long> userIds = new ArrayList<>(members.stream().map(m -> m.getUser().getId()).toList());
+        if (!ownerListed) {
+            userIds.add(ownerId);
+        }
+        Map<Long, CharacterType> characters = userProfileRepository.findAllByUserIdIn(userIds).stream()
                 .collect(Collectors.toMap(p -> p.getUser().getId(), UserProfile::getCharacterType, (a, b) -> a));
-        return members.stream()
-                .map(m -> ClassMemberConverter.toResponse(m, userId,
-                        imageUrls.avatar(characters.get(m.getUser().getId()))))
-                .toList();
+
+        List<ClassMemberResponse> result = new ArrayList<>();
+        // 운영자는 참여 여부와 관계없이 맨 위 (#665)
+        if (!ownerListed) {
+            result.add(ClassMemberConverter.toNonParticipatingOwner(classroom, userId,
+                    imageUrls.avatar(characters.get(ownerId))));
+        }
+        members.forEach(m -> result.add(ClassMemberConverter.toResponse(m, userId,
+                imageUrls.avatar(characters.get(m.getUser().getId())))));
+        return result;
     }
 
     @Override

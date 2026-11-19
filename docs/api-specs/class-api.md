@@ -600,20 +600,23 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 
 ### 5.3 클래스 명단
 - `GET /api/v1/classes/{classId}/members`
-- 운영자 행이 먼저 오고, 이후 참여 순이다.
+- 운영자 행이 먼저 오고, 이후 참여 순이다 (운영자, 참여자1, 참여자2 …).
+- 운영자가 참여하지 않는 클래스(`ownerParticipates=false`)에도 맨 위에 운영자 줄이 붙는다. 이 줄은 `memberId`가 null, `participating`이 false, 이름은 운영자 닉네임, `joinedAt`은 클래스 생성 시각이다.
+- 미참여 운영자 줄은 좌석(`memberCount`)·명단 인원(`activeMemberCount`)·결과 통계에 들어가지 않는다.
 - 표시 이름·역할·아바타만 내려가고 계정 식별자는 내려가지 않는다.
 
 ```json
 {
   "statusCode": 200,
   "data": [
-    { "memberId": 10, "displayName": "김선생", "role": "OWNER", "characterUrl": "https://...", "me": true, "joinedAt": "2026-10-21T10:00:00" },
-    { "memberId": 11, "displayName": "김학생", "role": "MEMBER", "characterUrl": "https://...", "me": false, "joinedAt": "2026-10-21T11:00:00" }
+    { "memberId": 10, "displayName": "김선생", "role": "OWNER", "characterUrl": "https://...", "me": true, "joinedAt": "2026-10-21T10:00:00", "participating": true },
+    { "memberId": 11, "displayName": "김학생", "role": "MEMBER", "characterUrl": "https://...", "me": false, "joinedAt": "2026-10-21T11:00:00", "participating": true }
   ]
 }
 ```
 
-- `memberId`: 내보내기(5.6)에 쓴다.
+- `memberId`: 내보내기(5.6)에 쓴다. 미참여 운영자 줄은 null이다.
+- `participating`: 토론에 참여하는 사람이면 true다. 미참여 운영자 줄만 false다.
 - `characterUrl`: 회원 캐릭터 이미지 URL이다. 프로필이 없으면 null이다.
 - `me`: 조회한 사람 본인이면 true다 (이름 수정 버튼 노출용).
 - 권한이 없으면 403 `CLASS_403_MEMBER`다.

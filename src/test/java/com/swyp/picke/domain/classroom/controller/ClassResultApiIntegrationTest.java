@@ -83,6 +83,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.swyp.picke.domain.classroom.service.report.ReportContent;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -313,7 +314,7 @@ class ClassResultApiIntegrationTest {
         mockMvc.perform(get(result(cls) + "/insight").header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.state").value("LIMITED"))
-                .andExpect(jsonPath("$.data.insightText").value("아직 요약할 의견이 충분하지 않아요"))
+                .andExpect(jsonPath("$.data.insightText").value("판단의 이유를 살펴볼 글이 아직 충분하지 않아요"))
                 .andExpect(jsonPath("$.data.evidence", hasSize(0)))
                 .andExpect(jsonPath("$.data.highlights", hasSize(1)));
 
@@ -460,9 +461,20 @@ class ClassResultApiIntegrationTest {
         mockMvc.perform(get(result(cls) + "/insight").header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.state").value("LIMITED"))
-                .andExpect(jsonPath("$.data.insightText").value("아직 요약할 의견이 충분하지 않아요"))
+                .andExpect(jsonPath("$.data.insightText").value("판단의 이유를 살펴볼 글이 아직 충분하지 않아요"))
                 .andExpect(jsonPath("$.data.highlights").isEmpty());
         verify(aiClient, never()).chatJson(any(), eq(ClassReportPrompts.CLASS_INSIGHT_SYSTEM), anyString(), anyInt());
+
+        // #661 예전 문구로 저장된 LIMITED 인사이트도 현재 문구로 내려간다
+        ClassReport summary = summaryOf(cls.classId);
+        Map<String, Object> content = new java.util.LinkedHashMap<>(summary.getContent());
+        Map<String, Object> oldInsight = new java.util.LinkedHashMap<>(ReportContent.map(content, "insight"));
+        oldInsight.put("insight_text", "아직 요약할 의견이 충분하지 않아요");
+        content.put("insight", oldInsight);
+        summary.limit(content, LocalDateTime.now());
+        classReportRepository.saveAndFlush(summary);
+        mockMvc.perform(get(result(cls) + "/insight").header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.data.insightText").value("판단의 이유를 살펴볼 글이 아직 충분하지 않아요"));
     }
 
     @Test

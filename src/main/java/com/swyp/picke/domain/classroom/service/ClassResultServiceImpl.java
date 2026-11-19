@@ -21,6 +21,7 @@ import com.swyp.picke.domain.classroom.service.ClassAccessService.ClassAccess;
 import com.swyp.picke.domain.classroom.service.report.ClassReportSnapshotService;
 import com.swyp.picke.domain.classroom.service.report.ClassResultStats;
 import com.swyp.picke.domain.classroom.service.report.ClassResultStatsCalculator;
+import com.swyp.picke.domain.classroom.service.report.ClassReportContentValidator;
 import com.swyp.picke.domain.classroom.service.report.InsightPostRules;
 import com.swyp.picke.domain.classroom.service.report.MemberFeedbackInput;
 import com.swyp.picke.domain.classroom.service.report.ReportContent;
@@ -301,7 +302,9 @@ public class ClassResultServiceImpl implements ClassResultService {
         backfillHighlights(highlights, classId);
         return new ClassInsightResponse(
                 classId, state, retryable, cutoffAt, summary.getGeneratedAt(),
-                ReportContent.str(insight, "insight_text"),
+                // 예전 문구로 저장된 LIMITED 인사이트도 현재 문구로 내려준다 (#661)
+                state == ClassReportViewState.LIMITED ? ClassReportContentValidator.INSIGHT_LIMITED_TEXT
+                        : ReportContent.str(insight, "insight_text"),
                 ReportContent.str(insight, "coverage"),
                 ReportContent.asInt(insight, "excluded_count"),
                 evidence, highlights);

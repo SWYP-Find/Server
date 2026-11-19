@@ -181,8 +181,32 @@ public class ClassDebateSessionService {
         String lastArgument = messageRepository.findBySessionIdAndRoundIndexAndSpeaker(session.getId(), roundIndex, ClassDebateSpeaker.AI)
                 .map(ClassDebateMessage::getContent)
                 .orElse(null);
-        return new ClassDebateInputClassifier.Context(session.getClassroom().getBattle().getTitle(),
+        return new ClassDebateInputClassifier.Context(session.getId(), session.getClassroom().getBattle().getTitle(),
                 session.getParticipantOption().getTitle(), lastArgument);
+    }
+
+    /**
+     * 입력 분류 호출 비용 기록 (PRD §21). 반려된 반박도 기록하고 원문은 남기지 않는다.
+     * 같은 반박 재전송(같은 requestKey)은 같은 행을 재사용하고 attempt 만 올린다.
+     */
+    @Transactional
+    public void recordClassification(Long sessionId, int round, String requestKey, ClassDebateInputClassifier.Result classification,
+                                     String model, LocalDateTime now) {
+        ClassDebateSession session = sessionRepository.findById(sessionId).orElse(null);
+        if (session == null) {
+            return;
+        }
+        String key = AiJobType.DEBATE_INPUT_CLASSIFY.name() + ":" + sessionId + ":" + round + ":" + requestKey;
+        AiJob job = aiJobRepository.findByIdempotencyKey(key)
+                .orElseGet(() -> aiJobRepository.save(AiJob.builder()
+                        .type(AiJobType.DEBATE_INPUT_CLASSIFY)
+                        .idempotencyKey(key)
+                        .ticket(session.getClassroom().getTicket())
+                        .classroom(session.getClassroom())
+                        .member(session.getMember())
+                        .build()));
+        job.start(model, now);
+        job.succeed(classification.inputTokens(), classification.outputTokens(), now);
     }
 
     // ---------- 재시도 ----------

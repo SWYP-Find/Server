@@ -17,6 +17,7 @@ import com.swyp.picke.domain.classroom.enums.ClassBattleType;
 import com.swyp.picke.domain.classroom.enums.ClassDebateResponseType;
 import com.swyp.picke.domain.classroom.enums.ClassDebateSpeaker;
 import com.swyp.picke.domain.classroom.enums.ClassDebateStatus;
+import com.swyp.picke.domain.classroom.enums.ClassStatus;
 import com.swyp.picke.domain.classroom.repository.AiJobRepository;
 import com.swyp.picke.domain.classroom.repository.ClassDebateMessageRepository;
 import com.swyp.picke.domain.classroom.repository.ClassDebateSessionRepository;
@@ -237,6 +238,12 @@ public class ClassDebateSessionService {
         AiJob job = aiJobRepository.findById(turn.jobId()).orElseThrow();
         if (job.getStatus() != AiJobStatus.RUNNING
                 || session.getStatus() != ClassDebateStatus.GENERATING || session.getRound() != turn.round()) {
+            return;
+        }
+        if (session.getClassroom().getStatus() == ClassStatus.DELETED) {
+            // 생성 중에 클래스가 삭제됐다. AI 호출 자체는 끝났으니 작업은 성공으로 두어 토큰 비용을 남기고, 주장은 게시하지 않는다 (PRD F16)
+            addExtraAttempts(job, usage);
+            job.succeed(usage.inputTokens(), usage.outputTokens(), now);
             return;
         }
         if (messageRepository.findBySessionIdAndRoundIndexAndSpeaker(session.getId(), turn.round(), ClassDebateSpeaker.AI).isEmpty()) {

@@ -8,6 +8,7 @@ import com.swyp.picke.domain.scenario.entity.Scenario;
 import com.swyp.picke.domain.scenario.entity.InteractiveOption;
 import com.swyp.picke.domain.classroom.repository.ClassMidVoteRepository;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -17,6 +18,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -44,6 +46,7 @@ import com.swyp.picke.domain.classroom.enums.ClassReportType;
 import com.swyp.picke.domain.classroom.repository.AiJobRepository;
 import com.swyp.picke.domain.classroom.repository.ClassDebateMessageRepository;
 import com.swyp.picke.domain.classroom.repository.ClassDebateSessionRepository;
+import com.swyp.picke.domain.classroom.service.report.ClassReportSnapshotService;
 import com.swyp.picke.domain.classroom.repository.ClassMemberRepository;
 import com.swyp.picke.domain.classroom.repository.ClassReportRepository;
 import com.swyp.picke.domain.classroom.repository.ClassroomRepository;
@@ -131,6 +134,7 @@ class ClassResultApiIntegrationTest {
     @Autowired private ClassDebateSessionRepository debateSessionRepository;
     @Autowired private ClassDebateMessageRepository debateMessageRepository;
     @Autowired private ClassReportGenerationService generationService;
+    @Autowired private ClassReportSnapshotService snapshotService;
 
     @MockitoBean
     private ClassReportAiClient aiClient;
@@ -766,6 +770,81 @@ class ClassResultApiIntegrationTest {
                 .andExpect(jsonPath("$.data.midVotes[0].label").value("유죄"))
                 .andExpect(jsonPath("$.data.feedback.judgmentBasis")
                         .value("처음부터 끝까지 선택지 2를 선택했어요. 콘텐츠 중간에는 '유죄' 쪽을 골랐어요."));
+    }
+
+    @Test
+    @DisplayName("마감 스냅샷 뒤 클래스가 삭제되면 대기 리포트는 AI 호출 없이 CANCELED 가 된다 (PRD F16)")
+    void deletedClass_cancelsPendingReports() throws Exception {
+        ClassInfo cls = createClass(false);
+        User writer = newUser("학생A");
+        String writerToken = tokenOf(writer);
+        join(writerToken, cls.inviteCode, "학생A");
+        completeParticipation(writerToken, cls, optionA, optionB, "효과가 입증되지 않아 반대합니다. 표본이 너무 작아요.");
+        closeClass(cls.classId);
+        LocalDateTime now = LocalDateTime.now();
+        assertThat(snapshotService.createSnapshots(cls.classId, now)).isEqualTo(2);
+
+        mockMvc.perform(delete("/api/v1/classes/" + cls.classId).header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk());
+        generationService.runOnce(now.plusMinutes(1));
+
+        assertThat(classReportRepository.findAll()).extracting(ClassReport::getStatus)
+                .containsOnly(ClassReportStatus.CANCELED);
+        verify(aiClient, never()).chatJson(anyString(), anyString(), anyInt());
+        assertThat(aiJobRepository.count()).isZero();
+        // 다시 돌려도 살아나지 않는다
+        assertThat(generationService.runOnce(now.plusMinutes(2))).isZero();
+    }
+
+    @Test
+    @DisplayName("마감 스냅샷 뒤 내보내진 멤버의 개인 리포트는 AI 호출 없이 CANCELED, 클래스 인사이트는 그대로 만든다 (PRD §18)")
+    void removedMember_cancelsOwnReportOnly() throws Exception {
+        ClassInfo cls = createClass(false);
+        User writer = newUser("학생A");
+        String writerToken = tokenOf(writer);
+        join(writerToken, cls.inviteCode, "학생A");
+        completeParticipation(writerToken, cls, optionA, optionB, "효과가 입증되지 않아 반대합니다. 표본이 너무 작아요.");
+        closeClass(cls.classId);
+        LocalDateTime now = LocalDateTime.now();
+        snapshotService.createSnapshots(cls.classId, now);
+
+        ClassMember member = classMemberRepository.findByClassroomIdAndUserId(cls.classId, writer.getId()).orElseThrow();
+        member.remove(now, true);
+        classMemberRepository.save(member);
+        generationService.runOnce(now.plusMinutes(1));
+
+        assertThat(classReportRepository.findAll())
+                .extracting(ClassReport::getType, ClassReport::getStatus)
+                .containsExactlyInAnyOrder(
+                        tuple(ClassReportType.MEMBER_FEEDBACK, ClassReportStatus.CANCELED),
+                        tuple(ClassReportType.CLASS_SUMMARY, ClassReportStatus.LIMITED));
+        verify(aiClient, never()).chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt());
+    }
+
+    @Test
+    @DisplayName("AI 생성 중에 클래스가 삭제되면 비용은 기록하고 결과는 게시하지 않는다 (CANCELED)")
+    void classDeletedDuringGeneration_doesNotPublish() throws Exception {
+        ClassInfo cls = createClass(false);
+        User writer = newUser("학생A");
+        String writerToken = tokenOf(writer);
+        join(writerToken, cls.inviteCode, "학생A");
+        completeParticipation(writerToken, cls, optionA, optionB, "효과가 입증되지 않아 반대합니다. 표본이 너무 작아요.");
+        when(aiClient.chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
+                .thenAnswer(inv -> {
+                    Classroom classroom = classroomRepository.findById(cls.classId).orElseThrow();
+                    classroom.delete(LocalDateTime.now());
+                    classroomRepository.save(classroom);
+                    return memberFeedbackAnswer(inv.getArgument(1));
+                });
+        closeClass(cls.classId);
+        generationService.runOnce(LocalDateTime.now());
+
+        ClassReport memberReport = classReportRepository.findAll().stream()
+                .filter(r -> r.getType() == ClassReportType.MEMBER_FEEDBACK).findFirst().orElseThrow();
+        assertThat(memberReport.getStatus()).isEqualTo(ClassReportStatus.CANCELED);
+        AiJob job = aiJobRepository.findAll().get(0);
+        assertThat(job.getStatus()).isEqualTo(AiJobStatus.SUCCEEDED);
+        assertThat(job.getInputTokens()).isEqualTo(120);
     }
 
     private void stubMemberFeedback() {

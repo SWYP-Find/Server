@@ -131,6 +131,11 @@ public class ClassReportSnapshotService {
         if (report == null || report.getStatus() != ClassReportStatus.PENDING) {
             return null;
         }
+        if (report.isObsolete()) {
+            report.cancel();
+            log.info("[ClassReport] canceled before generation reportId={} type={}", reportId, report.getType());
+            return null;
+        }
         Classroom classroom = report.getClassroom();
         if (report.getType() == ClassReportType.MEMBER_FEEDBACK) {
             MemberFeedbackInput input = buildMemberInput(classroom, report.getMember());
@@ -172,6 +177,12 @@ public class ClassReportSnapshotService {
         ClassReport report = classReportRepository.findById(reportId).orElseThrow();
         AiJob job = aiJobRepository.findById(jobId).orElseThrow();
         job.succeed(result.inputTokens(), result.outputTokens(), now);
+        if (report.isObsolete()) {
+            // 생성 중에 클래스가 삭제됐거나 멤버가 나갔다. 비용은 기록하되 결과는 게시하지 않는다 (PRD F16)
+            report.cancel();
+            log.info("[ClassReport] canceled after generation reportId={} type={}", reportId, report.getType());
+            return;
+        }
         if (report.getType() == ClassReportType.MEMBER_FEEDBACK && validated.get("limited_reason") != null) {
             report.limit(validated, now); // AI 가 분석할 이유가 없다고 판단해 서버 템플릿으로 대체한 경우
         } else if (report.getType() == ClassReportType.MEMBER_FEEDBACK) {
@@ -198,6 +209,10 @@ public class ClassReportSnapshotService {
         }
         log.warn("[ClassReport] generation failed reportId={} type={} attempt={} code={} rejected={}",
                 reportId, report.getType(), job.getAttempt(), errorCode, rejected);
+        if (report.isObsolete()) {
+            report.cancel();
+            return;
+        }
         if (job.getAttempt() < MAX_AUTO_ATTEMPTS) {
             report.requeue();
         } else if (fallbackContent != null) {
@@ -217,7 +232,9 @@ public class ClassReportSnapshotService {
                 continue;
             }
             job.fail("STALE", now);
-            if (job.getAttempt() < MAX_AUTO_ATTEMPTS) {
+            if (report.isObsolete()) {
+                report.cancel();
+            } else if (job.getAttempt() < MAX_AUTO_ATTEMPTS) {
                 report.requeue();
             } else {
                 report.fail();

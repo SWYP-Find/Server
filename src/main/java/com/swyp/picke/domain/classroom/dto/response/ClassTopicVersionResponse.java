@@ -29,7 +29,8 @@ public record ClassTopicVersionResponse(
             @Schema(description = "관점 설명 (40자 이하)") String rationale,
             @Schema(description = "철학자 코드") PhilosopherType philosopher,
             @Schema(description = "철학자 이름") String philosopherName,
-            @Schema(description = "철학자 이미지 키") String philosopherImageKey
+            @Schema(description = "철학자 이미지 키") String philosopherImageKey,
+            @Schema(description = "철학자 이미지 URL") String philosopherImageUrl
     ) {
     }
 }

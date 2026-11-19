@@ -9,6 +9,12 @@ import com.swyp.picke.domain.battle.repository.BattleRepository;
 import com.swyp.picke.domain.classroom.entity.ClassTopicVersion;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.enums.PhilosopherType;
+import com.swyp.picke.domain.battle.entity.BattleTag;
+import com.swyp.picke.domain.battle.enums.BattleCategory;
+import com.swyp.picke.domain.battle.repository.BattleTagRepository;
+import com.swyp.picke.domain.tag.entity.Tag;
+import com.swyp.picke.domain.tag.enums.TagType;
+import com.swyp.picke.domain.tag.repository.TagRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -27,6 +33,8 @@ public class ClassCustomBattleFactory {
 
     private final BattleRepository battleRepository;
     private final BattleOptionRepository battleOptionRepository;
+    private final BattleTagRepository battleTagRepository;
+    private final TagRepository tagRepository;
 
     @Value("${picke.class.custom-battle-thumbnail-url:}")
     private String thumbnailUrl;
@@ -46,7 +54,18 @@ public class ClassCustomBattleFactory {
                 version.getOptionAPhilosopher()));
         battle.getOptions().add(option(battle, 2, version.getOptionBLabel(), version.getOptionBRationale(),
                 version.getOptionBPhilosopher()));
+        attachCategoryTag(battle, version.getCategory());
         return battle;
+    }
+
+    /** 주제 카테고리(예: 사회)를 카테고리 태그로 붙인다. 같은 이름의 카테고리 태그가 없으면 새로 만든다. */
+    private void attachCategoryTag(Battle battle, BattleCategory category) {
+        if (category == null) {
+            return;
+        }
+        Tag tag = tagRepository.findFirstByNameAndTypeAndDeletedAtIsNullOrderByIdAsc(category.getValue(), TagType.CATEGORY)
+                .orElseGet(() -> tagRepository.save(Tag.builder().name(category.getValue()).type(TagType.CATEGORY).build()));
+        battleTagRepository.save(BattleTag.builder().battle(battle).tag(tag).build());
     }
 
     private BattleOption option(Battle battle, int order, String label, String rationale, PhilosopherType philosopher) {

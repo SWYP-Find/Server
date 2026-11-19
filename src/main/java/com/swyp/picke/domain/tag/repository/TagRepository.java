@@ -12,4 +12,5 @@ public interface TagRepository extends JpaRepository<Tag, Long> {
     List<Tag> findAllByDeletedAtIsNull();
     Boolean existsByNameAndTypeAndDeletedAtIsNull(String name, TagType type);
     Optional<Tag> findByIdAndDeletedAtIsNull(Long id);
+    Optional<Tag> findFirstByNameAndTypeAndDeletedAtIsNullOrderByIdAsc(String name, TagType type);
 }

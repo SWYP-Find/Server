@@ -210,7 +210,8 @@
 
 - 정원은 이용권 정원을 그대로 쓴다.
 - 초대코드 6자는 서버가 만든다.
-- 커스텀 배틀의 썸네일은 환경변수 `CLASS_CUSTOM_BATTLE_THUMBNAIL_URL`의 고정 이미지 1종이다.
+- 커스텀 배틀의 썸네일은 환경변수 `CLASS_CUSTOM_BATTLE_THUMBNAIL_URL`의 고정 이미지 1종이다. 값이 비어 있으면 썸네일은 null이다.
+- 커스텀 배틀에는 주제 카테고리가 카테고리 태그로 붙는다 (예: `#사회`). 클래스 배틀 상세(6.1)의 `battle.categoryTags`로 내려간다.
 - 응답: `ClassDetailResponse` (2.3 참고)
 - **중복 요청 방지**: 버튼 연타·네트워크 재전송 대비. 같은 운영자의 생성 요청은 이용권 행 잠금으로 하나씩 처리한다.
   - `requestKey`를 보내면: 같은 키·같은 내용이면 새로 만들지 않고 그 클래스를 200으로 돌려준다. 같은 키·다른 내용이면 409 `CLASS_409_REQUEST_KEY`다. 키가 다르면 내용이 같아도 새로 만든다.
@@ -528,7 +529,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 | `draftId`, `versionNo` | 초안 ID, 초안 안의 버전 번호 (1부터) |
 | `source` | `CANDIDATE`(AI 후보 선택) / `EDITED`(직접 수정 후 검증 통과) |
 | `question`, `description`, `category`, `difficulty`, `createdAt` | |
-| `options[]` | `position`(A/B), `label`, `rationale`, `philosopher`, `philosopherName`, `philosopherImageKey` |
+| `options[]` | `position`(A/B), `label`, `rationale`, `philosopher`, `philosopherName`, `philosopherImageKey`, `philosopherImageUrl`. 이미지는 `philosopherImageUrl`을 그대로 쓴다 |
 
 ---
 
@@ -606,6 +607,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 ```
 
 - `memberId`: 내보내기(5.6)에 쓴다.
+- `characterUrl`: 회원 캐릭터 이미지 URL이다. 프로필이 없으면 null이다.
 - `me`: 조회한 사람 본인이면 true다 (이름 수정 버튼 노출용).
 - 권한이 없으면 403 `CLASS_403_MEMBER`다.
 
@@ -952,7 +954,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
     "round": 1,
     "canReply": true,
     "canRetry": false,
-    "philosopher": { "code": "KANT", "name": "칸트", "typeName": "...", "imageKey": "..." },
+    "philosopher": { "code": "KANT", "name": "칸트", "typeName": "...", "imageKey": "images/philosophers/kant.png", "imageUrl": "https://..." },
     "participantOption": { "optionId": 31, "position": "A", "title": "...", "stance": "..." },
     "opponentOption": { "optionId": 32, "position": "B", "title": "...", "stance": "..." },
     "messages": [
@@ -977,6 +979,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 | `FAILED` | AI 주장 생성 실패 | 재시도 버튼 (`canRetry`) |
 | `COMPLETED` | 3라운드 종료 | 대화 다시보기 / 사후투표 |
 
+- `philosopher.imageUrl`: 철학자 얼굴 이미지 URL이다. 프론트가 `imageKey`로 이미지를 따로 찾지 말고 이 값을 그대로 쓴다.
 - `canReply`: `WAITING_USER`이고 마감 전일 때 true
 - `canRetry`: 실패했거나 생성이 오래 멈췄고 마감 전일 때 true
 - `content`: 전체 글이다. AI 주장은 말풍선 사이에 줄바꿈이 들어 있다.

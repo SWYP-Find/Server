@@ -66,6 +66,7 @@ public class ClassroomServiceImpl implements ClassroomService {
     private static final long DUPLICATE_WINDOW_SECONDS = 10;
 
     private final ClassroomRepository classroomRepository;
+    private final ClassImageUrlResolver imageUrls;
     private final ClassMemberRepository classMemberRepository;
     private final ClassTicketRepository classTicketRepository;
     private final BattleRepository battleRepository;
@@ -96,7 +97,8 @@ public class ClassroomServiceImpl implements ClassroomService {
                 : findRecentDuplicate(userId, request);
         if (duplicate != null) {
             log.info("클래스 중복 생성 요청 - 기존 클래스 반환 classId: {}, ownerId: {}", duplicate.getId(), userId);
-            return ClassroomConverter.toDetail(duplicate, ClassMemberRole.OWNER, seatCountOf(duplicate), now);
+            return ClassroomConverter.toDetail(duplicate, ClassMemberRole.OWNER, seatCountOf(duplicate), now,
+                imageUrls.battleThumbnail(duplicate.getBattle()));
         }
         ClassTopicVersion topicVersion = request.topicVersionId() == null ? null : findOwnTopicVersion(userId, request.topicVersionId());
         Battle tts = topicVersion == null ? findClassBattle(request.battleId()) : null;
@@ -132,7 +134,8 @@ public class ClassroomServiceImpl implements ClassroomService {
         }
         log.info("클래스 생성 - classId: {}, ownerId: {}, ticketId: {}, battleId: {}, capacity: {}",
                 classroom.getId(), userId, ticket.getId(), battle.getId(), classroom.getCapacity());
-        return ClassroomConverter.toDetail(classroom, ClassMemberRole.OWNER, memberCount, now);
+        return ClassroomConverter.toDetail(classroom, ClassMemberRole.OWNER, memberCount, now,
+                imageUrls.battleThumbnail(classroom.getBattle()));
     }
 
     @Override
@@ -142,7 +145,8 @@ public class ClassroomServiceImpl implements ClassroomService {
         Map<Long, Long> seatCounts = seatCountsOf(classrooms);
         return classrooms.stream()
                 .map(c -> ClassroomConverter.toSummary(
-                        c, roleOf(c, userId), seatCounts.getOrDefault(c.getId(), 0L), now))
+                        c, roleOf(c, userId), seatCounts.getOrDefault(c.getId(), 0L), now,
+                        imageUrls.battleThumbnail(c.getBattle())))
                 .toList();
     }
 
@@ -154,7 +158,8 @@ public class ClassroomServiceImpl implements ClassroomService {
         if (role == null) {
             throw new CustomException(ErrorCode.CLASS_MEMBER_ONLY);
         }
-        return ClassroomConverter.toDetail(classroom, role, seatCountOf(classroom), now);
+        return ClassroomConverter.toDetail(classroom, role, seatCountOf(classroom), now,
+                imageUrls.battleThumbnail(classroom.getBattle()));
     }
 
     @Override
@@ -176,7 +181,8 @@ public class ClassroomServiceImpl implements ClassroomService {
             validateDeadlineExtension(request.deadline(), classroom, now);
             classroom.extendDeadline(request.deadline());
         }
-        return ClassroomConverter.toDetail(classroom, ClassMemberRole.OWNER, seatCountOf(classroom), now);
+        return ClassroomConverter.toDetail(classroom, ClassMemberRole.OWNER, seatCountOf(classroom), now,
+                imageUrls.battleThumbnail(classroom.getBattle()));
     }
 
     @Override

@@ -1,5 +1,9 @@
 package com.swyp.picke.domain.classroom.converter;
 
+import com.swyp.picke.domain.classroom.service.ClassImageUrlResolver;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
 import com.swyp.picke.domain.battle.enums.BattleCategory;
 import com.swyp.picke.domain.classroom.dto.response.ClassTopicDraftResponse;
 import com.swyp.picke.domain.classroom.dto.response.ClassTopicValidationResponse;
@@ -12,12 +16,14 @@ import com.swyp.picke.domain.user.enums.PhilosopherType;
 import java.util.List;
 import java.util.Map;
 
-public final class ClassTopicConverter {
+/** 철학자 이미지 URL을 함께 내려주기 위해 빈으로 둔다. */
+@Component
+@RequiredArgsConstructor
+public class ClassTopicConverter {
 
-    private ClassTopicConverter() {
-    }
+    private final ClassImageUrlResolver imageUrls;
 
-    public static ClassTopicDraftResponse toDraft(ClassTopicDraft draft, ClassTopicVersion latestVersion) {
+    public ClassTopicDraftResponse toDraft(ClassTopicDraft draft, ClassTopicVersion latestVersion) {
         List<Map<String, Object>> candidates = draft.getCandidates() == null ? List.of() : draft.getCandidates();
         return new ClassTopicDraftResponse(
                 draft.getId(),
@@ -30,11 +36,11 @@ public final class ClassTopicConverter {
                 draft.getBatchNo(),
                 draft.remainingSuggestions(),
                 draft.remainingValidations(),
-                candidates.stream().map(ClassTopicConverter::toCandidate).toList(),
+                candidates.stream().map(this::toCandidate).toList(),
                 latestVersion == null ? null : toVersion(latestVersion));
     }
 
-    public static ClassTopicVersionResponse toVersion(ClassTopicVersion version) {
+    public ClassTopicVersionResponse toVersion(ClassTopicVersion version) {
         return new ClassTopicVersionResponse(
                 version.getId(),
                 version.getDraft().getId(),
@@ -50,7 +56,7 @@ public final class ClassTopicConverter {
                 version.getCreatedAt());
     }
 
-    public static ClassTopicValidationResponse toValidation(List<TopicIssue> issues, ClassTopicVersion version,
+    public ClassTopicValidationResponse toValidation(List<TopicIssue> issues, ClassTopicVersion version,
                                                             int remainingValidations) {
         return new ClassTopicValidationResponse(
                 version != null,
@@ -60,7 +66,7 @@ public final class ClassTopicConverter {
                 version == null ? null : toVersion(version));
     }
 
-    private static ClassTopicDraftResponse.Candidate toCandidate(Map<String, Object> map) {
+    private ClassTopicDraftResponse.Candidate toCandidate(Map<String, Object> map) {
         TopicContent content = TopicContent.fromMap(map);
         return new ClassTopicDraftResponse.Candidate(
                 TopicContent.candidateIdOf(map),
@@ -73,9 +79,10 @@ public final class ClassTopicConverter {
                         option("B", content.optionB().label(), content.optionB().rationale(), content.optionB().philosopher())));
     }
 
-    private static ClassTopicVersionResponse.Option option(String position, String label, String rationale,
+    private ClassTopicVersionResponse.Option option(String position, String label, String rationale,
                                                           PhilosopherType philosopher) {
         return new ClassTopicVersionResponse.Option(
-                position, label, rationale, philosopher, philosopher.getLabel(), philosopher.getImageKey());
+                position, label, rationale, philosopher, philosopher.getLabel(), philosopher.getImageKey(),
+                imageUrls.philosopher(philosopher));
     }
 }

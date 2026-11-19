@@ -43,6 +43,8 @@ public class ClassReportContentValidator {
     /** 분석 불가 사유 (엣지 케이스 PRD 3.3). content.limited_reason 에 저장한다 */
     public static final String LIMITED_NO_POST = "NO_POST";
     public static final String LIMITED_INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE";
+    /** 클래스 인사이트 의견 부족(LIMITED) 문구. 명세 8장 리포트 상태 표 기준 (#661) */
+    public static final String INSIGHT_LIMITED_TEXT = "판단의 이유를 살펴볼 글이 아직 충분하지 않아요";
 
     public Map<String, Object> validateMemberFeedback(Map<String, Object> json, MemberFeedbackInput input) {
         if ("INSUFFICIENT".equalsIgnoreCase(ReportContent.str(json, "analysis_status"))) {
@@ -276,7 +278,7 @@ public class ClassReportContentValidator {
     /** 유효 공개 글 작성자 3명 미만일 때의 템플릿 (PRD §14 개인정보와 소수 의견) */
     public static Map<String, Object> limitedClassInsight() {
         Map<String, Object> insight = new LinkedHashMap<>();
-        insight.put("insight_text", "아직 요약할 의견이 충분하지 않아요");
+        insight.put("insight_text", INSIGHT_LIMITED_TEXT);
         insight.put("evidence_ids", List.of());
         insight.put("highlight_ids", List.of());
         insight.put("analysis_status", "LIMITED");

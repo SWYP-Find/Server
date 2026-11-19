@@ -117,10 +117,11 @@
 - 이용 기간은 등록 시점부터 6개월이다.
 - 정원은 리워드 티어(5 / 15 / 30석)를 따른다.
 - 계정당 사용 중인(ACTIVE) 이용권은 1개다.
-- 코드의 공백·하이픈·대소문자는 무시한다.
+- 코드 형식은 `PKE` + 16진수 대문자 6자리다 (예: `PKE05D2E1`). 코드의 공백·하이픈·대소문자는 무시한다.
+- **입력 5회 제한:** 코드 확인(1.1)과 등록(1.2)에서 없는 코드를 넣은 횟수를 계정별로 센다. 1시간 안에 5번 틀리면 그 응답부터 1시간 동안 429 `TICKET_429_LOCKED`다. 잠긴 동안에는 맞는 코드도 막힌다. 맞는 코드를 넣어도 틀린 횟수는 초기화되지 않는다.
 
 ### 1.1 이용권 코드 확인 (미리보기)
-- `GET /api/v1/class-tickets/preview?code=PICKE-AB12-CD34`
+- `GET /api/v1/class-tickets/preview?code=PKE05D2E1`
 - 코드를 소비하지 않고 정원과 등록 기한을 보여준다.
 
 ```json
@@ -137,6 +138,7 @@
 |---|---|
 | 빈 코드 | 400 `COMMON_400` |
 | 없는 코드 | 404 `TICKET_404_CODE` |
+| 없는 코드를 1시간 안에 5번 넣음 (5번째부터 1시간) | 429 `TICKET_429_LOCKED` |
 | 재발급·환불로 무효화된 코드 | 409 `TICKET_409_REVOKED` |
 | 등록 기한 경과 | 409 `TICKET_409_REG_EXP` |
 | 다른 계정이 이미 등록 | 409 `TICKET_409_CLAIMED` |
@@ -146,7 +148,7 @@
 - `POST /api/v1/class-tickets/register`
 
 ```json
-{ "code": "PICKE-AB12-CD34" }
+{ "code": "PKE05D2E1" }
 ```
 
 - 등록하면 즉시 ACTIVE가 되고 6개월 뒤 만료된다.
@@ -1276,7 +1278,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
         "ticketId": 3, "fundingOrderId": 1, "orderId": "T-0001",
         "supporterName": "홍길동", "supporterEmail": "...", "supporterPhone": "...",
         "capacity": 30, "registerBy": "2027-09-01T00:00:00",
-        "code": "XXXXXX-XXXXX-XXXXX-XXXXX-XXXXX"
+        "code": "PKE05D2E1"
       }
     ],
     "skipped": [ { "fundingOrderId": 2, "orderId": "T-0002", "reason": "ALREADY_ISSUED" } ]
@@ -1471,6 +1473,7 @@ PRD "등록기한 30일·7일 전 알림은 허용된 연락 수단에서만 발
 | 코드 | HTTP | 메시지 |
 |---|---|---|
 | `TICKET_404_CODE` | 404 | 유효하지 않은 이용권 코드입니다. |
+| `TICKET_429_LOCKED` | 429 | 이용권 코드를 5번 잘못 입력해 1시간 동안 입력할 수 없어요. 잠시 후 다시 시도해 주세요. |
 | `TICKET_404` | 404 | 등록된 이용권이 없습니다. |
 | `TICKET_409_CLAIMED` | 409 | 이미 등록된 이용권 코드입니다. |
 | `TICKET_409_REVOKED` | 409 | 재발급되어 더 이상 사용할 수 없는 이용권 코드입니다. |

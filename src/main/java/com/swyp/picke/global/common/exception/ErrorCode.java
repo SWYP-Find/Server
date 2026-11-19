@@ -134,6 +134,7 @@ public enum ErrorCode {
 
     // ClassTicket (클래스 이용권)
     TICKET_CODE_INVALID(HttpStatus.NOT_FOUND, "TICKET_404_CODE", "유효하지 않은 이용권 코드입니다."),
+    TICKET_CODE_LOCKED(HttpStatus.TOO_MANY_REQUESTS, "TICKET_429_LOCKED", "이용권 코드를 5번 잘못 입력해 1시간 동안 입력할 수 없어요. 잠시 후 다시 시도해 주세요."),
     TICKET_CODE_ALREADY_CLAIMED(HttpStatus.CONFLICT, "TICKET_409_CLAIMED", "이미 등록된 이용권 코드입니다."),
     TICKET_CODE_REVOKED(HttpStatus.CONFLICT, "TICKET_409_REVOKED", "재발급되어 더 이상 사용할 수 없는 이용권 코드입니다."),
     TICKET_REGISTER_EXPIRED(HttpStatus.CONFLICT, "TICKET_409_REG_EXP", "등록 기한이 지난 이용권 코드입니다."),

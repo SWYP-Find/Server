@@ -11,6 +11,11 @@ import com.swyp.picke.domain.ticket.enums.TicketStatus;
 import com.swyp.picke.domain.ticket.repository.ClassTicketRepository;
 import com.swyp.picke.domain.ticket.repository.FundingOrderRepository;
 import com.swyp.picke.domain.ticket.util.TicketCodeHasher;
+import org.springframework.test.util.ReflectionTestUtils;
+import com.swyp.picke.domain.ticket.util.TicketCodeGenerator;
+import com.swyp.picke.domain.ticket.service.TicketCodeAttemptGuard;
+import com.swyp.picke.domain.ticket.repository.TicketCodeAttemptRepository;
+import com.swyp.picke.domain.ticket.entity.TicketCodeAttempt;
 import com.swyp.picke.domain.user.entity.User;
 import com.swyp.picke.domain.user.enums.UserRole;
 import com.swyp.picke.domain.user.enums.UserStatus;
@@ -54,9 +59,12 @@ class ClassTicketApiIntegrationTest {
     private FundingOrderRepository fundingOrderRepository;
     @Autowired
     private ClassTicketRepository classTicketRepository;
+    @Autowired
+    private TicketCodeAttemptRepository ticketCodeAttemptRepository;
 
     @BeforeEach
     void setUp() {
+        ticketCodeAttemptRepository.deleteAll();
         classTicketRepository.deleteAll();
         fundingOrderRepository.deleteAll();
     }
@@ -147,7 +155,7 @@ class ClassTicketApiIntegrationTest {
         mockMvc.perform(post("/api/v1/class-tickets/register")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("code", "PICKE-NOPE-0000"))))
+                        .content(objectMapper.writeValueAsString(Map.of("code", "PKE000000"))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("TICKET_404_CODE"));
 
@@ -262,6 +270,85 @@ class ClassTicketApiIntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    @DisplayName("없는 코드를 5번 넣으면 1시간 잠금(429): 맞는 코드도 막히고, 다른 계정은 영향 없고, 잠금이 풀리면 등록된다")
+    void wrongCodeFiveTimes_locksForAnHour() throws Exception {
+        User user = newUser();
+        String token = jwtProvider.createAccessToken(user.getId(), UserRole.USER.name());
+        String code = newCode();
+        issueTicket(code, RewardTier.SEAT_5, LocalDateTime.now().minusDays(1));
+
+        for (int i = 0; i < TicketCodeAttemptGuard.MAX_FAILURES - 1; i++) {
+            register(token, wrongCode(code)).andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.error.code").value("TICKET_404_CODE"));
+        }
+        // 5번째 실패(미리보기도 같이 센다)에서 바로 잠긴다
+        mockMvc.perform(get("/api/v1/class-tickets/preview").param("code", wrongCode(code))
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.error.code").value("TICKET_429_LOCKED"));
+        // 잠긴 동안에는 맞는 코드도 막힌다
+        register(token, code).andExpect(status().isTooManyRequests());
+        mockMvc.perform(get("/api/v1/class-tickets/preview").param("code", code)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isTooManyRequests());
+
+        // 다른 계정은 영향 없다
+        String other = userToken();
+        mockMvc.perform(get("/api/v1/class-tickets/preview").param("code", code)
+                        .header("Authorization", "Bearer " + other))
+                .andExpect(status().isOk());
+
+        // 1시간이 지나면 다시 등록할 수 있다
+        TicketCodeAttempt attempt = ticketCodeAttemptRepository.findById(user.getId()).orElseThrow();
+        ReflectionTestUtils.setField(attempt, "lockedUntil", LocalDateTime.now().minusSeconds(1));
+        ticketCodeAttemptRepository.save(attempt);
+        register(token, code).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+    }
+
+    @Test
+    @DisplayName("맞는 코드를 넣어도 실패 횟수는 초기화되지 않는다 (본인 코드로 횟수를 지우며 추측하지 못하게)")
+    void validCode_doesNotResetFailures() throws Exception {
+        User user = newUser();
+        String token = jwtProvider.createAccessToken(user.getId(), UserRole.USER.name());
+        String code = newCode();
+        issueTicket(code, RewardTier.SEAT_5, LocalDateTime.now().minusDays(1));
+
+        for (int i = 0; i < TicketCodeAttemptGuard.MAX_FAILURES - 1; i++) {
+            register(token, wrongCode(code)).andExpect(status().isNotFound());
+        }
+        mockMvc.perform(get("/api/v1/class-tickets/preview").param("code", code)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        register(token, wrongCode(code)).andExpect(status().isTooManyRequests());
+    }
+
+    private org.springframework.test.web.servlet.ResultActions register(String token, String code) throws Exception {
+        return mockMvc.perform(post("/api/v1/class-tickets/register")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of("code", code))));
+    }
+
+    /** 발급한 코드와 다른, 같은 형식의 코드 */
+    private static String wrongCode(String issued) {
+        String candidate;
+        do {
+            candidate = TicketCodeGenerator.generate();
+        } while (candidate.equals(issued));
+        return candidate;
+    }
+
+    private User newUser() {
+        return userRepository.save(User.builder()
+                .userTag("tk-" + UUID.randomUUID().toString().substring(0, 8))
+                .nickname("tester")
+                .role(UserRole.USER)
+                .status(UserStatus.ACTIVE)
+                .build());
+    }
+
     private void registerOk(String token, String code) throws Exception {
         mockMvc.perform(post("/api/v1/class-tickets/register")
                         .header("Authorization", "Bearer " + token)
@@ -271,7 +358,7 @@ class ClassTicketApiIntegrationTest {
     }
 
     private static String newCode() {
-        return "PICKE-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        return TicketCodeGenerator.generate();
     }
 
     private void issueTicket(String code, RewardTier tier, LocalDateTime paidAt) {

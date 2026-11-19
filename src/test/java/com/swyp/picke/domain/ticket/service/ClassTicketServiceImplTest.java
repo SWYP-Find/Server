@@ -41,13 +41,15 @@ import static org.mockito.Mockito.when;
 class ClassTicketServiceImplTest {
 
     private static final Long USER_ID = 1L;
-    private static final String CODE = "PICKE-AB12-CD34";
+    private static final String CODE = "PKE05D2E1";
     private static final String HASH = TicketCodeHasher.hash(CODE);
 
     @Mock
     private ClassTicketRepository classTicketRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private TicketCodeAttemptGuard attemptGuard;
 
     @InjectMocks
     private ClassTicketServiceImpl service;
@@ -102,7 +104,7 @@ class ClassTicketServiceImplTest {
         when(classTicketRepository.findByRegisteredUserIdAndStatus(USER_ID, TicketStatus.ACTIVE))
                 .thenReturn(Optional.empty());
 
-        ClassTicketResponse response = service.register(USER_ID, new ClassTicketRegisterRequest(" picke-ab12-cd34 "));
+        ClassTicketResponse response = service.register(USER_ID, new ClassTicketRegisterRequest(" pke-05d2e1 "));
 
         assertThat(ticket.getStatus()).isEqualTo(TicketStatus.ACTIVE);
         assertThat(ticket.getCodeStatus()).isEqualTo(TicketCodeStatus.CLAIMED);
@@ -302,7 +304,7 @@ class ClassTicketServiceImplTest {
         when(classTicketRepository.findByRegisteredUserIdAndStatus(USER_ID, TicketStatus.ACTIVE))
                 .thenReturn(Optional.empty());
 
-        ClassTicketPreviewResponse response = service.preview(USER_ID, " picke-ab12-cd34 ");
+        ClassTicketPreviewResponse response = service.preview(USER_ID, " pke-05d2e1 ");
 
         assertThat(response.capacity()).isEqualTo(5);
         assertThat(response.registerBy()).isEqualTo(paidAt.plusYears(1));

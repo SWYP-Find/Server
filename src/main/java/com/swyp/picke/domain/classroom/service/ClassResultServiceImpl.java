@@ -260,6 +260,7 @@ public class ClassResultServiceImpl implements ClassResultService {
             case SUCCEEDED -> ClassReportViewState.SUCCEEDED;
             case LIMITED -> ClassReportViewState.LIMITED;
             case FAILED -> ClassReportViewState.FAILED;
+            case CANCELED -> ClassReportViewState.NOT_ELIGIBLE;
         };
     }
 

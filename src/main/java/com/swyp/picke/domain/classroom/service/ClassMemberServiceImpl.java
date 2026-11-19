@@ -15,7 +15,10 @@ import com.swyp.picke.domain.classroom.enums.ClassStatus;
 import com.swyp.picke.domain.classroom.repository.ClassMemberRepository;
 import com.swyp.picke.domain.classroom.repository.ClassroomRepository;
 import com.swyp.picke.domain.user.entity.User;
+import com.swyp.picke.domain.user.entity.UserProfile;
+import com.swyp.picke.domain.user.enums.CharacterType;
 import com.swyp.picke.domain.user.repository.UserBattleRepository;
+import com.swyp.picke.domain.user.repository.UserProfileRepository;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.global.common.exception.CustomException;
@@ -24,8 +27,10 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -50,8 +55,10 @@ public class ClassMemberServiceImpl implements ClassMemberService {
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final ClassroomRepository classroomRepository;
+    private final ClassImageUrlResolver imageUrls;
     private final ClassMemberRepository classMemberRepository;
     private final UserRepository userRepository;
+    private final UserProfileRepository userProfileRepository;
     private final UserBattleRepository userBattleRepository;
 
     @Override
@@ -72,7 +79,8 @@ public class ClassMemberServiceImpl implements ClassMemberService {
 
         Optional<ClassMember> existing = classMemberRepository.findByClassroomIdAndUserId(classroom.getId(), userId);
         if (existing.isPresent() && existing.get().isActive()) {
-            return ClassroomConverter.toDetail(classroom, ClassMemberRole.MEMBER, seatCountOf(classroom), now);
+            return ClassroomConverter.toDetail(classroom, ClassMemberRole.MEMBER, countsOf(classroom), now,
+                imageUrls.battleThumbnail(classroom.getBattle()));
         }
         rejectRemovedOrClosed(classroom, existing, now);
         rejectDuplicateDisplayName(classroom.getId(), displayName);
@@ -90,7 +98,8 @@ public class ClassMemberServiceImpl implements ClassMemberService {
                     .build());
         }
         log.info("클래스 참여 - classId: {}, userId: {}, rejoin: {}", classroom.getId(), userId, existing.isPresent());
-        return ClassroomConverter.toDetail(classroom, ClassMemberRole.MEMBER, seatCountOf(classroom), now);
+        return ClassroomConverter.toDetail(classroom, ClassMemberRole.MEMBER, countsOf(classroom), now,
+                imageUrls.battleThumbnail(classroom.getBattle()));
     }
 
     @Override
@@ -116,9 +125,10 @@ public class ClassMemberServiceImpl implements ClassMemberService {
                 inviteCode,
                 classroom.getName(),
                 classroom.getBattle().getTitle(),
-                classroom.getBattle().getThumbnailUrl(),
+                imageUrls.battleThumbnail(classroom.getBattle()),
                 classroom.getBattleType(),
                 seatCountOf(classroom),
+                classMemberRepository.countByClassroomIdAndStatus(classroom.getId(), ClassMemberStatus.ACTIVE),
                 classroom.getCapacity(),
                 classroom.getEffectiveCloseAt());
     }
@@ -129,8 +139,13 @@ public class ClassMemberServiceImpl implements ClassMemberService {
         if (!isOwner(classroom, userId) && findActiveMember(classId, userId).isEmpty()) {
             throw new CustomException(ErrorCode.CLASS_MEMBER_ONLY);
         }
-        return classMemberRepository.findActiveMembers(classId).stream()
-                .map(m -> ClassMemberConverter.toResponse(m, userId))
+        List<ClassMember> members = classMemberRepository.findActiveMembers(classId);
+        Map<Long, CharacterType> characters = userProfileRepository.findAllByUserIdIn(
+                        members.stream().map(m -> m.getUser().getId()).toList()).stream()
+                .collect(Collectors.toMap(p -> p.getUser().getId(), UserProfile::getCharacterType, (a, b) -> a));
+        return members.stream()
+                .map(m -> ClassMemberConverter.toResponse(m, userId,
+                        imageUrls.avatar(characters.get(m.getUser().getId()))))
                 .toList();
     }
 
@@ -145,7 +160,10 @@ public class ClassMemberServiceImpl implements ClassMemberService {
             rejectDuplicateDisplayName(classId, displayName);
             me.changeDisplayName(displayName);
         }
-        return ClassMemberConverter.toResponse(me, userId);
+        CharacterType character = userProfileRepository.findByUserId(userId)
+                .map(UserProfile::getCharacterType)
+                .orElse(null);
+        return ClassMemberConverter.toResponse(me, userId, imageUrls.avatar(character));
     }
 
     @Override
@@ -260,5 +278,10 @@ public class ClassMemberServiceImpl implements ClassMemberService {
 
     private long seatCountOf(Classroom classroom) {
         return classMemberRepository.countByClassroomIdAndSeatHeldTrue(classroom.getId());
+    }
+
+    private ClassMemberCounts countsOf(Classroom classroom) {
+        return new ClassMemberCounts(seatCountOf(classroom),
+                classMemberRepository.countByClassroomIdAndStatus(classroom.getId(), ClassMemberStatus.ACTIVE));
     }
 }

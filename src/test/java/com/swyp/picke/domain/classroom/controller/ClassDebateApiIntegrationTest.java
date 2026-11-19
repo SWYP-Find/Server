@@ -20,8 +20,10 @@ import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.enums.BattleCreatorType;
 import com.swyp.picke.domain.battle.repository.BattleOptionRepository;
+import com.swyp.picke.domain.battle.repository.BattleTagRepository;
 import com.swyp.picke.domain.battle.repository.BattleRepository;
 import com.swyp.picke.domain.classroom.entity.AiJob;
+import com.swyp.picke.domain.classroom.entity.Classroom;
 import com.swyp.picke.domain.classroom.entity.ClassDebateMessage;
 import com.swyp.picke.domain.classroom.enums.AiJobStatus;
 import com.swyp.picke.domain.classroom.enums.AiJobType;
@@ -106,6 +108,7 @@ class ClassDebateApiIntegrationTest {
     @Autowired private ClassMemberRepository classMemberRepository;
     @Autowired private BattleRepository battleRepository;
     @Autowired private BattleOptionRepository battleOptionRepository;
+    @Autowired private BattleTagRepository battleTagRepository;
     @Autowired private BattleVoteRepository battleVoteRepository;
     @Autowired private UserBattleRepository userBattleRepository;
     @Autowired private ClassDebateSessionRepository sessionRepository;
@@ -173,6 +176,8 @@ class ClassDebateApiIntegrationTest {
         classroomRepository.deleteAll();
         versionRepository.deleteAll();
         draftRepository.deleteAll();
+        battleTagRepository.deleteAll(battleTagRepository.findAll().stream()
+                .filter(t -> customBattleIds.contains(t.getBattle().getId())).toList());
         battleOptionRepository.deleteAll(battleOptionRepository.findAll().stream()
                 .filter(o -> customBattleIds.contains(o.getBattle().getId())).toList());
         battleRepository.deleteAllById(customBattleIds);
@@ -197,6 +202,7 @@ class ClassDebateApiIntegrationTest {
                 .andExpect(jsonPath("$.data.opponentOption.optionId").value(optionB))
                 .andExpect(jsonPath("$.data.philosopher.code").value("ARISTOTLE"))
                 .andExpect(jsonPath("$.data.philosopher.name").value("아리스토텔레스"))
+                .andExpect(jsonPath("$.data.philosopher.imageUrl").value(org.hamcrest.Matchers.endsWith("/api/v1/resources/images/PHILOSOPHER/aristotle.png")))
                 .andExpect(jsonPath("$.data.aiNotice").exists())
                 .andExpect(jsonPath("$.data.messages", hasSize(1)))
                 .andExpect(jsonPath("$.data.messages[0].speaker").value("AI"))
@@ -428,6 +434,26 @@ class ClassDebateApiIntegrationTest {
         assertThat(job.getStatus()).isEqualTo(AiJobStatus.REJECTED);
         assertThat(job.getErrorCode()).isEqualTo("ARGUMENT_LENGTH");
         assertThat(job.getAttempt()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("AI 주장 생성 중에 클래스가 삭제되면 비용은 기록하고 주장은 저장하지 않는다 (PRD F16)")
+    void classDeletedDuringDebateTurn_doesNotPublish() throws Exception {
+        preVote(optionA);
+        when(aiClient.chatJson(eq("test-debate-model"), eq(ClassDebatePrompts.SYSTEM), anyString(), anyInt()))
+                .thenAnswer(inv -> {
+                    Classroom classroom = classroomRepository.findById(classId).orElseThrow();
+                    classroom.delete(LocalDateTime.now());
+                    classroomRepository.save(classroom);
+                    return result(argument(1));
+                });
+
+        start();
+
+        assertThat(messageRepository.findAll()).noneMatch(m -> m.getSpeaker() == ClassDebateSpeaker.AI);
+        AiJob job = aiJobRepository.findAll().stream().filter(j -> j.getType() == AiJobType.DEBATE_ARGUMENT).findFirst().orElseThrow();
+        assertThat(job.getStatus()).isEqualTo(AiJobStatus.SUCCEEDED);
+        assertThat(job.getInputTokens()).isEqualTo(300);
     }
 
     @Test

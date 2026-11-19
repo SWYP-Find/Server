@@ -42,6 +42,18 @@ public interface ClassMemberRepository extends JpaRepository<ClassMember, Long> 
     /** 정원 판정용. 좌석을 쥐고 있는 인원(seatHeld = true) 수 */
     long countByClassroomIdAndSeatHeldTrue(Long classroomId);
 
+    /** 현재 명단 인원 (ACTIVE 멤버, 참여하는 운영자 포함) */
+    long countByClassroomIdAndStatus(Long classroomId, ClassMemberStatus status);
+
+    /** 목록 화면용: 여러 클래스의 현재 명단 인원을 한 번에 */
+    @Query("""
+            select m.classroom.id, count(m) from ClassMember m
+            where m.classroom.id in :classroomIds
+              and m.status = com.swyp.picke.domain.classroom.enums.ClassMemberStatus.ACTIVE
+            group by m.classroom.id
+            """)
+    List<Object[]> countActiveMembersByClassroomIds(@Param("classroomIds") Collection<Long> classroomIds);
+
     /** 목록 화면용: 여러 클래스의 좌석 소비 인원을 한 번에 */
     @Query("""
             select m.classroom.id, count(m) from ClassMember m

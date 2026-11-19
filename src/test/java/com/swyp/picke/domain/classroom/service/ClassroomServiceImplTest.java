@@ -70,6 +70,8 @@ class ClassroomServiceImplTest {
     private BattleRepository battleRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private ClassImageUrlResolver imageUrls;
 
     @InjectMocks
     private ClassroomServiceImpl service;

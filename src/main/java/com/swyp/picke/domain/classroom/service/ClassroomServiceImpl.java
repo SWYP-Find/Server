@@ -66,6 +66,7 @@ public class ClassroomServiceImpl implements ClassroomService {
     private static final long DUPLICATE_WINDOW_SECONDS = 10;
 
     private final ClassroomRepository classroomRepository;
+    private final ClassImageUrlResolver imageUrls;
     private final ClassMemberRepository classMemberRepository;
     private final ClassTicketRepository classTicketRepository;
     private final BattleRepository battleRepository;
@@ -96,7 +97,8 @@ public class ClassroomServiceImpl implements ClassroomService {
                 : findRecentDuplicate(userId, request);
         if (duplicate != null) {
             log.info("클래스 중복 생성 요청 - 기존 클래스 반환 classId: {}, ownerId: {}", duplicate.getId(), userId);
-            return ClassroomConverter.toDetail(duplicate, ClassMemberRole.OWNER, seatCountOf(duplicate), now);
+            return ClassroomConverter.toDetail(duplicate, ClassMemberRole.OWNER, countsOf(duplicate), now,
+                imageUrls.battleThumbnail(duplicate.getBattle()));
         }
         ClassTopicVersion topicVersion = request.topicVersionId() == null ? null : findOwnTopicVersion(userId, request.topicVersionId());
         Battle tts = topicVersion == null ? findClassBattle(request.battleId()) : null;
@@ -119,7 +121,7 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .createRequestHash(requestHash)
                 .build());
 
-        long memberCount = 0;
+        ClassMemberCounts counts = ClassMemberCounts.EMPTY;
         if (request.ownerParticipates()) {
             classMemberRepository.save(ClassMember.builder()
                     .classroom(classroom)
@@ -128,21 +130,23 @@ public class ClassroomServiceImpl implements ClassroomService {
                     .role(ClassMemberRole.OWNER)
                     .joinedAt(now)
                     .build());
-            memberCount = 1;
+            counts = new ClassMemberCounts(1, 1);
         }
         log.info("클래스 생성 - classId: {}, ownerId: {}, ticketId: {}, battleId: {}, capacity: {}",
                 classroom.getId(), userId, ticket.getId(), battle.getId(), classroom.getCapacity());
-        return ClassroomConverter.toDetail(classroom, ClassMemberRole.OWNER, memberCount, now);
+        return ClassroomConverter.toDetail(classroom, ClassMemberRole.OWNER, counts, now,
+                imageUrls.battleThumbnail(classroom.getBattle()));
     }
 
     @Override
     public List<ClassSummaryResponse> getMyClasses(Long userId) {
         LocalDateTime now = LocalDateTime.now(KST);
         List<Classroom> classrooms = classroomRepository.findMyClasses(userId);
-        Map<Long, Long> seatCounts = seatCountsOf(classrooms);
+        Map<Long, ClassMemberCounts> counts = countsOf(classrooms);
         return classrooms.stream()
                 .map(c -> ClassroomConverter.toSummary(
-                        c, roleOf(c, userId), seatCounts.getOrDefault(c.getId(), 0L), now))
+                        c, roleOf(c, userId), counts.getOrDefault(c.getId(), ClassMemberCounts.EMPTY), now,
+                        imageUrls.battleThumbnail(c.getBattle())))
                 .toList();
     }
 
@@ -154,7 +158,8 @@ public class ClassroomServiceImpl implements ClassroomService {
         if (role == null) {
             throw new CustomException(ErrorCode.CLASS_MEMBER_ONLY);
         }
-        return ClassroomConverter.toDetail(classroom, role, seatCountOf(classroom), now);
+        return ClassroomConverter.toDetail(classroom, role, countsOf(classroom), now,
+                imageUrls.battleThumbnail(classroom.getBattle()));
     }
 
     @Override
@@ -176,7 +181,8 @@ public class ClassroomServiceImpl implements ClassroomService {
             validateDeadlineExtension(request.deadline(), classroom, now);
             classroom.extendDeadline(request.deadline());
         }
-        return ClassroomConverter.toDetail(classroom, ClassMemberRole.OWNER, seatCountOf(classroom), now);
+        return ClassroomConverter.toDetail(classroom, ClassMemberRole.OWNER, countsOf(classroom), now,
+                imageUrls.battleThumbnail(classroom.getBattle()));
     }
 
     @Override
@@ -218,18 +224,28 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .orElse(null);
     }
 
-    private long seatCountOf(Classroom classroom) {
-        return classMemberRepository.countByClassroomIdAndSeatHeldTrue(classroom.getId());
+    private ClassMemberCounts countsOf(Classroom classroom) {
+        return new ClassMemberCounts(
+                classMemberRepository.countByClassroomIdAndSeatHeldTrue(classroom.getId()),
+                classMemberRepository.countByClassroomIdAndStatus(classroom.getId(), ClassMemberStatus.ACTIVE));
     }
 
-    private Map<Long, Long> seatCountsOf(List<Classroom> classrooms) {
-        Map<Long, Long> result = new HashMap<>();
+    private Map<Long, ClassMemberCounts> countsOf(List<Classroom> classrooms) {
+        Map<Long, ClassMemberCounts> result = new HashMap<>();
         if (classrooms.isEmpty()) {
             return result;
         }
         List<Long> ids = classrooms.stream().map(Classroom::getId).toList();
+        Map<Long, Long> seats = new HashMap<>();
         for (Object[] row : classMemberRepository.countSeatsHeldByClassroomIds(ids)) {
-            result.put((Long) row[0], (Long) row[1]);
+            seats.put((Long) row[0], (Long) row[1]);
+        }
+        Map<Long, Long> active = new HashMap<>();
+        for (Object[] row : classMemberRepository.countActiveMembersByClassroomIds(ids)) {
+            active.put((Long) row[0], (Long) row[1]);
+        }
+        for (Long id : ids) {
+            result.put(id, new ClassMemberCounts(seats.getOrDefault(id, 0L), active.getOrDefault(id, 0L)));
         }
         return result;
     }

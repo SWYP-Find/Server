@@ -17,10 +17,12 @@ import com.swyp.picke.domain.classroom.enums.ClassBattleType;
 import com.swyp.picke.domain.classroom.enums.ClassDebateResponseType;
 import com.swyp.picke.domain.classroom.enums.ClassDebateSpeaker;
 import com.swyp.picke.domain.classroom.enums.ClassDebateStatus;
+import com.swyp.picke.domain.classroom.enums.ClassStatus;
 import com.swyp.picke.domain.classroom.repository.AiJobRepository;
 import com.swyp.picke.domain.classroom.repository.ClassDebateMessageRepository;
 import com.swyp.picke.domain.classroom.repository.ClassDebateSessionRepository;
 import com.swyp.picke.domain.classroom.service.ClassAccessService;
+import com.swyp.picke.domain.classroom.service.ClassImageUrlResolver;
 import com.swyp.picke.domain.classroom.service.ClassAccessService.ClassAccess;
 import com.swyp.picke.domain.classroom.service.topic.AiUsage;
 import com.swyp.picke.domain.user.entity.User;
@@ -65,6 +67,7 @@ public class ClassDebateSessionService {
     private final UserRepository userRepository;
     private final UserBattleService userBattleService;
     private final AiJobRepository aiJobRepository;
+    private final ClassImageUrlResolver imageUrls;
 
     /** AI 주장 1건을 만들 준비가 된 상태 */
     public record PreparedTurn(Long sessionId, Long jobId, int round, DebatePromptInput input) {
@@ -237,6 +240,12 @@ public class ClassDebateSessionService {
                 || session.getStatus() != ClassDebateStatus.GENERATING || session.getRound() != turn.round()) {
             return;
         }
+        if (session.getClassroom().getStatus() == ClassStatus.DELETED) {
+            // 생성 중에 클래스가 삭제됐다. AI 호출 자체는 끝났으니 작업은 성공으로 두어 토큰 비용을 남기고, 주장은 게시하지 않는다 (PRD F16)
+            addExtraAttempts(job, usage);
+            job.succeed(usage.inputTokens(), usage.outputTokens(), now);
+            return;
+        }
         if (messageRepository.findBySessionIdAndRoundIndexAndSpeaker(session.getId(), turn.round(), ClassDebateSpeaker.AI).isEmpty()) {
             Long replyTo = turn.round() == 1 ? null
                     : messageRepository.findBySessionIdAndRoundIndexAndSpeaker(session.getId(), turn.round() - 1, ClassDebateSpeaker.USER)
@@ -292,7 +301,8 @@ public class ClassDebateSessionService {
                 session.getRound(),
                 writable && session.getStatus() == ClassDebateStatus.WAITING_USER,
                 writable && session.isRetryable(now.minusMinutes(GENERATING_STALE_MINUTES)),
-                new ClassDebateResponse.Philosopher(philosopher, philosopher.getLabel(), philosopher.getTypeName(), philosopher.getImageKey()),
+                new ClassDebateResponse.Philosopher(philosopher, philosopher.getLabel(), philosopher.getTypeName(), philosopher.getImageKey(),
+                        imageUrls.philosopher(philosopher)),
                 side(session.getParticipantOption()),
                 side(session.getOpponentOption()),
                 messages.stream().map(m -> new ClassDebateResponse.Message(

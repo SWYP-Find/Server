@@ -18,6 +18,7 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +38,7 @@ public class ClassTicketServiceImpl implements ClassTicketService {
 
     private final ClassTicketRepository classTicketRepository;
     private final UserRepository userRepository;
+    private final TicketCodeAttemptGuard attemptGuard;
 
     @Override
     public ClassTicketPreviewResponse preview(Long userId, String code) {
@@ -44,8 +46,9 @@ public class ClassTicketServiceImpl implements ClassTicketService {
             throw new CustomException(ErrorCode.COMMON_INVALID_PARAMETER);
         }
         LocalDateTime now = LocalDateTime.now(KST);
+        attemptGuard.checkNotLocked(userId, now);
         ClassTicket ticket = classTicketRepository.findByCodeHash(TicketCodeHasher.hash(code))
-                .orElseThrow(() -> new CustomException(ErrorCode.TICKET_CODE_INVALID));
+                .orElseThrow(() -> invalidCode(userId, now));
 
         boolean registeredByMe = ticket.isRegisteredBy(userId);
         if (!registeredByMe) {
@@ -71,8 +74,9 @@ public class ClassTicketServiceImpl implements ClassTicketService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
+        attemptGuard.checkNotLocked(userId, now);
         ClassTicket ticket = classTicketRepository.findByCodeHashForUpdate(TicketCodeHasher.hash(request.code()))
-                .orElseThrow(() -> new CustomException(ErrorCode.TICKET_CODE_INVALID));
+                .orElseThrow(() -> invalidCode(userId, now));
 
         if (ticket.isRevoked()) {
             throw new CustomException(ErrorCode.TICKET_CODE_REVOKED);
@@ -104,6 +108,20 @@ public class ClassTicketServiceImpl implements ClassTicketService {
 
         expireIfNeeded(ticket, now);
         return ClassTicketConverter.toResponse(ticket, now);
+    }
+
+    /**
+     * 없는 코드 입력. 실패를 기록하고 404 를 돌려준다. 이번 실패로 5회가 차면 바로 429(1시간 잠금)를 돌려준다.
+     * 같은 계정의 첫 실패가 동시에 들어와 기록 행 생성이 충돌하면 한 번 더 기록한다.
+     */
+    private CustomException invalidCode(Long userId, LocalDateTime now) {
+        boolean locked;
+        try {
+            locked = attemptGuard.recordFailure(userId, now);
+        } catch (DataIntegrityViolationException e) {
+            locked = attemptGuard.recordFailure(userId, now);
+        }
+        return new CustomException(locked ? ErrorCode.TICKET_CODE_LOCKED : ErrorCode.TICKET_CODE_INVALID);
     }
 
     /** 상태를 바꾸지 않는 순수 검사. preview 와 register 가 같이 쓴다 */

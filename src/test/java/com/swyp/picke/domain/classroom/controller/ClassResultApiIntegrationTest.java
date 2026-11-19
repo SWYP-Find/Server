@@ -10,6 +10,7 @@ import com.swyp.picke.domain.classroom.repository.ClassMidVoteRepository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.hamcrest.Matchers.hasSize;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -157,6 +158,7 @@ class ClassResultApiIntegrationTest {
         optionA = newOption(battle, 1);
         optionB = newOption(battle, 2);
         when(aiClient.getModel()).thenReturn("test-model");
+        when(aiClient.getInsightModel()).thenReturn("test-insight-model");
         stubMemberFeedback();
         stubInsightSuccess();
     }
@@ -244,6 +246,7 @@ class ClassResultApiIntegrationTest {
         assertThat(generationService.runOnce(LocalDateTime.now())).isZero();
         assertThat(classReportRepository.count()).isZero();
         verify(aiClient, never()).chatJson(anyString(), anyString(), anyInt());
+        verify(aiClient, never()).chatJson(any(), anyString(), anyString(), anyInt());
     }
 
     @Test
@@ -316,7 +319,7 @@ class ClassResultApiIntegrationTest {
 
         // 비용 기록: 개인 1건만 (인사이트는 템플릿이라 호출 없음), 재실행해도 다시 만들지 않는다
         verify(aiClient, times(1)).chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt());
-        verify(aiClient, never()).chatJson(eq(ClassReportPrompts.CLASS_INSIGHT_SYSTEM), anyString(), anyInt());
+        verify(aiClient, never()).chatJson(any(), eq(ClassReportPrompts.CLASS_INSIGHT_SYSTEM), anyString(), anyInt());
         List<AiJob> jobs = aiJobRepository.findAll();
         assertThat(jobs).hasSize(1);
         assertThat(jobs.get(0).getType()).isEqualTo(AiJobType.MEMBER_REPORT);
@@ -351,6 +354,7 @@ class ClassResultApiIntegrationTest {
                 .andExpect(jsonPath("$.data.feedback.nextFocus").doesNotExist())
                 .andExpect(jsonPath("$.data.feedback.evidence", hasSize(0)));
         verify(aiClient, never()).chatJson(anyString(), anyString(), anyInt());
+        verify(aiClient, never()).chatJson(any(), anyString(), anyString(), anyInt());
         assertThat(aiJobRepository.count()).isZero();
     }
 
@@ -378,7 +382,7 @@ class ClassResultApiIntegrationTest {
                 .perspective(first).user(first.getUser()).classroom(classroom).content("보충하자면 표본은 30명이었어요.").build());
 
         // 인사이트 호출은 두 번 연속 실패 → 자동 재시도 소진 → FAILED
-        when(aiClient.chatJson(eq(ClassReportPrompts.CLASS_INSIGHT_SYSTEM), anyString(), anyInt()))
+        when(aiClient.chatJson(any(), eq(ClassReportPrompts.CLASS_INSIGHT_SYSTEM), anyString(), anyInt()))
                 .thenThrow(new RuntimeException("provider down"));
         closeClass(cls.classId);
         LocalDateTime now = LocalDateTime.now();
@@ -391,6 +395,7 @@ class ClassResultApiIntegrationTest {
         assertThat(summary.getStatus()).isEqualTo(ClassReportStatus.FAILED);
         assertThat(jobOf(summary).getStatus()).isEqualTo(AiJobStatus.FAILED);
         assertThat(jobOf(summary).getAttempt()).isEqualTo(2);
+        assertThat(jobOf(summary).getModel()).isEqualTo("test-insight-model"); // 인사이트는 별도 모델 (#657)
 
         mockMvc.perform(get(result(cls) + "/insight").header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isOk())
@@ -435,6 +440,29 @@ class ClassResultApiIntegrationTest {
         assertThat(jobOf(summary).getStatus()).isEqualTo(AiJobStatus.SUCCEEDED);
         // 같은 ai_job 1행에 시도가 누적되고, 개인 3건 + 인사이트 1건 = 4행
         assertThat(aiJobRepository.count()).isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("#657 참여자가 ㅋㅋㅋ·자판 아무거나만 쓰면 AI 없이 의견 부족 템플릿이고, 그런 글은 대표 의견으로 채우지 않는다")
+    void insight_junkPostsOnly() throws Exception {
+        ClassInfo cls = createClass(false);
+        String[] contents = {"ㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋ", "asdfasdfasdf", "몰라요 그냥요"};
+        for (int i = 0; i < 3; i++) {
+            User student = newUser("학생" + i);
+            String token = tokenOf(student);
+            join(token, cls.inviteCode, "학생" + i);
+            completeParticipation(token, cls, optionA, optionA, contents[i]);
+        }
+        closeClass(cls.classId);
+        generationService.runOnce(LocalDateTime.now());
+
+        assertThat(summaryOf(cls.classId).getStatus()).isEqualTo(ClassReportStatus.LIMITED);
+        mockMvc.perform(get(result(cls) + "/insight").header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("LIMITED"))
+                .andExpect(jsonPath("$.data.insightText").value("아직 요약할 의견이 충분하지 않아요"))
+                .andExpect(jsonPath("$.data.highlights").isEmpty());
+        verify(aiClient, never()).chatJson(any(), eq(ClassReportPrompts.CLASS_INSIGHT_SYSTEM), anyString(), anyInt());
     }
 
     @Test
@@ -791,6 +819,7 @@ class ClassResultApiIntegrationTest {
         assertThat(classReportRepository.findAll()).extracting(ClassReport::getStatus)
                 .containsOnly(ClassReportStatus.CANCELED);
         verify(aiClient, never()).chatJson(anyString(), anyString(), anyInt());
+        verify(aiClient, never()).chatJson(any(), anyString(), anyString(), anyInt());
         assertThat(aiJobRepository.count()).isZero();
         // 다시 돌려도 살아나지 않는다
         assertThat(generationService.runOnce(now.plusMinutes(2))).isZero();
@@ -876,9 +905,9 @@ class ClassResultApiIntegrationTest {
 
     /** 프롬프트에 실린 공개 글 중 앞의 2건을 근거로, 1건을 하이라이트로 돌려주는 정상 응답 */
     private void stubInsightSuccess() {
-        when(aiClient.chatJson(eq(ClassReportPrompts.CLASS_INSIGHT_SYSTEM), anyString(), anyInt()))
+        when(aiClient.chatJson(any(), eq(ClassReportPrompts.CLASS_INSIGHT_SYSTEM), anyString(), anyInt()))
                 .thenAnswer(inv -> {
-                    Matcher m = ANY_SOURCE.matcher(inv.getArgument(1));
+                    Matcher m = ANY_SOURCE.matcher(inv.getArgument(2));
                     List<String> ids = new ArrayList<>();
                     while (m.find() && ids.size() < 2) {
                         ids.add(m.group(1));

@@ -222,7 +222,7 @@ class ClassReportContentValidatorTest {
         Map<String, Object> insight = validator.validateClassInsight(json, input);
 
         assertThat(insight).containsEntry("analysis_status", "LIMITED")
-                .containsEntry("insight_text", "아직 요약할 의견이 충분하지 않아요");
+                .containsEntry("insight_text", "판단의 이유를 살펴볼 글이 아직 충분하지 않아요");
         assertThat(ReportContent.stringList(insight, "evidence_ids")).isEmpty();
     }
 
@@ -237,7 +237,7 @@ class ClassReportContentValidatorTest {
         Map<String, Object> insight = validator.validateClassInsight(Map.of("analysis_status", "INSUFFICIENT"), input);
 
         assertThat(insight).containsEntry("analysis_status", "LIMITED")
-                .containsEntry("insight_text", "아직 요약할 의견이 충분하지 않아요");
+                .containsEntry("insight_text", "판단의 이유를 살펴볼 글이 아직 충분하지 않아요");
     }
 
     @Test

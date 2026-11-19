@@ -70,7 +70,7 @@ public class ClassReportSnapshotService {
     static final int INSIGHT_INPUT_MAX_CHARS = 12_000;
     static final int INSIGHT_POST_MAX_COUNT = 60;
     static final int INSIGHT_POSTS_PER_AUTHOR = 2;
-    static final int INSIGHT_MIN_AUTHORS = 3;
+    public static final int INSIGHT_MIN_AUTHORS = 3;
     static final int PARENT_CONTEXT_MAX_CHARS = 200;
 
     public static final String KEY_CUTOFF_AT = "cutoff_at";
@@ -166,7 +166,7 @@ public class ClassReportSnapshotService {
                 .classroom(classroom)
                 .member(member)
                 .build()));
-        job.start(aiClient.getModel(), now);
+        job.start(type == AiJobType.CLASS_INSIGHT ? aiClient.getInsightModel() : aiClient.getModel(), now);
         report.startGenerating(job);
         return job;
     }
@@ -187,6 +187,8 @@ public class ClassReportSnapshotService {
             report.limit(validated, now); // AI 가 분석할 이유가 없다고 판단해 서버 템플릿으로 대체한 경우
         } else if (report.getType() == ClassReportType.MEMBER_FEEDBACK) {
             report.complete(validated, now);
+        } else if ("LIMITED".equals(validated.get("analysis_status"))) {
+            report.limit(withInsight(report.getContent(), validated), now); // 요약할 글이 없어 템플릿으로 대체 (#657)
         } else {
             report.complete(withInsight(report.getContent(), validated), now);
         }
@@ -348,6 +350,7 @@ public class ClassReportSnapshotService {
 
     /**
      * 인사이트 입력: 공개 의견·댓글을 작성자별 최신 2건으로 추리고 입장을 번갈아 섞어 최대 60건, 12,000자.
+     * 이유를 읽을 수 없는 짧은 글은 넣지 않는다 ({@link InsightPostRules#hasReason}).
      * 작성자는 익명 번호로만 표기한다 (PRD §14). 한 작성자가 같은 내용을 반복한 글은 처음 것만 남긴다 (RP-10).
      */
     public ClassInsightInput buildInsightInput(Classroom classroom, Map<String, Object> snapshot) {
@@ -362,6 +365,9 @@ public class ClassReportSnapshotService {
         }
         List<Raw> raws = new ArrayList<>();
         for (Perspective p : perspectiveRepository.findByClassroomIdAndStatusOrderByCreatedAtAsc(classId, PerspectiveStatus.PUBLISHED)) {
+            if (!InsightPostRules.hasReason(p.getContent())) {
+                continue; // 이유를 읽을 수 없는 글은 요약할 내용이 없고 작성자 수에도 넣지 않는다 (#657)
+            }
             raws.add(new Raw(p.getUser().getId(), p.getCreatedAt(), new ClassInsightInput.PublicPost(
                     MemberFeedbackInput.sourceId(MemberFeedbackInput.SOURCE_PERSPECTIVE, p.getId()),
                     MemberFeedbackInput.SOURCE_PERSPECTIVE, p.getId(), 0,
@@ -370,7 +376,7 @@ public class ClassReportSnapshotService {
         }
         for (PerspectiveComment c : perspectiveCommentRepository.findByClassroomIdAndHiddenFalseOrderByCreatedAtAsc(classId)) {
             Perspective parent = c.getPerspective();
-            if (parent == null || parent.getStatus() != PerspectiveStatus.PUBLISHED) {
+            if (parent == null || parent.getStatus() != PerspectiveStatus.PUBLISHED || !InsightPostRules.hasReason(c.getContent())) {
                 continue;
             }
             raws.add(new Raw(c.getUser().getId(), c.getCreatedAt(), new ClassInsightInput.PublicPost(

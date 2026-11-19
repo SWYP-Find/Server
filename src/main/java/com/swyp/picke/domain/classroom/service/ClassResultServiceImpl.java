@@ -21,6 +21,7 @@ import com.swyp.picke.domain.classroom.service.ClassAccessService.ClassAccess;
 import com.swyp.picke.domain.classroom.service.report.ClassReportSnapshotService;
 import com.swyp.picke.domain.classroom.service.report.ClassResultStats;
 import com.swyp.picke.domain.classroom.service.report.ClassResultStatsCalculator;
+import com.swyp.picke.domain.classroom.service.report.InsightPostRules;
 import com.swyp.picke.domain.classroom.service.report.MemberFeedbackInput;
 import com.swyp.picke.domain.classroom.service.report.ReportContent;
 import com.swyp.picke.domain.perspective.entity.Perspective;
@@ -306,7 +307,7 @@ public class ClassResultServiceImpl implements ClassResultService {
                 evidence, highlights);
     }
 
-    /** 하이라이트가 2건 미만이면 최신 공개 의견으로 채운다 (AI 호출 없음) */
+    /** 하이라이트가 2건 미만이면 최신 공개 의견으로 채운다 (AI 호출 없음). 비속어·이유 없는 글은 고르지 않는다 (#657) */
     private void backfillHighlights(List<ClassInsightResponse.PublicPost> highlights, Long classId) {
         if (highlights.size() >= HIGHLIGHT_MAX) {
             return;
@@ -314,6 +315,9 @@ public class ClassResultServiceImpl implements ClassResultService {
         List<Perspective> recent = perspectiveRepository.findByClassroomIdAndStatusOrderByCreatedAtAsc(classId, PerspectiveStatus.PUBLISHED);
         for (int i = recent.size() - 1; i >= 0 && highlights.size() < HIGHLIGHT_MAX; i--) {
             Perspective p = recent.get(i);
+            if (!InsightPostRules.isSelectable(p.getContent())) {
+                continue;
+            }
             boolean exists = highlights.stream().anyMatch(h ->
                     MemberFeedbackInput.SOURCE_PERSPECTIVE.equals(h.sourceType()) && Objects.equals(h.id(), p.getId()));
             if (!exists) {

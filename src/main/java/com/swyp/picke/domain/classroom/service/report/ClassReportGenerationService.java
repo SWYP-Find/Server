@@ -81,7 +81,7 @@ public class ClassReportGenerationService {
                         ClassReportPrompts.MEMBER_FEEDBACK_MAX_OUTPUT_TOKENS);
                 validated = validator.validateMemberFeedback(result.json(), prepared.memberInput());
             } else {
-                result = aiClient.chatJson(ClassReportPrompts.CLASS_INSIGHT_SYSTEM,
+                result = aiClient.chatJson(aiClient.getInsightModel(), ClassReportPrompts.CLASS_INSIGHT_SYSTEM,
                         ClassReportPrompts.classInsightUser(prepared.insightInput()),
                         ClassReportPrompts.CLASS_INSIGHT_MAX_OUTPUT_TOKENS);
                 validated = validator.validateClassInsight(result.json(), prepared.insightInput());

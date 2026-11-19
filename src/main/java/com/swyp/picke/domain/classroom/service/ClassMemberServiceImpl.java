@@ -25,6 +25,7 @@ import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -140,13 +141,25 @@ public class ClassMemberServiceImpl implements ClassMemberService {
             throw new CustomException(ErrorCode.CLASS_MEMBER_ONLY);
         }
         List<ClassMember> members = classMemberRepository.findActiveMembers(classId);
-        Map<Long, CharacterType> characters = userProfileRepository.findAllByUserIdIn(
-                        members.stream().map(m -> m.getUser().getId()).toList()).stream()
+        Long ownerId = classroom.getOwner().getId();
+        // 미참여 운영자 줄은 운영자 본인에게만 보인다. 참여자 명단에는 참여자만 나온다 (#665)
+        boolean addOwnerRow = Objects.equals(ownerId, userId)
+                && members.stream().noneMatch(m -> Objects.equals(m.getUser().getId(), ownerId));
+        List<Long> userIds = new ArrayList<>(members.stream().map(m -> m.getUser().getId()).toList());
+        if (addOwnerRow) {
+            userIds.add(ownerId);
+        }
+        Map<Long, CharacterType> characters = userProfileRepository.findAllByUserIdIn(userIds).stream()
                 .collect(Collectors.toMap(p -> p.getUser().getId(), UserProfile::getCharacterType, (a, b) -> a));
-        return members.stream()
-                .map(m -> ClassMemberConverter.toResponse(m, userId,
-                        imageUrls.avatar(characters.get(m.getUser().getId()))))
-                .toList();
+
+        List<ClassMemberResponse> result = new ArrayList<>();
+        if (addOwnerRow) {
+            result.add(ClassMemberConverter.toNonParticipatingOwner(classroom,
+                    imageUrls.avatar(characters.get(ownerId))));
+        }
+        members.forEach(m -> result.add(ClassMemberConverter.toResponse(m, userId,
+                imageUrls.avatar(characters.get(m.getUser().getId())))));
+        return result;
     }
 
     @Override

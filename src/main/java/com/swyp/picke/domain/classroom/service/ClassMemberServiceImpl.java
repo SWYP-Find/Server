@@ -79,7 +79,7 @@ public class ClassMemberServiceImpl implements ClassMemberService {
 
         Optional<ClassMember> existing = classMemberRepository.findByClassroomIdAndUserId(classroom.getId(), userId);
         if (existing.isPresent() && existing.get().isActive()) {
-            return ClassroomConverter.toDetail(classroom, ClassMemberRole.MEMBER, seatCountOf(classroom), now,
+            return ClassroomConverter.toDetail(classroom, ClassMemberRole.MEMBER, countsOf(classroom), now,
                 imageUrls.battleThumbnail(classroom.getBattle()));
         }
         rejectRemovedOrClosed(classroom, existing, now);
@@ -98,7 +98,7 @@ public class ClassMemberServiceImpl implements ClassMemberService {
                     .build());
         }
         log.info("클래스 참여 - classId: {}, userId: {}, rejoin: {}", classroom.getId(), userId, existing.isPresent());
-        return ClassroomConverter.toDetail(classroom, ClassMemberRole.MEMBER, seatCountOf(classroom), now,
+        return ClassroomConverter.toDetail(classroom, ClassMemberRole.MEMBER, countsOf(classroom), now,
                 imageUrls.battleThumbnail(classroom.getBattle()));
     }
 
@@ -128,6 +128,7 @@ public class ClassMemberServiceImpl implements ClassMemberService {
                 imageUrls.battleThumbnail(classroom.getBattle()),
                 classroom.getBattleType(),
                 seatCountOf(classroom),
+                classMemberRepository.countByClassroomIdAndStatus(classroom.getId(), ClassMemberStatus.ACTIVE),
                 classroom.getCapacity(),
                 classroom.getEffectiveCloseAt());
     }
@@ -277,5 +278,10 @@ public class ClassMemberServiceImpl implements ClassMemberService {
 
     private long seatCountOf(Classroom classroom) {
         return classMemberRepository.countByClassroomIdAndSeatHeldTrue(classroom.getId());
+    }
+
+    private ClassMemberCounts countsOf(Classroom classroom) {
+        return new ClassMemberCounts(seatCountOf(classroom),
+                classMemberRepository.countByClassroomIdAndStatus(classroom.getId(), ClassMemberStatus.ACTIVE));
     }
 }

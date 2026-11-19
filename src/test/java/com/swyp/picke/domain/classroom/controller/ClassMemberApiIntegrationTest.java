@@ -22,6 +22,9 @@ import com.swyp.picke.domain.ticket.enums.RewardTier;
 import com.swyp.picke.domain.ticket.repository.ClassTicketRepository;
 import com.swyp.picke.domain.ticket.repository.FundingOrderRepository;
 import com.swyp.picke.domain.user.entity.User;
+import com.swyp.picke.domain.user.repository.UserBattleRepository;
+import com.swyp.picke.domain.user.enums.UserBattleStep;
+import com.swyp.picke.domain.user.entity.UserBattle;
 import com.swyp.picke.domain.user.enums.UserRole;
 import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.repository.UserRepository;
@@ -89,6 +92,8 @@ class ClassMemberApiIntegrationTest {
     private ClassMemberRepository classMemberRepository;
     @Autowired
     private ClassMemberService classMemberService;
+    @Autowired
+    private UserBattleRepository userBattleRepository;
 
     private final List<Long> createdBattleIds = new ArrayList<>();
     private User owner;
@@ -112,6 +117,7 @@ class ClassMemberApiIntegrationTest {
     }
 
     private void cleanUp() {
+        userBattleRepository.deleteAll();
         classMemberRepository.deleteAll();
         classroomRepository.deleteAll();
         classTicketRepository.deleteAll();
@@ -425,6 +431,42 @@ class ClassMemberApiIntegrationTest {
 
         assertThat(outcomes).containsExactlyInAnyOrder(null, ErrorCode.CLASS_FULL);
         assertThat(classMemberRepository.countByClassroomIdAndSeatHeldTrue(cls.classId)).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("활동한 멤버를 내보내면 사용 좌석(memberCount)은 유지되고 명단 인원(activeMemberCount)만 줄어든다 (PRD §15)")
+    void removeActiveMember_keepsSeat_butActiveMemberCountDrops() throws Exception {
+        ClassInfo cls = createClass(true);
+        User active = newUser("활동학생");
+        User quiet = newUser("조용학생");
+        join(tokenOf(active), cls.inviteCode, "활동학생").andExpect(status().isOk());
+        join(tokenOf(quiet), cls.inviteCode, "조용학생").andExpect(status().isOk());
+        Classroom classroom = classroomRepository.findById(cls.classId).orElseThrow();
+        userBattleRepository.save(UserBattle.builder()
+                .user(active).battle(battle).classroom(classroom).step(UserBattleStep.TTS_LISTENING).build());
+
+        mockMvc.perform(get("/api/v1/classes/" + cls.classId).header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.data.memberCount").value(3))
+                .andExpect(jsonPath("$.data.activeMemberCount").value(3));
+
+        mockMvc.perform(delete("/api/v1/classes/" + cls.classId + "/members/" + memberIdOf(cls.classId, active))
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk());
+
+        // 상세·목록: 좌석 3석 유지, 명단은 운영자+조용학생 2명
+        mockMvc.perform(get("/api/v1/classes/" + cls.classId).header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.data.memberCount").value(3))
+                .andExpect(jsonPath("$.data.activeMemberCount").value(2));
+        mockMvc.perform(get("/api/v1/classes").header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.data[0].memberCount").value(3))
+                .andExpect(jsonPath("$.data[0].activeMemberCount").value(2));
+        mockMvc.perform(get("/api/v1/classes/" + cls.classId + "/members").header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.data", hasSize(2)));
+        // 참여 코드 확인도 같은 값
+        preview(tokenOf(newUser("새학생")), cls.inviteCode)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.memberCount").value(3))
+                .andExpect(jsonPath("$.data.activeMemberCount").value(2));
     }
 
     // ===== 헬퍼 =====

@@ -249,6 +249,7 @@
       "battleThumbnailUrl": "https://...",
       "battleType": "TTS",
       "memberCount": 12,
+      "activeMemberCount": 11,
       "capacity": 30,
       "closeAt": "2026-12-31T23:59:59",
       "closed": false,
@@ -258,7 +259,9 @@
 }
 ```
 
-- `memberCount`: 좌석을 차지한 인원이다. 운영자가 참여하면 포함되고, 나갔지만 활동 이력이 있어 좌석을 유지한 멤버도 포함된다.
+- `memberCount`: 사용 좌석 수다. 좌석을 차지한 인원으로, 운영자가 참여하면 포함되고 나갔거나 내보내졌지만 활동 이력이 있어 좌석을 유지한 멤버도 포함된다. 정원 판정에 쓰며 남은 자리는 `capacity - memberCount`다.
+- `activeMemberCount`: 현재 명단 인원이다. 참여 중인 멤버(참여하는 운영자 포함)만 센다. 화면의 "멤버 N명"은 이 값을 쓴다 (PRD 15절 "참여 4명 / 사용 좌석 5석").
+- 두 값은 클래스 상세(2.3)와 참여 코드 확인(5.1), 참여(5.2) 응답에도 같은 뜻으로 들어간다.
 
 ### 2.3 클래스 상세
 - `GET /api/v1/classes/{classId}`
@@ -277,6 +280,7 @@
     "battleType": "TTS",
     "topicVersionId": null,
     "memberCount": 12,
+    "activeMemberCount": 11,
     "capacity": 30,
     "deadline": "2026-12-31T23:59:59",
     "ticketExpiresAt": "2027-04-01T10:00:00",
@@ -550,6 +554,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
     "battleThumbnailUrl": "https://...",
     "battleType": "TTS",
     "memberCount": 12,
+    "activeMemberCount": 11,
     "capacity": 30,
     "closeAt": "2026-12-31T23:59:59"
   }

@@ -33,18 +33,25 @@ public final class ClassMemberConverter {
      * 참여하지 않는 운영자(ownerParticipates = false)는 멤버 행이 없지만, 운영자 본인이 명단을 볼 때는 맨 위에 보여준다 (#665).
      * 앱이 memberId 를 필수 값으로 읽어서 null 대신 {@link #NON_PARTICIPATING_OWNER_MEMBER_ID} 를 쓴다.
      * 좌석·명단 인원·결과 통계에는 들어가지 않는다.
+     * 이름은 운영자가 정한 클래스 표시 이름, 없으면 계정 닉네임, 그것도 없으면 "운영자"다 (#669).
      */
     public static ClassMemberResponse toNonParticipatingOwner(Classroom classroom, String avatarUrl) {
-        User owner = classroom.getOwner();
-        String nickname = owner.getNickname() == null || owner.getNickname().isBlank() ? "운영자" : owner.getNickname().strip();
         return new ClassMemberResponse(
                 NON_PARTICIPATING_OWNER_MEMBER_ID,
-                nickname,
+                nonParticipatingOwnerName(classroom),
                 ClassMemberRole.OWNER,
                 avatarUrl,
                 true,
                 classroom.getCreatedAt(),
                 false
         );
+    }
+
+    public static String nonParticipatingOwnerName(Classroom classroom) {
+        if (classroom.getOwnerDisplayName() != null && !classroom.getOwnerDisplayName().isBlank()) {
+            return classroom.getOwnerDisplayName();
+        }
+        User owner = classroom.getOwner();
+        return owner.getNickname() == null || owner.getNickname().isBlank() ? "운영자" : owner.getNickname().strip();
     }
 }

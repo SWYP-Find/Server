@@ -165,17 +165,30 @@ public class ClassMemberServiceImpl implements ClassMemberService {
     @Override
     @Transactional
     public ClassMemberResponse changeMyDisplayName(Long userId, Long classId, ClassMemberNameUpdateRequest request) {
-        findActiveClass(classId);
-        ClassMember me = findActiveMember(classId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.CLASS_MEMBER_ONLY));
+        Classroom classroom = findActiveClass(classId);
+        Optional<ClassMember> member = findActiveMember(classId, userId);
+        if (member.isEmpty() && !isOwner(classroom, userId)) {
+            throw new CustomException(ErrorCode.CLASS_MEMBER_ONLY);
+        }
         String displayName = normalizeDisplayName(request.displayName());
+        CharacterType character = userProfileRepository.findByUserId(userId)
+                .map(UserProfile::getCharacterType)
+                .orElse(null);
+
+        if (member.isEmpty()) {
+            // 미참여 운영자는 멤버 행이 없어 클래스에 이름을 둔다 (#669)
+            if (!displayName.equals(ClassMemberConverter.nonParticipatingOwnerName(classroom))) {
+                rejectDuplicateDisplayName(classId, displayName);
+            }
+            classroom.changeOwnerDisplayName(displayName);
+            return ClassMemberConverter.toNonParticipatingOwner(classroom, imageUrls.avatar(character));
+        }
+
+        ClassMember me = member.get();
         if (!displayName.equals(me.getDisplayName())) {
             rejectDuplicateDisplayName(classId, displayName);
             me.changeDisplayName(displayName);
         }
-        CharacterType character = userProfileRepository.findByUserId(userId)
-                .map(UserProfile::getCharacterType)
-                .orElse(null);
         return ClassMemberConverter.toResponse(me, userId, imageUrls.avatar(character));
     }
 

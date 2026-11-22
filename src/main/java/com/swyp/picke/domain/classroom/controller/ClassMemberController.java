@@ -69,7 +69,7 @@ public class ClassMemberController {
     }
 
     @Operation(summary = "내 표시 이름 변경",
-            description = "참여 중인 멤버 본인만. 같은 클래스의 다른 멤버와 같은 이름은 409 CLASS_409_NAME.")
+            description = "참여 중인 멤버 본인, 또는 참여하지 않는 운영자 본인(운영자 줄 memberId 0 의 이름이 바뀜). 같은 클래스의 참여 중인 멤버와 같은 이름은 409 CLASS_409_NAME.")
     @PatchMapping("/{classId}/members/me")
     public ApiResponse<ClassMemberResponse> changeMyDisplayName(
             @AuthenticationPrincipal Long userId,

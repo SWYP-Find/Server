@@ -33,7 +33,7 @@ public record ClassCreateRequest(
         @Schema(description = "운영자 본인도 참여자로 들어갈지 여부. true 면 운영자가 1석을 차지한다", example = "true")
         boolean ownerParticipates,
 
-        @Schema(description = "운영자가 참여할 때 클래스 안에서 쓸 이름 (1~20자). 비우면 닉네임 사용",
+        @Schema(description = "운영자가 클래스 안에서 쓸 이름 (1~20자). 비우면 닉네임 사용. 참여하지 않으면 운영자 본인 명단에만 보인다",
                 example = "김선생", nullable = true)
         @Size(max = ClassMember.DISPLAY_NAME_MAX_LENGTH)
         String ownerDisplayName,

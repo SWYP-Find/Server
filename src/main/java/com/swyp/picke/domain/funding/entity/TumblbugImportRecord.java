@@ -56,4 +56,13 @@ public class TumblbugImportRecord extends BaseEntity {
     public void recordDelivery(Long ticketId) {
         this.deliveryRecordedTicketId = ticketId;
     }
+
+    public void updateImportData(FundingCampaign campaign, String supporterNumber, String rewardLineId,
+                                 String sourceVersion, String sourceSnapshot) {
+        this.campaign = campaign;
+        this.supporterNumber = supporterNumber;
+        this.rewardLineId = rewardLineId;
+        this.sourceVersion = sourceVersion;
+        this.sourceSnapshot = sourceSnapshot;
+    }
 }

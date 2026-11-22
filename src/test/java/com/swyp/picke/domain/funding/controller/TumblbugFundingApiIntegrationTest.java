@@ -31,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -129,30 +130,39 @@ class TumblbugFundingApiIntegrationTest {
     }
 
     @Test
-    void duplicateImportIsRejectedAndHeldRowsDoNotIssueTickets() throws Exception {
+    void reimportUpdatesExistingRowsAndHeldRowsDoNotIssueTickets() throws Exception {
         byte[] source = workbook(row("201", "클래스 19900원", "결제완료"),
                 row("202", "클래스 19900원 (x2)", "결제완료"), row("203", "클래스 19900원", "결제대기"));
         mvc.perform(upload("/preview", source)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.importableRows").value(3)).andExpect(jsonPath("$.data.codeEligibleRows").value(2));
-        // 결제완료 201(1장) + 202(x2 → 2장). 결제대기 203 은 코드를 받지 않는다
-        // 결과 엑셀은 후원자당 한 행이고 202 의 코드 2개는 한 칸에 줄바꿈으로 들어간다
+        JsonNode firstImport = data(mvc.perform(upload("/import", source)).andExpect(status().isOk()).andReturn());
+        assertThat(firstImport.get("importedCount").asInt()).isEqualTo(3);
+        assertThat(firstImport.get("updatedCount").asInt()).isZero();
+        assertThat(firstImport.get("issuedCodeCount").asInt()).isZero();
         long ticketsBefore = tickets.count();
-        issue(source, 2);
-        assertThat(tickets.count() - ticketsBefore).isEqualTo(3);
         long orderCount = orders.count();
-        long ticketCount = tickets.count();
         assertThat(imports.findAll().stream().filter(r -> r.getCampaign().getExternalCampaignId().equals(campaign))).hasSize(3);
-        mvc.perform(upload("/digital-gifts", source)).andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.code").value("FUNDING_409_TUMBLBUG_DUPLICATE"));
+        JsonNode repeatedImport = data(mvc.perform(upload("/import", source)).andExpect(status().isOk()).andReturn());
+        assertThat(repeatedImport.get("importedCount").asInt()).isZero();
+        assertThat(repeatedImport.get("updatedCount").asInt()).isEqualTo(3);
         assertThat(orders.count()).isEqualTo(orderCount);
-        assertThat(tickets.count()).isEqualTo(ticketCount);
+        assertThat(tickets.count()).isEqualTo(ticketsBefore);
+
+        // 결제 완료 201(1장) + 202(x2 → 2장). 결제 대기 203 은 발급에서 건너뜁니다.
+        // 결과 엑셀은 후원자당 한 행이고 202 의 코드 2개는 한 칸에 줄바꿈으로 들어갑니다.
+        String code = issueImported(2);
+        assertThat(tickets.count() - ticketsBefore).isEqualTo(3);
+        assertThat(code).isNotBlank();
+        JsonNode importAfterIssue = data(mvc.perform(upload("/import", source)).andExpect(status().isOk()).andReturn());
+        assertThat(importAfterIssue.get("updatedCount").asInt()).isEqualTo(3);
+        assertThat(tickets.count() - ticketsBefore).isEqualTo(3);
     }
 
     @Test
     void invalidRowPreventsPartialImport() throws Exception {
         byte[] source = workbook(row("301", "클래스 19900원", "결제완료"), row("302", "금액없는선물", "결제완료"));
         long before = orders.count();
-        mvc.perform(upload("/digital-gifts", source)).andExpect(status().isUnprocessableEntity())
+        mvc.perform(upload("/import", source)).andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.error.code").value("FUNDING_422_TUMBLBUG_ROWS"));
         assertThat(orders.count()).isEqualTo(before);
     }
@@ -198,12 +208,27 @@ class TumblbugFundingApiIntegrationTest {
         return issue(source, 1);
     }
 
-    private String issue(byte[] source, int expectedSupporterRows) throws Exception {
-        byte[] result = mvc.perform(upload("/digital-gifts", source)).andExpect(status().isOk())
-                .andExpect(header().string("Cache-Control", "no-store, no-cache, must-revalidate"))
+    private String issue(byte[] source, int expectedRows) throws Exception {
+        mvc.perform(upload("/import", source)).andExpect(status().isOk());
+        return issueImported(expectedRows);
+    }
+
+    private String issueImported(int expectedRows) throws Exception {
+        JsonNode orderPage = data(mvc.perform(get("/api/v1/admin/funding/orders").param("campaignId", campaign)
+                .header("Authorization", bearer(adminToken))).andExpect(status().isOk()).andReturn());
+        List<Long> fundingOrderIds = new ArrayList<>();
+        orderPage.get("items").forEach(item -> fundingOrderIds.add(item.get("fundingOrderId").asLong()));
+        JsonNode issueResponse = data(jsonPost("/api/v1/admin/funding/tickets/issue",
+                Map.of("fundingOrderIds", fundingOrderIds), adminToken).andExpect(status().isOk()).andReturn());
+        List<Long> ticketIds = new ArrayList<>();
+        issueResponse.get("issued").forEach(item -> ticketIds.add(item.get("ticketId").asLong()));
+        byte[] result = mvc.perform(post("/api/v1/admin/funding/tickets/issue/workbook")
+                        .header("Authorization", bearer(adminToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsBytes(Map.of("ticketIds", ticketIds))))
+                .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store, no-cache, must-revalidate"))
                 .andReturn().getResponse().getContentAsByteArray();
         try (var workbook = new XSSFWorkbook(new ByteArrayInputStream(result))) {
-            assertThat(workbook.getSheetAt(0).getLastRowNum()).isEqualTo(expectedSupporterRows);
+            assertThat(workbook.getSheetAt(0).getLastRowNum()).isEqualTo(expectedRows);
             return workbook.getSheetAt(0).getRow(1).getCell(1).getStringCellValue();
         }
     }

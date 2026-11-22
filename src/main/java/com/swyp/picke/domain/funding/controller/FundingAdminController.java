@@ -17,7 +17,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -49,10 +48,11 @@ public class FundingAdminController {
                 registeredFrom, registeredTo, page, size));
     }
 
-    @Operation(summary = "펀딩 이용권 화면 요약", description = "전체 이용권, 이용 중, 미등록, 30일 이내 이용권 종료 예정 수를 조회합니다. REVOKED 이용권은 제외합니다.")
-    @GetMapping("/tickets/summary")
-    public ApiResponse<TicketAdminSummaryResponse> ticketSummary() {
-        return ApiResponse.onSuccess(fundingTicketQueryService.getSummary());
+    @Operation(summary = "펀딩 이용권 상세", description = "구매자·등록자·이용권 상태·전달 이력과 연결된 클래스를 조회합니다. 코드 원문은 별도 조회 API를 사용합니다.")
+    @GetMapping("/tickets/{ticketId}")
+    public ResponseEntity<ApiResponse<TicketAdminDetailResponse>> getTicketDetail(@PathVariable Long ticketId) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(ApiResponse.onSuccess(fundingTicketQueryService.getTicketDetail(ticketId)));
     }
 
     @Operation(summary = "텀블벅 후원자 엑셀 자동 판별 및 미리보기", description = "선택한 리워드 시트에서 사진의 9개 표 열을 자동 판별합니다. 미리보기는 저장이나 코드 발급을 하지 않습니다.")
@@ -85,7 +85,7 @@ public class FundingAdminController {
         return ApiResponse.onSuccess(fundingAdminService.inspectTumblbugWorkbook(readXlsx(file)));
     }
 
-    @Operation(summary = "텀블벅 구매자 공통 등록", description = "Start·Run 공통 엑셀 등록입니다. 컬럼 검증·중복 방지 후 결제 완료 건은 수량만큼 코드를 발급하고 결과를 돌려줍니다.")
+    @Operation(summary = "텀블벅 구매자 공통 등록", description = "엑셀 명단을 후원번호·리워드 기준으로 신규 등록하거나 업데이트합니다. 이용권 코드는 발급하지 않습니다.")
     @PostMapping(value = "/funding-orders/tumblbug/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<TumblbugSupporterImportResponse>> importTumblbugSupporters(
             @Valid @RequestPart("options") TumblbugSupporterImportRequest options,
@@ -96,7 +96,16 @@ public class FundingAdminController {
                 .body(ApiResponse.onSuccess(fundingAdminService.importTumblbugSupporters(options, readXlsx(file), adminUserId)));
     }
 
-    @Operation(summary = "텀블벅 구매자 수동 등록", description = "Start·Run 공통 8개 화면 필드를 수동 저장합니다. 결제 예약은 코드 미발급, 결제 완료는 구매 수량만큼 코드 발급입니다.")
+    @Operation(summary = "수정된 텀블벅 표 저장", description = "엑셀 미리보기에서 직접 편집한 행을 검증한 뒤 신규 등록하거나 기존 후원번호·리워드 행을 업데이트합니다. 코드는 발급하지 않습니다.")
+    @PostMapping("/funding-orders/tumblbug/import-edited")
+    public ResponseEntity<ApiResponse<TumblbugSupporterImportResponse>> importEditedTumblbugRows(
+            @Valid @RequestBody TumblbugSupporterRowsImportRequest request,
+            @AuthenticationPrincipal Long adminUserId) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(ApiResponse.onSuccess(fundingAdminService.importTumblbugRows(request, adminUserId)));
+    }
+
+    @Operation(summary = "텀블벅 구매자 수동 등록", description = "엑셀 명단과 같은 필드의 구매자·주문 정보를 저장합니다. 이용권 코드는 발급하지 않습니다.")
     @PostMapping("/funding-orders/tumblbug/manual")
     public ResponseEntity<ApiResponse<ManualTumblbugBuyerResponse>> createManualTumblbugBuyer(
             @Valid @RequestBody ManualTumblbugBuyerRequest request,
@@ -106,34 +115,14 @@ public class FundingAdminController {
                 .body(ApiResponse.onSuccess(fundingAdminService.createManualTumblbugBuyer(request, adminUserId)));
     }
 
-    @Operation(summary = "텀블벅 후원자 저장 및 코드 엑셀 생성", description = "자동 판별한 후원자 표 데이터를 DB에 저장하고 결제 완료 행의 이용권 코드를 텀블벅 업로드용 엑셀로 반환합니다. 원문 코드는 이 파일에만 포함됩니다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "후원번호-이용권 코드 XLSX 다운로드",
-                    content = @io.swagger.v3.oas.annotations.media.Content(
-                            mediaType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            schema = @io.swagger.v3.oas.annotations.media.Schema(type = "string", format = "binary"))),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "엑셀 또는 캠페인 옵션 오류"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "422", description = "필수 열 누락 또는 행 오류"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "관리자 권한 필요"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "이미 등록된 후원번호"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "413", description = "엑셀 10MB 초과")
-    })
-    @PostMapping(value = "/funding-orders/tumblbug/digital-gifts", consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
-            produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    public ResponseEntity<byte[]> issueTumblbugDigitalGiftCodes(
-            @Valid @RequestPart("options") TumblbugSupporterImportRequest options,
-            @RequestPart("file") MultipartFile file,
-            @AuthenticationPrincipal Long adminUserId
-    ) {
-        byte[] workbook = fundingAdminService.issueTumblbugDigitalGiftCodes(options, readXlsx(file), adminUserId);
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-        headers.setContentDisposition(ContentDisposition.attachment()
-                .filename("picke-tumblbug-digital-gifts.xlsx", StandardCharsets.UTF_8).build());
-        headers.setCacheControl("no-store, no-cache, must-revalidate");
-        headers.setPragma("no-cache");
-        headers.setContentLength(workbook.length);
-        return ResponseEntity.ok().headers(headers).body(workbook);
+    @Operation(summary = "텀블벅 구매자 정보 수정", description = "수동 수정 시에도 엑셀 가져오기와 동일한 원본 열과 옵션으로 주문 정보를 갱신합니다.")
+    @PatchMapping("/funding-orders/tumblbug/{fundingOrderId}")
+    public ResponseEntity<ApiResponse<ManualTumblbugBuyerResponse>> updateManualTumblbugBuyer(
+            @PathVariable Long fundingOrderId,
+            @Valid @RequestBody ManualTumblbugBuyerRequest request,
+            @AuthenticationPrincipal Long adminUserId) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(ApiResponse.onSuccess(fundingAdminService.updateManualTumblbugBuyer(fundingOrderId, request, adminUserId)));
     }
 
     @Operation(summary = "텀블벅 디지털 선물 전달 결과 기록", description = "텀블벅 텍스트 선물 엑셀 업로드 후 전달 완료/실패를 후원번호 목록 단위로 기록합니다. 실제 텀블벅 업로드는 관리자가 수행합니다.")

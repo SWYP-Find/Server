@@ -12,6 +12,8 @@ public record TumblbugWorkbookInspectResponse(List<SheetSample> sheets) {
             Integer headerRowNumber,
             Map<String, String> detectedColumns,
             List<String> missingColumns,
-            List<List<String>> sampleRows
+            List<List<String>> sampleRows,
+            List<List<String>> allRows,
+            List<Integer> rowNumbers
     ) { }
 }

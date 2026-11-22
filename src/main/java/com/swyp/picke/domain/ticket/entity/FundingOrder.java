@@ -123,6 +123,18 @@ public class FundingOrder extends BaseEntity {
         this.paidAt = paidAt;
     }
 
+    public void updateSupporterContact(String supporterName, String supporterEmail, String supporterPhone) {
+        this.supporterName = supporterName;
+        this.supporterEmail = supporterEmail;
+        this.supporterPhone = supporterPhone;
+    }
+
+    public void updateAdminOrderFields(String orderId, RewardTier rewardTier, int quantity) {
+        this.orderId = orderId;
+        this.rewardTier = rewardTier;
+        this.quantity = quantity;
+    }
+
     public boolean isIssuable() {
         return paymentStatus == PaymentStatus.PAID_CONFIRMED && paidAt != null && quantity > 0;
     }

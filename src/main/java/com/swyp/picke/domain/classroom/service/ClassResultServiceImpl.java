@@ -40,6 +40,7 @@ import com.swyp.picke.global.common.util.CursorParser;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -282,7 +283,9 @@ public class ClassResultServiceImpl implements ClassResultService {
         boolean retryable = summary != null && isRetryable(summary);
         if (summary == null || !summary.isDone()) {
             String text = state == ClassReportViewState.FAILED ? INSIGHT_FAILED_TEXT : null;
-            return new ClassInsightResponse(classId, state, retryable, cutoffAt, null, text, null, 0, List.of(), List.of());
+            KeyOpinions key = keyOpinions(classId);
+            return new ClassInsightResponse(classId, state, retryable, cutoffAt, null, text, null, 0, List.of(), List.of(),
+                    key.best(), key.mostDebated());
         }
         Map<String, Object> insight = ReportContent.map(summary.getContent(), ClassReportSnapshotService.KEY_INSIGHT);
         List<ClassInsightResponse.PublicPost> evidence = new ArrayList<>();
@@ -300,6 +303,7 @@ public class ClassResultServiceImpl implements ClassResultService {
             }
         }
         backfillHighlights(highlights, classId);
+        KeyOpinions key = keyOpinions(classId);
         return new ClassInsightResponse(
                 classId, state, retryable, cutoffAt, summary.getGeneratedAt(),
                 // 예전 문구로 저장된 LIMITED 인사이트도 현재 문구로 내려준다 (#661)
@@ -307,7 +311,31 @@ public class ClassResultServiceImpl implements ClassResultService {
                         : ReportContent.str(insight, "insight_text"),
                 ReportContent.str(insight, "coverage"),
                 ReportContent.asInt(insight, "excluded_count"),
-                evidence, highlights);
+                evidence, highlights, key.best(), key.mostDebated());
+    }
+
+    private record KeyOpinions(String best, String mostDebated) {
+    }
+
+    /**
+     * 주요 의견 (#673). AI 와 상관없이 공개 의견의 좋아요·댓글 수로 고른다.
+     * BEST = 좋아요 최다, 가장 논쟁이 활발했던 댓글 = BEST 를 뺀 나머지 중 댓글 최다. 같으면 먼저 쓴 글.
+     * 비속어·이유 없는 글은 고르지 않는다 (근거·대표 의견과 같은 기준, #657).
+     */
+    private KeyOpinions keyOpinions(Long classId) {
+        List<Perspective> candidates = perspectiveRepository
+                .findByClassroomIdAndStatusOrderByCreatedAtAsc(classId, PerspectiveStatus.PUBLISHED).stream()
+                .filter(p -> InsightPostRules.isSelectable(p.getContent()))
+                .toList();
+        // 생성 순으로 정렬돼 있어 stable sort 로 동점이면 먼저 쓴 글이 앞에 온다
+        Perspective best = candidates.stream()
+                .sorted(Comparator.comparingInt(Perspective::getLikeCount).reversed())
+                .findFirst().orElse(null);
+        Perspective debated = candidates.stream()
+                .filter(p -> p != best)
+                .sorted(Comparator.comparingInt(Perspective::getCommentCount).reversed())
+                .findFirst().orElse(null);
+        return new KeyOpinions(best == null ? null : best.getContent(), debated == null ? null : debated.getContent());
     }
 
     /** 하이라이트가 2건 미만이면 최신 공개 의견으로 채운다 (AI 호출 없음). 비속어·이유 없는 글은 고르지 않는다 (#657) */

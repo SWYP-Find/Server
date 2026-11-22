@@ -91,6 +91,13 @@ public class Classroom extends BaseEntity {
     @Column(name = "owner_participates", nullable = false)
     private boolean ownerParticipates;
 
+    /**
+     * 참여하지 않는 운영자(ownerParticipates = false)가 클래스 안에서 쓰는 이름 (1~20자, #669).
+     * 참여하는 운영자는 멤버 행의 displayName 을 쓰므로 이 값은 비워 둔다. null 이면 계정 닉네임을 보여준다.
+     */
+    @Column(name = "owner_display_name", length = 20)
+    private String ownerDisplayName;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private ClassStatus status;
@@ -113,7 +120,8 @@ public class Classroom extends BaseEntity {
     @Builder
     private Classroom(String name, String inviteCode, User owner, ClassTicket ticket, Battle battle,
                       ClassBattleType battleType, ClassTopicVersion topicVersion, int capacity, LocalDateTime deadline,
-                      boolean commentRequired, boolean ownerParticipates, String createRequestKey, String createRequestHash) {
+                      boolean commentRequired, boolean ownerParticipates, String ownerDisplayName,
+                      String createRequestKey, String createRequestHash) {
         this.name = name;
         this.inviteCode = inviteCode;
         this.owner = owner;
@@ -126,6 +134,7 @@ public class Classroom extends BaseEntity {
         this.deadline = deadline;
         this.commentRequired = commentRequired;
         this.ownerParticipates = ownerParticipates;
+        this.ownerDisplayName = ownerParticipates ? null : ownerDisplayName;
         this.createRequestKey = createRequestKey;
         this.createRequestHash = createRequestHash;
         this.status = ClassStatus.ACTIVE;
@@ -133,6 +142,11 @@ public class Classroom extends BaseEntity {
 
     public void rename(String name) {
         this.name = name;
+    }
+
+    /** 미참여 운영자 표시 이름 변경 (#669). 참여하는 운영자는 멤버 행에서 바꾼다 */
+    public void changeOwnerDisplayName(String ownerDisplayName) {
+        this.ownerDisplayName = ownerDisplayName;
     }
 
     public void extendDeadline(LocalDateTime deadline) {

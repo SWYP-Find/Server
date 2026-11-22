@@ -1,10 +1,12 @@
 package com.swyp.picke.domain.classroom.repository;
 
 import com.swyp.picke.domain.classroom.entity.Classroom;
+import com.swyp.picke.domain.classroom.enums.ClassBattleType;
 import com.swyp.picke.domain.classroom.enums.ClassStatus;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -14,6 +16,71 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface ClassroomRepository extends JpaRepository<Classroom, Long> {
+
+    @Query(value = """
+            select c from Classroom c
+            join fetch c.owner
+            join fetch c.ticket t
+            join fetch c.battle
+            where c.status = com.swyp.picke.domain.classroom.enums.ClassStatus.ACTIVE
+              and (:keyword is null or :keyword = ''
+                   or lower(c.name) like lower(concat('%', :keyword, '%'))
+                   or lower(c.owner.nickname) like lower(concat('%', :keyword, '%')))
+              and (:battleType is null or c.battleType = :battleType)
+              and (:capacity is null or c.capacity = :capacity)
+              and (:closed is null
+                   or (:closed = true and (c.deadline <= :now or t.expiresAt <= :now
+                       or t.status = com.swyp.picke.domain.ticket.enums.TicketStatus.REVOKED))
+                   or (:closed = false and (c.deadline is null or c.deadline > :now)
+                       and (t.expiresAt is null or t.expiresAt > :now)
+                       and t.status <> com.swyp.picke.domain.ticket.enums.TicketStatus.REVOKED))
+            order by c.createdAt desc, c.id desc
+            """,
+            countQuery = """
+            select count(c) from Classroom c
+            join c.owner
+            join c.ticket t
+            where c.status = com.swyp.picke.domain.classroom.enums.ClassStatus.ACTIVE
+              and (:keyword is null or :keyword = ''
+                   or lower(c.name) like lower(concat('%', :keyword, '%'))
+                   or lower(c.owner.nickname) like lower(concat('%', :keyword, '%')))
+              and (:battleType is null or c.battleType = :battleType)
+              and (:capacity is null or c.capacity = :capacity)
+              and (:closed is null
+                   or (:closed = true and (c.deadline <= :now or t.expiresAt <= :now
+                       or t.status = com.swyp.picke.domain.ticket.enums.TicketStatus.REVOKED))
+                   or (:closed = false and (c.deadline is null or c.deadline > :now)
+                       and (t.expiresAt is null or t.expiresAt > :now)
+                       and t.status <> com.swyp.picke.domain.ticket.enums.TicketStatus.REVOKED))
+            """)
+    Page<Classroom> searchAdmin(@Param("keyword") String keyword,
+                                @Param("closed") Boolean closed,
+                                @Param("battleType") ClassBattleType battleType,
+                                @Param("capacity") Integer capacity,
+                                @Param("now") LocalDateTime now,
+                                Pageable pageable);
+
+    long countByStatus(ClassStatus status);
+
+    @Query("""
+            select count(c) from Classroom c join c.ticket t
+            where c.status = com.swyp.picke.domain.classroom.enums.ClassStatus.ACTIVE
+              and (c.deadline is null or c.deadline > :now)
+              and (t.expiresAt is null or t.expiresAt > :now)
+              and t.status <> com.swyp.picke.domain.ticket.enums.TicketStatus.REVOKED
+            """)
+    long countAdminOpenClasses(@Param("now") LocalDateTime now);
+
+    @Query("""
+            select count(c) from Classroom c join c.ticket t
+            where c.status = com.swyp.picke.domain.classroom.enums.ClassStatus.ACTIVE
+              and (c.deadline is null or c.deadline > :now)
+              and (t.expiresAt is null or t.expiresAt > :now)
+              and t.status <> com.swyp.picke.domain.ticket.enums.TicketStatus.REVOKED
+              and ((c.deadline > :now and c.deadline <= :until)
+                   or (t.expiresAt > :now and t.expiresAt <= :until))
+            """)
+    long countAdminClosingWithin(@Param("now") LocalDateTime now, @Param("until") LocalDateTime until);
 
     boolean existsByInviteCode(String inviteCode);
 
@@ -27,9 +94,18 @@ public interface ClassroomRepository extends JpaRepository<Classroom, Long> {
 
     Optional<Classroom> findByIdAndStatus(Long id, ClassStatus status);
 
-    List<Classroom> findByOwnerIdAndStatus(Long ownerId, ClassStatus status);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select c from Classroom c where c.id = :id and c.status = :status")
+    Optional<Classroom> findByIdAndStatusForUpdate(@Param("id") Long id, @Param("status") ClassStatus status);
 
-    long countByStatus(ClassStatus status);
+    @Query("select c from Classroom c join fetch c.owner join fetch c.battle "
+            + "where c.ticket.id = :ticketId and c.status = com.swyp.picke.domain.classroom.enums.ClassStatus.ACTIVE "
+            + "order by c.createdAt desc, c.id desc")
+    List<Classroom> findAdminByTicketId(@Param("ticketId") Long ticketId);
+
+    boolean existsByTicketId(Long ticketId);
+
+    List<Classroom> findByOwnerIdAndStatus(Long ownerId, ClassStatus status);
 
     @Query("""
             select count(c) from Classroom c

@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 /**
  * perspectives.class_id: 일반 배틀 의견은 NULL, 클래스 내 의견은 클래스 id.
@@ -27,6 +28,10 @@ public interface PerspectiveRepository extends JpaRepository<Perspective, Long> 
     List<Perspective> findByClassroomIdAndStatusOrderByCreatedAtAsc(Long classroomId, PerspectiveStatus status);
 
     List<Perspective> findByClassroomIdAndUserIdAndStatusOrderByCreatedAtAsc(Long classroomId, Long userId, PerspectiveStatus status);
+
+    @Query("select distinct p.user.id from Perspective p where p.classroom.id = :classroomId and p.status = :status")
+    Set<Long> findUserIdsByClassroomIdAndStatus(@Param("classroomId") Long classroomId,
+                                                @Param("status") PerspectiveStatus status);
 
     @Modifying(flushAutomatically = true)
     @Query("update Perspective p set p.status = :hidden where p.user.id = :userId and p.status <> :hidden")

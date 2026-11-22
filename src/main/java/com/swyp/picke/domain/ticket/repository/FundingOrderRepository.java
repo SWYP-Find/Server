@@ -22,6 +22,8 @@ public interface FundingOrderRepository extends JpaRepository<FundingOrder, Long
 
     Optional<FundingOrder> findByOrderId(String orderId);
 
+    boolean existsByOrderIdAndIdNot(String orderId, Long id);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from FundingOrder o where o.id = :id")
     Optional<FundingOrder> findByIdForUpdate(@Param("id") Long id);

@@ -45,6 +45,9 @@ public interface ClassMemberRepository extends JpaRepository<ClassMember, Long> 
     /** 현재 명단 인원 (ACTIVE 멤버, 참여하는 운영자 포함) */
     long countByClassroomIdAndStatus(Long classroomId, ClassMemberStatus status);
 
+    @Query("select count(m) from ClassMember m where m.seatHeld = true and m.classroom.status = com.swyp.picke.domain.classroom.enums.ClassStatus.ACTIVE")
+    long countAdminSeatsHeld();
+
     /** 목록 화면용: 여러 클래스의 현재 명단 인원을 한 번에 */
     @Query("""
             select m.classroom.id, count(m) from ClassMember m

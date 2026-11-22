@@ -143,6 +143,7 @@ public class S3UploadServiceImpl implements S3UploadService {
         if (key.endsWith(".mp3")) return "audio/mpeg";
         if (key.endsWith(".png")) return "image/png";
         if (key.endsWith(".jpg") || key.endsWith(".jpeg")) return "image/jpeg";
+        if (key.endsWith(".webp")) return "image/webp";
         return "application/octet-stream";
     }
 

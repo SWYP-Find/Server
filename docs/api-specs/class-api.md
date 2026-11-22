@@ -1471,15 +1471,19 @@ PRD "등록기한 30일·7일 전 알림은 허용된 연락 수단에서만 발
 - `progress.activeParticipants`, `completedParticipants`, `completionRate`는 현재 활성 멤버 기준이다. `participantCount`는 좌석 점유 인원 기준이므로 서로 다를 수 있다.
 - 멤버 행은 클래스 내 `displayName`, `role`, `characterUrl`, `joinedAt`, `completed`를 반환한다.
 
-**CSV 내보내기**
+**수정**
 
-- `GET /api/v1/admin/classes/export?keyword=&state=`
-- 목록과 같은 검색·상태 필터를 적용한다. 응답은 UTF-8 BOM이 포함된 `text/csv` 파일이다.
+- `PATCH /api/v1/admin/classes/{classId}`
+- 수정 가능한 항목은 `name`, `deadline`뿐이다. 종료된 클래스는 수정할 수 없다.
+- `deadline`은 현재 시각 이후, 연결 이용권 만료일 이하이며 기존 마감일보다 늦어야 한다.
 
 | 상황 | 응답 |
 |---|---|
 | 잘못된 상태·페이지·크기 | 400 `COMMON_400` |
 | 클래스 없음 또는 삭제된 클래스 | 404 `CLASS_404` |
+| 마감일이 현재 시각 이후가 아니거나 이용권 만료일보다 늦음 | 400 `CLASS_400_DEADLINE` |
+| 기존 마감일과 같거나 더 이른 날짜 | 400 `CLASS_400_DEADLINE_EXT` |
+| 종료된 클래스 | 409 `CLASS_409_CLOSED` |
 | 관리자 권한 없음 | 403 |
 
 ---

@@ -8,7 +8,9 @@ import com.swyp.picke.domain.scenario.entity.Scenario;
 import com.swyp.picke.domain.scenario.entity.InteractiveOption;
 import com.swyp.picke.domain.classroom.repository.ClassMidVoteRepository;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.hamcrest.Matchers.hasSize;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -17,6 +19,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -44,6 +47,7 @@ import com.swyp.picke.domain.classroom.enums.ClassReportType;
 import com.swyp.picke.domain.classroom.repository.AiJobRepository;
 import com.swyp.picke.domain.classroom.repository.ClassDebateMessageRepository;
 import com.swyp.picke.domain.classroom.repository.ClassDebateSessionRepository;
+import com.swyp.picke.domain.classroom.service.report.ClassReportSnapshotService;
 import com.swyp.picke.domain.classroom.repository.ClassMemberRepository;
 import com.swyp.picke.domain.classroom.repository.ClassReportRepository;
 import com.swyp.picke.domain.classroom.repository.ClassroomRepository;
@@ -79,6 +83,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.swyp.picke.domain.classroom.service.report.ReportContent;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -92,6 +97,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import com.swyp.picke.domain.perspective.enums.PerspectiveStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -131,6 +137,7 @@ class ClassResultApiIntegrationTest {
     @Autowired private ClassDebateSessionRepository debateSessionRepository;
     @Autowired private ClassDebateMessageRepository debateMessageRepository;
     @Autowired private ClassReportGenerationService generationService;
+    @Autowired private ClassReportSnapshotService snapshotService;
 
     @MockitoBean
     private ClassReportAiClient aiClient;
@@ -153,6 +160,7 @@ class ClassResultApiIntegrationTest {
         optionA = newOption(battle, 1);
         optionB = newOption(battle, 2);
         when(aiClient.getModel()).thenReturn("test-model");
+        when(aiClient.getInsightModel()).thenReturn("test-insight-model");
         stubMemberFeedback();
         stubInsightSuccess();
     }
@@ -240,6 +248,7 @@ class ClassResultApiIntegrationTest {
         assertThat(generationService.runOnce(LocalDateTime.now())).isZero();
         assertThat(classReportRepository.count()).isZero();
         verify(aiClient, never()).chatJson(anyString(), anyString(), anyInt());
+        verify(aiClient, never()).chatJson(any(), anyString(), anyString(), anyInt());
     }
 
     @Test
@@ -306,13 +315,13 @@ class ClassResultApiIntegrationTest {
         mockMvc.perform(get(result(cls) + "/insight").header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.state").value("LIMITED"))
-                .andExpect(jsonPath("$.data.insightText").value("아직 요약할 의견이 충분하지 않아요"))
+                .andExpect(jsonPath("$.data.insightText").value("판단의 이유를 살펴볼 글이 아직 충분하지 않아요"))
                 .andExpect(jsonPath("$.data.evidence", hasSize(0)))
                 .andExpect(jsonPath("$.data.highlights", hasSize(1)));
 
         // 비용 기록: 개인 1건만 (인사이트는 템플릿이라 호출 없음), 재실행해도 다시 만들지 않는다
         verify(aiClient, times(1)).chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt());
-        verify(aiClient, never()).chatJson(eq(ClassReportPrompts.CLASS_INSIGHT_SYSTEM), anyString(), anyInt());
+        verify(aiClient, never()).chatJson(any(), eq(ClassReportPrompts.CLASS_INSIGHT_SYSTEM), anyString(), anyInt());
         List<AiJob> jobs = aiJobRepository.findAll();
         assertThat(jobs).hasSize(1);
         assertThat(jobs.get(0).getType()).isEqualTo(AiJobType.MEMBER_REPORT);
@@ -347,6 +356,7 @@ class ClassResultApiIntegrationTest {
                 .andExpect(jsonPath("$.data.feedback.nextFocus").doesNotExist())
                 .andExpect(jsonPath("$.data.feedback.evidence", hasSize(0)));
         verify(aiClient, never()).chatJson(anyString(), anyString(), anyInt());
+        verify(aiClient, never()).chatJson(any(), anyString(), anyString(), anyInt());
         assertThat(aiJobRepository.count()).isZero();
     }
 
@@ -374,7 +384,7 @@ class ClassResultApiIntegrationTest {
                 .perspective(first).user(first.getUser()).classroom(classroom).content("보충하자면 표본은 30명이었어요.").build());
 
         // 인사이트 호출은 두 번 연속 실패 → 자동 재시도 소진 → FAILED
-        when(aiClient.chatJson(eq(ClassReportPrompts.CLASS_INSIGHT_SYSTEM), anyString(), anyInt()))
+        when(aiClient.chatJson(any(), eq(ClassReportPrompts.CLASS_INSIGHT_SYSTEM), anyString(), anyInt()))
                 .thenThrow(new RuntimeException("provider down"));
         closeClass(cls.classId);
         LocalDateTime now = LocalDateTime.now();
@@ -387,6 +397,7 @@ class ClassResultApiIntegrationTest {
         assertThat(summary.getStatus()).isEqualTo(ClassReportStatus.FAILED);
         assertThat(jobOf(summary).getStatus()).isEqualTo(AiJobStatus.FAILED);
         assertThat(jobOf(summary).getAttempt()).isEqualTo(2);
+        assertThat(jobOf(summary).getModel()).isEqualTo("test-insight-model"); // 인사이트는 별도 모델 (#657)
 
         mockMvc.perform(get(result(cls) + "/insight").header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isOk())
@@ -431,6 +442,94 @@ class ClassResultApiIntegrationTest {
         assertThat(jobOf(summary).getStatus()).isEqualTo(AiJobStatus.SUCCEEDED);
         // 같은 ai_job 1행에 시도가 누적되고, 개인 3건 + 인사이트 1건 = 4행
         assertThat(aiJobRepository.count()).isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("#673 주요 의견: BEST 는 좋아요 최다, 가장 논쟁이 활발했던 댓글은 나머지 중 댓글 최다. 마감 전·AI 상태와 상관없이 채운다")
+    void insight_keyOpinions() throws Exception {
+        ClassInfo cls = createClass(false);
+        String[] contents = {
+                "비용 대비 효과가 분명해서 찬성하는 쪽이 설득력 있다고 생각해요",
+                "표본이 너무 작아서 결론을 내리기에는 이르다고 생각합니다",
+                "장기적으로 보면 사회 전체의 신뢰를 높이는 선택이라고 봐요",
+                "ㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋ"};
+        for (int i = 0; i < contents.length; i++) {
+            String token = tokenOf(newUser("학생" + i));
+            join(token, cls.inviteCode, "학생" + i);
+            completeParticipation(token, cls, optionA, optionA, contents[i]);
+        }
+
+        // 마감 전이라 고를 근거가 같으면 먼저 쓴 글이 BEST, 그다음 글이 논쟁 댓글
+        mockMvc.perform(get(result(cls) + "/insight").header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("BEFORE_CLOSE"))
+                .andExpect(jsonPath("$.data.bestComment").value(contents[0]))
+                .andExpect(jsonPath("$.data.mostDebatedComment").value(contents[1]));
+
+        List<Perspective> posts = perspectiveRepository.findByClassroomIdAndStatusOrderByCreatedAtAsc(cls.classId, PerspectiveStatus.PUBLISHED);
+        ReflectionTestUtils.setField(posts.get(2), "likeCount", 5);
+        ReflectionTestUtils.setField(posts.get(2), "commentCount", 9);
+        ReflectionTestUtils.setField(posts.get(1), "commentCount", 3);
+        // 이유 없는 글은 좋아요·댓글이 많아도 고르지 않는다
+        ReflectionTestUtils.setField(posts.get(3), "likeCount", 50);
+        ReflectionTestUtils.setField(posts.get(3), "commentCount", 50);
+        perspectiveRepository.saveAll(posts);
+
+        mockMvc.perform(get(result(cls) + "/insight").header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.data.bestComment").value(contents[2]))
+                .andExpect(jsonPath("$.data.mostDebatedComment").value(contents[1]));
+    }
+
+    @Test
+    @DisplayName("#673 주요 의견: 고를 글이 하나면 논쟁 댓글은 null, 없으면 둘 다 null")
+    void insight_keyOpinions_notEnough() throws Exception {
+        ClassInfo cls = createClass(false);
+        mockMvc.perform(get(result(cls) + "/insight").header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.data.bestComment").doesNotExist())
+                .andExpect(jsonPath("$.data.mostDebatedComment").doesNotExist());
+
+        String token = tokenOf(newUser("학생"));
+        join(token, cls.inviteCode, "학생");
+        completeParticipation(token, cls, optionA, optionA, "비용 대비 효과가 분명해서 찬성하는 쪽이 설득력 있다고 생각해요");
+        mockMvc.perform(get(result(cls) + "/insight").header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.data.bestComment").value("비용 대비 효과가 분명해서 찬성하는 쪽이 설득력 있다고 생각해요"))
+                .andExpect(jsonPath("$.data.mostDebatedComment").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("#657 참여자가 ㅋㅋㅋ·자판 아무거나만 쓰면 AI 없이 의견 부족 템플릿. #673 대표·주요 의견은 비지 않게 랜덤 글로 채운다")
+    void insight_junkPostsOnly() throws Exception {
+        ClassInfo cls = createClass(false);
+        String[] contents = {"ㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋ", "asdfasdfasdf", "몰라요 그냥요"};
+        for (int i = 0; i < 3; i++) {
+            User student = newUser("학생" + i);
+            String token = tokenOf(student);
+            join(token, cls.inviteCode, "학생" + i);
+            completeParticipation(token, cls, optionA, optionA, contents[i]);
+        }
+        closeClass(cls.classId);
+        generationService.runOnce(LocalDateTime.now());
+
+        assertThat(summaryOf(cls.classId).getStatus()).isEqualTo(ClassReportStatus.LIMITED);
+        mockMvc.perform(get(result(cls) + "/insight").header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("LIMITED"))
+                .andExpect(jsonPath("$.data.insightText").value("판단의 이유를 살펴볼 글이 아직 충분하지 않아요"))
+                .andExpect(jsonPath("$.data.highlights", hasSize(2)))
+                .andExpect(jsonPath("$.data.bestComment").isNotEmpty())
+                .andExpect(jsonPath("$.data.mostDebatedComment").isNotEmpty());
+        verify(aiClient, never()).chatJson(any(), eq(ClassReportPrompts.CLASS_INSIGHT_SYSTEM), anyString(), anyInt());
+
+        // #661 예전 문구로 저장된 LIMITED 인사이트도 현재 문구로 내려간다
+        ClassReport summary = summaryOf(cls.classId);
+        Map<String, Object> content = new java.util.LinkedHashMap<>(summary.getContent());
+        Map<String, Object> oldInsight = new java.util.LinkedHashMap<>(ReportContent.map(content, "insight"));
+        oldInsight.put("insight_text", "아직 요약할 의견이 충분하지 않아요");
+        content.put("insight", oldInsight);
+        summary.limit(content, LocalDateTime.now());
+        classReportRepository.saveAndFlush(summary);
+        mockMvc.perform(get(result(cls) + "/insight").header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.data.insightText").value("판단의 이유를 살펴볼 글이 아직 충분하지 않아요"));
     }
 
     @Test
@@ -768,6 +867,82 @@ class ClassResultApiIntegrationTest {
                         .value("처음부터 끝까지 선택지 2를 선택했어요. 콘텐츠 중간에는 '유죄' 쪽을 골랐어요."));
     }
 
+    @Test
+    @DisplayName("마감 스냅샷 뒤 클래스가 삭제되면 대기 리포트는 AI 호출 없이 CANCELED 가 된다 (PRD F16)")
+    void deletedClass_cancelsPendingReports() throws Exception {
+        ClassInfo cls = createClass(false);
+        User writer = newUser("학생A");
+        String writerToken = tokenOf(writer);
+        join(writerToken, cls.inviteCode, "학생A");
+        completeParticipation(writerToken, cls, optionA, optionB, "효과가 입증되지 않아 반대합니다. 표본이 너무 작아요.");
+        closeClass(cls.classId);
+        LocalDateTime now = LocalDateTime.now();
+        assertThat(snapshotService.createSnapshots(cls.classId, now)).isEqualTo(2);
+
+        mockMvc.perform(delete("/api/v1/classes/" + cls.classId).header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk());
+        generationService.runOnce(now.plusMinutes(1));
+
+        assertThat(classReportRepository.findAll()).extracting(ClassReport::getStatus)
+                .containsOnly(ClassReportStatus.CANCELED);
+        verify(aiClient, never()).chatJson(anyString(), anyString(), anyInt());
+        verify(aiClient, never()).chatJson(any(), anyString(), anyString(), anyInt());
+        assertThat(aiJobRepository.count()).isZero();
+        // 다시 돌려도 살아나지 않는다
+        assertThat(generationService.runOnce(now.plusMinutes(2))).isZero();
+    }
+
+    @Test
+    @DisplayName("마감 스냅샷 뒤 내보내진 멤버의 개인 리포트는 AI 호출 없이 CANCELED, 클래스 인사이트는 그대로 만든다 (PRD §18)")
+    void removedMember_cancelsOwnReportOnly() throws Exception {
+        ClassInfo cls = createClass(false);
+        User writer = newUser("학생A");
+        String writerToken = tokenOf(writer);
+        join(writerToken, cls.inviteCode, "학생A");
+        completeParticipation(writerToken, cls, optionA, optionB, "효과가 입증되지 않아 반대합니다. 표본이 너무 작아요.");
+        closeClass(cls.classId);
+        LocalDateTime now = LocalDateTime.now();
+        snapshotService.createSnapshots(cls.classId, now);
+
+        ClassMember member = classMemberRepository.findByClassroomIdAndUserId(cls.classId, writer.getId()).orElseThrow();
+        member.remove(now, true);
+        classMemberRepository.save(member);
+        generationService.runOnce(now.plusMinutes(1));
+
+        assertThat(classReportRepository.findAll())
+                .extracting(ClassReport::getType, ClassReport::getStatus)
+                .containsExactlyInAnyOrder(
+                        tuple(ClassReportType.MEMBER_FEEDBACK, ClassReportStatus.CANCELED),
+                        tuple(ClassReportType.CLASS_SUMMARY, ClassReportStatus.LIMITED));
+        verify(aiClient, never()).chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt());
+    }
+
+    @Test
+    @DisplayName("AI 생성 중에 클래스가 삭제되면 비용은 기록하고 결과는 게시하지 않는다 (CANCELED)")
+    void classDeletedDuringGeneration_doesNotPublish() throws Exception {
+        ClassInfo cls = createClass(false);
+        User writer = newUser("학생A");
+        String writerToken = tokenOf(writer);
+        join(writerToken, cls.inviteCode, "학생A");
+        completeParticipation(writerToken, cls, optionA, optionB, "효과가 입증되지 않아 반대합니다. 표본이 너무 작아요.");
+        when(aiClient.chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
+                .thenAnswer(inv -> {
+                    Classroom classroom = classroomRepository.findById(cls.classId).orElseThrow();
+                    classroom.delete(LocalDateTime.now());
+                    classroomRepository.save(classroom);
+                    return memberFeedbackAnswer(inv.getArgument(1));
+                });
+        closeClass(cls.classId);
+        generationService.runOnce(LocalDateTime.now());
+
+        ClassReport memberReport = classReportRepository.findAll().stream()
+                .filter(r -> r.getType() == ClassReportType.MEMBER_FEEDBACK).findFirst().orElseThrow();
+        assertThat(memberReport.getStatus()).isEqualTo(ClassReportStatus.CANCELED);
+        AiJob job = aiJobRepository.findAll().get(0);
+        assertThat(job.getStatus()).isEqualTo(AiJobStatus.SUCCEEDED);
+        assertThat(job.getInputTokens()).isEqualTo(120);
+    }
+
     private void stubMemberFeedback() {
         when(aiClient.chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
                 .thenAnswer(inv -> memberFeedbackAnswer(inv.getArgument(1)));
@@ -797,9 +972,9 @@ class ClassResultApiIntegrationTest {
 
     /** 프롬프트에 실린 공개 글 중 앞의 2건을 근거로, 1건을 하이라이트로 돌려주는 정상 응답 */
     private void stubInsightSuccess() {
-        when(aiClient.chatJson(eq(ClassReportPrompts.CLASS_INSIGHT_SYSTEM), anyString(), anyInt()))
+        when(aiClient.chatJson(any(), eq(ClassReportPrompts.CLASS_INSIGHT_SYSTEM), anyString(), anyInt()))
                 .thenAnswer(inv -> {
-                    Matcher m = ANY_SOURCE.matcher(inv.getArgument(1));
+                    Matcher m = ANY_SOURCE.matcher(inv.getArgument(2));
                     List<String> ids = new ArrayList<>();
                     while (m.find() && ids.size() < 2) {
                         ids.add(m.group(1));

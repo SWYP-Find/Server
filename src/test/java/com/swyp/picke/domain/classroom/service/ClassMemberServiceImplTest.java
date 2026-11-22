@@ -21,9 +21,12 @@ import com.swyp.picke.domain.ticket.enums.FundingPlatform;
 import com.swyp.picke.domain.ticket.enums.PaymentStatus;
 import com.swyp.picke.domain.ticket.enums.RewardTier;
 import com.swyp.picke.domain.user.entity.User;
+import com.swyp.picke.domain.user.entity.UserProfile;
+import com.swyp.picke.domain.user.enums.CharacterType;
 import com.swyp.picke.domain.user.enums.UserRole;
 import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.domain.user.repository.UserBattleRepository;
+import com.swyp.picke.domain.user.repository.UserProfileRepository;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
@@ -67,6 +70,10 @@ class ClassMemberServiceImplTest {
     private UserRepository userRepository;
     @Mock
     private UserBattleRepository userBattleRepository;
+    @Mock
+    private UserProfileRepository userProfileRepository;
+    @Mock
+    private ClassImageUrlResolver imageUrls;
 
     @InjectMocks
     private ClassMemberServiceImpl service;
@@ -271,7 +278,7 @@ class ClassMemberServiceImplTest {
     // ===== 명단 =====
 
     @Test
-    @DisplayName("명단은 운영자·멤버만 볼 수 있고 본인 행에 me=true, 계정 ID 는 내려가지 않는다")
+    @DisplayName("명단은 운영자·멤버만 볼 수 있고 본인 행에 me=true, 계정 ID 는 내려가지 않으며 아바타는 이미지 URL이다")
     void getMembers_ownerAndMemberOnly() {
         when(classroomRepository.findByIdAndStatus(CLASS_ID, ClassStatus.ACTIVE)).thenReturn(Optional.of(classroom));
         ClassMember ownerRow = withId(member(owner, "선생님", ClassMemberRole.OWNER), 11L);
@@ -279,10 +286,16 @@ class ClassMemberServiceImplTest {
         when(classMemberRepository.findByClassroomIdAndUserIdAndStatus(CLASS_ID, STUDENT_ID, ClassMemberStatus.ACTIVE))
                 .thenReturn(Optional.of(studentRow));
         when(classMemberRepository.findActiveMembers(CLASS_ID)).thenReturn(List.of(ownerRow, studentRow));
+        UserProfile studentProfile = UserProfile.builder().user(student).nickname("학생").characterType(CharacterType.FOX).build();
+        when(userProfileRepository.findAllByUserIdIn(List.of(OWNER_ID, STUDENT_ID))).thenReturn(List.of(studentProfile));
+        lenient().when(imageUrls.avatar(CharacterType.FOX)).thenReturn("https://cdn.test/images/characters/fox.png");
 
         List<ClassMemberResponse> members = service.getMembers(STUDENT_ID, CLASS_ID);
 
         assertThat(members).extracting(ClassMemberResponse::memberId).containsExactly(11L, 12L);
+        // 아바타는 저장 값이 아니라 캐릭터 타입으로 만든 이미지 URL이다. 프로필이 없으면 null
+        assertThat(members).extracting(ClassMemberResponse::characterUrl)
+                .containsExactly(null, "https://cdn.test/images/characters/fox.png");
         assertThat(members).extracting(ClassMemberResponse::me).containsExactly(false, true);
         assertThat(members.get(0).role()).isEqualTo(ClassMemberRole.OWNER);
 
@@ -320,14 +333,36 @@ class ClassMemberServiceImplTest {
     }
 
     @Test
-    @DisplayName("참여하지 않은 유저(멤버 행 없는 운영자 포함)의 이름 변경은 403 CLASS_403_MEMBER")
+    @DisplayName("참여하지 않은 유저의 이름 변경은 403 CLASS_403_MEMBER")
     void changeMyDisplayName_notMember_403() {
+        long outsiderId = 999L;
+        when(classroomRepository.findByIdAndStatus(CLASS_ID, ClassStatus.ACTIVE)).thenReturn(Optional.of(classroom));
+        when(classMemberRepository.findByClassroomIdAndUserIdAndStatus(CLASS_ID, outsiderId, ClassMemberStatus.ACTIVE))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.changeMyDisplayName(outsiderId, CLASS_ID, new ClassMemberNameUpdateRequest("이름")))
+                .satisfies(e -> assertThat(errorCodeOf(e)).isEqualTo(ErrorCode.CLASS_MEMBER_ONLY));
+    }
+
+    @Test
+    @DisplayName("멤버 행 없는(미참여) 운영자는 클래스의 운영자 표시 이름을 바꾸고 memberId 0 줄을 돌려준다 (#669)")
+    void changeMyDisplayName_nonParticipatingOwner() {
         when(classroomRepository.findByIdAndStatus(CLASS_ID, ClassStatus.ACTIVE)).thenReturn(Optional.of(classroom));
         when(classMemberRepository.findByClassroomIdAndUserIdAndStatus(CLASS_ID, OWNER_ID, ClassMemberStatus.ACTIVE))
                 .thenReturn(Optional.empty());
+        when(classMemberRepository.existsByClassroomIdAndDisplayNameAndStatus(CLASS_ID, "겹침", ClassMemberStatus.ACTIVE))
+                .thenReturn(true);
 
-        assertThatThrownBy(() -> service.changeMyDisplayName(OWNER_ID, CLASS_ID, new ClassMemberNameUpdateRequest("이름")))
-                .satisfies(e -> assertThat(errorCodeOf(e)).isEqualTo(ErrorCode.CLASS_MEMBER_ONLY));
+        assertThatThrownBy(() -> service.changeMyDisplayName(OWNER_ID, CLASS_ID, new ClassMemberNameUpdateRequest("겹침")))
+                .satisfies(e -> assertThat(errorCodeOf(e)).isEqualTo(ErrorCode.CLASS_DISPLAY_NAME_DUPLICATED));
+        assertThat(classroom.getOwnerDisplayName()).isNull();
+
+        ClassMemberResponse changed = service.changeMyDisplayName(OWNER_ID, CLASS_ID, new ClassMemberNameUpdateRequest(" 김운영 "));
+        assertThat(changed.memberId()).isZero();
+        assertThat(changed.displayName()).isEqualTo("김운영");
+        assertThat(changed.role()).isEqualTo(ClassMemberRole.OWNER);
+        assertThat(changed.participating()).isFalse();
+        assertThat(classroom.getOwnerDisplayName()).isEqualTo("김운영");
     }
 
     // ===== 나가기 / 내보내기 =====

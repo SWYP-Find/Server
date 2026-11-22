@@ -57,6 +57,7 @@ public class ClassTopicDraftService {
     private final AiJobRepository aiJobRepository;
     private final UserRepository userRepository;
     private final ClassTopicContentValidator validator;
+    private final ClassTopicConverter topicConverter;
 
     public record PreparedSuggest(Long draftId, Long jobId, TopicConditions conditions) {
     }
@@ -81,14 +82,14 @@ public class ClassTopicDraftService {
                 .difficulty(conditions.difficulty())
                 .categories(conditions.categoryNames())
                 .build());
-        return ClassTopicConverter.toDraft(draft, null);
+        return topicConverter.toDraft(draft, null);
     }
 
     public ClassTopicDraftResponse get(Long userId, Long draftId) {
         ClassTopicDraft draft = draftRepository.findById(draftId)
                 .filter(d -> d.isOwnedBy(userId))
                 .orElseThrow(() -> new CustomException(ErrorCode.CLASS_TOPIC_DRAFT_NOT_FOUND));
-        return ClassTopicConverter.toDraft(draft, versionRepository.findTopByDraftIdOrderByVersionNoDesc(draftId).orElse(null));
+        return topicConverter.toDraft(draft, versionRepository.findTopByDraftIdOrderByVersionNoDesc(draftId).orElse(null));
     }
 
     // ---------- AI 주제 제안 ----------
@@ -179,7 +180,7 @@ public class ClassTopicDraftService {
         ClassTopicVersion version = versionRepository.findFirstByDraftIdAndSourceRefOrderByVersionNoDesc(draftId, sourceRef)
                 .orElseGet(() -> saveVersion(draft, ClassTopicVersionSource.CANDIDATE, sourceRef,
                         TopicContent.fromMap(candidate)));
-        return ClassTopicConverter.toVersion(version);
+        return topicConverter.toVersion(version);
     }
 
     // ---------- 직접 수정 검증 ----------
@@ -195,10 +196,10 @@ public class ClassTopicDraftService {
 
         List<TopicIssue> formatIssues = validator.formatIssues(edit);
         if (!formatIssues.isEmpty()) {
-            return immediate(draft, ClassTopicConverter.toValidation(formatIssues, null, draft.remainingValidations()));
+            return immediate(draft, topicConverter.toValidation(formatIssues, null, draft.remainingValidations()));
         }
         if (sameContent(base, edit)) {
-            return immediate(draft, ClassTopicConverter.toValidation(List.of(), base, draft.remainingValidations()));
+            return immediate(draft, topicConverter.toValidation(List.of(), base, draft.remainingValidations()));
         }
         if (draft.remainingValidations() == 0) {
             throw new CustomException(ErrorCode.CLASS_TOPIC_VALIDATION_LIMIT);
@@ -222,7 +223,7 @@ public class ClassTopicDraftService {
             ClassTopicVersion base = versionRepository.findById(prepared.baseVersionId()).orElseThrow();
             version = saveVersion(draft, ClassTopicVersionSource.EDITED, "v" + base.getVersionNo(), prepared.edit());
         }
-        return ClassTopicConverter.toValidation(issues, version, draft.remainingValidations());
+        return topicConverter.toValidation(issues, version, draft.remainingValidations());
     }
 
     /** 제공자 장애로 판정을 얻지 못하면 검증 횟수를 돌려준다 */

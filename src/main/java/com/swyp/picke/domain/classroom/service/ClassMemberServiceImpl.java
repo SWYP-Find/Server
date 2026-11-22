@@ -15,17 +15,23 @@ import com.swyp.picke.domain.classroom.enums.ClassStatus;
 import com.swyp.picke.domain.classroom.repository.ClassMemberRepository;
 import com.swyp.picke.domain.classroom.repository.ClassroomRepository;
 import com.swyp.picke.domain.user.entity.User;
+import com.swyp.picke.domain.user.entity.UserProfile;
+import com.swyp.picke.domain.user.enums.CharacterType;
 import com.swyp.picke.domain.user.repository.UserBattleRepository;
+import com.swyp.picke.domain.user.repository.UserProfileRepository;
 import com.swyp.picke.domain.user.repository.UserRepository;
 import com.swyp.picke.domain.user.enums.UserStatus;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -50,8 +56,10 @@ public class ClassMemberServiceImpl implements ClassMemberService {
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final ClassroomRepository classroomRepository;
+    private final ClassImageUrlResolver imageUrls;
     private final ClassMemberRepository classMemberRepository;
     private final UserRepository userRepository;
+    private final UserProfileRepository userProfileRepository;
     private final UserBattleRepository userBattleRepository;
 
     @Override
@@ -72,7 +80,8 @@ public class ClassMemberServiceImpl implements ClassMemberService {
 
         Optional<ClassMember> existing = classMemberRepository.findByClassroomIdAndUserId(classroom.getId(), userId);
         if (existing.isPresent() && existing.get().isActive()) {
-            return ClassroomConverter.toDetail(classroom, ClassMemberRole.MEMBER, seatCountOf(classroom), now);
+            return ClassroomConverter.toDetail(classroom, ClassMemberRole.MEMBER, countsOf(classroom), now,
+                imageUrls.battleThumbnail(classroom.getBattle()));
         }
         rejectRemovedOrClosed(classroom, existing, now);
         rejectDuplicateDisplayName(classroom.getId(), displayName);
@@ -90,7 +99,8 @@ public class ClassMemberServiceImpl implements ClassMemberService {
                     .build());
         }
         log.info("클래스 참여 - classId: {}, userId: {}, rejoin: {}", classroom.getId(), userId, existing.isPresent());
-        return ClassroomConverter.toDetail(classroom, ClassMemberRole.MEMBER, seatCountOf(classroom), now);
+        return ClassroomConverter.toDetail(classroom, ClassMemberRole.MEMBER, countsOf(classroom), now,
+                imageUrls.battleThumbnail(classroom.getBattle()));
     }
 
     @Override
@@ -116,9 +126,10 @@ public class ClassMemberServiceImpl implements ClassMemberService {
                 inviteCode,
                 classroom.getName(),
                 classroom.getBattle().getTitle(),
-                classroom.getBattle().getThumbnailUrl(),
+                imageUrls.battleThumbnail(classroom.getBattle()),
                 classroom.getBattleType(),
                 seatCountOf(classroom),
+                classMemberRepository.countByClassroomIdAndStatus(classroom.getId(), ClassMemberStatus.ACTIVE),
                 classroom.getCapacity(),
                 classroom.getEffectiveCloseAt());
     }
@@ -129,23 +140,56 @@ public class ClassMemberServiceImpl implements ClassMemberService {
         if (!isOwner(classroom, userId) && findActiveMember(classId, userId).isEmpty()) {
             throw new CustomException(ErrorCode.CLASS_MEMBER_ONLY);
         }
-        return classMemberRepository.findActiveMembers(classId).stream()
-                .map(m -> ClassMemberConverter.toResponse(m, userId))
-                .toList();
+        List<ClassMember> members = classMemberRepository.findActiveMembers(classId);
+        Long ownerId = classroom.getOwner().getId();
+        // 미참여 운영자 줄은 운영자 본인에게만 보인다. 참여자 명단에는 참여자만 나온다 (#665)
+        boolean addOwnerRow = Objects.equals(ownerId, userId)
+                && members.stream().noneMatch(m -> Objects.equals(m.getUser().getId(), ownerId));
+        List<Long> userIds = new ArrayList<>(members.stream().map(m -> m.getUser().getId()).toList());
+        if (addOwnerRow) {
+            userIds.add(ownerId);
+        }
+        Map<Long, CharacterType> characters = userProfileRepository.findAllByUserIdIn(userIds).stream()
+                .collect(Collectors.toMap(p -> p.getUser().getId(), UserProfile::getCharacterType, (a, b) -> a));
+
+        List<ClassMemberResponse> result = new ArrayList<>();
+        if (addOwnerRow) {
+            result.add(ClassMemberConverter.toNonParticipatingOwner(classroom,
+                    imageUrls.avatar(characters.get(ownerId))));
+        }
+        members.forEach(m -> result.add(ClassMemberConverter.toResponse(m, userId,
+                imageUrls.avatar(characters.get(m.getUser().getId())))));
+        return result;
     }
 
     @Override
     @Transactional
     public ClassMemberResponse changeMyDisplayName(Long userId, Long classId, ClassMemberNameUpdateRequest request) {
-        findActiveClass(classId);
-        ClassMember me = findActiveMember(classId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.CLASS_MEMBER_ONLY));
+        Classroom classroom = findActiveClass(classId);
+        Optional<ClassMember> member = findActiveMember(classId, userId);
+        if (member.isEmpty() && !isOwner(classroom, userId)) {
+            throw new CustomException(ErrorCode.CLASS_MEMBER_ONLY);
+        }
         String displayName = normalizeDisplayName(request.displayName());
+        CharacterType character = userProfileRepository.findByUserId(userId)
+                .map(UserProfile::getCharacterType)
+                .orElse(null);
+
+        if (member.isEmpty()) {
+            // 미참여 운영자는 멤버 행이 없어 클래스에 이름을 둔다 (#669)
+            if (!displayName.equals(ClassMemberConverter.nonParticipatingOwnerName(classroom))) {
+                rejectDuplicateDisplayName(classId, displayName);
+            }
+            classroom.changeOwnerDisplayName(displayName);
+            return ClassMemberConverter.toNonParticipatingOwner(classroom, imageUrls.avatar(character));
+        }
+
+        ClassMember me = member.get();
         if (!displayName.equals(me.getDisplayName())) {
             rejectDuplicateDisplayName(classId, displayName);
             me.changeDisplayName(displayName);
         }
-        return ClassMemberConverter.toResponse(me, userId);
+        return ClassMemberConverter.toResponse(me, userId, imageUrls.avatar(character));
     }
 
     @Override
@@ -260,5 +304,10 @@ public class ClassMemberServiceImpl implements ClassMemberService {
 
     private long seatCountOf(Classroom classroom) {
         return classMemberRepository.countByClassroomIdAndSeatHeldTrue(classroom.getId());
+    }
+
+    private ClassMemberCounts countsOf(Classroom classroom) {
+        return new ClassMemberCounts(seatCountOf(classroom),
+                classMemberRepository.countByClassroomIdAndStatus(classroom.getId(), ClassMemberStatus.ACTIVE));
     }
 }

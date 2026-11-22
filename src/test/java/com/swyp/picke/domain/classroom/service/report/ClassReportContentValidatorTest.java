@@ -151,9 +151,9 @@ class ClassReportContentValidatorTest {
     @DisplayName("인사이트는 공개 글 목록에 있는 source_id 만 evidence 1~5, highlight 최대 2로 남긴다")
     void insightFiltersIds() {
         ClassInsightInput input = new ClassInsightInput("제목", null, List.of(A, B), null, List.of(
-                new ClassInsightInput.PublicPost("p:1", "PERSPECTIVE", 1L, 1, 1L, "찬성", "내용1", null),
-                new ClassInsightInput.PublicPost("p:2", "PERSPECTIVE", 2L, 2, 2L, "반대", "내용2", null),
-                new ClassInsightInput.PublicPost("c:3", "COMMENT", 3L, 3, 1L, "찬성", "내용3", "p:1")
+                new ClassInsightInput.PublicPost("p:1", "PERSPECTIVE", 1L, 1, 1L, "찬성", "비용보다 기대 효과가 커서 찬성해요.", null),
+                new ClassInsightInput.PublicPost("p:2", "PERSPECTIVE", 2L, 2, 2L, "반대", "표본이 작아서 효과를 믿기 어려워요.", null),
+                new ClassInsightInput.PublicPost("c:3", "COMMENT", 3L, 3, 1L, "찬성", "장기적으로 보면 비용도 줄어들 거예요.", "p:1")
         ), 3, 0);
         Map<String, Object> json = Map.of(
                 "insight_text", "찬성 쪽은 비용을, 반대 쪽은 효과를 기준으로 삼은 의견이 눈에 띄었어요.",
@@ -171,6 +171,73 @@ class ClassReportContentValidatorTest {
         assertThatThrownBy(() -> validator.validateClassInsight(noEvidence, input))
                 .isInstanceOf(ReportValidationException.class)
                 .hasMessage("EVIDENCE_MISSING");
+    }
+
+    private static ClassInsightInput.PublicPost post(String id, int author, String content) {
+        return new ClassInsightInput.PublicPost(id, id.startsWith("p:") ? "PERSPECTIVE" : "COMMENT",
+                Long.parseLong(id.substring(2)), author, 1L, "찬성", content, null);
+    }
+
+    private static ClassInsightInput insightInput(ClassInsightInput.PublicPost... posts) {
+        return new ClassInsightInput("제목", null, List.of(A, B), null, List.of(posts), posts.length, 0);
+    }
+
+    @Test
+    @DisplayName("#657 AI 가 excluded_ids 로 표시한 글과 비속어·이유 없는 글은 근거·하이라이트에서 빠진다")
+    void insightDropsExcludedAndUnselectablePosts() {
+        ClassInsightInput input = insightInput(
+                post("p:1", 1, "비용보다 기대 효과가 커서 찬성해요."),
+                post("p:2", 2, "표본이 작아서 효과를 믿기 어려워요."),
+                post("p:3", 3, "장기적으로 보면 비용도 줄어들 거예요."),
+                post("p:4", 4, "민수야 너 맨날 그러잖아 그래서 찬성하는 거지"),
+                post("p:5", 5, "씨발 이딴 거 왜 함 당연히 반대지"),
+                post("p:6", 6, "ㅋㅋㅋㅋㅋㅋㅋㅋ"));
+        Map<String, Object> json = Map.of(
+                "excluded_ids", List.of("p:4"),
+                "insight_text", "찬성 쪽은 비용을, 반대 쪽은 효과를 기준으로 삼았어요.",
+                "evidence_ids", List.of("p:1", "p:4", "p:5", "p:6", "p:2"),
+                "highlight_ids", List.of("p:5", "p:4", "p:3"));
+
+        Map<String, Object> insight = validator.validateClassInsight(json, input);
+
+        assertThat(ReportContent.stringList(insight, "evidence_ids")).containsExactly("p:1", "p:2");
+        assertThat(ReportContent.stringList(insight, "highlight_ids")).containsExactly("p:3");
+        assertThat(insight).containsEntry("analysis_status", "SUFFICIENT");
+    }
+
+    @Test
+    @DisplayName("#657 쓸 수 있는 글의 작성자가 3명 미만이면 AI 요약 대신 의견 부족 템플릿(LIMITED)을 쓴다")
+    void insightLimitedWhenUsableAuthorsBelowThree() {
+        ClassInsightInput input = insightInput(
+                post("p:1", 1, "AI가 초안을 써도 학생이 검토하고 고치면 학습이라고 생각해요."),
+                post("p:2", 2, "아무거나 쓰면 되죠 뭐"),
+                post("p:3", 3, "배고프다 집에 가고 싶다"),
+                post("p:4", 4, "qwerasdfzxcv"));
+        Map<String, Object> json = Map.of(
+                "excluded_ids", List.of("p:3", "p:4"),
+                "insight_text", "찬성 쪽은 창의성을 반영할 수 있다고 주장했어요.",
+                "evidence_ids", List.of("p:1", "p:2"),
+                "highlight_ids", List.of("p:2"));
+
+        Map<String, Object> insight = validator.validateClassInsight(json, input);
+
+        assertThat(insight).containsEntry("analysis_status", "LIMITED")
+                .containsEntry("insight_text", "판단의 이유를 살펴볼 글이 아직 충분하지 않아요");
+        assertThat(ReportContent.stringList(insight, "evidence_ids")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("#657 AI 가 INSUFFICIENT 를 내면 요약 없이 의견 부족 템플릿(LIMITED)을 쓴다")
+    void insightInsufficient() {
+        ClassInsightInput input = insightInput(
+                post("p:1", 1, "아무거나 쓰면 되죠 뭐"),
+                post("p:2", 2, "배고프다 집에 가고 싶다"),
+                post("p:3", 3, "오늘 날씨 진짜 좋네요"));
+
+        Map<String, Object> insight = validator.validateClassInsight(Map.of("analysis_status", "INSUFFICIENT"), input);
+
+        assertThat(insight).containsEntry("analysis_status", "LIMITED")
+                .containsEntry("insight_text", "판단의 이유를 살펴볼 글이 아직 충분하지 않아요");
     }
 
     @Test

@@ -118,10 +118,11 @@
 - 이용 기간은 등록 시점부터 6개월이다.
 - 정원은 리워드 티어(5 / 15 / 30석)를 따른다.
 - 계정당 사용 중인(ACTIVE) 이용권은 1개다.
-- 코드의 공백·하이픈·대소문자는 무시한다.
+- 코드 형식은 `PKE` + 16진수 대문자 6자리다 (예: `PKE05D2E1`). 코드의 공백·하이픈·대소문자는 무시한다.
+- **입력 5회 제한:** 코드 확인(1.1)과 등록(1.2)에서 없는 코드를 넣은 횟수를 계정별로 센다. 1시간 안에 5번 틀리면 그 응답부터 1시간 동안 429 `TICKET_429_LOCKED`다. 잠긴 동안에는 맞는 코드도 막힌다. 맞는 코드를 넣어도 틀린 횟수는 초기화되지 않는다.
 
 ### 1.1 이용권 코드 확인 (미리보기)
-- `GET /api/v1/class-tickets/preview?code=PICKE-AB12-CD34`
+- `GET /api/v1/class-tickets/preview?code=PKE05D2E1`
 - 코드를 소비하지 않고 정원과 등록 기한을 보여준다.
 
 ```json
@@ -138,6 +139,7 @@
 |---|---|
 | 빈 코드 | 400 `COMMON_400` |
 | 없는 코드 | 404 `TICKET_404_CODE` |
+| 없는 코드를 1시간 안에 5번 넣음 (5번째부터 1시간) | 429 `TICKET_429_LOCKED` |
 | 재발급·환불로 무효화된 코드 | 409 `TICKET_409_REVOKED` |
 | 등록 기한 경과 | 409 `TICKET_409_REG_EXP` |
 | 다른 계정이 이미 등록 | 409 `TICKET_409_CLAIMED` |
@@ -147,7 +149,7 @@
 - `POST /api/v1/class-tickets/register`
 
 ```json
-{ "code": "PICKE-AB12-CD34" }
+{ "code": "PKE05D2E1" }
 ```
 
 - 등록하면 즉시 ACTIVE가 되고 6개월 뒤 만료된다.
@@ -206,12 +208,13 @@
 | `deadline` | X | 참여 마감일. null이면 이용권 종료일까지. 지금 이후이고 이용권 종료일 이전이어야 한다 |
 | `commentRequired` | O | 의견 작성 필수 여부. 참여 완료 판정에 쓴다 |
 | `ownerParticipates` | O | 운영자도 참여자로 들어갈지. true면 운영자가 1석을 차지하고 투표·의견을 쓸 수 있다 |
-| `ownerDisplayName` | X | 운영자가 참여할 때 클래스 안에서 쓸 이름 (1~20자). 비우면 닉네임을 쓴다 |
+| `ownerDisplayName` | X | 운영자가 클래스 안에서 쓸 이름 (1~20자). 비우면 닉네임을 쓴다. 참여하지 않아도 운영자 본인 명단에 이 이름이 보인다 (5.3) |
 | `requestKey` | X (권장) | 중복 생성 방지 키 (1~64자, 영문·숫자·`-`·`_`). 생성 화면을 열 때 UUID를 하나 만들고, 재전송할 때도 같은 값을 보낸다 |
 
 - 정원은 이용권 정원을 그대로 쓴다.
 - 초대코드 6자는 서버가 만든다.
-- 커스텀 배틀의 썸네일은 환경변수 `CLASS_CUSTOM_BATTLE_THUMBNAIL_URL`의 고정 이미지 1종이다.
+- 커스텀 배틀의 썸네일은 환경변수 `CLASS_CUSTOM_BATTLE_THUMBNAIL_URL`의 고정 이미지 1종이다. 값이 비어 있으면 썸네일은 null이다.
+- 커스텀 배틀에는 주제 카테고리가 카테고리 태그로 붙는다 (예: `#사회`). 클래스 배틀 상세(6.1)의 `battle.categoryTags`로 내려간다.
 - 응답: `ClassDetailResponse` (2.3 참고)
 - **중복 요청 방지**: 버튼 연타·네트워크 재전송 대비. 같은 운영자의 생성 요청은 이용권 행 잠금으로 하나씩 처리한다.
   - `requestKey`를 보내면: 같은 키·같은 내용이면 새로 만들지 않고 그 클래스를 200으로 돌려준다. 같은 키·다른 내용이면 409 `CLASS_409_REQUEST_KEY`다. 키가 다르면 내용이 같아도 새로 만든다.
@@ -249,6 +252,7 @@
       "battleThumbnailUrl": "https://...",
       "battleType": "TTS",
       "memberCount": 12,
+      "activeMemberCount": 11,
       "capacity": 30,
       "closeAt": "2026-12-31T23:59:59",
       "closed": false,
@@ -258,7 +262,9 @@
 }
 ```
 
-- `memberCount`: 좌석을 차지한 인원이다. 운영자가 참여하면 포함되고, 나갔지만 활동 이력이 있어 좌석을 유지한 멤버도 포함된다.
+- `memberCount`: 사용 좌석 수다. 좌석을 차지한 인원으로, 운영자가 참여하면 포함되고 나갔거나 내보내졌지만 활동 이력이 있어 좌석을 유지한 멤버도 포함된다. 정원 판정에 쓰며 남은 자리는 `capacity - memberCount`다.
+- `activeMemberCount`: 현재 명단 인원이다. 참여 중인 멤버(참여하는 운영자 포함)만 센다. 화면의 "멤버 N명"은 이 값을 쓴다 (PRD 15절 "참여 4명 / 사용 좌석 5석").
+- 두 값은 클래스 상세(2.3)와 참여 코드 확인(5.1), 참여(5.2) 응답에도 같은 뜻으로 들어간다.
 
 ### 2.3 클래스 상세
 - `GET /api/v1/classes/{classId}`
@@ -277,6 +283,7 @@
     "battleType": "TTS",
     "topicVersionId": null,
     "memberCount": 12,
+    "activeMemberCount": 11,
     "capacity": 30,
     "deadline": "2026-12-31T23:59:59",
     "ticketExpiresAt": "2027-04-01T10:00:00",
@@ -529,7 +536,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 | `draftId`, `versionNo` | 초안 ID, 초안 안의 버전 번호 (1부터) |
 | `source` | `CANDIDATE`(AI 후보 선택) / `EDITED`(직접 수정 후 검증 통과) |
 | `question`, `description`, `category`, `difficulty`, `createdAt` | |
-| `options[]` | `position`(A/B), `label`, `rationale`, `philosopher`, `philosopherName`, `philosopherImageKey` |
+| `options[]` | `position`(A/B), `label`, `rationale`, `philosopher`, `philosopherName`, `philosopherImageKey`, `philosopherImageUrl`. 이미지는 `philosopherImageUrl`을 그대로 쓴다 |
 
 ---
 
@@ -550,6 +557,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
     "battleThumbnailUrl": "https://...",
     "battleType": "TTS",
     "memberCount": 12,
+    "activeMemberCount": 11,
     "capacity": 30,
     "closeAt": "2026-12-31T23:59:59"
   }
@@ -593,20 +601,28 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 
 ### 5.3 클래스 명단
 - `GET /api/v1/classes/{classId}/members`
-- 운영자 행이 먼저 오고, 이후 참여 순이다.
+- 운영자 행이 먼저 오고, 이후 참여 순이다 (운영자, 참여자1, 참여자2 …).
+- 운영자가 참여하지 않는 클래스(`ownerParticipates=false`)는 보는 사람에 따라 다르다.
+  - 운영자 본인이 보면 맨 위에 운영자 줄이 붙는다: `memberId` 0, `me` true, `participating` false, `joinedAt`은 클래스 생성 시각.
+  - 운영자 줄 이름은 운영자가 정한 클래스 표시 이름이다. 정하지 않았으면 계정 닉네임이다. 생성 때 보낸 `ownerDisplayName`이나 5.4 이름 변경으로 정한다.
+  - 참여자가 보면 운영자 줄 없이 참여자만 나온다.
+- 미참여 운영자 줄도 이름 수정(5.4)이 된다. 연필 버튼은 `me`가 true인 줄에 그대로 보여 주면 된다.
+- 미참여 운영자 줄은 좌석(`memberCount`)·명단 인원(`activeMemberCount`)·결과 통계에 들어가지 않는다.
 - 표시 이름·역할·아바타만 내려가고 계정 식별자는 내려가지 않는다.
 
 ```json
 {
   "statusCode": 200,
   "data": [
-    { "memberId": 10, "displayName": "김선생", "role": "OWNER", "characterUrl": "https://...", "me": true, "joinedAt": "2026-10-21T10:00:00" },
-    { "memberId": 11, "displayName": "김학생", "role": "MEMBER", "characterUrl": "https://...", "me": false, "joinedAt": "2026-10-21T11:00:00" }
+    { "memberId": 10, "displayName": "김선생", "role": "OWNER", "characterUrl": "https://...", "me": true, "joinedAt": "2026-10-21T10:00:00", "participating": true },
+    { "memberId": 11, "displayName": "김학생", "role": "MEMBER", "characterUrl": "https://...", "me": false, "joinedAt": "2026-10-21T11:00:00", "participating": true }
   ]
 }
 ```
 
-- `memberId`: 내보내기(5.6)에 쓴다.
+- `memberId`: 내보내기(5.6)에 쓴다. 미참여 운영자 줄은 0이다(내보내기 대상 아님).
+- `participating`: 토론에 참여하는 사람이면 true다. 운영자에게만 보이는 미참여 운영자 줄만 false다.
+- `characterUrl`: 회원 캐릭터 이미지 URL이다. 프로필이 없으면 null이다.
 - `me`: 조회한 사람 본인이면 true다 (이름 수정 버튼 노출용).
 - 권한이 없으면 403 `CLASS_403_MEMBER`다.
 
@@ -618,10 +634,12 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 ```
 
 - 응답: `ClassMemberResponse` (5.3의 항목 하나)
+- 참여하지 않는 운영자도 바꿀 수 있다. 이 경우 클래스의 운영자 표시 이름이 바뀌고, 응답은 운영자 줄(`memberId` 0, `participating` false)이다.
+- 이름 중복은 참여 중인 멤버 이름과 비교한다. 미참여 운영자 이름은 참여자에게 보이지 않으므로, 참여자가 참여·이름 변경할 때는 운영자 이름과 비교하지 않는다.
 
 | 상황 | 응답 |
 |---|---|
-| 참여 중인 멤버가 아님 | 403 `CLASS_403_MEMBER` |
+| 참여 중인 멤버도 운영자도 아님 | 403 `CLASS_403_MEMBER` |
 | 이름이 비었거나 20자 초과 | 400 `COMMON_400` |
 | 이름 중복 | 409 `CLASS_409_NAME` |
 
@@ -953,7 +971,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
     "round": 1,
     "canReply": true,
     "canRetry": false,
-    "philosopher": { "code": "KANT", "name": "칸트", "typeName": "...", "imageKey": "..." },
+    "philosopher": { "code": "KANT", "name": "칸트", "typeName": "...", "imageKey": "images/philosophers/kant.png", "imageUrl": "https://..." },
     "participantOption": { "optionId": 31, "position": "A", "title": "...", "stance": "..." },
     "opponentOption": { "optionId": 32, "position": "B", "title": "...", "stance": "..." },
     "messages": [
@@ -978,6 +996,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 | `FAILED` | AI 주장 생성 실패 | 재시도 버튼 (`canRetry`) |
 | `COMPLETED` | 3라운드 종료 | 대화 다시보기 / 사후투표 |
 
+- `philosopher.imageUrl`: 철학자 얼굴 이미지 URL이다. 프론트가 `imageKey`로 이미지를 따로 찾지 말고 이 값을 그대로 쓴다.
 - `canReply`: `WAITING_USER`이고 마감 전일 때 true
 - `canRetry`: 실패했거나 생성이 오래 멈췄고 마감 전일 때 true
 - `content`: 전체 글이다. AI 주장은 말풍선 사이에 줄바꿈이 들어 있다.
@@ -1003,6 +1022,8 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 | `SUCCEEDED` | 생성 완료 | |
 | `LIMITED` | 분석 불가라 템플릿으로 대신함. 개인 리포트는 사유가 `feedback.limitedReason`에 있다 | 개인 리포트: `feedback.headline`·`limitedMessage`·`limitedNotice` (PRD 엣지 케이스 3.3) / 인사이트: "판단의 이유를 살펴볼 글이 아직 충분하지 않아요" |
 | `FAILED` | 생성 실패 | "AI 요약을 준비하지 못했어요" |
+
+- 마감 뒤 클래스가 삭제됐거나 멤버가 나가기·내보내기 되면, 아직 만들지 않은 리포트는 AI를 호출하지 않고 건너뛴다(서버 내부 상태 `CANCELED`). 생성 중이었다면 비용만 기록하고 결과는 게시하지 않는다 (PRD F16·18절). 이 리포트는 조회되더라도 `NOT_ELIGIBLE`로 보이며 재시도 대상이 아니다. AI 토론도 생성 중에 클래스가 삭제되면 주장을 저장하지 않는다.
 
 ### 8.1 클래스 결과 (정량 통계)
 - `GET /api/v1/classes/{classId}/result`
@@ -1171,7 +1192,9 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
     "evidence": [
       { "sourceType": "PERSPECTIVE", "id": 50, "optionId": 31, "stance": "...", "content": "...", "createdAt": "2026-10-21T12:00:00" }
     ],
-    "highlights": []
+    "highlights": [],
+    "bestComment": "비용 대비 효과가 분명해서 찬성하는 쪽이 설득력 있다고 생각해요",
+    "mostDebatedComment": "표본이 너무 작아서 결론을 내리기에는 이르다고 생각합니다"
   }
 }
 ```
@@ -1179,7 +1202,22 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 - `insightText`: 200자 이하다.
 - `evidence`: 인사이트가 근거로 삼은 공개 글 1~5건이다.
 - `highlights`: 운영자에게 추천하는 대표 의견 최대 2건이다. 작성자 정보는 넣지 않는다.
-- 의견 작성자가 3명 미만이면 `LIMITED`다.
+- `bestComment` / `mostDebatedComment`: 결과 화면 주요 의견(BEST 댓글 · 가장 논쟁이 활발했던 댓글) 본문이다 (#673).
+  - BEST: 공개 의견 중 좋아요가 가장 많은 글. 같으면 먼저 쓴 글.
+  - 가장 논쟁이 활발했던 댓글: BEST를 뺀 공개 의견 중 댓글(대댓글)이 가장 많은 글. 같으면 먼저 쓴 글.
+  - 비속어가 든 글, 이유가 없는 글은 먼저 고르지 않는다.
+  - 기준에 맞는 글이 모자라면 클래스의 공개 의견·댓글 중 비속어가 없는 글을 랜덤으로 넣는다. 랜덤은 클래스마다 고정이라 새로고침해도 바뀌지 않는다.
+  - 그래도 글이 없으면 null이다 (글이 1개뿐이면 `mostDebatedComment`만 null).
+  - AI 인사이트 상태(마감 전 포함)와 상관없이 현재 좋아요·댓글 수로 채운다.
+- `LIMITED`면 `insightText`가 "판단의 이유를 살펴볼 글이 아직 충분하지 않아요"이고 `evidence`가 빈 배열이다. 다음 경우에 `LIMITED`가 된다.
+  - 의견 작성자가 3명 미만이다.
+  - 이유를 읽을 수 있는 글을 쓴 사람이 3명 미만이다. "ㅋㅋㅋ", "몰라요 그냥요", "asdfasdf", 같은 글자·숫자 반복처럼 이유가 없는 글은 세지 않는다.
+  - AI가 무관한 글, 의미 없는 입력, 조롱 글을 빼고 나니 작성자가 3명 미만이다.
+- `evidence`와 `highlights`에는 비속어가 든 글, 이유가 없는 글, AI가 부적절하다고 판단한 글(무관한 글, 실명을 부르거나 조롱하는 글)을 넣지 않는다.
+  - `highlights`가 2건보다 적으면 최신 공개 의견으로 채운다. 이때도 같은 기준으로 거른다.
+  - 그래서 `LIMITED`여도 `highlights`가 비어 있지 않을 수 있다.
+  - 그래도 2건보다 적으면 클래스의 공개 의견·댓글 중 비속어가 없는 글을 랜덤으로 채운다 (#673). AI 인사이트 생성 전(마감 전 포함)에도 채운다.
+- 인사이트는 `gpt-5.4-mini`로 만든다. 서버 환경변수 `OPENAI_INSIGHT_MODEL`로 바꿀 수 있다. 개인 리포트는 기존 모델을 그대로 쓴다.
 - 생성에 실패하면 `FAILED`이고 `retryable`이 true다.
 - 운영자가 아니면 403 `CLASS_403_OWNER`다.
 
@@ -1269,7 +1307,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
         "ticketId": 3, "fundingOrderId": 1, "orderId": "T-0001",
         "supporterName": "홍길동", "supporterEmail": "...", "supporterPhone": "...",
         "capacity": 30, "registerBy": "2027-09-01T00:00:00",
-        "code": "XXXXXX-XXXXX-XXXXX-XXXXX-XXXXX"
+        "code": "PKE05D2E1"
       }
     ],
     "skipped": [ { "fundingOrderId": 2, "orderId": "T-0002", "reason": "ALREADY_ISSUED" } ]
@@ -1514,6 +1552,7 @@ PRD "등록기한 30일·7일 전 알림은 허용된 연락 수단에서만 발
 | 코드 | HTTP | 메시지 |
 |---|---|---|
 | `TICKET_404_CODE` | 404 | 유효하지 않은 이용권 코드입니다. |
+| `TICKET_429_LOCKED` | 429 | 이용권 코드를 5번 잘못 입력해 1시간 동안 입력할 수 없어요. 잠시 후 다시 시도해 주세요. |
 | `TICKET_404` | 404 | 등록된 이용권이 없습니다. |
 | `TICKET_409_CLAIMED` | 409 | 이미 등록된 이용권 코드입니다. |
 | `TICKET_409_REVOKED` | 409 | 재발급되어 더 이상 사용할 수 없는 이용권 코드입니다. |

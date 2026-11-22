@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.classroom.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -15,10 +16,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.enums.BattleCategory;
+import com.swyp.picke.domain.tag.enums.TagType;
 import com.swyp.picke.domain.battle.enums.BattleCreatorType;
 import com.swyp.picke.domain.battle.enums.BattleDifficulty;
 import com.swyp.picke.domain.battle.enums.BattleStatus;
 import com.swyp.picke.domain.battle.repository.BattleOptionRepository;
+import com.swyp.picke.domain.battle.repository.BattleTagRepository;
 import com.swyp.picke.domain.battle.repository.BattleRepository;
 import com.swyp.picke.domain.classroom.repository.AiJobRepository;
 import com.swyp.picke.domain.classroom.repository.ClassMemberRepository;
@@ -87,6 +90,7 @@ class ClassCustomBattleApiIntegrationTest {
     @Autowired private ClassMemberRepository classMemberRepository;
     @Autowired private BattleRepository battleRepository;
     @Autowired private BattleOptionRepository battleOptionRepository;
+    @Autowired private BattleTagRepository battleTagRepository;
     @Autowired private BattleVoteRepository battleVoteRepository;
     @Autowired private UserBattleRepository userBattleRepository;
 
@@ -122,6 +126,8 @@ class ClassCustomBattleApiIntegrationTest {
         versionRepository.deleteAll();
         draftRepository.deleteAll();
         aiJobRepository.deleteAll();
+        battleTagRepository.deleteAll(battleTagRepository.findAll().stream()
+                .filter(t -> customBattleIds.contains(t.getBattle().getId())).toList());
         battleOptionRepository.deleteAll(battleOptionRepository.findAll().stream()
                 .filter(o -> customBattleIds.contains(o.getBattle().getId())).toList());
         battleRepository.deleteAllById(customBattleIds);
@@ -157,6 +163,10 @@ class ClassCustomBattleApiIntegrationTest {
         assertThat(options).extracting(BattleOption::getRepresentative).containsExactly("플라톤", "아리스토텔레스");
         assertThat(options).extracting(BattleOption::getImageUrl)
                 .containsExactly("images/philosophers/plato.png", "images/philosophers/aristotle.png");
+
+        // 주제 카테고리가 카테고리 태그로 붙는다 (#철학)
+        assertThat(battleTagRepository.findByBattleIdIn(List.of(battle.getId()))).extracting(t -> t.getTag().getName(), t -> t.getTag().getType())
+                .containsExactly(tuple("철학", TagType.CATEGORY));
 
         // 앱 일반 상세·목록, 어드민 목록에 나오지 않는다
         mockMvc.perform(get("/api/v1/battles/" + battle.getId()).header("Authorization", "Bearer " + ownerToken))
@@ -196,7 +206,8 @@ class ClassCustomBattleApiIntegrationTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("CLASS_409_TTS"));
         mockMvc.perform(get("/api/v1/classes/" + classId + "/battle").header("Authorization", "Bearer " + member))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.battle.categoryTags[0].name").value("철학"));
     }
 
     @Test

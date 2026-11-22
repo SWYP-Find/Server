@@ -10,31 +10,31 @@ import org.junit.jupiter.api.Test;
 class TicketCodeGeneratorTest {
 
     @Test
-    @DisplayName("26자 Crockford Base32 (혼동 문자 I/L/O/U 없음) 로 생성된다")
-    void generatesCrockfordBase32() {
+    @DisplayName("PKE + 16진수 대문자 6자리(예: PKE05D2E1)로 생성된다")
+    void generatesPkePlusSixHex() {
         for (int i = 0; i < 200; i++) {
             String raw = TicketCodeGenerator.generate();
-            assertThat(raw).hasSize(26).matches("[0-9A-HJKMNP-TV-Z]{26}");
+            assertThat(raw).hasSize(TicketCodeGenerator.CODE_LENGTH).matches("PKE[0-9A-F]{6}");
         }
     }
 
     @Test
-    @DisplayName("표시 형식은 6-5-5-5-5 이고, 정규화하면 원문과 같아 해시가 일치한다")
+    @DisplayName("표시 형식은 원문 그대로이고, 소문자·공백·하이픈을 섞어 입력해도 정규화하면 같은 해시가 된다")
     void formatIsReversibleThroughNormalize() {
         String raw = TicketCodeGenerator.generate();
-        String shown = TicketCodeGenerator.format(raw);
 
-        assertThat(shown).matches("[0-9A-Z]{6}-[0-9A-Z]{5}-[0-9A-Z]{5}-[0-9A-Z]{5}-[0-9A-Z]{5}");
-        assertThat(TicketCodeHasher.normalize(shown)).isEqualTo(raw);
-        assertThat(TicketCodeHasher.hash(shown.toLowerCase())).isEqualTo(TicketCodeHasher.hash(raw));
+        assertThat(TicketCodeGenerator.format(raw)).isEqualTo(raw);
+        assertThat(TicketCodeHasher.normalize(" pke-" + raw.substring(3).toLowerCase() + " ")).isEqualTo(raw);
+        assertThat(TicketCodeHasher.hash(raw.toLowerCase())).isEqualTo(TicketCodeHasher.hash(raw));
     }
 
     @Test
-    @DisplayName("연속 생성 시 중복이 없다")
-    void noDuplicates() {
-        Set<String> seen = new HashSet<>();
-        for (int i = 0; i < 5000; i++) {
-            assertThat(seen.add(TicketCodeGenerator.generate())).isTrue();
+    @DisplayName("무작위 6자리가 고르게 나온다 (한 글자 위치에 16가지가 모두 나온다)")
+    void randomPartUsesAllHexDigits() {
+        Set<Character> seen = new HashSet<>();
+        for (int i = 0; i < 2000; i++) {
+            seen.add(TicketCodeGenerator.generate().charAt(3));
         }
+        assertThat(seen).hasSize(16);
     }
 }

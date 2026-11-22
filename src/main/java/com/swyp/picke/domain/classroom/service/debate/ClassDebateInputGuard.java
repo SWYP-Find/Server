@@ -45,19 +45,25 @@ public class ClassDebateInputGuard {
     private final ClassDebateInputClassifier classifier;
 
     /**
-     * 차단·반려 대상이면 CustomException. 접수할 반박이면 입력 분류 결과를 돌려준다.
-     * 분류하지 못했거나(장애·맥락 없음) 길이 규칙을 벗어나 저장 단계에서 400 이 날 반박이면 null.
+     * 검사 결과. classification 은 분류하지 못했거나(장애·맥락 없음) 길이 규칙을 벗어나 저장 단계에서 400 이 날 반박이면 null.
+     * rejection 은 분류 결과로 반려할 때의 에러 코드다. 분류 비용을 기록한 뒤 호출하는 쪽이 던진다 (반려돼도 호출 비용은 들었다)
+     */
+    public record Verdict(ClassDebateInputClassifier.Result classification, ErrorCode rejection) {
+    }
+
+    /**
+     * 규칙(개인정보·무의미)·Moderation 차단이면 CustomException. 그 밖에는 분류 결과와 반려 여부를 돌려준다.
      *
      * @param context 분류 맥락. 반박을 받을 수 없는 상태라 저장 단계에서 거절될 요청이면 null 이고 분류하지 않는다
      */
-    public ClassDebateInputClassifier.Result check(String rawContent, ClassDebateInputClassifier.Context context) {
+    public Verdict check(String rawContent, ClassDebateInputClassifier.Context context) {
         String content = rawContent == null ? "" : rawContent.strip();
         if (PersonalInfoDetector.contains(content)) {
             throw new CustomException(ErrorCode.CLASS_DEBATE_REPLY_PERSONAL_INFO);
         }
         int length = content.codePointCount(0, content.length());
         if (length < ClassDebateSessionService.REPLY_MIN_LENGTH || length > ClassDebateSessionService.REPLY_MAX_LENGTH) {
-            return null;
+            return new Verdict(null, null);
         }
         if (MeaninglessInputDetector.isMeaningless(content)) {
             log.info("[ClassDebate] reply rejected reason=MEANINGLESS source=rule");
@@ -80,17 +86,17 @@ public class ClassDebateInputGuard {
         }
         ClassDebateInputClassifier.Result result = await(classification, "classification");
         if (result == null) {
-            return null;
+            return new Verdict(null, null);
         }
         if (result.isInjection()) {
             log.info("[ClassDebate] reply rejected reason=INJECTION types={} prompt={}", result.typesValue(), ClassDebateInputClassifier.PROMPT_VERSION);
-            throw new CustomException(ErrorCode.CLASS_DEBATE_REPLY_INJECTION);
+            return new Verdict(result, ErrorCode.CLASS_DEBATE_REPLY_INJECTION);
         }
         if (result.isMeaningless()) {
             log.info("[ClassDebate] reply rejected reason=MEANINGLESS source=ai types={} prompt={}", result.typesValue(), ClassDebateInputClassifier.PROMPT_VERSION);
-            throw new CustomException(ErrorCode.CLASS_DEBATE_REPLY_MEANINGLESS);
+            return new Verdict(result, ErrorCode.CLASS_DEBATE_REPLY_MEANINGLESS);
         }
-        return result;
+        return new Verdict(result, null);
     }
 
     private static <T> T await(CompletableFuture<T> future, String name) {

@@ -21,6 +21,9 @@ import com.swyp.picke.domain.classroom.service.ClassAccessService.ClassAccess;
 import com.swyp.picke.domain.classroom.service.report.ClassReportSnapshotService;
 import com.swyp.picke.domain.classroom.service.report.ClassResultStats;
 import com.swyp.picke.domain.classroom.service.report.ClassResultStatsCalculator;
+import com.swyp.picke.domain.classroom.service.report.ClassReportContentValidator;
+import com.swyp.picke.domain.classroom.service.report.InsightPostRules;
+import com.swyp.picke.domain.classroom.service.report.ReportProfanityMasker;
 import com.swyp.picke.domain.classroom.service.report.MemberFeedbackInput;
 import com.swyp.picke.domain.classroom.service.report.ReportContent;
 import com.swyp.picke.domain.perspective.entity.Perspective;
@@ -38,9 +41,12 @@ import com.swyp.picke.global.common.util.CursorParser;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Random;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -260,6 +266,7 @@ public class ClassResultServiceImpl implements ClassResultService {
             case SUCCEEDED -> ClassReportViewState.SUCCEEDED;
             case LIMITED -> ClassReportViewState.LIMITED;
             case FAILED -> ClassReportViewState.FAILED;
+            case CANCELED -> ClassReportViewState.NOT_ELIGIBLE;
         };
     }
 
@@ -279,7 +286,13 @@ public class ClassResultServiceImpl implements ClassResultService {
         boolean retryable = summary != null && isRetryable(summary);
         if (summary == null || !summary.isDone()) {
             String text = state == ClassReportViewState.FAILED ? INSIGHT_FAILED_TEXT : null;
-            return new ClassInsightResponse(classId, state, retryable, cutoffAt, null, text, null, 0, List.of(), List.of());
+            List<ClassInsightResponse.PublicPost> highlights = new ArrayList<>();
+            backfillHighlights(highlights, classId);
+            List<ClassInsightResponse.PublicPost> pool = randomPool(classId);
+            fillRandom(highlights, pool);
+            KeyOpinions key = keyOpinions(classId, pool);
+            return new ClassInsightResponse(classId, state, retryable, cutoffAt, null, text, null, 0, List.of(), highlights,
+                    key.best(), key.mostDebated());
         }
         Map<String, Object> insight = ReportContent.map(summary.getContent(), ClassReportSnapshotService.KEY_INSIGHT);
         List<ClassInsightResponse.PublicPost> evidence = new ArrayList<>();
@@ -297,15 +310,90 @@ public class ClassResultServiceImpl implements ClassResultService {
             }
         }
         backfillHighlights(highlights, classId);
+        List<ClassInsightResponse.PublicPost> pool = randomPool(classId);
+        fillRandom(highlights, pool);
+        KeyOpinions key = keyOpinions(classId, pool);
         return new ClassInsightResponse(
                 classId, state, retryable, cutoffAt, summary.getGeneratedAt(),
-                ReportContent.str(insight, "insight_text"),
+                // 예전 문구로 저장된 LIMITED 인사이트도 현재 문구로 내려준다 (#661)
+                state == ClassReportViewState.LIMITED ? ClassReportContentValidator.INSIGHT_LIMITED_TEXT
+                        : ReportContent.str(insight, "insight_text"),
                 ReportContent.str(insight, "coverage"),
                 ReportContent.asInt(insight, "excluded_count"),
-                evidence, highlights);
+                evidence, highlights, key.best(), key.mostDebated());
     }
 
-    /** 하이라이트가 2건 미만이면 최신 공개 의견으로 채운다 (AI 호출 없음) */
+    private record KeyOpinions(String best, String mostDebated) {
+    }
+
+    /**
+     * 주요 의견 (#673). AI 와 상관없이 공개 의견의 좋아요·댓글 수로 고른다.
+     * BEST = 좋아요 최다, 가장 논쟁이 활발했던 댓글 = BEST 를 뺀 나머지 중 댓글 최다. 같으면 먼저 쓴 글.
+     * 비속어·이유 없는 글은 고르지 않는다 (근거·대표 의견과 같은 기준, #657).
+     */
+    private KeyOpinions keyOpinions(Long classId, List<ClassInsightResponse.PublicPost> pool) {
+        List<Perspective> candidates = perspectiveRepository
+                .findByClassroomIdAndStatusOrderByCreatedAtAsc(classId, PerspectiveStatus.PUBLISHED).stream()
+                .filter(p -> InsightPostRules.isSelectable(p.getContent()))
+                .toList();
+        // 생성 순으로 정렬돼 있어 stable sort 로 동점이면 먼저 쓴 글이 앞에 온다
+        Perspective best = candidates.stream()
+                .sorted(Comparator.comparingInt(Perspective::getLikeCount).reversed())
+                .findFirst().orElse(null);
+        Perspective debated = candidates.stream()
+                .filter(p -> p != best)
+                .sorted(Comparator.comparingInt(Perspective::getCommentCount).reversed())
+                .findFirst().orElse(null);
+        String bestText = best == null ? null : best.getContent();
+        String debatedText = debated == null ? null : debated.getContent();
+        // 기준에 맞는 글이 모자라면 랜덤 글로 채운다 (#673)
+        for (ClassInsightResponse.PublicPost post : pool) {
+            if (bestText != null && debatedText != null) {
+                break;
+            }
+            if (post.content().equals(bestText) || post.content().equals(debatedText)) {
+                continue;
+            }
+            if (bestText == null) {
+                bestText = post.content();
+            } else {
+                debatedText = post.content();
+            }
+        }
+        return new KeyOpinions(bestText, debatedText);
+    }
+
+    /**
+     * 비어 있는 대표 의견·주요 의견을 채울 랜덤 후보 (#673). 클래스의 공개 의견과 숨기지 않은 댓글 중 비속어가 없는 글.
+     * 새로고침할 때마다 바뀌지 않도록 클래스 ID 로 섞는다.
+     */
+    private List<ClassInsightResponse.PublicPost> randomPool(Long classId) {
+        List<ClassInsightResponse.PublicPost> pool = new ArrayList<>();
+        perspectiveRepository.findByClassroomIdAndStatusOrderByCreatedAtAsc(classId, PerspectiveStatus.PUBLISHED)
+                .forEach(p -> pool.add(toPublic(p)));
+        perspectiveCommentRepository.findByClassroomIdAndHiddenFalseOrderByCreatedAtAsc(classId)
+                .forEach(c -> pool.add(toPublic(c)));
+        pool.removeIf(post -> post.content() == null || post.content().isBlank()
+                || ReportProfanityMasker.mask(post.content()).contains(ReportProfanityMasker.MASK));
+        Collections.shuffle(pool, new Random(classId));
+        return pool;
+    }
+
+    /** 대표 의견이 2건보다 적으면 랜덤 후보로 채운다 (#673) */
+    private static void fillRandom(List<ClassInsightResponse.PublicPost> highlights, List<ClassInsightResponse.PublicPost> pool) {
+        for (ClassInsightResponse.PublicPost post : pool) {
+            if (highlights.size() >= HIGHLIGHT_MAX) {
+                return;
+            }
+            boolean exists = highlights.stream().anyMatch(h ->
+                    Objects.equals(h.sourceType(), post.sourceType()) && Objects.equals(h.id(), post.id()));
+            if (!exists) {
+                highlights.add(post);
+            }
+        }
+    }
+
+    /** 하이라이트가 2건 미만이면 최신 공개 의견으로 채운다 (AI 호출 없음). 비속어·이유 없는 글은 고르지 않는다 (#657) */
     private void backfillHighlights(List<ClassInsightResponse.PublicPost> highlights, Long classId) {
         if (highlights.size() >= HIGHLIGHT_MAX) {
             return;
@@ -313,6 +401,9 @@ public class ClassResultServiceImpl implements ClassResultService {
         List<Perspective> recent = perspectiveRepository.findByClassroomIdAndStatusOrderByCreatedAtAsc(classId, PerspectiveStatus.PUBLISHED);
         for (int i = recent.size() - 1; i >= 0 && highlights.size() < HIGHLIGHT_MAX; i--) {
             Perspective p = recent.get(i);
+            if (!InsightPostRules.isSelectable(p.getContent())) {
+                continue;
+            }
             boolean exists = highlights.stream().anyMatch(h ->
                     MemberFeedbackInput.SOURCE_PERSPECTIVE.equals(h.sourceType()) && Objects.equals(h.id(), p.getId()));
             if (!exists) {
@@ -337,6 +428,10 @@ public class ClassResultServiceImpl implements ClassResultService {
         if (c == null || c.isHidden() || !inClass(c.getClassroom(), classId)) {
             return null;
         }
+        return toPublic(c);
+    }
+
+    private static ClassInsightResponse.PublicPost toPublic(PerspectiveComment c) {
         BattleOption option = c.getPerspective() == null ? null : c.getPerspective().getOption();
         return new ClassInsightResponse.PublicPost(MemberFeedbackInput.SOURCE_COMMENT, c.getId(),
                 option == null ? null : option.getId(), option == null ? null : option.getStance(), c.getContent(), c.getCreatedAt());

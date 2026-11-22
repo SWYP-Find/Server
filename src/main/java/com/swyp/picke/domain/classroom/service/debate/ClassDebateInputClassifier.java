@@ -51,8 +51,8 @@ public class ClassDebateInputClassifier {
 
     private final ClassReportAiClient aiClient;
 
-    /** 분류에 쓰는 대화 맥락. 직전 AI 주장이 없으면 null */
-    public record Context(String question, String participantLabel, String lastArgument) {
+    /** 분류에 쓰는 대화 맥락. sessionId 는 비용 기록용이고 프롬프트에는 넣지 않는다. 직전 AI 주장이 없으면 null */
+    public record Context(Long sessionId, String question, String participantLabel, String lastArgument) {
     }
 
     /**

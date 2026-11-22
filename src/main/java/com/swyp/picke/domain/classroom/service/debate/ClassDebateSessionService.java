@@ -17,10 +17,12 @@ import com.swyp.picke.domain.classroom.enums.ClassBattleType;
 import com.swyp.picke.domain.classroom.enums.ClassDebateResponseType;
 import com.swyp.picke.domain.classroom.enums.ClassDebateSpeaker;
 import com.swyp.picke.domain.classroom.enums.ClassDebateStatus;
+import com.swyp.picke.domain.classroom.enums.ClassStatus;
 import com.swyp.picke.domain.classroom.repository.AiJobRepository;
 import com.swyp.picke.domain.classroom.repository.ClassDebateMessageRepository;
 import com.swyp.picke.domain.classroom.repository.ClassDebateSessionRepository;
 import com.swyp.picke.domain.classroom.service.ClassAccessService;
+import com.swyp.picke.domain.classroom.service.ClassImageUrlResolver;
 import com.swyp.picke.domain.classroom.service.ClassAccessService.ClassAccess;
 import com.swyp.picke.domain.classroom.service.topic.AiUsage;
 import com.swyp.picke.domain.user.entity.User;
@@ -65,6 +67,7 @@ public class ClassDebateSessionService {
     private final UserRepository userRepository;
     private final UserBattleService userBattleService;
     private final AiJobRepository aiJobRepository;
+    private final ClassImageUrlResolver imageUrls;
 
     /** AI 주장 1건을 만들 준비가 된 상태 */
     public record PreparedTurn(Long sessionId, Long jobId, int round, DebatePromptInput input) {
@@ -181,8 +184,32 @@ public class ClassDebateSessionService {
         String lastArgument = messageRepository.findBySessionIdAndRoundIndexAndSpeaker(session.getId(), roundIndex, ClassDebateSpeaker.AI)
                 .map(ClassDebateMessage::getContent)
                 .orElse(null);
-        return new ClassDebateInputClassifier.Context(session.getClassroom().getBattle().getTitle(),
+        return new ClassDebateInputClassifier.Context(session.getId(), session.getClassroom().getBattle().getTitle(),
                 session.getParticipantOption().getTitle(), lastArgument);
+    }
+
+    /**
+     * 입력 분류 호출 비용 기록 (PRD §21). 반려된 반박도 기록하고 원문은 남기지 않는다.
+     * 같은 반박 재전송(같은 requestKey)은 같은 행을 재사용하고 attempt 만 올린다.
+     */
+    @Transactional
+    public void recordClassification(Long sessionId, int round, String requestKey, ClassDebateInputClassifier.Result classification,
+                                     String model, LocalDateTime now) {
+        ClassDebateSession session = sessionRepository.findById(sessionId).orElse(null);
+        if (session == null) {
+            return;
+        }
+        String key = AiJobType.DEBATE_INPUT_CLASSIFY.name() + ":" + sessionId + ":" + round + ":" + requestKey;
+        AiJob job = aiJobRepository.findByIdempotencyKey(key)
+                .orElseGet(() -> aiJobRepository.save(AiJob.builder()
+                        .type(AiJobType.DEBATE_INPUT_CLASSIFY)
+                        .idempotencyKey(key)
+                        .ticket(session.getClassroom().getTicket())
+                        .classroom(session.getClassroom())
+                        .member(session.getMember())
+                        .build()));
+        job.start(model, now);
+        job.succeed(classification.inputTokens(), classification.outputTokens(), now);
     }
 
     // ---------- 재시도 ----------
@@ -211,6 +238,12 @@ public class ClassDebateSessionService {
         AiJob job = aiJobRepository.findById(turn.jobId()).orElseThrow();
         if (job.getStatus() != AiJobStatus.RUNNING
                 || session.getStatus() != ClassDebateStatus.GENERATING || session.getRound() != turn.round()) {
+            return;
+        }
+        if (session.getClassroom().getStatus() == ClassStatus.DELETED) {
+            // 생성 중에 클래스가 삭제됐다. AI 호출 자체는 끝났으니 작업은 성공으로 두어 토큰 비용을 남기고, 주장은 게시하지 않는다 (PRD F16)
+            addExtraAttempts(job, usage);
+            job.succeed(usage.inputTokens(), usage.outputTokens(), now);
             return;
         }
         if (messageRepository.findBySessionIdAndRoundIndexAndSpeaker(session.getId(), turn.round(), ClassDebateSpeaker.AI).isEmpty()) {
@@ -268,7 +301,8 @@ public class ClassDebateSessionService {
                 session.getRound(),
                 writable && session.getStatus() == ClassDebateStatus.WAITING_USER,
                 writable && session.isRetryable(now.minusMinutes(GENERATING_STALE_MINUTES)),
-                new ClassDebateResponse.Philosopher(philosopher, philosopher.getLabel(), philosopher.getTypeName(), philosopher.getImageKey()),
+                new ClassDebateResponse.Philosopher(philosopher, philosopher.getLabel(), philosopher.getTypeName(), philosopher.getImageKey(),
+                        imageUrls.philosopher(philosopher)),
                 side(session.getParticipantOption()),
                 side(session.getOpponentOption()),
                 messages.stream().map(m -> new ClassDebateResponse.Message(

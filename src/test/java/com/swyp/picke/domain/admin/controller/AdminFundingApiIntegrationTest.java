@@ -55,7 +55,7 @@ class AdminFundingApiIntegrationTest {
 
     private static final String HEADER =
             "platform,campaign_id,order_id,reward_tier,quantity,supporter_name,supporter_email,supporter_phone,payment_status,paid_at\n";
-    private static final String CODE_PATTERN = "[0-9A-Z]{6}-[0-9A-Z]{5}-[0-9A-Z]{5}-[0-9A-Z]{5}-[0-9A-Z]{5}";
+    private static final String CODE_PATTERN = "PKE[0-9A-F]{6}";
 
     @Autowired
     private MockMvc mockMvc;

@@ -11,7 +11,8 @@ public record ClassJoinPreviewResponse(
         @Schema(description = "배틀 제목") String battleTitle,
         @Schema(description = "배틀 썸네일") String battleThumbnailUrl,
         @Schema(description = "배틀 종류 (TTS / CUSTOM)") ClassBattleType battleType,
-        @Schema(description = "좌석을 차지한 인원") long memberCount,
+        @Schema(description = "사용 좌석 수 (활동 후 나간 멤버 포함). 남은 자리 = capacity - memberCount") long memberCount,
+        @Schema(description = "현재 명단 인원 (참여하는 운영자 포함)") long activeMemberCount,
         @Schema(description = "정원") int capacity,
         @Schema(description = "실제 마감 시각 = min(마감일, 이용권 종료일)") LocalDateTime closeAt
 ) {

@@ -3,40 +3,34 @@ package com.swyp.picke.domain.ticket.util;
 import java.security.SecureRandom;
 
 /**
- * 이용권 코드 생성. SecureRandom 130bit → Crockford Base32 26자 (0/O, 1/I/L 혼동 문자 제외).
- * 표시 형식은 {@code XXXXXX-XXXXX-XXXXX-XXXXX-XXXXX} (6-5-5-5-5). 하이픈·소문자는 {@link TicketCodeHasher#normalize} 가 흡수한다.
- * 원문은 관리자 발급/조회 응답으로만 노출하고 서버 로그에는 남기지 않는다. DB에는 별도 키로 암호화해 보관한다.
+ * 이용권 코드 생성. 형식은 {@code PKE} + 16진수 대문자 6자리 (예: {@code PKE05D2E1}, 기획 결정 2026-11-19).
+ * <p>무작위 부분이 24비트(약 1,678만 가지)라 추측 공격에 약하므로, 코드 확인·등록은
+ * {@link com.swyp.picke.domain.ticket.service.TicketCodeAttemptGuard} 로 계정별 실패 횟수를 제한한다.</p>
+ * <p>공백·하이픈·소문자는 {@link TicketCodeHasher#normalize} 가 흡수한다. 원문은 관리자 발급/조회 응답으로만 노출하고
+ * 서버 로그에는 남기지 않는다. DB에는 별도 키로 암호화해 보관한다.</p>
  */
 public final class TicketCodeGenerator {
 
-    public static final int CODE_LENGTH = 26;
-    private static final String ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-    private static final int[] GROUPS = {6, 5, 5, 5, 5};
+    public static final String PREFIX = "PKE";
+    public static final int RANDOM_LENGTH = 6;
+    public static final int CODE_LENGTH = PREFIX.length() + RANDOM_LENGTH;
+    private static final String HEX = "0123456789ABCDEF";
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private TicketCodeGenerator() {
     }
 
-    /** 하이픈 없는 26자 원문 (해시 입력·정규화 기준과 동일) */
+    /** 정규화 기준과 같은 원문 (해시 입력) */
     public static String generate() {
-        StringBuilder sb = new StringBuilder(CODE_LENGTH);
-        for (int i = 0; i < CODE_LENGTH; i++) {
-            sb.append(ALPHABET.charAt(RANDOM.nextInt(ALPHABET.length())));
+        StringBuilder sb = new StringBuilder(CODE_LENGTH).append(PREFIX);
+        for (int i = 0; i < RANDOM_LENGTH; i++) {
+            sb.append(HEX.charAt(RANDOM.nextInt(HEX.length())));
         }
         return sb.toString();
     }
 
-    /** 사람이 받아 적기 쉬운 표시 형식 */
+    /** 사람에게 보여주는 형식. 새 형식은 원문 그대로다 */
     public static String format(String rawCode) {
-        StringBuilder sb = new StringBuilder(CODE_LENGTH + GROUPS.length - 1);
-        int pos = 0;
-        for (int i = 0; i < GROUPS.length; i++) {
-            if (i > 0) {
-                sb.append('-');
-            }
-            sb.append(rawCode, pos, pos + GROUPS[i]);
-            pos += GROUPS[i];
-        }
-        return sb.toString();
+        return rawCode;
     }
 }

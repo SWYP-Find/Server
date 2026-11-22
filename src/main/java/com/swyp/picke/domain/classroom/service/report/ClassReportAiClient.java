@@ -40,6 +40,10 @@ public class ClassReportAiClient {
     @Value("${openai.debate.model:gpt-5.4-mini}")
     private String debateModel;
 
+    /** 클래스 인사이트만 쓰는 모델. 클래스당 1번이라 비용 부담이 작고, 부적절한 글 제외·요약 품질 차이가 커서 따로 둔다 (#657) */
+    @Value("${openai.insight.model:gpt-5.4-mini}")
+    private String insightModel;
+
     /** 파싱된 JSON 본문과 토큰 사용량 */
     public record AiChatResult(Map<String, Object> json, String rawContent, Integer inputTokens, Integer outputTokens) {
     }
@@ -50,6 +54,10 @@ public class ClassReportAiClient {
 
     public String getDebateModel() {
         return debateModel;
+    }
+
+    public String getInsightModel() {
+        return insightModel;
     }
 
     public AiChatResult chatJson(String systemPrompt, String userPrompt, int maxOutputTokens) {

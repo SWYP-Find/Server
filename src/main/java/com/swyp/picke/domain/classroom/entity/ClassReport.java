@@ -1,6 +1,7 @@
 package com.swyp.picke.domain.classroom.entity;
 
 import com.swyp.picke.domain.classroom.enums.ClassReportStatus;
+import com.swyp.picke.domain.classroom.enums.ClassStatus;
 import com.swyp.picke.domain.classroom.enums.ClassReportType;
 import com.swyp.picke.global.common.BaseEntity;
 import jakarta.persistence.Column;
@@ -91,6 +92,16 @@ public class ClassReport extends BaseEntity {
 
     public void fail() {
         this.status = ClassReportStatus.FAILED;
+    }
+
+    /** 클래스 삭제·멤버 나가기로 볼 사람이 없어 생성하지 않거나 결과를 게시하지 않는다 (PRD F16·§18) */
+    public void cancel() {
+        this.status = ClassReportStatus.CANCELED;
+    }
+
+    /** 클래스가 삭제됐거나 개인 리포트 대상 멤버가 더 이상 참여 중이 아니면 true */
+    public boolean isObsolete() {
+        return classroom.getStatus() == ClassStatus.DELETED || (member != null && !member.isActive());
     }
 
     /** 마감 스냅샷(정량 통계) 저장. 아직 AI 결과는 없으므로 상태는 PENDING 그대로 (PRD §14 "같은 종료 스냅샷") */

@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +43,8 @@ public class ClassReportContentValidator {
     /** 분석 불가 사유 (엣지 케이스 PRD 3.3). content.limited_reason 에 저장한다 */
     public static final String LIMITED_NO_POST = "NO_POST";
     public static final String LIMITED_INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE";
+    /** 클래스 인사이트 의견 부족(LIMITED) 문구. 명세 8장 리포트 상태 표 기준 (#661) */
+    public static final String INSIGHT_LIMITED_TEXT = "판단의 이유를 살펴볼 글이 아직 충분하지 않아요";
 
     public Map<String, Object> validateMemberFeedback(Map<String, Object> json, MemberFeedbackInput input) {
         if ("INSUFFICIENT".equalsIgnoreCase(ReportContent.str(json, "analysis_status"))) {
@@ -127,12 +130,31 @@ public class ClassReportContentValidator {
     }
 
     public Map<String, Object> validateClassInsight(Map<String, Object> json, ClassInsightInput input) {
+        if ("INSUFFICIENT".equalsIgnoreCase(ReportContent.str(json, "analysis_status"))) {
+            return limitedClassInsight(input); // 모든 글이 의미 없는 입력이라 요약하지 않음 (#657)
+        }
         String insightText = requireText(json, "insight_text", INSIGHT_TEXT_MAX);
+        // AI 가 스스로 부적절하다고 표시한 글은 근거·대표 의견에서 뺀다 (#657)
+        Set<String> excluded = new HashSet<>();
+        for (String id : ReportContent.stringList(json, "excluded_ids")) {
+            excluded.add(id.trim());
+        }
 
+        // AI 제외와 서버 기준을 모두 거친 글의 작성자가 3명 미만이면, AI 요약은 믿지 않고 의견 부족 템플릿으로 바꾼다.
+        // 의미 없는 글만 있는 반에서 AI 가 없는 주장을 지어내는 경우를 막는다 (#657, PRD §14 작성자 3명 기준)
+        long usableAuthors = input.posts().stream()
+                .filter(post -> !excluded.contains(post.sourceId()) && InsightPostRules.isSelectable(post.content()))
+                .map(ClassInsightInput.PublicPost::authorNo)
+                .distinct()
+                .count();
+        if (usableAuthors < ClassReportSnapshotService.INSIGHT_MIN_AUTHORS) {
+            log.info("[ClassReport] insight limited usable_authors={}", usableAuthors);
+            return limitedClassInsight(input);
+        }
         List<String> evidenceIds = new ArrayList<>();
         for (String id : ReportContent.stringList(json, "evidence_ids")) {
             String trimmed = id.trim();
-            if (input.findPost(trimmed) != null && !evidenceIds.contains(trimmed) && evidenceIds.size() < INSIGHT_EVIDENCE_MAX) {
+            if (!excluded.contains(trimmed) && selectable(input, trimmed) && !evidenceIds.contains(trimmed) && evidenceIds.size() < INSIGHT_EVIDENCE_MAX) {
                 evidenceIds.add(trimmed);
             }
         }
@@ -142,7 +164,7 @@ public class ClassReportContentValidator {
         List<String> highlightIds = new ArrayList<>();
         for (String id : ReportContent.stringList(json, "highlight_ids")) {
             String trimmed = id.trim();
-            if (input.findPost(trimmed) != null && !highlightIds.contains(trimmed) && highlightIds.size() < INSIGHT_HIGHLIGHT_MAX) {
+            if (!excluded.contains(trimmed) && selectable(input, trimmed) && !highlightIds.contains(trimmed) && highlightIds.size() < INSIGHT_HIGHLIGHT_MAX) {
                 highlightIds.add(trimmed);
             }
         }
@@ -155,6 +177,19 @@ public class ClassReportContentValidator {
         insight.put("coverage", input.coverage());
         insight.put("excluded_count", input.excludedCount());
         return insight;
+    }
+
+    /** 입력에 있는 글이면서 운영자 화면에 근거·대표 의견으로 보여줄 수 있는 글인지 (비속어·이유 없는 글 제외, #657) */
+    private static boolean selectable(ClassInsightInput input, String sourceId) {
+        ClassInsightInput.PublicPost post = input.findPost(sourceId);
+        if (post == null) {
+            return false;
+        }
+        if (!InsightPostRules.isSelectable(post.content())) {
+            log.warn("[ClassReport] insight post dropped source_id={} reason=NOT_SELECTABLE", sourceId);
+            return false;
+        }
+        return true;
     }
 
     // ===== 템플릿 (AI 호출 없음) =====
@@ -232,10 +267,18 @@ public class ClassReportContentValidator {
         return list;
     }
 
+    /** AI 가 요약할 글이 없다고 판단했을 때의 템플릿. 입력 범위는 그대로 기록한다 */
+    static Map<String, Object> limitedClassInsight(ClassInsightInput input) {
+        Map<String, Object> insight = limitedClassInsight();
+        insight.put("coverage", input.coverage());
+        insight.put("excluded_count", input.excludedCount());
+        return insight;
+    }
+
     /** 유효 공개 글 작성자 3명 미만일 때의 템플릿 (PRD §14 개인정보와 소수 의견) */
     public static Map<String, Object> limitedClassInsight() {
         Map<String, Object> insight = new LinkedHashMap<>();
-        insight.put("insight_text", "아직 요약할 의견이 충분하지 않아요");
+        insight.put("insight_text", INSIGHT_LIMITED_TEXT);
         insight.put("evidence_ids", List.of());
         insight.put("highlight_ids", List.of());
         insight.put("analysis_status", "LIMITED");

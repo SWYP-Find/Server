@@ -25,7 +25,8 @@ public record ClassDebateResponse(
         @Schema(description = "반박 최대 글자 수") int replyMaxLength
 ) {
 
-    public record Philosopher(PhilosopherType code, String name, String typeName, String imageKey) {
+    public record Philosopher(PhilosopherType code, String name, String typeName, String imageKey,
+                              @Schema(description = "철학자 이미지 URL") String imageUrl) {
     }
 
     public record Side(Long optionId, @Schema(description = "A / B") String position, String title, String stance) {

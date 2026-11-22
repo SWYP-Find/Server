@@ -497,7 +497,7 @@ class ClassResultApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("#657 참여자가 ㅋㅋㅋ·자판 아무거나만 쓰면 AI 없이 의견 부족 템플릿이고, 그런 글은 대표 의견으로 채우지 않는다")
+    @DisplayName("#657 참여자가 ㅋㅋㅋ·자판 아무거나만 쓰면 AI 없이 의견 부족 템플릿. #673 대표·주요 의견은 비지 않게 랜덤 글로 채운다")
     void insight_junkPostsOnly() throws Exception {
         ClassInfo cls = createClass(false);
         String[] contents = {"ㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋ", "asdfasdfasdf", "몰라요 그냥요"};
@@ -515,7 +515,9 @@ class ClassResultApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.state").value("LIMITED"))
                 .andExpect(jsonPath("$.data.insightText").value("판단의 이유를 살펴볼 글이 아직 충분하지 않아요"))
-                .andExpect(jsonPath("$.data.highlights").isEmpty());
+                .andExpect(jsonPath("$.data.highlights", hasSize(2)))
+                .andExpect(jsonPath("$.data.bestComment").isNotEmpty())
+                .andExpect(jsonPath("$.data.mostDebatedComment").isNotEmpty());
         verify(aiClient, never()).chatJson(any(), eq(ClassReportPrompts.CLASS_INSIGHT_SYSTEM), anyString(), anyInt());
 
         // #661 예전 문구로 저장된 LIMITED 인사이트도 현재 문구로 내려간다

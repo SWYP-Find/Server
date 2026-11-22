@@ -254,7 +254,8 @@ class AdminContentCreationIntegrationTest {
 
         mockMvc.perform(get("/api/v1/resources/images/BATTLE/test.png"))
                 .andExpect(status().isFound())
-                .andExpect(header().string("Location", expectedPresignedUrl));
+                .andExpect(header().string("Location", expectedPresignedUrl))
+                .andExpect(header().string("Cache-Control", "max-age=3600, public"));
     }
 
     @Test

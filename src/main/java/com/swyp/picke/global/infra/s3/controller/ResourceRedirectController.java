@@ -6,6 +6,7 @@ import com.swyp.picke.global.infra.s3.service.S3PresignedUrlService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
+import java.time.Duration;
 
 @Tag(name = "리소스 리다이렉트 API", description = "공개 리소스 요청을 S3 Presigned URL 또는 로컬 임시파일로 전달")
 @RestController
@@ -25,6 +27,10 @@ public class ResourceRedirectController {
 
     private final S3PresignedUrlService s3PresignedUrlService;
     private final LocalDraftFileStorageService localDraftFileStorageService;
+
+    /** 302 응답을 앱이 재사용하는 시간(초). presigned URL 유효시간(app.s3.presigned-url.expiration-hours)보다 짧아야 한다. */
+    @Value("${app.s3.cache.redirect-max-age-seconds:3600}")
+    private long redirectMaxAgeSeconds;
 
     @Operation(summary = "이미지 리소스 리다이렉트")
     @GetMapping("/images/{category}/{fileName:.+}")
@@ -60,6 +66,7 @@ public class ResourceRedirectController {
     private ResponseEntity<Void> getRedirectResponse(String objectKey) {
         String presignedUrl = s3PresignedUrlService.generatePresignedUrl(objectKey);
         return ResponseEntity.status(HttpStatus.FOUND)
+                .cacheControl(CacheControl.maxAge(Duration.ofSeconds(redirectMaxAgeSeconds)).cachePublic())
                 .location(URI.create(presignedUrl))
                 .build();
     }

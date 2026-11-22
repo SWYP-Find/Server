@@ -167,6 +167,11 @@ picke:
   s3:
     presigned-url:
       expiration-hours: 6
+    cache:
+      # 이미지·오디오 302 리다이렉트를 앱이 재사용하는 시간. presigned URL 유효시간(6시간)보다 짧게 둔다.
+      redirect-max-age-seconds: ${S3_REDIRECT_MAX_AGE_SECONDS:3600}
+      # 저장소 파일 응답(presigned URL·업로드 메타데이터)의 캐시 시간.
+      object-max-age-seconds: ${S3_OBJECT_MAX_AGE_SECONDS:86400}
   local-storage:
     root: ${PICKE_LOCAL_STORAGE_ROOT:${java.io.tmpdir}/picke-local-storage}
   class-report:

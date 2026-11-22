@@ -32,6 +32,9 @@ public class S3UploadServiceImpl implements S3UploadService {
     @Value("${spring.cloud.aws.s3.bucket}")
     private String bucketName;
 
+    @Value("${app.s3.cache.object-max-age-seconds:86400}")
+    private long objectMaxAgeSeconds;
+
     /**
      * S3 파일 업로드
      * @return 저장된 파일의 'Key(경로)' 또는 필요 시 전체 URL
@@ -56,6 +59,7 @@ public class S3UploadServiceImpl implements S3UploadService {
                     .bucket(bucketName)
                     .key(key)
                     .contentType(contentType)
+                    .cacheControl("public, max-age=" + objectMaxAgeSeconds)
                     .build();
 
             s3Client.putObject(putObjectRequest, RequestBody.fromFile(file));

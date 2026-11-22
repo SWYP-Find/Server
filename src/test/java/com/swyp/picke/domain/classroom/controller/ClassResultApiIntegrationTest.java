@@ -97,6 +97,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import com.swyp.picke.domain.perspective.enums.PerspectiveStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -444,7 +445,59 @@ class ClassResultApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("#657 참여자가 ㅋㅋㅋ·자판 아무거나만 쓰면 AI 없이 의견 부족 템플릿이고, 그런 글은 대표 의견으로 채우지 않는다")
+    @DisplayName("#673 주요 의견: BEST 는 좋아요 최다, 가장 논쟁이 활발했던 댓글은 나머지 중 댓글 최다. 마감 전·AI 상태와 상관없이 채운다")
+    void insight_keyOpinions() throws Exception {
+        ClassInfo cls = createClass(false);
+        String[] contents = {
+                "비용 대비 효과가 분명해서 찬성하는 쪽이 설득력 있다고 생각해요",
+                "표본이 너무 작아서 결론을 내리기에는 이르다고 생각합니다",
+                "장기적으로 보면 사회 전체의 신뢰를 높이는 선택이라고 봐요",
+                "ㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋ"};
+        for (int i = 0; i < contents.length; i++) {
+            String token = tokenOf(newUser("학생" + i));
+            join(token, cls.inviteCode, "학생" + i);
+            completeParticipation(token, cls, optionA, optionA, contents[i]);
+        }
+
+        // 마감 전이라 고를 근거가 같으면 먼저 쓴 글이 BEST, 그다음 글이 논쟁 댓글
+        mockMvc.perform(get(result(cls) + "/insight").header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("BEFORE_CLOSE"))
+                .andExpect(jsonPath("$.data.bestComment").value(contents[0]))
+                .andExpect(jsonPath("$.data.mostDebatedComment").value(contents[1]));
+
+        List<Perspective> posts = perspectiveRepository.findByClassroomIdAndStatusOrderByCreatedAtAsc(cls.classId, PerspectiveStatus.PUBLISHED);
+        ReflectionTestUtils.setField(posts.get(2), "likeCount", 5);
+        ReflectionTestUtils.setField(posts.get(2), "commentCount", 9);
+        ReflectionTestUtils.setField(posts.get(1), "commentCount", 3);
+        // 이유 없는 글은 좋아요·댓글이 많아도 고르지 않는다
+        ReflectionTestUtils.setField(posts.get(3), "likeCount", 50);
+        ReflectionTestUtils.setField(posts.get(3), "commentCount", 50);
+        perspectiveRepository.saveAll(posts);
+
+        mockMvc.perform(get(result(cls) + "/insight").header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.data.bestComment").value(contents[2]))
+                .andExpect(jsonPath("$.data.mostDebatedComment").value(contents[1]));
+    }
+
+    @Test
+    @DisplayName("#673 주요 의견: 고를 글이 하나면 논쟁 댓글은 null, 없으면 둘 다 null")
+    void insight_keyOpinions_notEnough() throws Exception {
+        ClassInfo cls = createClass(false);
+        mockMvc.perform(get(result(cls) + "/insight").header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.data.bestComment").doesNotExist())
+                .andExpect(jsonPath("$.data.mostDebatedComment").doesNotExist());
+
+        String token = tokenOf(newUser("학생"));
+        join(token, cls.inviteCode, "학생");
+        completeParticipation(token, cls, optionA, optionA, "비용 대비 효과가 분명해서 찬성하는 쪽이 설득력 있다고 생각해요");
+        mockMvc.perform(get(result(cls) + "/insight").header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.data.bestComment").value("비용 대비 효과가 분명해서 찬성하는 쪽이 설득력 있다고 생각해요"))
+                .andExpect(jsonPath("$.data.mostDebatedComment").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("#657 참여자가 ㅋㅋㅋ·자판 아무거나만 쓰면 AI 없이 의견 부족 템플릿. #673 대표·주요 의견은 비지 않게 랜덤 글로 채운다")
     void insight_junkPostsOnly() throws Exception {
         ClassInfo cls = createClass(false);
         String[] contents = {"ㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋ", "asdfasdfasdf", "몰라요 그냥요"};
@@ -462,7 +515,9 @@ class ClassResultApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.state").value("LIMITED"))
                 .andExpect(jsonPath("$.data.insightText").value("판단의 이유를 살펴볼 글이 아직 충분하지 않아요"))
-                .andExpect(jsonPath("$.data.highlights").isEmpty());
+                .andExpect(jsonPath("$.data.highlights", hasSize(2)))
+                .andExpect(jsonPath("$.data.bestComment").isNotEmpty())
+                .andExpect(jsonPath("$.data.mostDebatedComment").isNotEmpty());
         verify(aiClient, never()).chatJson(any(), eq(ClassReportPrompts.CLASS_INSIGHT_SYSTEM), anyString(), anyInt());
 
         // #661 예전 문구로 저장된 LIMITED 인사이트도 현재 문구로 내려간다

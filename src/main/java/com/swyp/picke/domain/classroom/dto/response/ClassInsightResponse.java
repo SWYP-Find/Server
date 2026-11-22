@@ -16,7 +16,11 @@ public record ClassInsightResponse(
         @Schema(description = "full / partial") String coverage,
         @Schema(description = "분량 제한으로 제외된 글 수") int excludedCount,
         @Schema(description = "인사이트가 근거로 삼은 공개 글 (1~5건)") List<PublicPost> evidence,
-        @Schema(description = "운영자에게 추천하는 대표 의견 (최대 2건)") List<PublicPost> highlights
+        @Schema(description = "운영자에게 추천하는 대표 의견 (최대 2건)") List<PublicPost> highlights,
+        @Schema(description = "주요 의견 - BEST 댓글: 공개 의견 중 좋아요가 가장 많은 글 (같으면 먼저 쓴 글). 없으면 null", nullable = true)
+        String bestComment,
+        @Schema(description = "주요 의견 - 가장 논쟁이 활발했던 댓글: BEST 를 뺀 공개 의견 중 댓글이 가장 많은 글 (같으면 먼저 쓴 글). 없으면 null", nullable = true)
+        String mostDebatedComment
 ) {
 
     @Schema(description = "공개 글. 작성자 정보는 넣지 않는다 (익명)")

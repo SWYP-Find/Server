@@ -566,6 +566,81 @@ class ClassMemberApiIntegrationTest {
                 .andExpect(jsonPath("$.data.activeMemberCount").value(participates ? 3 : 2));
     }
 
+    @Test
+    @DisplayName("운영자 미참여: 운영자도 이름을 바꿀 수 있고, 명단 운영자 줄에 반영되며 참여자 이름과 겹치면 409 (#669)")
+    void rename_nonParticipatingOwner() throws Exception {
+        ClassInfo cls = createClass(false);
+        User student = newUser("참여자1");
+        join(tokenOf(student), cls.inviteCode, "참여자1").andExpect(status().isOk());
+
+        // 참여자 이름과 겹치면 409
+        renameMe(ownerToken, cls.classId, "참여자1")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_NAME"));
+
+        // 빈 이름은 400
+        renameMe(ownerToken, cls.classId, "  ")
+                .andExpect(status().isBadRequest());
+
+        // 바꾸면 운영자 줄(memberId 0, participating false)을 돌려준다
+        renameMe(ownerToken, cls.classId, " 김운영 ")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.memberId").value(0))
+                .andExpect(jsonPath("$.data.displayName").value("김운영"))
+                .andExpect(jsonPath("$.data.role").value("OWNER"))
+                .andExpect(jsonPath("$.data.me").value(true))
+                .andExpect(jsonPath("$.data.participating").value(false));
+
+        // 같은 이름으로 다시 보내도 200
+        renameMe(ownerToken, cls.classId, "김운영").andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/classes/" + cls.classId + "/members").header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.data", hasSize(2)))
+                .andExpect(jsonPath("$.data[0].memberId").value(0))
+                .andExpect(jsonPath("$.data[0].displayName").value("김운영"));
+
+        // 멤버 행·좌석·명단 인원은 그대로
+        assertThat(classMemberRepository.count()).isEqualTo(1);
+        mockMvc.perform(get("/api/v1/classes/" + cls.classId).header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.data.memberCount").value(1))
+                .andExpect(jsonPath("$.data.activeMemberCount").value(1));
+
+        // 클래스와 관계없는 사람은 여전히 403
+        renameMe(tokenOf(newUser("외부인")), cls.classId, "외부인")
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("CLASS_403_MEMBER"));
+    }
+
+    @Test
+    @DisplayName("운영자 미참여로 만들 때 보낸 운영자 이름은 명단 운영자 줄에 쓰인다 (#669)")
+    void create_nonParticipating_withOwnerDisplayName() throws Exception {
+        Map<String, Object> body = new HashMap<>();
+        body.put("name", "클래스");
+        body.put("battleId", battle.getId());
+        body.put("deadline", null);
+        body.put("commentRequired", true);
+        body.put("ownerParticipates", false);
+        body.put("ownerDisplayName", " 박운영 ");
+        long classId = dataOf(mockMvc.perform(post("/api/v1/classes")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(body)))
+                .andExpect(status().isOk())
+                .andReturn()).get("classId").asLong();
+
+        mockMvc.perform(get("/api/v1/classes/" + classId + "/members").header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].displayName").value("박운영"))
+                .andExpect(jsonPath("$.data[0].participating").value(false));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions renameMe(String token, long classId, String name) throws Exception {
+        return mockMvc.perform(patch("/api/v1/classes/" + classId + "/members/me")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("displayName", name))));
+    }
+
     private void assertCounts(ClassInfo cls, int seats, int activeMembers) throws Exception {
         mockMvc.perform(get("/api/v1/classes/" + cls.classId).header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isOk())

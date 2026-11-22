@@ -117,6 +117,7 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .deadline(request.deadline())
                 .commentRequired(request.commentRequired())
                 .ownerParticipates(request.ownerParticipates())
+                .ownerDisplayName(requestedOwnerDisplayName(request.ownerDisplayName()))
                 .createRequestKey(requestKey)
                 .createRequestHash(requestHash)
                 .build());
@@ -376,6 +377,12 @@ public class ClassroomServiceImpl implements ClassroomService {
             }
         }
         throw new CustomException(ErrorCode.CLASS_INVITE_CODE_GENERATION_FAILED);
+    }
+
+    /** 미참여 운영자가 생성 때 보낸 이름. 비우면 null 로 두어 계정 닉네임을 보여준다 (#669) */
+    private static String requestedOwnerDisplayName(String requested) {
+        String name = requested == null ? "" : requested.strip();
+        return name.isEmpty() ? null : name;
     }
 
     private static String resolveOwnerDisplayName(String requested, User owner) {

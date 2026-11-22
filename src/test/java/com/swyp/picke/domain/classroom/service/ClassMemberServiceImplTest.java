@@ -333,14 +333,36 @@ class ClassMemberServiceImplTest {
     }
 
     @Test
-    @DisplayName("참여하지 않은 유저(멤버 행 없는 운영자 포함)의 이름 변경은 403 CLASS_403_MEMBER")
+    @DisplayName("참여하지 않은 유저의 이름 변경은 403 CLASS_403_MEMBER")
     void changeMyDisplayName_notMember_403() {
+        long outsiderId = 999L;
+        when(classroomRepository.findByIdAndStatus(CLASS_ID, ClassStatus.ACTIVE)).thenReturn(Optional.of(classroom));
+        when(classMemberRepository.findByClassroomIdAndUserIdAndStatus(CLASS_ID, outsiderId, ClassMemberStatus.ACTIVE))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.changeMyDisplayName(outsiderId, CLASS_ID, new ClassMemberNameUpdateRequest("이름")))
+                .satisfies(e -> assertThat(errorCodeOf(e)).isEqualTo(ErrorCode.CLASS_MEMBER_ONLY));
+    }
+
+    @Test
+    @DisplayName("멤버 행 없는(미참여) 운영자는 클래스의 운영자 표시 이름을 바꾸고 memberId 0 줄을 돌려준다 (#669)")
+    void changeMyDisplayName_nonParticipatingOwner() {
         when(classroomRepository.findByIdAndStatus(CLASS_ID, ClassStatus.ACTIVE)).thenReturn(Optional.of(classroom));
         when(classMemberRepository.findByClassroomIdAndUserIdAndStatus(CLASS_ID, OWNER_ID, ClassMemberStatus.ACTIVE))
                 .thenReturn(Optional.empty());
+        when(classMemberRepository.existsByClassroomIdAndDisplayNameAndStatus(CLASS_ID, "겹침", ClassMemberStatus.ACTIVE))
+                .thenReturn(true);
 
-        assertThatThrownBy(() -> service.changeMyDisplayName(OWNER_ID, CLASS_ID, new ClassMemberNameUpdateRequest("이름")))
-                .satisfies(e -> assertThat(errorCodeOf(e)).isEqualTo(ErrorCode.CLASS_MEMBER_ONLY));
+        assertThatThrownBy(() -> service.changeMyDisplayName(OWNER_ID, CLASS_ID, new ClassMemberNameUpdateRequest("겹침")))
+                .satisfies(e -> assertThat(errorCodeOf(e)).isEqualTo(ErrorCode.CLASS_DISPLAY_NAME_DUPLICATED));
+        assertThat(classroom.getOwnerDisplayName()).isNull();
+
+        ClassMemberResponse changed = service.changeMyDisplayName(OWNER_ID, CLASS_ID, new ClassMemberNameUpdateRequest(" 김운영 "));
+        assertThat(changed.memberId()).isZero();
+        assertThat(changed.displayName()).isEqualTo("김운영");
+        assertThat(changed.role()).isEqualTo(ClassMemberRole.OWNER);
+        assertThat(changed.participating()).isFalse();
+        assertThat(classroom.getOwnerDisplayName()).isEqualTo("김운영");
     }
 
     // ===== 나가기 / 내보내기 =====

@@ -137,6 +137,31 @@ class SentryClientTest {
     }
 
     @Test
+    @DisplayName("클래스 관리용 요약은 프로젝트마다 이슈와 발생 통계만 호출한다")
+    void fetchesLightweightIssueSummary() {
+        var transport = new CapturingTransport(response(200, "application/json", """
+                [{"id":"1","title":"Crash A","culprit":"VoteView","level":"error","count":"120"}]
+                """));
+
+        var result = client("token", transport).fetchIssueSummary(from, to);
+
+        assertThat(transport.uris).hasSize(4);
+        assertThat(transport.uris).filteredOn(uri -> uri.getPath().endsWith("/issues/"))
+                .allMatch(uri -> uri.toString().contains("start=2026-09-08T00:00"));
+        assertThat(transport.uris).anyMatch(uri -> uri.toString().contains("/picke-ios/issues/"));
+        assertThat(transport.uris).anyMatch(uri -> uri.toString().contains("/picke-ios/stats/"));
+        assertThat(transport.uris).anyMatch(uri -> uri.toString().contains("/picke-android/issues/"));
+        assertThat(transport.uris).anyMatch(uri -> uri.toString().contains("/picke-android/stats/"));
+        assertThat(result.status()).isEqualTo(AnalyticsStatus.CONNECTED);
+        assertThat(result.totalEvents()).isEqualTo(250);
+        assertThat(result.projects()).extracting(SentryIssueSummaryReport.ProjectSummary::project)
+                .containsExactly("picke-ios", "picke-android");
+        assertThat(result.projects().getFirst().issues())
+                .extracting(SentryIssueReport.Issue::title, SentryIssueReport.Issue::events)
+                .containsExactly(tuple("Crash A", 120L));
+    }
+
+    @Test
     @DisplayName("iOS·Android 를 프로젝트별로 나눠 읽는다. 절대 기간을 쓰려면 statsPeriod 를 비워 보낸다")
     void fetchesEveryProjectWithAbsoluteRange() {
         var transport = new CapturingTransport(response(200, "application/json", """

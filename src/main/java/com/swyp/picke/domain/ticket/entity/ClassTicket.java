@@ -141,6 +141,10 @@ public class ClassTicket extends BaseEntity {
         this.deliveredAt = deliveredAt;
     }
 
+    public void updateCapacity(int capacity) {
+        this.capacity = capacity;
+    }
+
     public void register(User user, LocalDateTime now) {
         this.registeredUser = user;
         this.activatedAt = now;

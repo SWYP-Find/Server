@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.swyp.picke.domain.admin.service.AdminFundingService;
 import com.swyp.picke.domain.admin.dto.funding.request.ManualTumblbugBuyerRequest;
-import com.swyp.picke.domain.admin.dto.funding.request.TicketIssueRequest;
 import com.swyp.picke.domain.admin.dto.funding.request.TicketDeliveryRequest;
 import com.swyp.picke.domain.admin.dto.funding.response.ManualTumblbugBuyerResponse;
 import com.swyp.picke.domain.funding.dto.request.*;
@@ -52,8 +51,6 @@ public class FundingAdminServiceImpl implements FundingAdminService {
     private final AdminAuditLogRepository auditLogRepository;
     private final ObjectMapper objectMapper;
     private final TumblbugSupporterExcelProcessor tumblbugExcelProcessor;
-    private final TumblbugDigitalGiftWorkbookWriter tumblbugWorkbookWriter;
-    private final List<TumblbugPlanHandler> planHandlers;
 
     @Override
     @Transactional(readOnly = true)
@@ -73,25 +70,6 @@ public class FundingAdminServiceImpl implements FundingAdminService {
 
     @Override
     @Transactional
-    public byte[] issueTumblbugDigitalGiftCodes(TumblbugSupporterImportRequest request, byte[] file, Long adminUserId) {
-        validateTumblbugImportRequest(request);
-        if (!planHandler(request.effectivePlan()).supportsDigitalGiftWorkbook()) {
-            throw new CustomException(ErrorCode.TUMBLBUG_PLAN_FEATURE_UNAVAILABLE);
-        }
-        TumblbugSupporterImportResponse imported = importTumblbugSupporters(request, file, adminUserId);
-        Map<String, String> codes = new LinkedHashMap<>();
-        imported.buyers().forEach(buyer -> {
-            if (!buyer.issuedCodes().isEmpty()) {
-                codes.put(buyer.supporterNumber(), buyer.issuedCodes().stream()
-                        .map(TumblbugSupporterImportResponse.IssuedCode::code)
-                        .collect(Collectors.joining("\n")));
-            }
-        });
-        return tumblbugWorkbookWriter.write(codes);
-    }
-
-    @Override
-    @Transactional
     public TumblbugSupporterImportResponse importTumblbugSupporters(
             TumblbugSupporterImportRequest request, byte[] file, Long adminUserId) {
         validateTumblbugImportRequest(request);
@@ -103,32 +81,47 @@ public class FundingAdminServiceImpl implements FundingAdminService {
         if (analysis.importableRows().isEmpty()) throw new CustomException(ErrorCode.FUNDING_TUMBLBUG_IMPORT_EMPTY);
 
         List<TumblbugSupporterImportResponse.Buyer> buyers = new ArrayList<>();
-        int issuedCodeCount = 0;
+        int createdCount = 0;
+        int updatedCount = 0;
         for (PreparedSupporter row : analysis.importableRows()) {
-            FundingOrder order = fundingOrderRepository.saveAndFlush(FundingOrder.builder()
-                    .platform(FundingPlatform.TUMBLBUG).campaignId(request.campaignId().trim())
-                    .orderId(internalOrderId(request, row.supporterNumber()))
-                    .rewardTier(RewardTier.valueOf("SEAT_" + row.capacity())).quantity(row.quantity())
-                    .supporterName(row.buyerName()).paymentStatus(row.paymentStatus())
-                    .paidAt(row.paymentStatus() == PaymentStatus.PAID_CONFIRMED ? row.paidAt() : null).build());
-            importRecordRepository.save(new TumblbugImportRecord(campaign, order, row.supporterNumber(),
-                    effectiveRewardLineId(request), request.sourceVersion(), snapshot(row)));
-            List<TumblbugSupporterImportResponse.IssuedCode> codes = new ArrayList<>();
-            if (order.isIssuable()) {
-                var issued = adminFundingService.issueTickets(new TicketIssueRequest(List.of(order.getId())));
-                issued.issued().forEach(ticket -> codes.add(
-                        new TumblbugSupporterImportResponse.IssuedCode(ticket.ticketId(), ticket.code())));
+            FundingOrder order;
+            if (row.existingFundingOrderId() == null) {
+                order = fundingOrderRepository.saveAndFlush(FundingOrder.builder()
+                        .platform(FundingPlatform.TUMBLBUG).campaignId(request.campaignId().trim())
+                        .orderId(internalOrderId(request, row.supporterNumber()))
+                        .rewardTier(RewardTier.valueOf("SEAT_" + row.capacity())).quantity(row.quantity())
+                        .supporterName(row.buyerName()).paymentStatus(row.paymentStatus())
+                        .paidAt(row.paymentStatus() == PaymentStatus.PAID_CONFIRMED ? row.paidAt() : null).build());
+                importRecordRepository.save(new TumblbugImportRecord(campaign, order, row.supporterNumber(),
+                        effectiveRewardLineId(request), request.sourceVersion(), snapshot(row)));
+                createdCount++;
+            } else {
+                order = fundingOrderRepository.findById(row.existingFundingOrderId())
+                        .orElseThrow(() -> new CustomException(ErrorCode.FUNDING_TUMBLBUG_IMPORT_ROWS_INVALID));
+                updateExistingImport(order, campaign, request.sourceVersion(), effectiveRewardLineId(request), row);
+                updatedCount++;
             }
-            issuedCodeCount += codes.size();
-            writeAudit(adminUserId, "TUMBLBUG_ORDER_IMPORTED", "FUNDING_ORDER", order.getId(), null,
+            writeAudit(adminUserId, row.existingFundingOrderId() == null ? "TUMBLBUG_ORDER_IMPORTED" : "TUMBLBUG_ORDER_UPDATED",
+                    "FUNDING_ORDER", order.getId(), null,
                     Map.of("supporterNumber", row.supporterNumber(), "rewardLineId", effectiveRewardLineId(request),
                             "quantity", row.quantity(), "paymentStatus", row.paymentStatus()));
             buyers.add(new TumblbugSupporterImportResponse.Buyer(row.rowNumber(), row.supporterNumber(), row.buyerName(),
                     row.rewardName(), row.quantity(), row.paidAt(), row.rewardAmount(), row.additionalSupportAmount(),
                     row.totalSupportAmount(), row.paymentStatus(), parseGiftDeliveryStatus(row.giftDeliveryStatus()),
-                    List.copyOf(codes)));
+                    List.of()));
         }
-        return new TumblbugSupporterImportResponse(request.effectivePlan(), buyers.size(), issuedCodeCount, List.copyOf(buyers));
+        return new TumblbugSupporterImportResponse(request.effectivePlan(), createdCount, updatedCount, 0, List.copyOf(buyers));
+    }
+
+    @Override
+    @Transactional
+    public TumblbugSupporterImportResponse importTumblbugRows(
+            TumblbugSupporterRowsImportRequest request, Long adminUserId) {
+        TumblbugSupporterImportRequest options = request.options();
+        TumblbugSupporterImportRequest editedOptions = new TumblbugSupporterImportRequest(
+                options.campaignId(), options.campaignName(), "후원자", options.rewardLineId(), options.capacity(),
+                options.sourceVersion(), options.plan());
+        return importTumblbugSupporters(editedOptions, tumblbugExcelProcessor.writeRows(request.rows()), adminUserId);
     }
 
     @Override
@@ -143,39 +136,48 @@ public class FundingAdminServiceImpl implements FundingAdminService {
             throw new CustomException(ErrorCode.FUNDING_DUPLICATE_SUPPORTER);
         }
 
-        String rawStatus = request.paymentStatus() == PaymentStatus.PAID_CONFIRMED ? "결제 완료" : "결제 예약";
-        String rawDelivery = request.giftDeliveryStatus() == DeliveryStatus.SENT ? "전달 완료" : "대기 중";
+        PreparedSupporter row = prepareManual(request, null);
         LocalDateTime paidAt = request.paymentStatus() == PaymentStatus.PAID_CONFIRMED ? request.supportedAt() : null;
-        PreparedSupporter snapshot = new PreparedSupporter(0, supporterNumber, request.buyerName().trim(),
-                request.giftText(), request.rewardName().trim(), request.rewardAmount(), request.additionalSupportAmount(),
-                request.totalSupportAmount(), request.quantity(), request.capacity(), request.paymentStatus(),
-                request.supportedAt(), null, null, rawStatus, rawDelivery, "MANUAL");
         FundingOrder order = fundingOrderRepository.saveAndFlush(FundingOrder.builder()
                 .platform(FundingPlatform.TUMBLBUG).campaignId(request.campaignId().trim())
                 .orderId(manualInternalOrderId(request.campaignId().trim(), supporterNumber, rewardLineId))
-                .rewardTier(RewardTier.valueOf("SEAT_" + request.capacity())).quantity(request.quantity())
+                .rewardTier(RewardTier.valueOf("SEAT_" + row.capacity())).quantity(row.quantity())
                 .supporterName(request.buyerName().trim()).paymentStatus(request.paymentStatus()).paidAt(paidAt).build());
         importRecordRepository.save(new TumblbugImportRecord(campaign, order, supporterNumber, rewardLineId,
-                "MANUAL", snapshot(snapshot)));
-
-        List<ManualTumblbugBuyerResponse.IssuedCode> issuedCodes = new ArrayList<>();
-        if (order.isIssuable()) {
-            var issued = adminFundingService.issueTickets(new TicketIssueRequest(List.of(order.getId())));
-            for (var ticket : issued.issued()) {
-                issuedCodes.add(new ManualTumblbugBuyerResponse.IssuedCode(ticket.ticketId(), ticket.code()));
-                if (request.giftDeliveryStatus() == DeliveryStatus.SENT) {
-                    adminFundingService.recordDelivery(ticket.ticketId(), new TicketDeliveryRequest(
-                            DeliveryChannel.MANUAL, com.swyp.picke.domain.ticket.enums.DeliveryStatus.SUCCESS, null));
-                }
-            }
-        }
+                "MANUAL", snapshot(row)));
         writeAudit(adminUserId, "TUMBLBUG_ORDER_MANUALLY_REGISTERED", "FUNDING_ORDER", order.getId(), null,
                 Map.of("supporterNumber", supporterNumber, "rewardLineId", rewardLineId,
-                        "quantity", request.quantity(), "paymentStatus", request.paymentStatus()));
-        return new ManualTumblbugBuyerResponse(order.getId(), request.plan(), request.campaignId().trim(), supporterNumber,
-                request.buyerName().trim(), request.rewardName().trim(), request.quantity(), request.supportedAt(),
-                request.rewardAmount(), request.additionalSupportAmount(), request.totalSupportAmount(),
-                request.paymentStatus(), request.giftDeliveryStatus(), List.copyOf(issuedCodes));
+                        "quantity", row.quantity(), "paymentStatus", request.paymentStatus()));
+        return toManualResponse(order.getId(), request, row);
+    }
+
+    @Override
+    @Transactional
+    public ManualTumblbugBuyerResponse updateManualTumblbugBuyer(
+            Long fundingOrderId, ManualTumblbugBuyerRequest request, Long adminUserId) {
+        validateManualRequest(request);
+        FundingOrder order = fundingOrderRepository.findByIdForUpdate(fundingOrderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.FUNDING_ORDER_NOT_FOUND));
+        TumblbugImportRecord record = importRecordRepository.findByFundingOrderId(fundingOrderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.FUNDING_CAMPAIGN_NOT_FOUND));
+        FundingCampaign campaign = getOrCreateCampaign(request.campaignId().trim(), request.campaignName().trim(), request.plan());
+        String supporterNumber = request.supporterNumber().trim();
+        String rewardLineId = request.rewardLineId().trim();
+        importRecordRepository.findByCampaignIdAndSupporterNumberAndRewardLineId(campaign.getId(), supporterNumber, rewardLineId)
+                .filter(existing -> !existing.getFundingOrder().getId().equals(fundingOrderId))
+                .ifPresent(existing -> { throw new CustomException(ErrorCode.FUNDING_DUPLICATE_SUPPORTER); });
+        PreparedSupporter row = prepareManual(request, fundingOrderId);
+        String nextOrderId = manualInternalOrderId(request.campaignId().trim(), supporterNumber, rewardLineId);
+        fundingOrderRepository.findByOrderId(nextOrderId)
+                .filter(existing -> !existing.getId().equals(fundingOrderId))
+                .ifPresent(existing -> { throw new CustomException(ErrorCode.FUNDING_DUPLICATE_SUPPORTER); });
+        updateExistingImport(order, campaign, "MANUAL", rewardLineId, row);
+        order.updateAdminOrderFields(nextOrderId, RewardTier.valueOf("SEAT_" + row.capacity()), row.quantity());
+        record.updateImportData(campaign, supporterNumber, rewardLineId, "MANUAL", snapshot(row));
+        writeAudit(adminUserId, "TUMBLBUG_ORDER_MANUALLY_UPDATED", "FUNDING_ORDER", order.getId(), null,
+                Map.of("supporterNumber", supporterNumber, "rewardLineId", rewardLineId,
+                        "quantity", row.quantity(), "paymentStatus", row.paymentStatus()));
+        return toManualResponse(order.getId(), request, row);
     }
 
     @Override
@@ -250,6 +252,7 @@ public class FundingAdminServiceImpl implements FundingAdminService {
         if (campaign.getStatus() != FundingCampaignStatus.ACTIVE) {
             throw new CustomException(ErrorCode.FUNDING_CAMPAIGN_INACTIVE);
         }
+        campaign.updateName(campaignName);
         return campaign;
     }
 
@@ -265,36 +268,87 @@ public class FundingAdminServiceImpl implements FundingAdminService {
                 });
     }
 
-    private TumblbugPlanHandler planHandler(TumblbugPlan plan) {
-        return planHandlers.stream().filter(handler -> handler.plan() == plan).findFirst()
-                .orElseThrow(() -> new IllegalStateException("No Tumblbug plan handler for " + plan));
-    }
-
     private void validateManualRequest(ManualTumblbugBuyerRequest request) {
-        if (!List.of(5, 15, 30).contains(request.capacity()) || request.quantity() < 1 || request.quantity() > 7) {
-            throw new CustomException(ErrorCode.FUNDING_TUMBLBUG_IMPORT_INVALID);
-        }
-        if (request.paymentStatus() != PaymentStatus.RESERVED && request.paymentStatus() != PaymentStatus.PAID_CONFIRMED) {
-            throw new CustomException(ErrorCode.FUNDING_TUMBLBUG_IMPORT_INVALID);
-        }
-        if (request.giftDeliveryStatus() != DeliveryStatus.PENDING && request.giftDeliveryStatus() != DeliveryStatus.SENT) {
+        GiftInfo giftInfo = parseGiftInfo(request.giftText());
+        if (!List.of(5, 15, 30).contains(request.capacity()) || giftInfo == null
+                || giftInfo.rewardAmount() == null || giftInfo.quantity() < 1 || giftInfo.quantity() > 7) {
             throw new CustomException(ErrorCode.FUNDING_TUMBLBUG_IMPORT_INVALID);
         }
         if (request.giftDeliveryStatus() == DeliveryStatus.SENT && request.paymentStatus() != PaymentStatus.PAID_CONFIRMED) {
             throw new CustomException(ErrorCode.FUNDING_TUMBLBUG_IMPORT_INVALID);
         }
-        if (request.supportedAt().isAfter(LocalDateTime.now(ZoneId.of("Asia/Seoul")))
-                || request.totalSupportAmount() < request.rewardAmount()
-                || request.totalSupportAmount() - request.rewardAmount() < request.additionalSupportAmount()) {
+        if (request.supportedAt() == null || request.notificationRequested() == null
+                || request.supportedAt().isAfter(LocalDateTime.now(ZoneId.of("Asia/Seoul")))
+                || request.totalSupportAmount() < giftInfo.rewardAmount()
+                || request.totalSupportAmount() - giftInfo.rewardAmount() < request.additionalSupportAmount()) {
             throw new CustomException(ErrorCode.FUNDING_TUMBLBUG_IMPORT_INVALID);
         }
+    }
+
+    private PreparedSupporter prepareManual(ManualTumblbugBuyerRequest request, Long existingFundingOrderId) {
+        GiftInfo gift = parseGiftInfo(request.giftText());
+        String notificationRequest = request.notificationRequested() ? "신청" : "미신청";
+        String rawPaymentStatus = switch (request.paymentStatus()) {
+            case PAID_CONFIRMED -> "결제 완료";
+            case RESERVED -> "예약";
+            case PAYMENT_PENDING -> "결제 대기";
+            case PAYMENT_FAILED -> "결제 실패";
+            case CANCELED -> "취소";
+            case REFUNDED -> "환불";
+        };
+        String rawDelivery = switch (request.giftDeliveryStatus()) {
+            case SENT -> "전달 완료";
+            case FAILED -> "전달 실패";
+            case PENDING -> "전달 전";
+        };
+        return new PreparedSupporter(0, request.supporterNumber().trim(), request.buyerName().trim(),
+                request.giftText().trim(), gift.rewardName(), gift.rewardAmount(), request.additionalSupportAmount(),
+                request.totalSupportAmount(), gift.quantity(), request.capacity(), request.paymentStatus(),
+                request.supportedAt(), request.notificationRequested(), notificationRequest, rawPaymentStatus,
+                rawDelivery, "MANUAL", existingFundingOrderId);
+    }
+
+    private ManualTumblbugBuyerResponse toManualResponse(
+            Long orderId, ManualTumblbugBuyerRequest request, PreparedSupporter row) {
+        return new ManualTumblbugBuyerResponse(orderId, request.plan(), request.campaignId().trim(),
+                row.supporterNumber(), row.buyerName(), row.rewardName(), row.quantity(), row.paidAt(),
+                row.rewardAmount(), row.additionalSupportAmount(), row.totalSupportAmount(), row.paymentStatus(),
+                parseGiftDeliveryStatus(row.giftDeliveryStatus()), List.of());
+    }
+
+    private void updateExistingImport(FundingOrder order, FundingCampaign campaign, String sourceVersion,
+                                      String rewardLineId, PreparedSupporter row) {
+        if (order.getPlatform() != FundingPlatform.TUMBLBUG
+                || (order.isTerminal() && order.getPaymentStatus() != row.paymentStatus())) {
+            throw new CustomException(ErrorCode.FUNDING_TUMBLBUG_IMPORT_ROWS_INVALID);
+        }
+        List<ClassTicket> liveTickets = classTicketRepository.findAllByFundingOrderIdAndStatusNotForUpdate(
+                order.getId(), TicketStatus.REVOKED);
+        RewardTier nextTier = RewardTier.valueOf("SEAT_" + row.capacity());
+        if (liveTickets.size() > row.quantity()
+                || (!liveTickets.isEmpty() && order.getRewardTier() != nextTier)) {
+            throw new CustomException(ErrorCode.FUNDING_TUMBLBUG_IMPORT_ROWS_INVALID);
+        }
+        if (row.paymentStatus() != PaymentStatus.PAID_CONFIRMED && !liveTickets.isEmpty()) {
+            if (liveTickets.stream().anyMatch(ticket -> ticket.getCodeStatus() == TicketCodeStatus.CLAIMED)) {
+                throw new CustomException(ErrorCode.FUNDING_TUMBLBUG_IMPORT_ROWS_INVALID);
+            }
+            LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
+            liveTickets.forEach(ticket -> ticket.revoke(now));
+        }
+        order.applyImport(FundingPlatform.TUMBLBUG, campaign.getExternalCampaignId(), nextTier, row.quantity(),
+                row.buyerName(), order.getSupporterEmail(), order.getSupporterPhone(), row.paymentStatus(),
+                row.paymentStatus() == PaymentStatus.PAID_CONFIRMED ? row.paidAt() : null, order.getImportFileHash());
+        importRecordRepository.findByFundingOrderId(order.getId()).ifPresent(record ->
+                record.updateImportData(campaign, row.supporterNumber(), rewardLineId, sourceVersion, snapshot(row)));
     }
 
     private DeliveryStatus parseGiftDeliveryStatus(String rawValue) {
         if (rawValue == null) return DeliveryStatus.PENDING;
         String normalized = rawValue.replaceAll("\\s+", "").toLowerCase();
-        return normalized.contains("완료") || normalized.contains("sent")
-                ? DeliveryStatus.SENT : DeliveryStatus.PENDING;
+        if (normalized.contains("완료") || normalized.contains("sent")) return DeliveryStatus.SENT;
+        if (normalized.contains("실패") || normalized.contains("failed")) return DeliveryStatus.FAILED;
+        return DeliveryStatus.PENDING;
     }
 
     private String snapshot(PreparedSupporter row) {
@@ -390,11 +444,17 @@ public class FundingAdminServiceImpl implements FundingAdminService {
             }
 
             boolean duplicateInFile = !supporterNumbersInFile.add(supporterNumber);
-            boolean duplicateInServer = checkDuplicates && ((existingCampaign != null
-                    && importRecordRepository.existsByCampaignIdAndSupporterNumberAndRewardLineId(
-                            existingCampaign.getId(), supporterNumber, effectiveRewardLineId(request)))
-                    || fundingOrderRepository.findByOrderId(supporterNumber).isPresent()
-                    || fundingOrderRepository.findByOrderId(internalOrderId(request, supporterNumber)).isPresent());
+            TumblbugImportRecord existingRecord = checkDuplicates && existingCampaign != null
+                    ? importRecordRepository.findByCampaignIdAndSupporterNumberAndRewardLineId(
+                            existingCampaign.getId(), supporterNumber, effectiveRewardLineId(request)).orElse(null)
+                    : null;
+            FundingOrder orderCollision = checkDuplicates
+                    ? fundingOrderRepository.findByOrderId(supporterNumber)
+                            .or(() -> fundingOrderRepository.findByOrderId(internalOrderId(request, supporterNumber)))
+                            .orElse(null)
+                    : null;
+            boolean duplicateInServer = orderCollision != null
+                    && (existingRecord == null || !orderCollision.getId().equals(existingRecord.getFundingOrder().getId()));
             if (duplicateInFile || duplicateInServer) {
                 duplicateRows++;
                 previewRows.add(importRow(source, supporterNumber, buyerName, giftInfo, additionalSupportAmount,
@@ -412,24 +472,25 @@ public class FundingAdminServiceImpl implements FundingAdminService {
                     trimToNull(source.gift()), giftInfo.rewardName(), giftInfo.rewardAmount(), additionalSupportAmount,
                     totalSupportAmount, quantity, request.capacity(), paymentStatus, paidAt,
                     notificationRequested, notificationRequest, rawPaymentStatus, giftDeliveryStatus,
-                    sourceSnapshot));
+                    sourceSnapshot, existingRecord == null ? null : existingRecord.getFundingOrder().getId()));
             boolean issuable = paymentStatus == PaymentStatus.PAID_CONFIRMED;
-            String result = issuable ? "READY_CODE" : "SAVED_NO_CODE";
-            String message = issuable
-                    ? "표 정보를 저장하고 구매 수량만큼 이용권 코드를 발급합니다."
-                    : "표 정보를 저장하며 결제 미확정이므로 코드는 발급하지 않습니다.";
+            String result = existingRecord != null ? "UPDATEABLE" : "IMPORTABLE";
+            String message = existingRecord != null ? "기존 구매자·주문 정보를 업데이트합니다. 코드는 별도로 발급합니다."
+                    : issuable ? "구매자·주문 정보를 등록합니다. 코드는 별도로 발급합니다."
+                    : "구매자·주문 정보를 등록합니다. 결제 완료 후 코드를 발급할 수 있습니다.";
             previewRows.add(importRow(source, supporterNumber, buyerName, giftInfo, additionalSupportAmount,
                     totalSupportAmount, paidAt, notificationRequest, quantity, result, message));
         }
         int codeEligibleRows = (int) importableRows.stream()
                 .filter(row -> row.paymentStatus() == PaymentStatus.PAID_CONFIRMED).count();
+        int updateRows = (int) importableRows.stream().filter(row -> row.existingFundingOrderId() != null).count();
         TumblbugWorkbookInspectResponse.SheetSample sheetInfo = tumblbugExcelProcessor.inspect(file).sheets().stream()
                 .filter(sheet -> sheet.sheetName().equals(request.sheetName())).findFirst()
                 .orElseThrow(() -> new CustomException(ErrorCode.FUNDING_TUMBLBUG_IMPORT_INVALID));
         TumblbugImportPreviewResponse preview = new TumblbugImportPreviewResponse(request.sheetName(),
                 sheetInfo.headerRowNumber() == null ? 0 : sheetInfo.headerRowNumber(),
                 sheetInfo.detectedColumns().keySet().stream().toList(), sourceRows.size(), importableRows.size(),
-                codeEligibleRows, duplicateRows, invalidRows, List.copyOf(previewRows));
+                codeEligibleRows, duplicateRows, invalidRows, updateRows, List.copyOf(previewRows));
         return new ImportAnalysis(List.copyOf(importableRows), preview, duplicateRows, invalidRows);
     }
 
@@ -438,6 +499,7 @@ public class FundingAdminServiceImpl implements FundingAdminService {
             Long totalSupportAmount, LocalDateTime supportedAt, String notificationRequest, Integer quantity,
             String result, String message) {
         return new TumblbugImportRowResponse(source.rowNumber(), supporterNumber, buyerName,
+                source.gift(),
                 giftInfo == null ? null : giftInfo.rewardName(), giftInfo == null ? null : giftInfo.rewardAmount(),
                 additionalSupportAmount, totalSupportAmount, supportedAt, notificationRequest,
                 source.paymentStatus(), source.giftDeliveryStatus(), quantity, result, message);
@@ -499,6 +561,7 @@ public class FundingAdminServiceImpl implements FundingAdminService {
         if (rawStatus == null || rawStatus.isBlank()) return null;
         String normalized = rawStatus.replaceAll("\\s+", "").toUpperCase();
         if (normalized.equals("결제완료") || normalized.equals("PAID_CONFIRMED")) return PaymentStatus.PAID_CONFIRMED;
+        if (normalized.contains("예약") || normalized.equals("RESERVED")) return PaymentStatus.RESERVED;
         if (normalized.contains("환불") || normalized.equals("REFUNDED")) return PaymentStatus.REFUNDED;
         if (normalized.contains("취소") || normalized.equals("CANCELED")) return PaymentStatus.CANCELED;
         if (normalized.contains("실패") || normalized.equals("PAYMENT_FAILED")) return PaymentStatus.PAYMENT_FAILED;
@@ -558,7 +621,7 @@ public class FundingAdminServiceImpl implements FundingAdminService {
                                      int quantity, int capacity, PaymentStatus paymentStatus,
                                      LocalDateTime paidAt, Boolean notificationRequested,
                                      String notificationRequest, String rawPaymentStatus,
-                                      String giftDeliveryStatus, String sourceSnapshot) { }
+                                      String giftDeliveryStatus, String sourceSnapshot, Long existingFundingOrderId) { }
 
     private record ImportAnalysis(List<PreparedSupporter> importableRows,
                                   TumblbugImportPreviewResponse preview,

@@ -44,7 +44,7 @@ public class FundingOrder extends BaseEntity {
     @Column(name = "reward_tier", nullable = false, length = 10)
     private RewardTier rewardTier;
 
-    /** 1 이 아니면 발급 보류 (PRD §30) */
+    /** 구매 수량. 결제 확정된 주문은 미발급 수량만큼 이용권을 발급합니다. */
     @Column(nullable = false)
     private int quantity;
 
@@ -121,6 +121,18 @@ public class FundingOrder extends BaseEntity {
     public void updatePayment(PaymentStatus paymentStatus, LocalDateTime paidAt) {
         this.paymentStatus = paymentStatus;
         this.paidAt = paidAt;
+    }
+
+    public void updateSupporterContact(String supporterName, String supporterEmail, String supporterPhone) {
+        this.supporterName = supporterName;
+        this.supporterEmail = supporterEmail;
+        this.supporterPhone = supporterPhone;
+    }
+
+    public void updateAdminOrderFields(String orderId, RewardTier rewardTier, int quantity) {
+        this.orderId = orderId;
+        this.rewardTier = rewardTier;
+        this.quantity = quantity;
     }
 
     public boolean isIssuable() {

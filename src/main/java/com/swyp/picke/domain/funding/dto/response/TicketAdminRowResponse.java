@@ -7,6 +7,8 @@ import java.time.LocalDateTime;
 public record TicketAdminRowResponse(
         // 이용권 ID
         Long ticketId,
+        // 연결된 펀딩 주문 ID
+        Long fundingOrderId,
         // 마스킹된 등록 코드
         String maskedCode,
         // 구매자 이름

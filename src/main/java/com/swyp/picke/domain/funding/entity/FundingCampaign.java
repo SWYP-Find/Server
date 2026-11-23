@@ -61,4 +61,8 @@ public class FundingCampaign extends BaseEntity {
         this.name = name;
         this.tumblbugPlan = tumblbugPlan;
     }
+
+    public void updateName(String name) {
+        this.name = name;
+    }
 }

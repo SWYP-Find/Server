@@ -43,6 +43,11 @@ public interface ClassTicketRepository extends JpaRepository<ClassTicket, Long>,
 
     List<ClassTicket> findAllByFundingOrderIdAndStatusNot(Long fundingOrderId, TicketStatus status);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from ClassTicket t where t.fundingOrder.id = :fundingOrderId and t.status <> :status order by t.id asc")
+    List<ClassTicket> findAllByFundingOrderIdAndStatusNotForUpdate(
+            @Param("fundingOrderId") Long fundingOrderId, @Param("status") TicketStatus status);
+
     long countByFundingOrderIdAndStatusNot(Long fundingOrderId, TicketStatus status);
 
     @Query("select t from ClassTicket t left join fetch t.registeredUser where t.fundingOrder.id in :fundingOrderIds "
@@ -57,6 +62,44 @@ public interface ClassTicketRepository extends JpaRepository<ClassTicket, Long>,
     long countByCodeStatus(TicketCodeStatus codeStatus);
 
     long countByStatusIn(Collection<TicketStatus> statuses);
+
+    @Query("select count(t) from ClassTicket t where t.status = com.swyp.picke.domain.ticket.enums.TicketStatus.ACTIVE and t.expiresAt > :now")
+    long countAdminUsableTickets(@Param("now") LocalDateTime now);
+
+    @Query("select count(t) from ClassTicket t where t.status = com.swyp.picke.domain.ticket.enums.TicketStatus.UNREGISTERED and t.registerBy >= :now")
+    long countAdminUnregisteredTickets(@Param("now") LocalDateTime now);
+
+    @Query("select count(t) from ClassTicket t where t.status = com.swyp.picke.domain.ticket.enums.TicketStatus.ACTIVE and t.expiresAt > :now and t.expiresAt <= :until")
+    long countAdminExpiringTickets(@Param("now") LocalDateTime now, @Param("until") LocalDateTime until);
+
+    @Query("select count(t) from ClassTicket t where t.status = :status and (t.expiresAt is null or t.expiresAt > :now)")
+    long countCurrentlyInUse(@Param("status") TicketStatus status, @Param("now") LocalDateTime now);
+
+    @Query("select count(t) from ClassTicket t where t.status in :statuses")
+    long countUnregistered(@Param("statuses") Collection<TicketStatus> statuses);
+
+    @Query("select count(t) from ClassTicket t where t.status = :status and t.expiresAt > :now and t.expiresAt <= :until")
+    long countExpiringBetween(@Param("status") TicketStatus status, @Param("now") LocalDateTime now,
+                              @Param("until") LocalDateTime until);
+
+    @Query("""
+            select count(t) from ClassTicket t
+            where t.fundingOrder.platform = com.swyp.picke.domain.ticket.enums.FundingPlatform.TUMBLBUG
+              and t.fundingOrder.campaignId = :campaignId
+              and t.status <> com.swyp.picke.domain.ticket.enums.TicketStatus.REVOKED
+            """)
+    long countLiveTumblbugTickets(@Param("campaignId") String campaignId);
+
+    @Query("""
+            select count(t) from ClassTicket t
+            where t.fundingOrder.platform = com.swyp.picke.domain.ticket.enums.FundingPlatform.TUMBLBUG
+              and t.fundingOrder.campaignId = :campaignId
+              and t.status <> com.swyp.picke.domain.ticket.enums.TicketStatus.REVOKED
+              and exists (select a.id from TicketDeliveryAttempt a where a.ticket = t
+                          and a.status = com.swyp.picke.domain.ticket.enums.DeliveryStatus.SUCCESS
+                          and a.id = (select max(latest.id) from TicketDeliveryAttempt latest where latest.ticket = t))
+            """)
+    long countDeliveredTumblbugTickets(@Param("campaignId") String campaignId);
 
     /** 등록용: 같은 코드를 동시에 두 요청이 등록하지 못하도록 행 잠금(SELECT ... FOR UPDATE) */
     @Lock(LockModeType.PESSIMISTIC_WRITE)

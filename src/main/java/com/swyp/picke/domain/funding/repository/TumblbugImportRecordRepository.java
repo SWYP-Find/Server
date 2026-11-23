@@ -3,6 +3,7 @@ package com.swyp.picke.domain.funding.repository;
 import com.swyp.picke.domain.funding.entity.TumblbugImportRecord;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,6 +14,11 @@ public interface TumblbugImportRecordRepository extends JpaRepository<TumblbugIm
     @Query("select r from TumblbugImportRecord r join fetch r.campaign where r.fundingOrder.id in :fundingOrderIds")
     List<TumblbugImportRecord> findByFundingOrderIdIn(@Param("fundingOrderIds") Collection<Long> fundingOrderIds);
     boolean existsByCampaignIdAndSupporterNumberAndRewardLineId(Long campaignId, String supporterNumber, String rewardLineId);
+
+    Optional<TumblbugImportRecord> findByCampaignIdAndSupporterNumberAndRewardLineId(
+            Long campaignId, String supporterNumber, String rewardLineId);
+
+    Optional<TumblbugImportRecord> findByFundingOrderId(Long fundingOrderId);
 
     List<TumblbugImportRecord> findByCampaignIdAndSupporterNumberInAndRewardLineId(
             Long campaignId, Collection<String> supporterNumbers, String rewardLineId);

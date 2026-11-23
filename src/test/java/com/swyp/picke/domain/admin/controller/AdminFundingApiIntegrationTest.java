@@ -137,7 +137,7 @@ class AdminFundingApiIntegrationTest {
                 + "TUMBLBUG,camp,ORD-P,SEAT_5,1,후원P,,,PAYMENT_PENDING,\n");
 
         // 수량 2 주문은 코드 2개를 받는다 (#586)
-        JsonNode issued = postJson("/api/v1/admin/funding/tickets/issue", null, adminToken()).get("issued");
+        JsonNode issued = issueOrders("ORD-A", "ORD-B", "ORD-P").get("issued");
         assertThat(issued).hasSize(3);
         List<String> issuedOrders = new java.util.ArrayList<>();
         issued.forEach(node -> issuedOrders.add(node.get("orderId").asText()));
@@ -159,7 +159,7 @@ class AdminFundingApiIntegrationTest {
         assertThat(ticket.getCodeStatus()).isEqualTo(TicketCodeStatus.ISSUED);
 
         // 재실행: 살아 있는 이용권이 있으면 건너뛴다 (CF08)
-        JsonNode rerun = postJson("/api/v1/admin/funding/tickets/issue", Map.of(), adminToken());
+        JsonNode rerun = issueOrders("ORD-A", "ORD-B", "ORD-P");
         assertThat(rerun.get("issued")).isEmpty();
 
         Long orderA = fundingOrderRepository.findByOrderId(prefix + "ORD-A").orElseThrow().getId();
@@ -210,7 +210,7 @@ class AdminFundingApiIntegrationTest {
     @DisplayName("전달 기록 → 재발급하면 옛 코드는 REVOKED, 새 코드는 같은 등록기한으로 등록된다")
     void delivery_thenReissue() throws Exception {
         upload(HEADER + "WADIZ,camp,ORD-R,SEAT_30,1,후원R,r@test.com,,PAID_CONFIRMED,2026-09-15 09:00:00\n");
-        JsonNode first = postJson("/api/v1/admin/funding/tickets/issue", null, adminToken()).get("issued").get(0);
+        JsonNode first = issueOrders("ORD-R").get("issued").get(0);
         long ticketId = first.get("ticketId").asLong();
         String oldCode = first.get("code").asText();
 
@@ -264,7 +264,7 @@ class AdminFundingApiIntegrationTest {
                 + "TUMBLBUG,camp,ORD-F,SEAT_5,1,후원F,,,PAID_CONFIRMED,2026-10-01 10:00:00\n"
                 + "TUMBLBUG,camp,ORD-G,SEAT_5,1,후원G,,,PAID_CONFIRMED,2026-10-01 10:00:00\n";
         upload(csv);
-        postJson("/api/v1/admin/funding/tickets/issue", null, adminToken());
+        issueOrders("ORD-F", "ORD-G");
         Long orderF = fundingOrderRepository.findByOrderId(prefix + "ORD-F").orElseThrow().getId();
 
         JsonNode refund = postJson("/api/v1/admin/funding/refunds", Map.of("fundingOrderIds", List.of(orderF)), adminToken());
@@ -333,7 +333,7 @@ class AdminFundingApiIntegrationTest {
                 + "TUMBLBUG,camp,ORD-FAR,SEAT_15,1,후원F,,,PAID_CONFIRMED," + in60Days + "\n"
                 + "TUMBLBUG,camp,ORD-UND,SEAT_15,1,후원U,,,PAID_CONFIRMED," + in20Days + "\n");
         Map<String, Long> ticketByOrder = new java.util.HashMap<>();
-        for (JsonNode issued : postJson("/api/v1/admin/funding/tickets/issue", null, adminToken()).get("issued")) {
+        for (JsonNode issued : issueOrders("ORD-30", "ORD-7", "ORD-FAR", "ORD-UND").get("issued")) {
             ticketByOrder.put(issued.get("orderId").asText().substring(prefix.length()), issued.get("ticketId").asLong());
         }
         for (String order : java.util.List.of("ORD-30", "ORD-7", "ORD-FAR")) {   // ORD-UND 는 미전달
@@ -415,6 +415,13 @@ class AdminFundingApiIntegrationTest {
         }
         MvcResult result = mockMvc.perform(request).andExpect(status().isOk()).andReturn();
         return data(result);
+    }
+
+    private JsonNode issueOrders(String... orderIds) throws Exception {
+        List<Long> fundingOrderIds = java.util.Arrays.stream(orderIds)
+                .map(orderId -> fundingOrderRepository.findByOrderId(prefix + orderId).orElseThrow().getId())
+                .toList();
+        return postJson("/api/v1/admin/funding/tickets/issue", Map.of("fundingOrderIds", fundingOrderIds), adminToken());
     }
 
     private JsonNode data(MvcResult result) throws Exception {

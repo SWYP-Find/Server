@@ -63,6 +63,16 @@ public class AdminAnalyticsController {
         return ApiResponse.onSuccess(sentryClient.fetchUnresolvedIssues(from, to));
     }
 
+    @GetMapping("/sentry/summary")
+    @Operation(summary = "클래스 관리용 Sentry 이슈 요약",
+               description = "이슈 목록과 일별 발생 수만 조회해 상세 분석 요청보다 적은 외부 API 호출로 응답합니다.")
+    public ApiResponse<SentryIssueSummaryReport> sentrySummary(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        validateRange(from, to, MAX_DAYS);
+        return ApiResponse.onSuccess(sentryClient.fetchIssueSummary(from, to));
+    }
+
     private void validateSteps(List<String> steps) {
         if (steps == null || steps.size() < 2) {
             throw new IllegalArgumentException("퍼널은 단계가 2개 이상이어야 합니다.");

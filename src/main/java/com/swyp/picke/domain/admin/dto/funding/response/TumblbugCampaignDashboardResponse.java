@@ -8,6 +8,9 @@ public record TumblbugCampaignDashboardResponse(
         @Schema(description = "등록된 후원 주문 수") long supporterCount,
         @Schema(description = "결제 완료 주문 수") long paidConfirmed,
         @Schema(description = "최근 전달 결과가 성공인 주문 수") long delivered,
-        @Schema(description = "최근 전달 결과가 성공이 아닌 주문 수") long undelivered
+        @Schema(description = "최근 전달 결과가 성공이 아닌 주문 수") long undelivered,
+        @Schema(description = "무효화되지 않은 발급 코드 수") long issuedCodes,
+        @Schema(description = "최신 전달 결과가 성공인 코드 수") long deliveredCodes,
+        @Schema(description = "최신 전달 결과가 성공이 아닌 코드 수") long undeliveredCodes
 ) {
 }

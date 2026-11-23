@@ -13,6 +13,7 @@ public enum ErrorCode {
     BAD_REQUEST(HttpStatus.BAD_REQUEST, "COMMON_400", "잘못된 요청입니다."),
     COMMON_INVALID_PARAMETER(HttpStatus.BAD_REQUEST, "COMMON_400", "요청 파라미터가 잘못되었습니다."),
     COMMON_CONFLICT(HttpStatus.CONFLICT, "COMMON_409", "요청이 현재 데이터 상태와 충돌합니다."),
+    COMMON_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMON_404", "요청한 주소를 찾을 수 없습니다."),
 
     // File & S3
     FILE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "FILE_500", "파일 업로드 중 오류가 발생했습니다."),

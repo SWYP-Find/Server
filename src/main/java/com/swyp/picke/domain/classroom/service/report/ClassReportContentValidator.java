@@ -11,6 +11,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * AI 응답을 게시 가능한 content 로 바꾸며 PRD §13·§14 의 근거 검증을 수행한다.
@@ -327,7 +328,7 @@ public class ClassReportContentValidator {
     // ===== 헬퍼 =====
 
     private static String requireText(Map<String, Object> json, String key, int max) {
-        String value = ReportContent.str(json, key);
+        String value = stripSourceIds(ReportContent.str(json, key));
         if (value == null || value.isBlank()) {
             throw new ReportValidationException("MISSING_" + key.toUpperCase());
         }
@@ -400,8 +401,8 @@ public class ClassReportContentValidator {
         if (raw == null) {
             return null;
         }
-        String title = ReportContent.str(raw, "title");
-        String body = ReportContent.str(raw, "body");
+        String title = stripSourceIds(ReportContent.str(raw, "title"));
+        String body = stripSourceIds(ReportContent.str(raw, "body"));
         if (title == null || title.isBlank() || body == null || body.isBlank()) {
             return null;
         }
@@ -433,6 +434,27 @@ public class ClassReportContentValidator {
             any = true;
         }
         return any;
+    }
+
+    // 괄호로 감싼 source_id 묶음: (p:12), [p:1, c:3], （d:5） 등
+    private static final Pattern BRACKETED_SOURCE_IDS = Pattern.compile(
+            "\\s*[(\\[（【]\\s*(?:source_id\\s*[=:]?\\s*)?[pcd]\\s*:\\s*\\d+(?:\\s*[,，、/·]\\s*[pcd]\\s*:\\s*\\d+)*\\s*[)\\]）】]");
+    // 괄호 없이 쓴 source_id: p:12, c:34 (영문·숫자에 붙은 경우는 제외)
+    private static final Pattern BARE_SOURCE_IDS = Pattern.compile(
+            "(?<![A-Za-z0-9])(?:source_id\\s*[=:]?\\s*)?[pcd]\\s*:\\s*\\d+(?:\\s*[,，、/·]\\s*[pcd]\\s*:\\s*\\d+)*(?![A-Za-z0-9])");
+
+    /**
+     * AI 가 본문에 섞어 쓴 발언 번호(p:10, (c:3), [d:5] 등)를 지운다. 프롬프트로 금지해도 가끔 들어가 화면에 그대로 보였다 (#681).
+     * 지운 자리에 남는 겹친 공백과 문장부호 앞 공백도 정리한다.
+     */
+    static String stripSourceIds(String text) {
+        if (text == null) {
+            return null;
+        }
+        String result = BRACKETED_SOURCE_IDS.matcher(text).replaceAll("");
+        result = BARE_SOURCE_IDS.matcher(result).replaceAll("");
+        result = result.replaceAll("[ \\t]{2,}", " ").replaceAll("\\s+([.,!?。，、)])", "$1");
+        return result.strip();
     }
 
     /** 글자·숫자만 남긴다 (공백·줄바꿈·문장부호·따옴표·이모지 차이 무시, #681) */

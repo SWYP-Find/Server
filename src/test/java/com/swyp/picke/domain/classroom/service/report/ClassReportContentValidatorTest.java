@@ -125,6 +125,26 @@ class ClassReportContentValidatorTest {
     }
 
     @Test
+    @DisplayName("본문에 섞인 발언 번호(p:10, (c:20), [p:1, d:3])는 지우고 공백을 정리한다")
+    void stripsSourceIdsFromText() {
+        assertThat(ClassReportContentValidator.stripSourceIds("비용 대비 효과를 따졌어요 (p:10).")).isEqualTo("비용 대비 효과를 따졌어요.");
+        assertThat(ClassReportContentValidator.stripSourceIds("p:10 에서 근거를 들었고 [c:20, d:3] 반박에도 답했어요."))
+                .isEqualTo("에서 근거를 들었고 반박에도 답했어요.");
+        assertThat(ClassReportContentValidator.stripSourceIds("source_id=p:12 의견처럼 조건을 붙였어요")).isEqualTo("의견처럼 조건을 붙였어요");
+        assertThat(ClassReportContentValidator.stripSourceIds("오후 3:30 수업, GPT:4 같은 표기는 그대로예요")).isEqualTo("오후 3:30 수업, GPT:4 같은 표기는 그대로예요");
+
+        Map<String, Object> json = baseJson();
+        json.put("judgment_basis", "비용 대비 효과를 기준으로 판단했어요 (p:10, c:20).");
+        json.put("strength", Map.of("title", "근거 점검", "body", "상대 근거의 표본 크기를 짚었어요 [c:20]."));
+        json.put("evidence_refs", List.of(ref("judgment_basis", "p:10", "데이터가 더 필요해요")));
+
+        Map<String, Object> content = validator.validateMemberFeedback(json, input(0));
+
+        assertThat(content).containsEntry("judgment_basis", "비용 대비 효과를 기준으로 판단했어요.");
+        assertThat(content.get("strength")).isEqualTo(Map.of("title", "근거 점검", "body", "상대 근거의 표본 크기를 짚었어요."));
+    }
+
+    @Test
     @DisplayName("AI 가 강점·다음 한 걸음·다음 질문을 비우면 기본 문구로 채우고, 둘 다 비면 LIMITED")
     void fillsDefaultSections() {
         Map<String, Object> json = baseJson();

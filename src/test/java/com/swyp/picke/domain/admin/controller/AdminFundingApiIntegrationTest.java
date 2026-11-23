@@ -3,6 +3,7 @@ package com.swyp.picke.domain.admin.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -388,6 +389,74 @@ class AdminFundingApiIntegrationTest {
     }
 
     // ───────────── helpers ─────────────
+
+    @Test
+    @DisplayName("사용 기간 설정: 등록 전 이용권에 일수를 정하면 등록 시 만료일이 등록 시각 + 일수, 재발급도 유지, 등록된 이용권이 섞이면 전부 거절")
+    void usagePeriod_appliesOnRegisterAndReissue() throws Exception {
+        upload(HEADER
+                + "MANUAL,QA,ORD-U1,SEAT_5,1,QA,,,PAID_CONFIRMED,2026-11-01 10:00:00\n"
+                + "MANUAL,QA,ORD-U2,SEAT_15,1,QA,,,PAID_CONFIRMED,2026-11-01 10:00:00\n");
+        JsonNode issued = issueOrders("ORD-U1", "ORD-U2").get("issued");
+        long t1 = 0;
+        long t2 = 0;
+        String code1 = null;
+        for (JsonNode node : issued) {
+            if (node.get("orderId").asText().endsWith("ORD-U1")) {
+                t1 = node.get("ticketId").asLong();
+                code1 = node.get("code").asText();
+            } else {
+                t2 = node.get("ticketId").asLong();
+            }
+        }
+
+        JsonNode updated = patchJson("/api/v1/admin/funding/tickets/usage-period", Map.of("ticketIds", List.of(t2, t1), "usageDays", 14));
+        assertThat(updated.get("usageDays").asInt()).isEqualTo(14);
+        assertThat(classTicketRepository.findById(t1).orElseThrow().getUsageDays()).isEqualTo(14);
+
+        // 재발급해도 사용 기간 유지
+        JsonNode reissued = postJson("/api/v1/admin/funding/tickets/" + t2 + "/reissue", null, adminToken());
+        long t2New = reissued.get("ticketId").asLong();
+        assertThat(classTicketRepository.findById(t2New).orElseThrow().getUsageDays()).isEqualTo(14);
+
+        // 등록하면 만료일 = 등록 시각 + 14일
+        mockMvc.perform(post("/api/v1/class-tickets/register")
+                        .header("Authorization", "Bearer " + userToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("code", code1))))
+                .andExpect(status().isOk());
+        ClassTicket registered = classTicketRepository.findById(t1).orElseThrow();
+        assertThat(registered.getExpiresAt()).isEqualTo(registered.getActivatedAt().plusDays(14));
+
+        // 등록된 이용권이 섞이면 409, 나머지도 바뀌지 않는다
+        mockMvc.perform(patch("/api/v1/admin/funding/tickets/usage-period")
+                        .header("Authorization", "Bearer " + adminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("ticketIds", List.of(t1, t2New), "usageDays", 7))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("TICKET_409_STATE"));
+        assertThat(classTicketRepository.findById(t2New).orElseThrow().getUsageDays()).isEqualTo(14);
+
+        // 없는 이용권은 404, null 이면 기본 6개월로 되돌린다
+        mockMvc.perform(patch("/api/v1/admin/funding/tickets/usage-period")
+                        .header("Authorization", "Bearer " + adminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("ticketIds", List.of(t2New, 999_999L), "usageDays", 7))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("TICKET_404"));
+        java.util.Map<String, Object> reset = new java.util.HashMap<>();
+        reset.put("ticketIds", List.of(t2New));
+        reset.put("usageDays", null);
+        patchJson("/api/v1/admin/funding/tickets/usage-period", reset);
+        assertThat(classTicketRepository.findById(t2New).orElseThrow().getUsageDays()).isNull();
+    }
+
+    private JsonNode patchJson(String url, Object body) throws Exception {
+        MvcResult result = mockMvc.perform(patch(url).header("Authorization", "Bearer " + adminToken())
+                        .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andReturn();
+        return data(result);
+    }
 
     private JsonNode getJson(String url) throws Exception {
         MvcResult result = mockMvc.perform(get(url).header("Authorization", "Bearer " + adminToken()))

@@ -8,6 +8,7 @@ public record TumblbugImportRowResponse(
         int rowNumber,
         String supporterNumber,
         String buyerName,
+        String giftText,
         String giftName,
         Long rewardAmount,
         Long additionalSupportAmount,

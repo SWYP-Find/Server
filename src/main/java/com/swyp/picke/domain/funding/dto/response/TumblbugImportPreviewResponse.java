@@ -13,6 +13,7 @@ public record TumblbugImportPreviewResponse(
         int codeEligibleRows,
         int duplicateRows,
         int invalidRows,
+        int updateRows,
         List<TumblbugImportRowResponse> rows
 ) {
 }

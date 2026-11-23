@@ -1,10 +1,16 @@
 package com.swyp.picke.domain.funding.service;
 
 import com.swyp.picke.domain.funding.dto.response.TicketAdminRowResponse;
+import com.swyp.picke.domain.funding.dto.response.TicketAdminDetailResponse;
+import com.swyp.picke.domain.classroom.repository.ClassMemberRepository;
+import com.swyp.picke.domain.classroom.repository.ClassroomRepository;
 import com.swyp.picke.domain.ticket.entity.ClassTicket;
 import com.swyp.picke.domain.ticket.entity.FundingOrder;
+import com.swyp.picke.domain.ticket.entity.TicketDeliveryAttempt;
+import com.swyp.picke.domain.admin.dto.classroom.response.AdminClassState;
 import com.swyp.picke.domain.ticket.enums.TicketStatus;
 import com.swyp.picke.domain.ticket.repository.ClassTicketRepository;
+import com.swyp.picke.domain.ticket.repository.TicketDeliveryAttemptRepository;
 import com.swyp.picke.domain.ticket.util.TicketCodeHasher;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
@@ -32,6 +38,42 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class FundingTicketQueryService {
     private final ClassTicketRepository classTicketRepository;
+    private final TicketDeliveryAttemptRepository deliveryAttemptRepository;
+    private final ClassroomRepository classroomRepository;
+    private final ClassMemberRepository classMemberRepository;
+
+    public TicketAdminDetailResponse getTicketDetail(Long ticketId) {
+        ClassTicket ticket = classTicketRepository.findById(ticketId)
+                .orElseThrow(() -> new CustomException(ErrorCode.TICKET_NOT_FOUND));
+        FundingOrder order = ticket.getFundingOrder();
+        var registeredUser = ticket.getRegisteredUser();
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
+        List<TicketAdminDetailResponse.Delivery> deliveries = deliveryAttemptRepository
+                .findByTicketIdOrderByAttemptedAtDesc(ticketId).stream()
+                .map(this::toDelivery).toList();
+        List<TicketAdminDetailResponse.ClassItem> classes = classroomRepository.findAdminByTicketId(ticketId).stream()
+                .map(classroom -> new TicketAdminDetailResponse.ClassItem(classroom.getId(), classroom.getName(),
+                        (int) classMemberRepository.countByClassroomIdAndSeatHeldTrue(classroom.getId()),
+                        classroom.getCapacity(), classroom.isClosed(now) ? AdminClassState.CLOSED : AdminClassState.OPEN,
+                        classroom.getCreatedAt()))
+                .toList();
+        return new TicketAdminDetailResponse(ticket.getId(), order.getId(),
+                ticket.getCodeSuffix() == null ? null : "****-" + ticket.getCodeSuffix(),
+                ticket.getEncryptedCode() != null && !ticket.getEncryptedCode().isBlank(),
+                order.getSupporterName(), order.getSupporterEmail(), order.getSupporterPhone(),
+                registeredUser == null ? null : registeredUser.getId(),
+                registeredUser == null ? null : registeredUser.getNickname(),
+                order.getPlatform(), order.getCampaignId(), order.getOrderId(), order.getRewardTier(),
+                order.getQuantity(), ticket.getCapacity(), order.getPaymentStatus(),
+                effectiveStatus(ticket, now), ticket.getCodeStatus(), ticket.getCreatedAt(), ticket.getDeliveredAt(),
+                ticket.getRegisterBy(), ticket.getActivatedAt(), ticket.getExpiresAt(), ticket.getRevokedAt(),
+                deliveries, classes);
+    }
+
+    private TicketAdminDetailResponse.Delivery toDelivery(TicketDeliveryAttempt attempt) {
+        return new TicketAdminDetailResponse.Delivery(attempt.getChannel(), attempt.getStatus(),
+                attempt.getFailureReason(), attempt.getAttemptedAt());
+    }
 
     public PageResponse<TicketAdminRowResponse> searchTickets(String keyword, Integer capacity, TicketStatus status,
             LocalDate registeredFrom, LocalDate registeredTo, int page, int size) {
@@ -59,7 +101,7 @@ public class FundingTicketQueryService {
             }
             return cb.and(filters.toArray(Predicate[]::new));
         }, pageable(page, size));
-        return PageResponse.of(result.map(ticket -> new TicketAdminRowResponse(ticket.getId(),
+        return PageResponse.of(result.map(ticket -> new TicketAdminRowResponse(ticket.getId(), ticket.getFundingOrder().getId(),
                 ticket.getCodeSuffix() == null ? null : "****-" + ticket.getCodeSuffix(),
                 ticket.getFundingOrder().getSupporterName(), mask(ticket.getFundingOrder()),
                 ticket.getRegisteredUser() == null ? null : ticket.getRegisteredUser().getNickname(),

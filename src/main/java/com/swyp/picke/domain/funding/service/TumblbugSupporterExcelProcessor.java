@@ -1,9 +1,11 @@
 package com.swyp.picke.domain.funding.service;
 
 import com.swyp.picke.domain.funding.dto.response.TumblbugWorkbookInspectResponse;
+import com.swyp.picke.domain.funding.dto.request.TumblbugSupporterRowInput;
 import com.swyp.picke.global.common.exception.CustomException;
 import com.swyp.picke.global.common.exception.ErrorCode;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
@@ -64,18 +66,40 @@ public class TumblbugSupporterExcelProcessor {
                 Sheet sheet = workbook.getSheetAt(sheetIndex);
                 HeaderDetection header = detectHeader(sheet, formatter, evaluator);
                 List<List<String>> sampleRows = new ArrayList<>();
+                List<List<String>> allRows = new ArrayList<>();
+                List<Integer> rowNumbers = new ArrayList<>();
                 int maxColumns = 0;
                 if (header != null) {
                     Row headerRow = sheet.getRow(header.rowIndex());
                     maxColumns = Math.min(Math.max(headerRow.getLastCellNum(), 0), MAX_INSPECT_COLUMNS);
-                    for (int rowIndex = header.rowIndex(); rowIndex <= sheet.getLastRowNum() && sampleRows.size() < 8; rowIndex++) {
+                    for (int rowIndex = header.rowIndex(); rowIndex <= sheet.getLastRowNum(); rowIndex++) {
                         Row row = sheet.getRow(rowIndex);
                         if (row == null || isBlank(row, formatter, evaluator)) continue;
-                        List<String> values = new ArrayList<>(maxColumns);
-                        for (int columnIndex = 0; columnIndex < maxColumns; columnIndex++) {
-                            values.add(value(row, columnIndex, formatter, evaluator));
+                        if (rowIndex == header.rowIndex()) {
+                            List<String> values = new ArrayList<>(maxColumns);
+                            for (int columnIndex = 0; columnIndex < maxColumns; columnIndex++) {
+                                values.add(value(row, columnIndex, formatter, evaluator));
+                            }
+                            sampleRows.add(List.copyOf(values));
+                            continue;
                         }
-                        sampleRows.add(List.copyOf(values));
+                        if (allRows.size() >= MAX_DATA_ROWS) {
+                            throw new CustomException(ErrorCode.FUNDING_TUMBLBUG_IMPORT_TOO_LARGE);
+                        }
+                        List<String> values = new ArrayList<>(Column.values().length);
+                        for (Column column : Column.values()) {
+                            Integer sourceColumn = header.columns().get(column);
+                            values.add(sourceColumn == null ? "" : value(row, sourceColumn, formatter, evaluator));
+                        }
+                        allRows.add(List.copyOf(values));
+                        rowNumbers.add(rowIndex + 1);
+                        if (sampleRows.size() < 8) {
+                            List<String> sample = new ArrayList<>(maxColumns);
+                            for (int columnIndex = 0; columnIndex < maxColumns; columnIndex++) {
+                                sample.add(value(row, columnIndex, formatter, evaluator));
+                            }
+                            sampleRows.add(List.copyOf(sample));
+                        }
                     }
                 }
                 samples.add(new TumblbugWorkbookInspectResponse.SheetSample(
@@ -83,7 +107,7 @@ public class TumblbugSupporterExcelProcessor {
                         header == null ? null : header.rowIndex() + 1,
                         header == null ? Map.of() : header.detectedColumns(),
                         header == null ? requiredColumnLabels() : missingColumnLabels(header.columns()),
-                        List.copyOf(sampleRows)));
+                        List.copyOf(sampleRows), List.copyOf(allRows), List.copyOf(rowNumbers)));
             }
             return new TumblbugWorkbookInspectResponse(List.copyOf(samples));
         } catch (CustomException e) {
@@ -133,6 +157,29 @@ public class TumblbugSupporterExcelProcessor {
             return rows;
         } catch (CustomException e) {
             throw e;
+        } catch (Exception e) {
+            throw new CustomException(ErrorCode.FUNDING_TUMBLBUG_IMPORT_INVALID);
+        }
+    }
+
+    public byte[] writeRows(List<TumblbugSupporterRowInput> rows) {
+        try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("후원자");
+            String[] headers = {"후원번호", "이름", "선물", "추가 후원금", "총 후원 금액", "후원 일시", "알림 신청", "결제 상태", "선물 전달"};
+            Row header = sheet.createRow(0);
+            for (int column = 0; column < headers.length; column++) header.createCell(column).setCellValue(headers[column]);
+            for (int index = 0; index < rows.size(); index++) {
+                TumblbugSupporterRowInput source = rows.get(index);
+                Row row = sheet.createRow(index + 1);
+                String[] values = {source.supporterNumber(), source.buyerName(), source.giftText(),
+                        source.additionalSupportAmount(), source.totalSupportAmount(), source.supportedAt(),
+                        source.notificationRequest(), source.paymentStatus(), source.giftDeliveryStatus()};
+                for (int column = 0; column < values.length; column++) {
+                    row.createCell(column).setCellValue(values[column] == null ? "" : values[column]);
+                }
+            }
+            workbook.write(output);
+            return output.toByteArray();
         } catch (Exception e) {
             throw new CustomException(ErrorCode.FUNDING_TUMBLBUG_IMPORT_INVALID);
         }

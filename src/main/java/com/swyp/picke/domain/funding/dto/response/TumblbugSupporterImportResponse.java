@@ -10,6 +10,7 @@ import java.util.List;
 public record TumblbugSupporterImportResponse(
         TumblbugPlan plan,
         int importedCount,
+        int updatedCount,
         int issuedCodeCount,
         List<Buyer> buyers
 ) {

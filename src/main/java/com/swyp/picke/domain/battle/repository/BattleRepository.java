@@ -78,6 +78,60 @@ public interface BattleRepository extends JpaRepository<Battle, Long> {
     Page<Battle> findByCreatorTypeNotAndDeletedAtIsNullOrderByCreatedAtDesc(BattleCreatorType creatorType, Pageable pageable);
     Page<Battle> findByStatusAndCreatorTypeNotAndDeletedAtIsNullOrderByCreatedAtDesc(
             BattleStatus status, BattleCreatorType creatorType, Pageable pageable);
+
+    @Query("""
+            select count(b) from Battle b
+            where b.creatorType <> com.swyp.picke.domain.battle.enums.BattleCreatorType.USER
+              and b.deletedAt is null
+            """)
+    long countAdminCatalogContents();
+
+    @Query("""
+            select count(b) from Battle b
+            where b.creatorType <> com.swyp.picke.domain.battle.enums.BattleCreatorType.USER
+              and b.deletedAt is null and b.difficulty is null
+            """)
+    long countAdminCatalogContentsWithoutDifficulty();
+
+    @Query("""
+            select count(b) from Battle b
+            where b.creatorType <> com.swyp.picke.domain.battle.enums.BattleCreatorType.USER
+              and b.deletedAt is null and b.category is null
+            """)
+    long countAdminCatalogContentsWithoutCategory();
+
+    @Query("""
+            select count(b) from Battle b
+            where b.creatorType <> com.swyp.picke.domain.battle.enums.BattleCreatorType.USER
+              and b.deletedAt is null and b.classRecommendable = true
+            """)
+    long countAdminCatalogContentsRecommendedForClass();
+
+    @Query(value = """
+            select b from Battle b
+            where b.creatorType <> com.swyp.picke.domain.battle.enums.BattleCreatorType.USER
+              and b.deletedAt is null
+              and (:keyword is null or lower(b.title) like lower(concat('%', :keyword, '%')))
+              and (:difficulty is null or b.difficulty = :difficulty)
+              and (:category is null or b.category = :category)
+              and (:classRecommendable is null or b.classRecommendable = :classRecommendable)
+            order by b.createdAt desc, b.id desc
+            """,
+            countQuery = """
+            select count(b) from Battle b
+            where b.creatorType <> com.swyp.picke.domain.battle.enums.BattleCreatorType.USER
+              and b.deletedAt is null
+              and (:keyword is null or lower(b.title) like lower(concat('%', :keyword, '%')))
+              and (:difficulty is null or b.difficulty = :difficulty)
+              and (:category is null or b.category = :category)
+              and (:classRecommendable is null or b.classRecommendable = :classRecommendable)
+            """)
+    Page<Battle> searchAdminCatalogContents(@Param("keyword") String keyword,
+                                            @Param("difficulty") BattleDifficulty difficulty,
+                                            @Param("category") BattleCategory category,
+                                            @Param("classRecommendable") Boolean classRecommendable,
+                                            Pageable pageable);
+
     List<Battle> findByStatusAndDeletedAtIsNull(BattleStatus status);
     Page<Battle> findByStatusAndPublishAtLessThanEqualAndDeletedAtIsNull(
             BattleStatus status,

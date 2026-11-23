@@ -84,6 +84,55 @@ public class SentryClient {
                 Instant.now(), from, to, total, fetched);
     }
 
+    /** 클래스 관리 화면은 이슈 표와 발생 수만 쓰므로 비싼 상세 데이터셋 조회를 생략한다. */
+    public SentryIssueSummaryReport fetchIssueSummary(LocalDate from, LocalDate to) {
+        if (!isConfigured()) {
+            return SentryIssueSummaryReport.empty(AnalyticsStatus.NOT_CONFIGURED, from, to);
+        }
+
+        List<SentryIssueSummaryReport.ProjectSummary> fetched = projects.stream()
+                .map(project -> fetchProjectIssueSummary(project, from, to))
+                .toList();
+        boolean allConnected = fetched.stream()
+                .allMatch(project -> project.status() == AnalyticsStatus.CONNECTED);
+        Long total = allConnected
+                ? fetched.stream().mapToLong(SentryIssueSummaryReport.ProjectSummary::totalEvents).sum()
+                : null;
+        return new SentryIssueSummaryReport(
+                allConnected ? AnalyticsStatus.CONNECTED : AnalyticsStatus.UNAVAILABLE,
+                Instant.now(), from, to, total, fetched);
+    }
+
+    private SentryIssueSummaryReport.ProjectSummary fetchProjectIssueSummary(
+            String project, LocalDate from, LocalDate to) {
+        try {
+            AnalyticsHttpResponse issueResponse = transport.get(issueUri(project, from, to),
+                    Map.of("Authorization", "Bearer " + authToken));
+            AnalyticsHttpResponse statsResponse = transport.get(statsUri(project, from, to),
+                    Map.of("Authorization", "Bearer " + authToken));
+            boolean issuesAvailable = issueResponse.isSuccess() && issueResponse.isJson();
+            boolean statsAvailable = statsResponse.isSuccess() && statsResponse.isJson();
+            List<SentryIssueReport.Issue> issues = issuesAvailable
+                    ? parseIssues(issueResponse.body())
+                    : List.of();
+            Long totalEvents = statsAvailable
+                    ? parseDays(statsResponse.body(), from, to).stream()
+                            .mapToLong(SentryIssueReport.Day::events).sum()
+                    : null;
+            AnalyticsStatus status = issuesAvailable && statsAvailable
+                    ? AnalyticsStatus.CONNECTED
+                    : AnalyticsStatus.UNAVAILABLE;
+            if (status == AnalyticsStatus.UNAVAILABLE) {
+                log.warn("[Sentry] 요약 조회 실패: project={}, issuesStatus={}, statsStatus={}",
+                        project, issueResponse.statusCode(), statsResponse.statusCode());
+            }
+            return new SentryIssueSummaryReport.ProjectSummary(project, status, totalEvents, issues);
+        } catch (Exception e) {
+            log.warn("[Sentry] 요약 응답 파싱 실패: project={}, {}", project, e.getClass().getSimpleName());
+            return SentryIssueSummaryReport.emptyProject(project);
+        }
+    }
+
     /** 한 프로젝트가 막혀도 다른 프로젝트는 살린다. iOS 가 죽었다고 Android 지표까지 감추지 않는다. */
     private SentryIssueReport.ProjectIssues fetchProject(String project, LocalDate from, LocalDate to) {
         AnalyticsHttpResponse issueResponse = transport.get(issueUri(project, from, to),

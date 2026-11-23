@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import java.sql.SQLException;
 
 @Slf4j
@@ -65,6 +67,18 @@ public class GlobalExceptionHandler {
         ErrorCode code = ErrorCode.COMMON_INVALID_PARAMETER;
         return ResponseEntity
                 .status(code.getHttpStatus())
+                .body(ApiResponse.onFailure(code.getHttpStatus().value(), code.getCode(), code.getMessage()));
+    }
+
+    /** 매핑된 API 가 없는 주소. 서버 오류가 아니므로 404 와 WARN 한 줄만 남긴다. */
+    @ExceptionHandler({
+            NoResourceFoundException.class,
+            NoHandlerFoundException.class
+    })
+    public ResponseEntity<ApiResponse<Void>> handleNotFound(Exception e) {
+        log.warn("Not Found: {}", e.getMessage());
+        ErrorCode code = ErrorCode.COMMON_NOT_FOUND;
+        return ResponseEntity.status(code.getHttpStatus())
                 .body(ApiResponse.onFailure(code.getHttpStatus().value(), code.getCode(), code.getMessage()));
     }
 

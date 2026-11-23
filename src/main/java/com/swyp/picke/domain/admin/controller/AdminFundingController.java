@@ -1,20 +1,14 @@
 package com.swyp.picke.domain.admin.controller;
 
+import com.swyp.picke.domain.admin.dto.funding.response.*;
 import com.swyp.picke.domain.ticket.enums.RegisterReminderStage;
-import com.swyp.picke.domain.admin.dto.funding.response.RegisterReminderTargetResponse;
-import com.swyp.picke.domain.admin.dto.funding.response.RegisterReminderResponse;
 import com.swyp.picke.domain.admin.dto.funding.request.RegisterReminderRequest;
 import com.swyp.picke.domain.admin.dto.funding.request.FundingRefundRequest;
+import com.swyp.picke.domain.admin.dto.funding.request.FundingOrderContactUpdateRequest;
+import com.swyp.picke.domain.admin.dto.funding.request.FundingOrderAdminUpdateRequest;
 import com.swyp.picke.domain.admin.dto.funding.request.TicketDeliveryRequest;
 import com.swyp.picke.domain.admin.dto.funding.request.TicketIssueRequest;
-import com.swyp.picke.domain.admin.dto.funding.response.FundingImportResponse;
-import com.swyp.picke.domain.admin.dto.funding.response.FundingOrderPageResponse;
-import com.swyp.picke.domain.admin.dto.funding.response.FundingRefundResponse;
-import com.swyp.picke.domain.admin.dto.funding.response.FundingSummaryResponse;
-import com.swyp.picke.domain.admin.dto.funding.response.AdminTicketCodeResponse;
-import com.swyp.picke.domain.admin.dto.funding.response.TicketDeliveryResponse;
-import com.swyp.picke.domain.admin.dto.funding.response.TicketIssueResponse;
-import com.swyp.picke.domain.admin.dto.funding.response.TumblbugCampaignDashboardResponse;
+import com.swyp.picke.domain.admin.dto.funding.request.TicketCodeWorkbookRequest;
 import com.swyp.picke.domain.admin.service.AdminFundingService;
 import com.swyp.picke.domain.funding.enums.DeliveryStatus;
 import com.swyp.picke.domain.ticket.enums.PaymentStatus;
@@ -28,13 +22,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
@@ -61,12 +49,29 @@ public class AdminFundingController {
     }
 
     @Operation(summary = "이용권 코드 발급",
-            description = "fundingOrderIds 를 비우면 발급 가능한 전체 주문(결제 완료·미발급 수량 있음)에 발급합니다. "
-                    + "주문 수량만큼 발급하며 이미 수량을 모두 발급한 주문은 건너뛰므로 재실행해도 중복 발급되지 않습니다. "
+            description = "선택된 결제 완료 주문에 미발급 수량만큼 코드를 발급합니다. "
+                    + "이미 발급된 수량은 건너뛰므로 재요청해도 중복 발급되지 않습니다. "
                     + "응답의 code 를 반환하고 서버는 해시와 암호문을 저장합니다.")
     @PostMapping("/tickets/issue")
-    public ApiResponse<TicketIssueResponse> issueTickets(@RequestBody(required = false) TicketIssueRequest request) {
+    public ApiResponse<TicketIssueResponse> issueTickets(@Valid @RequestBody TicketIssueRequest request) {
         return ApiResponse.onSuccess(adminFundingService.issueTickets(request));
+    }
+
+    @Operation(summary = "텀블벅 이용권 코드 엑셀 다운로드", description = "선택 발급한 이용권 코드만 텀블벅 업로드용 XLSX로 반환합니다.")
+    @PostMapping(value = "/tickets/issue/workbook", produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    public org.springframework.http.ResponseEntity<byte[]> downloadIssuedTicketWorkbook(
+            @Valid @RequestBody TicketCodeWorkbookRequest request,
+            @AuthenticationPrincipal Long adminUserId) {
+        byte[] workbook = adminFundingService.createIssuedTicketWorkbook(request.ticketIds(), adminUserId);
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.setContentType(org.springframework.http.MediaType.parseMediaType(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDisposition(org.springframework.http.ContentDisposition.attachment()
+                .filename("picke-tumblbug-digital-gifts.xlsx", java.nio.charset.StandardCharsets.UTF_8).build());
+        headers.setCacheControl("no-store, no-cache, must-revalidate");
+        headers.setPragma("no-cache");
+        headers.setContentLength(workbook.length);
+        return org.springframework.http.ResponseEntity.ok().headers(headers).body(workbook);
     }
 
     @Operation(summary = "관리자 이용권 코드 조회", description = "대시보드에서 코드 전체 보기·복사할 때 호출합니다. ROLE_ADMIN 전용이며 조회 이력을 남깁니다.")
@@ -124,6 +129,31 @@ public class AdminFundingController {
     ) {
         return ApiResponse.onSuccess(
                 adminFundingService.getOrders(campaignId, paymentStatus, ticketStatus, codeStatus, keyword, capacity, deliveryStatus, page, size));
+    }
+
+    @Operation(summary = "펀딩 주문 상세", description = "후원자 원본 정보와 연결된 이용권·등록 계정 상태를 상세 조회합니다.")
+    @GetMapping("/orders/{fundingOrderId}")
+    public ApiResponse<FundingOrderSummaryResponse> getOrderDetail(@PathVariable Long fundingOrderId) {
+        return ApiResponse.onSuccess(adminFundingService.getOrderDetail(fundingOrderId));
+    }
+
+    @Operation(summary = "펀딩 구매자 6개 항목 수정",
+            description = "구매자·연락처·펀딩 주문·구매 상품·코드 전달을 수정합니다. 앱 등록 상태는 실제 이용권 등록 데이터와 일치해야 하며 직접 변경할 수 없습니다.")
+    @PatchMapping("/orders/{fundingOrderId}")
+    public ApiResponse<FundingOrderSummaryResponse> updateOrderAdminFields(
+            @PathVariable Long fundingOrderId,
+            @AuthenticationPrincipal Long adminUserId,
+            @Valid @RequestBody FundingOrderAdminUpdateRequest request) {
+        return ApiResponse.onSuccess(adminFundingService.updateOrderAdminFields(fundingOrderId, adminUserId, request));
+    }
+
+    @Operation(summary = "펀딩 구매자 연락처 수정", description = "후원자 이름·이메일·전화번호만 수정하고 관리자 변경 이력을 남깁니다. 결제·상품·수량은 원본 명단 재업로드로 정정합니다.")
+    @PatchMapping("/orders/{fundingOrderId}/contact")
+    public ApiResponse<FundingOrderSummaryResponse> updateOrderContact(
+            @PathVariable Long fundingOrderId,
+            @AuthenticationPrincipal Long adminUserId,
+            @Valid @RequestBody FundingOrderContactUpdateRequest request) {
+        return ApiResponse.onSuccess(adminFundingService.updateOrderContact(fundingOrderId, adminUserId, request));
     }
 
     @Operation(summary = "텀블벅 캠페인 대시보드 통계",

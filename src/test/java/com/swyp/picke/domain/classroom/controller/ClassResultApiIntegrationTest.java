@@ -294,10 +294,10 @@ class ClassResultApiIntegrationTest {
                 .andExpect(jsonPath("$.data.state").value("SUCCEEDED"))
                 .andExpect(jsonPath("$.data.feedback.headline").value("근거를 요구하는 판단"))
                 .andExpect(jsonPath("$.data.feedback.strength.title").value("근거 점검"))
-                .andExpect(jsonPath("$.data.feedback.nextFocus").doesNotExist())
+                .andExpect(jsonPath("$.data.feedback.nextFocus.title").value("조건 구체화"))
                 .andExpect(jsonPath("$.data.feedback.analysisStatus").value("SUFFICIENT"))
                 .andExpect(jsonPath("$.data.feedback.coverage").value("full"))
-                .andExpect(jsonPath("$.data.feedback.evidence", hasSize(2)))
+                .andExpect(jsonPath("$.data.feedback.evidence", hasSize(3)))
                 .andExpect(jsonPath("$.data.feedback.evidence[0].sourceType").value("PERSPECTIVE"))
                 .andExpect(jsonPath("$.data.feedback.evidence[0].content").value("효과가 입증되지 않아 반대합니다. 표본이 너무 작아요."))
                 .andExpect(jsonPath("$.data.generatedAt").exists());
@@ -351,9 +351,9 @@ class ClassResultApiIntegrationTest {
                 .andExpect(jsonPath("$.data.feedback.limitedReason").value("NO_POST"))
                 .andExpect(jsonPath("$.data.feedback.limitedNotice").value("참여 여부와 투표 결과는 확인할 수 있습니다."))
                 .andExpect(jsonPath("$.data.feedback.judgmentBasis").value("선택이 선택지 1에서 선택지 2로 바뀌었어요."))
-                .andExpect(jsonPath("$.data.feedback.nextQuestion").doesNotExist())
-                .andExpect(jsonPath("$.data.feedback.strength").doesNotExist())
-                .andExpect(jsonPath("$.data.feedback.nextFocus").doesNotExist())
+                .andExpect(jsonPath("$.data.feedback.nextQuestion").value("내가 이 선택을 한 가장 큰 이유는 무엇이었나요?"))
+                .andExpect(jsonPath("$.data.feedback.strength.title").value("끝까지 참여했어요"))
+                .andExpect(jsonPath("$.data.feedback.nextFocus.title").value("이유를 한 줄 남겨 보기"))
                 .andExpect(jsonPath("$.data.feedback.evidence", hasSize(0)));
         verify(aiClient, never()).chatJson(anyString(), anyString(), anyInt());
         verify(aiClient, never()).chatJson(any(), anyString(), anyString(), anyInt());
@@ -533,7 +533,7 @@ class ClassResultApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("AI 응답이 근거 검증을 통과하지 못하면 REJECTED 로 기록하고 재시도한다")
+    @DisplayName("AI 응답이 검증을 통과하지 못하면 REJECTED 로 기록하고 재시도한다")
     void invalidEvidence_isRejectedAndRetried() throws Exception {
         ClassInfo cls = createClass(false);
         User student = newUser("학생A");
@@ -541,10 +541,10 @@ class ClassResultApiIntegrationTest {
         join(token, cls.inviteCode, "학생A");
         completeParticipation(token, cls, optionA, optionB, "효과가 입증되지 않아 반대합니다. 표본이 너무 작아요.");
 
-        // 1차: 존재하지 않는 발언을 인용 → 거절, 2차: 정상
+        // 1차: headline 누락 → 거절, 2차: 정상
         when(aiClient.chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
                 .thenReturn(new ClassReportAiClient.AiChatResult(Map.of(
-                        "headline", "h", "judgment_basis", "j", "next_question", "q",
+                        "judgment_basis", "j", "next_question", "q",
                         "evidence_refs", List.of(Map.of("field", "judgment_basis", "source_id", "p:999999", "quote", "없는 문장"))
                 ), "{}", 10, 5))
                 .thenAnswer(inv -> memberFeedbackAnswer(inv.getArgument(1)));
@@ -556,7 +556,7 @@ class ClassResultApiIntegrationTest {
                 .filter(r -> r.getType() == ClassReportType.MEMBER_FEEDBACK).findFirst().orElseThrow();
         assertThat(report.getStatus()).isEqualTo(ClassReportStatus.PENDING);
         assertThat(jobOf(report).getStatus()).isEqualTo(AiJobStatus.REJECTED);
-        assertThat(jobOf(report).getErrorCode()).isEqualTo("EVIDENCE_MISSING");
+        assertThat(jobOf(report).getErrorCode()).isEqualTo("MISSING_HEADLINE");
 
         mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
@@ -654,7 +654,7 @@ class ClassResultApiIntegrationTest {
         mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.state").value("SUCCEEDED"))
-                .andExpect(jsonPath("$.data.feedback.evidence", hasSize(1)))
+                .andExpect(jsonPath("$.data.feedback.evidence", hasSize(3)))
                 .andExpect(jsonPath("$.data.feedback.evidence[0].sourceType").value("DEBATE"))
                 .andExpect(jsonPath("$.data.feedback.evidence[0].sourceId").value(valid.getId()))
                 .andExpect(jsonPath("$.data.feedback.evidence[0].content").value("표본이 작으면 우연일 수 있어서 반복 실험으로 확인해야 한다고 생각해요."));
@@ -709,15 +709,15 @@ class ClassResultApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("자동 재시도까지 원문 근거를 못 찾으면 FAILED 대신 서버 템플릿(LIMITED)으로 게시한다")
+    @DisplayName("자동 재시도까지 인용할 수 있는 원문이 없으면 FAILED 대신 서버 템플릿(LIMITED)으로 게시한다")
     void evidenceMissingTwice_fallsBackToTemplate() throws Exception {
         ClassInfo cls = createClass(false);
         User student = newUser("학생A");
         String token = tokenOf(student);
         join(token, cls.inviteCode, "학생A");
-        completeParticipation(token, cls, optionA, optionB, "그냥 그렇게 생각해요 잘 모르겠어요");
+        completeParticipation(token, cls, optionA, optionB, "씨발 그냥 그렇게 생각해요 잘 모르겠어요");
 
-        // 두 번 모두 원문이 아닌 입장 문구를 인용 → 근거 누락
+        // 인용할 수 있는 원문이 없음(비속어로 시작) + 두 번 모두 원문이 아닌 입장 문구를 인용 → 근거 누락
         when(aiClient.chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
                 .thenAnswer(inv -> {
                     String prompt = inv.getArgument(1);
@@ -746,9 +746,9 @@ class ClassResultApiIntegrationTest {
                 .andExpect(jsonPath("$.data.feedback.limitedReason").value("INSUFFICIENT_EVIDENCE"))
                 .andExpect(jsonPath("$.data.feedback.limitedMessage").value("작성된 의견에서 주제와 관련된 주장이나 근거를 충분히 확인하기 어려워 사고 과정 분석을 제공하지 않습니다."))
                 .andExpect(jsonPath("$.data.feedback.judgmentBasis").value("선택이 선택지 1에서 선택지 2로 바뀌었어요."))
-                .andExpect(jsonPath("$.data.feedback.nextFocus").doesNotExist())
-                .andExpect(jsonPath("$.data.feedback.nextQuestion").doesNotExist())
-                .andExpect(jsonPath("$.data.feedback.strength").doesNotExist())
+                .andExpect(jsonPath("$.data.feedback.nextFocus.title").value("이유를 한 줄 남겨 보기"))
+                .andExpect(jsonPath("$.data.feedback.nextQuestion").value("내가 이 선택을 한 가장 큰 이유는 무엇이었나요?"))
+                .andExpect(jsonPath("$.data.feedback.strength.title").value("끝까지 참여했어요"))
                 .andExpect(jsonPath("$.data.feedback.evidence", hasSize(0)))
                 .andExpect(jsonPath("$.data.feedback.analysisStatus").value("LIMITED"));
     }
@@ -773,7 +773,7 @@ class ClassResultApiIntegrationTest {
 
     // ===== AI 모킹 =====
 
-    /** 프롬프트의 첫 발언(source_id, 원문)을 그대로 인용하는 정상 응답. next_focus 는 원문에 없는 인용이라 null 이 돼야 한다 */
+    /** 프롬프트의 첫 발언(source_id, 원문)을 그대로 인용하는 정상 응답. next_focus 는 원문에 없는 인용이라 원문 앞부분으로 바뀐다 */
     @Test
     @DisplayName("중간투표가 있는 기존 콘텐츠: 통계에 선택 지점별 분포, 내 리포트에 지점별 선택, AI 입력·템플릿에 중간 선택")
     void midVote_reflectedInStatsAndReports() throws Exception {

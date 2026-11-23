@@ -24,13 +24,13 @@ public record ClassMyReportResponse(
     public record Option(Long optionId, String title, String stance) {
     }
 
-    @Schema(description = "PRD §13 출력 구조. strength / nextFocus 는 기록으로 확인되지 않으면 null")
+    @Schema(description = "PRD §13 출력 구조. strength / nextFocus / nextQuestion 은 항상 채운다 (#681)")
     public record Feedback(
             @Schema(description = "내 판단의 기준 한 문장") String headline,
             @Schema(description = "판단 기준과 변화 (150자 이하)") String judgmentBasis,
-            @Schema(description = "잘한 점 1개 또는 null") Section strength,
-            @Schema(description = "다음에 해볼 것 1개 또는 null") Section nextFocus,
-            @Schema(description = "다음 질문. 분석 불가 템플릿이면 null") String nextQuestion,
+            @Schema(description = "잘한 점 1개. AI 가 비우면 기본 문구, 분석 불가 템플릿이면 안내 문구") Section strength,
+            @Schema(description = "다음에 해볼 것 1개. AI 가 비우면 기본 문구, 분석 불가 템플릿이면 안내 문구") Section nextFocus,
+            @Schema(description = "다음 질문. AI 가 비우면 기본 문구, 분석 불가 템플릿이면 안내 문구") String nextQuestion,
             @Schema(description = "근거가 된 내 발언. 원문은 현재 상태로 다시 조회한다") List<Evidence> evidence,
             @Schema(description = "SUFFICIENT / LIMITED") String analysisStatus,
             @Schema(description = "분석 불가 사유. NO_POST = 작성한 글 없음(PRD Case B), INSUFFICIENT_EVIDENCE = 글은 있지만 근거 부족(Case A). "

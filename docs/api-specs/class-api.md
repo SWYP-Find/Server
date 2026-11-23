@@ -1119,7 +1119,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 ```
 
 - `feedback`은 `state`가 `SUCCEEDED`나 `LIMITED`일 때만 있다. 그 외에는 null이다.
-- `strength`, `nextFocus`는 기록으로 확인되지 않으면 null이다.
+- `strength`, `nextFocus`, `nextQuestion`은 항상 채운다. AI가 비우면 서버 기본 문구를 쓴다 (#681).
 - `midVotes`는 중간투표가 있는 콘텐츠에서 선택 지점마다 고른 선택지다(6.5와 같은 형태). 없으면 빈 배열이다. 중간 선택은 AI 피드백 입력에도 들어간다.
 - `LIMITED` 템플릿 문구
 
@@ -1129,7 +1129,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 | `INSUFFICIENT_EVIDENCE` | 의견 분석을 진행하지 못했어요. | 작성된 의견에서 주제와 관련된 주장이나 근거를 충분히 확인하기 어려워 사고 과정 분석을 제공하지 않습니다. | 투표 결과와 참여 기록은 정상적으로 확인할 수 있습니다. |
 
 - `LIMITED` 템플릿의 `judgmentBasis`는 선택 기록만 말한다(예: "선택이 A에서 B로 바뀌었어요."). 바뀐 이유는 추론하지 않는다. 중간 선택이 있으면 "… 콘텐츠 중간에는 '무죄' 쪽을 골랐어요."를 덧붙인다.
-- `LIMITED` 템플릿은 `strength`, `nextFocus`, `nextQuestion`이 null이고 `evidence`는 빈 배열이다.
+- `LIMITED` 템플릿은 `strength`, `nextFocus`, `nextQuestion`에 참여 안내 문구가 들어가고 `evidence`는 빈 배열이다 (#681).
 - AI 피드백(`SUCCEEDED`)이라도 근거가 적으면 `analysisStatus=LIMITED`이고 확인되지 않는 항목은 null이다. 이때 `limitedReason`은 null이다.
 - `evidence[].content`는 현재 기준 원문이다. 삭제·숨김된 글은 목록에서 빠진다.
 - `coverage=partial`은 분량 제한으로 일부 글을 빼고 분석했다는 뜻이다. 뺀 글 수는 `excludedCount`에 있다.

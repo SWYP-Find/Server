@@ -12,7 +12,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * PRD §13 근거 검증: 인용은 본인 발언 원문에 실제로 있어야 하고, 근거 없는 섹션은 null, judgment_basis 근거 없으면 거절.
+ * PRD §13 근거 검증: 근거는 본인 발언이어야 하고, 인용이 원문과 다르면 원문 앞부분으로 바꾼다.
+ * 강점·다음 한 걸음·다음 질문은 항상 채운다 (#681).
  */
 class ClassReportContentValidatorTest {
 
@@ -46,23 +47,26 @@ class ClassReportContentValidatorTest {
     }
 
     @Test
-    @DisplayName("본인 발언에 실제로 있는 인용만 근거로 남고, 공백 차이는 무시한다")
-    void keepsOnlyValidEvidence() {
+    @DisplayName("본인 발언만 근거로 남고, 원문과 다른 인용은 버리지 않고 원문 앞부분으로 바꾼다")
+    void keepsOwnEvidenceAndReplacesMismatchedQuote() {
         Map<String, Object> json = baseJson();
         json.put("evidence_refs", List.of(
-                ref("judgment_basis", "p:10", "비용 대비  효과가 불분명"),   // 공백 차이 → 유효
+                ref("judgment_basis", "p:10", "비용 대비  효과가 불분명"),   // 공백 차이 → 그대로
                 ref("strength", "c:20", "표본이 작아"),
-                ref("next_focus", "p:10", "원문에 없는 문장"),               // 무효 → next_focus 가 null 이 된다
+                ref("next_focus", "p:10", "원문에 없는 문장"),               // 원문에 없음 → 원문 앞부분으로
                 ref("strength", "p:99", "비용 대비 효과")                    // 존재하지 않는 발언 → 버림
         ));
 
         Map<String, Object> content = validator.validateMemberFeedback(json, input(0));
 
         List<Map<String, Object>> refs = ReportContent.mapList(content, "evidence_refs");
-        assertThat(refs).hasSize(2);
-        assertThat(refs.get(0)).containsEntry("source_type", "PERSPECTIVE").containsEntry("source_id", 10L);
+        assertThat(refs).hasSize(3);
+        assertThat(refs.get(0)).containsEntry("source_type", "PERSPECTIVE").containsEntry("source_id", 10L)
+                .containsEntry("quote", "비용 대비  효과가 불분명");
+        assertThat(refs.get(2)).containsEntry("field", "next_focus")
+                .containsEntry("quote", "비용 대비 효과가 불분명해서 반대합니다. 데이터가 더 필요해요.");
         assertThat(content.get("strength")).isNotNull();
-        assertThat(content.get("next_focus")).isNull();
+        assertThat(content.get("next_focus")).isNotNull();
         assertThat(content).containsEntry("analysis_status", "SUFFICIENT")
                 .containsEntry("coverage", "full")
                 .containsEntry("pre_option_id", 1L)
@@ -70,25 +74,107 @@ class ClassReportContentValidatorTest {
     }
 
     @Test
-    @DisplayName("judgment_basis 에 유효한 근거가 없으면 게시하지 않는다")
-    void rejectsWithoutJudgmentEvidence() {
+    @DisplayName("근거가 없는 항목은 첫 본인 발언 앞부분을 근거로 붙인다")
+    void attachesFallbackEvidence() {
         Map<String, Object> json = baseJson();
         json.put("evidence_refs", List.of(ref("strength", "c:20", "표본이 작아")));
 
-        assertThatThrownBy(() -> validator.validateMemberFeedback(json, input(0)))
+        Map<String, Object> content = validator.validateMemberFeedback(json, input(0));
+
+        List<Map<String, Object>> refs = ReportContent.mapList(content, "evidence_refs");
+        assertThat(refs).extracting(r -> r.get("field")).containsExactly("strength", "judgment_basis", "next_focus");
+        assertThat(refs.get(1)).containsEntry("source_id", 10L)
+                .containsEntry("quote", "비용 대비 효과가 불분명해서 반대합니다. 데이터가 더 필요해요.");
+        assertThat(content).containsEntry("analysis_status", "SUFFICIENT");
+    }
+
+    @Test
+    @DisplayName("인용할 수 있는 본인 발언이 하나도 없으면(모두 가린 비속어) 게시하지 않는다")
+    void rejectsWhenNoQuotableStatement() {
+        MemberFeedbackInput masked = new MemberFeedbackInput("제목", "요약", List.of(A, B), A, List.of(), B, List.of(
+                new MemberFeedbackInput.Statement("p:10", MemberFeedbackInput.SOURCE_PERSPECTIVE, 10L, LocalDateTime.now(),
+                        "반대", "*** 반대", null)), 0);
+        Map<String, Object> json = baseJson();
+        json.put("evidence_refs", List.of(ref("judgment_basis", "p:10", "찬성")));
+
+        assertThatThrownBy(() -> validator.validateMemberFeedback(json, masked))
                 .isInstanceOf(ReportValidationException.class)
                 .hasMessage("EVIDENCE_MISSING");
     }
 
     @Test
-    @DisplayName("선택지·입장 문구를 인용하면 원문에 없으므로 버리고 judgment_basis 근거 누락으로 거절한다")
-    void rejectsStanceQuote() {
-        Map<String, Object> json = baseJson();
-        json.put("evidence_refs", List.of(ref("judgment_basis", "p:10", "찬성"), ref("judgment_basis", "p:10", "선택지 2")));
+    @DisplayName("문장부호·따옴표 차이와 말줄임표로 생략한 인용은 원문과 같은 것으로 본다")
+    void quoteMatchIgnoresPunctuation() {
+        assertThat(ClassReportContentValidator.contains("비용 대비 효과가 불분명해서 반대합니다. 데이터가 더 필요해요.",
+                "\"비용 대비 효과가 불분명해서, 반대합니다!\"")).isTrue();
+        assertThat(ClassReportContentValidator.contains("비용 대비 효과가 불분명해서 반대합니다. 데이터가 더 필요해요.",
+                "비용 대비 효과가… 데이터가 더 필요해요")).isTrue();
+        assertThat(ClassReportContentValidator.contains("비용 대비 효과가 불분명해서 반대합니다.", "비용 대비 효과가 분명해서")).isFalse();
+    }
 
-        assertThatThrownBy(() -> validator.validateMemberFeedback(json, input(0)))
-                .isInstanceOf(ReportValidationException.class)
-                .hasMessage("EVIDENCE_MISSING");
+    @Test
+    @DisplayName("원문 앞부분 인용은 가린 비속어 앞에서 끊고 60자 안에서 자른다")
+    void excerptCutsAtMaskAndLength() {
+        assertThat(ClassReportContentValidator.excerpt("가격이 너무 비싸서 *** 반대")).isEqualTo("가격이 너무 비싸서");
+        assertThat(ClassReportContentValidator.excerpt("*** 몰라")).isNull();
+        String longText = "환경을 위해 내는 돈이라면 낼 수 있지만 그 돈이 실제로 어디에 쓰이는지 알려주지 않으면 믿기 어렵고 결국 소비자만 부담하게 됩니다";
+        String cut = ClassReportContentValidator.excerpt(longText);
+        assertThat(cut).endsWith("…");
+        assertThat(cut.length()).isLessThanOrEqualTo(ClassReportContentValidator.EXCERPT_MAX + 1);
+        assertThat(longText).startsWith(cut.substring(0, cut.length() - 1));
+    }
+
+    @Test
+    @DisplayName("본문에 섞인 발언 번호(p:10, (c:20), [p:1, d:3])는 지우고 공백을 정리한다")
+    void stripsSourceIdsFromText() {
+        assertThat(ClassReportContentValidator.stripSourceIds("비용 대비 효과를 따졌어요 (p:10).")).isEqualTo("비용 대비 효과를 따졌어요.");
+        assertThat(ClassReportContentValidator.stripSourceIds("p:10 에서 근거를 들었고 [c:20, d:3] 반박에도 답했어요."))
+                .isEqualTo("에서 근거를 들었고 반박에도 답했어요.");
+        assertThat(ClassReportContentValidator.stripSourceIds("source_id=p:12 의견처럼 조건을 붙였어요")).isEqualTo("의견처럼 조건을 붙였어요");
+        assertThat(ClassReportContentValidator.stripSourceIds("오후 3:30 수업, GPT:4 같은 표기는 그대로예요")).isEqualTo("오후 3:30 수업, GPT:4 같은 표기는 그대로예요");
+
+        Map<String, Object> json = baseJson();
+        json.put("judgment_basis", "비용 대비 효과를 기준으로 판단했어요 (p:10, c:20).");
+        json.put("strength", Map.of("title", "근거 점검", "body", "상대 근거의 표본 크기를 짚었어요 [c:20]."));
+        json.put("evidence_refs", List.of(ref("judgment_basis", "p:10", "데이터가 더 필요해요")));
+
+        Map<String, Object> content = validator.validateMemberFeedback(json, input(0));
+
+        assertThat(content).containsEntry("judgment_basis", "비용 대비 효과를 기준으로 판단했어요.");
+        assertThat(content.get("strength")).isEqualTo(Map.of("title", "근거 점검", "body", "상대 근거의 표본 크기를 짚었어요."));
+    }
+
+    @Test
+    @DisplayName("AI 가 강점·다음 한 걸음·다음 질문을 비우면 기본 문구로 채우고, 둘 다 비면 LIMITED")
+    void fillsDefaultSections() {
+        Map<String, Object> json = baseJson();
+        json.put("strength", null);
+        json.put("next_focus", null);
+        json.remove("next_question");
+        json.put("evidence_refs", List.of(ref("judgment_basis", "p:10", "데이터가 더 필요해요")));
+
+        Map<String, Object> content = validator.validateMemberFeedback(json, input(0));
+
+        assertThat(content.get("strength")).isEqualTo(Map.of("title", ClassReportContentValidator.DEFAULT_STRENGTH_TITLE,
+                "body", ClassReportContentValidator.DEFAULT_STRENGTH_BODY));
+        assertThat(content.get("next_focus")).isEqualTo(Map.of("title", ClassReportContentValidator.DEFAULT_NEXT_FOCUS_TITLE,
+                "body", ClassReportContentValidator.DEFAULT_NEXT_FOCUS_BODY));
+        assertThat(content).containsEntry("next_question", ClassReportContentValidator.DEFAULT_NEXT_QUESTION)
+                .containsEntry("analysis_status", "LIMITED");
+        assertThat(ReportContent.mapList(content, "evidence_refs")).extracting(r -> r.get("field"))
+                .containsExactly("judgment_basis", "strength", "next_focus");
+    }
+
+    @Test
+    @DisplayName("선택지·입장 문구를 인용하면 그대로 보여주지 않고 본인 발언 원문으로 바꾼다")
+    void replacesStanceQuote() {
+        Map<String, Object> json = baseJson();
+        json.put("evidence_refs", List.of(ref("judgment_basis", "p:10", "선택지 2")));
+
+        Map<String, Object> content = validator.validateMemberFeedback(json, input(0));
+
+        assertThat(ReportContent.mapList(content, "evidence_refs").get(0))
+                .containsEntry("quote", "비용 대비 효과가 불분명해서 반대합니다. 데이터가 더 필요해요.");
     }
 
     @Test
@@ -102,7 +188,7 @@ class ClassReportContentValidatorTest {
     }
 
     @Test
-    @DisplayName("근거 부족 템플릿(Case A)은 PRD 3.3 문구와 선택 기록만 담고 강점·보완점·다음 질문은 없다")
+    @DisplayName("근거 부족 템플릿(Case A)은 PRD 3.3 문구와 선택 기록에 세 항목 안내 문구를 담는다")
     void insufficientTemplate() {
         Map<String, Object> content = ClassReportContentValidator.insufficientMemberFeedback(input(2));
 
@@ -114,23 +200,25 @@ class ClassReportContentValidatorTest {
                 .containsEntry("analysis_status", "LIMITED")
                 .containsEntry("coverage", "partial")
                 .containsEntry("excluded_count", 2)
-                .containsEntry("strength", null)
-                .containsEntry("next_focus", null)
-                .containsEntry("next_question", null)
+                .containsEntry("strength", Map.of("title", ClassReportContentValidator.TEMPLATE_STRENGTH_TITLE,
+                        "body", ClassReportContentValidator.TEMPLATE_STRENGTH_BODY))
+                .containsEntry("next_focus", Map.of("title", ClassReportContentValidator.TEMPLATE_NEXT_FOCUS_TITLE,
+                        "body", ClassReportContentValidator.TEMPLATE_NEXT_FOCUS_BODY))
+                .containsEntry("next_question", ClassReportContentValidator.TEMPLATE_NEXT_QUESTION)
                 .containsEntry("evidence_refs", List.of());
     }
 
     @Test
-    @DisplayName("강점·보완점 모두 근거가 없으면 null 이 되고 analysis_status 는 LIMITED, 제외된 글이 있으면 coverage=partial")
-    void limitedWhenNoSectionEvidence() {
+    @DisplayName("강점·보완점에 근거가 없어도 AI 문장은 남기고 근거를 붙인다. 제외된 글이 있으면 coverage=partial")
+    void keepsSectionsWithoutEvidence() {
         Map<String, Object> json = baseJson();
         json.put("evidence_refs", List.of(ref("judgment_basis", "p:10", "데이터가 더 필요해요")));
 
         Map<String, Object> content = validator.validateMemberFeedback(json, input(3));
 
-        assertThat(content.get("strength")).isNull();
-        assertThat(content.get("next_focus")).isNull();
-        assertThat(content).containsEntry("analysis_status", "LIMITED")
+        assertThat(content.get("strength")).isEqualTo(Map.of("title", "근거 점검", "body", "상대 근거의 표본 크기를 짚었어요."));
+        assertThat(content.get("next_focus")).isNotNull();
+        assertThat(content).containsEntry("analysis_status", "SUFFICIENT")
                 .containsEntry("coverage", "partial")
                 .containsEntry("excluded_count", 3);
     }
@@ -241,7 +329,7 @@ class ClassReportContentValidatorTest {
     }
 
     @Test
-    @DisplayName("투표만 한 사람의 템플릿(Case B)은 선택 변화만 말하고 강점·보완점·다음 질문은 null 이다")
+    @DisplayName("투표만 한 사람의 템플릿(Case B)은 선택 변화를 말하고 세 항목은 안내 문구로 채운다")
     void limitedTemplate() {
         Map<String, Object> changed = ClassReportContentValidator.limitedMemberFeedback(A, null, B);
         assertThat(changed).containsEntry("judgment_basis", "선택이 선택지 1에서 선택지 2로 바뀌었어요.")
@@ -249,10 +337,10 @@ class ClassReportContentValidatorTest {
                 .containsEntry("limited_reason", "NO_POST")
                 .containsEntry("limited_message", "배틀에 참여했지만 작성된 의견이 없어 사고 과정 분석을 제공하지 않습니다.")
                 .containsEntry("limited_notice", "참여 여부와 투표 결과는 확인할 수 있습니다.")
-                .containsEntry("next_question", null)
+                .containsEntry("next_question", ClassReportContentValidator.TEMPLATE_NEXT_QUESTION)
                 .containsEntry("analysis_status", "LIMITED");
-        assertThat(changed.get("strength")).isNull();
-        assertThat(changed.get("next_focus")).isNull();
+        assertThat(changed.get("strength")).isNotNull();
+        assertThat(changed.get("next_focus")).isNotNull();
 
         Map<String, Object> same = ClassReportContentValidator.limitedMemberFeedback(A, List.of(), A);
         assertThat(same).containsEntry("judgment_basis", "처음부터 끝까지 선택지 1를 선택했어요.")

@@ -24,6 +24,10 @@ public class S3PresignedUrlService {
     @Value("${app.s3.presigned-url.expiration-hours:6}")
     private int expirationHours;
 
+    /** 저장소가 내려주는 파일 응답의 Cache-Control max-age(초). 기존 파일에도 적용되도록 presigned URL 에 싣는다. */
+    @Value("${app.s3.cache.object-max-age-seconds:86400}")
+    private long objectMaxAgeSeconds;
+
     public String generatePresignedUrl(String s3KeyOrUrl) {
         if (s3KeyOrUrl == null || s3KeyOrUrl.isBlank()) {
             return null;
@@ -34,6 +38,7 @@ public class S3PresignedUrlService {
         GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                 .bucket(bucketName)
                 .key(key)
+                .responseCacheControl(objectCacheControl())
                 .build();
 
         GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
@@ -53,6 +58,10 @@ public class S3PresignedUrlService {
                         Map.Entry::getKey,
                         e -> generatePresignedUrl(e.getValue())
                 ));
+    }
+
+    String objectCacheControl() {
+        return "public, max-age=" + objectMaxAgeSeconds;
     }
 
     /**

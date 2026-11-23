@@ -15,10 +15,11 @@ import java.util.Set;
 /**
  * AI 응답을 게시 가능한 content 로 바꾸며 PRD §13·§14 의 근거 검증을 수행한다.
  * <ul>
- *   <li>evidence_refs 의 source_id 는 본인 발언이어야 하고 quote 는 그 원문에 실제로 포함돼야 한다. 아니면 그 ref 를 버린다</li>
- *   <li>judgment_basis 에 유효 근거가 하나도 없으면 게시하지 않는다(EVIDENCE_MISSING). strength / next_focus 는 근거 없으면 null.
- *       자동 재시도까지 근거가 없으면 생성 서비스가 {@link #insufficientMemberFeedback} 템플릿으로 대체한다</li>
- *   <li>AI 가 analysis_status=INSUFFICIENT(이유를 읽을 글이 없음)를 내면 AI 문장 없이 같은 템플릿을 쓴다 (엣지 케이스 PRD RP-04~06)</li>
+ *   <li>evidence_refs 의 source_id 는 본인 발언이어야 한다. 아니면 그 ref 를 버린다 (타인 글·AI 주장을 본인 말처럼 보여주지 않기 위해)</li>
+ *   <li>quote 는 공백·문장부호 차이를 무시하고 원문과 비교한다. 그래도 원문에 없으면 버리지 않고 그 발언 원문의 앞부분으로 바꾼다 (#681)</li>
+ *   <li>strength / next_focus / next_question 은 항상 채운다. AI 가 비우면 서버 기본 문구를 쓰고,
+ *       근거가 없는 섹션은 첫 본인 발언을 근거로 붙인다 (#681). 분석 불가 템플릿도 안내 문구로 세 항목을 채운다</li>
+ *   <li>AI 가 analysis_status=INSUFFICIENT(이유를 읽을 글이 없음)를 내면 AI 문장 없이 {@link #insufficientMemberFeedback} 템플릿을 쓴다 (엣지 케이스 PRD RP-04~06)</li>
  *   <li>길이는 규정의 20% 까지만 허용하고 넘으면 거절한다 (자르면 문장이 깨진다)</li>
  * </ul>
  */
@@ -46,13 +47,30 @@ public class ClassReportContentValidator {
     /** 클래스 인사이트 의견 부족(LIMITED) 문구. 명세 8장 리포트 상태 표 기준 (#661) */
     public static final String INSIGHT_LIMITED_TEXT = "판단의 이유를 살펴볼 글이 아직 충분하지 않아요";
 
+    /** 인용을 원문 앞부분으로 바꿀 때의 최대 길이 */
+    static final int EXCERPT_MAX = 60;
+
+    // AI 가 항목을 비웠을 때 쓰는 기본 문구 (#681)
+    static final String DEFAULT_STRENGTH_TITLE = "내 생각을 글로 남겼어요";
+    static final String DEFAULT_STRENGTH_BODY = "배틀을 보고 내 선택과 생각을 직접 글로 정리했어요.";
+    static final String DEFAULT_NEXT_FOCUS_TITLE = "이유를 한 걸음 더";
+    static final String DEFAULT_NEXT_FOCUS_BODY = "내 선택의 이유를 한 가지 더 들어 보고, 반대쪽에서 나올 반론에 어떻게 답할지 생각해 보세요.";
+    static final String DEFAULT_NEXT_QUESTION = "반대쪽에서 가장 먼저 나올 반론은 무엇이고, 나는 어떻게 답할 수 있을까요?";
+
+    // 분석 불가 템플릿의 세 항목 안내 문구 (#681). 분석한 것처럼 쓰지 않는다
+    static final String TEMPLATE_STRENGTH_TITLE = "끝까지 참여했어요";
+    static final String TEMPLATE_STRENGTH_BODY = "배틀에 끝까지 참여해 내 선택을 남겼어요.";
+    static final String TEMPLATE_NEXT_FOCUS_TITLE = "이유를 한 줄 남겨 보기";
+    static final String TEMPLATE_NEXT_FOCUS_BODY = "다음에는 선택한 이유를 한 문장이라도 적어 보세요. 그러면 내 판단 기준을 함께 살펴볼 수 있어요.";
+    static final String TEMPLATE_NEXT_QUESTION = "내가 이 선택을 한 가장 큰 이유는 무엇이었나요?";
+
     public Map<String, Object> validateMemberFeedback(Map<String, Object> json, MemberFeedbackInput input) {
         if ("INSUFFICIENT".equalsIgnoreCase(ReportContent.str(json, "analysis_status"))) {
             return insufficientMemberFeedback(input);
         }
         String headline = requireText(json, "headline", HEADLINE_MAX);
         String judgmentBasis = requireText(json, "judgment_basis", JUDGMENT_BASIS_MAX);
-        String nextQuestion = requireText(json, "next_question", NEXT_QUESTION_MAX);
+        String nextQuestion = optionalText(json, "next_question", NEXT_QUESTION_MAX);
         Map<String, Object> strength = section(json, FIELD_STRENGTH);
         Map<String, Object> nextFocus = section(json, FIELD_NEXT_FOCUS);
 
@@ -80,33 +98,52 @@ public class ClassReportContentValidator {
                 log.warn("[ClassReport] evidence dropped field={} source_id={} reason=MASKED_PROFANITY", field, sourceId);
                 continue; // 가린 비속어가 들어간 구간은 인용으로 보여주지 않는다
             }
-            if (!contains(statement.content(), quote)) {
-                log.warn("[ClassReport] evidence dropped field={} source_id={} reason=QUOTE_NOT_IN_CONTENT quote_length={}",
+            String shownQuote = quote.trim();
+            if (!contains(statement.content(), shownQuote)) {
+                // AI 가 원문을 조금 고쳐 옮긴 경우. 본인 발언인 것은 확인됐으므로 원문 앞부분을 인용으로 보여준다 (#681)
+                shownQuote = excerpt(statement.content());
+                if (shownQuote == null) {
+                    log.warn("[ClassReport] evidence dropped field={} source_id={} reason=QUOTE_NOT_IN_CONTENT quote_length={}",
+                            field, sourceId, quote.length());
+                    continue;
+                }
+                log.info("[ClassReport] evidence quote replaced field={} source_id={} reason=QUOTE_NOT_IN_CONTENT quote_length={}",
                         field, sourceId, quote.length());
-                continue;
             }
-            Map<String, Object> valid = new LinkedHashMap<>();
-            valid.put("field", field);
-            valid.put("source_type", statement.sourceType());
-            valid.put("source_id", statement.id());
-            valid.put("quote", quote.trim());
-            refs.add(valid);
+            refs.add(evidenceRef(field, statement, shownQuote));
             fieldsWithEvidence.add(field);
         }
+
+        // 세 항목은 항상 보여준다. AI 가 비우면 서버 기본 문구로 채운다 (#681)
+        boolean strengthDefaulted = strength == null;
+        boolean nextFocusDefaulted = nextFocus == null;
+        if (strengthDefaulted) {
+            strength = sectionOf(DEFAULT_STRENGTH_TITLE, DEFAULT_STRENGTH_BODY);
+        }
+        if (nextFocusDefaulted) {
+            nextFocus = sectionOf(DEFAULT_NEXT_FOCUS_TITLE, DEFAULT_NEXT_FOCUS_BODY);
+        }
+        if (nextQuestion == null) {
+            nextQuestion = DEFAULT_NEXT_QUESTION;
+        }
+
+        // 근거가 남지 않은 항목은 첫 본인 발언을 근거로 붙인다
+        for (String field : List.of(FIELD_JUDGMENT_BASIS, FIELD_STRENGTH, FIELD_NEXT_FOCUS)) {
+            if (fieldsWithEvidence.contains(field)) {
+                continue;
+            }
+            Map<String, Object> fallback = fallbackRef(field, input);
+            if (fallback != null) {
+                refs.add(fallback);
+                fieldsWithEvidence.add(field);
+            }
+        }
         if (!fieldsWithEvidence.contains(FIELD_JUDGMENT_BASIS)) {
-            throw new ReportValidationException("EVIDENCE_MISSING");
-        }
-        if (strength != null && !fieldsWithEvidence.contains(FIELD_STRENGTH)) {
-            strength = null;
-            refs.removeIf(r -> FIELD_STRENGTH.equals(r.get("field")));
-        }
-        if (nextFocus != null && !fieldsWithEvidence.contains(FIELD_NEXT_FOCUS)) {
-            nextFocus = null;
-            refs.removeIf(r -> FIELD_NEXT_FOCUS.equals(r.get("field")));
+            throw new ReportValidationException("EVIDENCE_MISSING"); // 인용할 수 있는 본인 발언이 하나도 없음
         }
 
         String analysisStatus = "LIMITED".equalsIgnoreCase(ReportContent.str(json, "analysis_status")) ? "LIMITED" : "SUFFICIENT";
-        if (strength == null && nextFocus == null) {
+        if (strengthDefaulted && nextFocusDefaulted) {
             analysisStatus = "LIMITED";
         }
 
@@ -236,9 +273,9 @@ public class ClassReportContentValidator {
         Map<String, Object> content = new LinkedHashMap<>();
         content.put("headline", headline);
         content.put("judgment_basis", judgmentBasis);
-        content.put("strength", null);
-        content.put("next_focus", null);
-        content.put("next_question", null);
+        content.put("strength", sectionOf(TEMPLATE_STRENGTH_TITLE, TEMPLATE_STRENGTH_BODY));
+        content.put("next_focus", sectionOf(TEMPLATE_NEXT_FOCUS_TITLE, TEMPLATE_NEXT_FOCUS_BODY));
+        content.put("next_question", TEMPLATE_NEXT_QUESTION);
         content.put("evidence_refs", List.of());
         content.put("analysis_status", "LIMITED");
         content.put("limited_reason", reason);
@@ -301,6 +338,63 @@ public class ClassReportContentValidator {
         return value;
     }
 
+    /** 비어 있으면 null. 길이 규정은 requireText 와 같다 */
+    private static String optionalText(Map<String, Object> json, String key, int max) {
+        String value = ReportContent.str(json, key);
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return requireText(json, key, max);
+    }
+
+    private static Map<String, Object> sectionOf(String title, String body) {
+        Map<String, Object> section = new LinkedHashMap<>();
+        section.put("title", title);
+        section.put("body", body);
+        return section;
+    }
+
+    private static Map<String, Object> evidenceRef(String field, MemberFeedbackInput.Statement statement, String quote) {
+        Map<String, Object> ref = new LinkedHashMap<>();
+        ref.put("field", field);
+        ref.put("source_type", statement.sourceType());
+        ref.put("source_id", statement.id());
+        ref.put("quote", quote);
+        return ref;
+    }
+
+    /** 근거가 없는 항목에 붙일 근거: 인용할 수 있는 첫 본인 발언의 앞부분 */
+    private static Map<String, Object> fallbackRef(String field, MemberFeedbackInput input) {
+        for (MemberFeedbackInput.Statement statement : input.statements()) {
+            String quote = excerpt(statement.content());
+            if (quote != null) {
+                return evidenceRef(field, statement, quote);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 원문 앞부분을 인용으로 쓴다. 가린 비속어(***) 앞에서 끊고, 길면 EXCERPT_MAX 안에서 단어 경계로 자른다.
+     * 인용할 글자가 2자 미만이면 null.
+     */
+    static String excerpt(String content) {
+        if (content == null) {
+            return null;
+        }
+        String text = content.strip().replaceAll("\\s+", " ");
+        int masked = text.indexOf(ReportProfanityMasker.MASK);
+        if (masked >= 0) {
+            text = text.substring(0, masked).strip();
+        }
+        if (text.length() > EXCERPT_MAX) {
+            String cut = text.substring(0, EXCERPT_MAX);
+            int space = cut.lastIndexOf(' ');
+            text = (space >= EXCERPT_MAX / 2 ? cut.substring(0, space) : cut).strip() + "…";
+        }
+        return normalize(text).length() < 2 ? null : text;
+    }
+
     private static Map<String, Object> section(Map<String, Object> json, String key) {
         Map<String, Object> raw = ReportContent.map(json, key);
         if (raw == null) {
@@ -320,15 +414,29 @@ public class ClassReportContentValidator {
         return section;
     }
 
-    /** 공백·줄바꿈 차이는 무시하고 인용이 원문에 들어 있는지 본다 */
+    /** 공백·문장부호 차이는 무시하고 인용이 원문에 들어 있는지 본다 (#681) */
     static boolean contains(String content, String quote) {
         if (content == null || quote == null) {
             return false;
         }
-        String normalizedQuote = quote.replaceAll("\\s+", "");
-        if (normalizedQuote.length() < 2) {
-            return false;
+        String normalizedContent = normalize(content);
+        // AI 가 중간을 말줄임표로 생략한 인용은 조각마다 원문에 있는지 본다
+        boolean any = false;
+        for (String part : quote.split("…|\\.{2,}")) {
+            String normalizedPart = normalize(part);
+            if (normalizedPart.isEmpty()) {
+                continue;
+            }
+            if (normalizedPart.length() < 2 || !normalizedContent.contains(normalizedPart)) {
+                return false;
+            }
+            any = true;
         }
-        return content.replaceAll("\\s+", "").contains(normalizedQuote);
+        return any;
+    }
+
+    /** 글자·숫자만 남긴다 (공백·줄바꿈·문장부호·따옴표·이모지 차이 무시, #681) */
+    private static String normalize(String text) {
+        return text.replaceAll("[^\\p{L}\\p{N}]", "");
     }
 }

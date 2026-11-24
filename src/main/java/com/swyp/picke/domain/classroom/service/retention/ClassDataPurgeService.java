@@ -57,6 +57,7 @@ public class ClassDataPurgeService {
         int messages = delete("delete from ClassDebateMessage m where m.session.id in "
                 + "(select s.id from ClassDebateSession s where s.classroom.id = :classId)", classId);
         int sessions = delete("delete from ClassDebateSession s where s.classroom.id = :classId", classId);
+        delete("delete from ClassReportView v where v.classId = :classId", classId);
         int reports = delete("delete from ClassReport r where r.classroom.id = :classId", classId);
 
         classroom.markPurged(now);

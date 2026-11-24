@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.classroom.service;
 
+import com.swyp.picke.global.infra.mixpanel.ClassFunnelTracker;
 import com.swyp.picke.domain.classroom.converter.ClassMemberConverter;
 import com.swyp.picke.domain.classroom.converter.ClassroomConverter;
 import com.swyp.picke.domain.classroom.dto.request.ClassJoinRequest;
@@ -56,6 +57,7 @@ public class ClassMemberServiceImpl implements ClassMemberService {
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final ClassroomRepository classroomRepository;
+    private final ClassFunnelTracker funnelTracker;
     private final ClassImageUrlResolver imageUrls;
     private final ClassMemberRepository classMemberRepository;
     private final UserRepository userRepository;
@@ -122,6 +124,7 @@ public class ClassMemberServiceImpl implements ClassMemberService {
         rejectRemovedOrClosed(classroom, existing, now);
         rejectFull(classroom, existing);
 
+        funnelTracker.track(ClassFunnelTracker.CLASS_JOIN_PREVIEW, userId, classroom.getId());
         return new ClassJoinPreviewResponse(
                 inviteCode,
                 classroom.getName(),

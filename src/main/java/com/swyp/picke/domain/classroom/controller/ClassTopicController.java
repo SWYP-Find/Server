@@ -1,5 +1,7 @@
 package com.swyp.picke.domain.classroom.controller;
 
+import com.swyp.picke.global.infra.mixpanel.ClassFunnelTracker;
+import java.util.Map;
 import com.swyp.picke.domain.classroom.dto.request.ClassTopicDraftCreateRequest;
 import com.swyp.picke.domain.classroom.dto.request.ClassTopicSelectRequest;
 import com.swyp.picke.domain.classroom.dto.request.ClassTopicSuggestRequest;
@@ -34,6 +36,7 @@ public class ClassTopicController {
 
     private final ClassTopicDraftService draftService;
     private final ClassTopicAiService aiService;
+    private final ClassFunnelTracker funnelTracker;
 
     @Operation(summary = "주제 초안 생성",
             description = "사용 중인 이용권이 있어야 합니다(403 CLASS_403_TICKET). 주제 2~200자, 카테고리 1~3개(400 CLASS_400_TOPIC_CONDITION). "
@@ -43,7 +46,10 @@ public class ClassTopicController {
             @AuthenticationPrincipal Long userId,
             @Valid @RequestBody ClassTopicDraftCreateRequest request
     ) {
-        return ApiResponse.onSuccess(draftService.create(userId, request, LocalDateTime.now(KST)));
+        ClassTopicDraftResponse draft = draftService.create(userId, request, LocalDateTime.now(KST));
+        funnelTracker.track(ClassFunnelTracker.CLASS_CREATE_START, userId, null,
+                Map.of("battle_type", "CUSTOM", "entry", "topic_draft"));
+        return ApiResponse.onSuccess(draft);
     }
 
     @Operation(summary = "주제 초안 조회",

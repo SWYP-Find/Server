@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.perspective.service;
 
+import com.swyp.picke.global.infra.mixpanel.ClassFunnelTracker;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.service.BattleService;
 import com.swyp.picke.domain.battle.util.BattleOptionDisplay;
@@ -55,6 +56,7 @@ public class PerspectiveCommentService {
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final PerspectiveRepository perspectiveRepository;
+    private final ClassFunnelTracker funnelTracker;
     private final PerspectiveCommentRepository commentRepository;
     private final UserRepository userRepository;
     private final CommentLikeRepository commentLikeRepository;
@@ -97,6 +99,9 @@ public class PerspectiveCommentService {
         String characterImageUrl = resolveCharacterImageUrl(userSummary.characterType());
         String stance = resolveStance(perspective.getBattle().getId(), userId, classroom);
         String name = classDisplayNameResolver.nameOf(classroom, userId, userSummary.nickname());
+        if (classroom != null) {
+            funnelTracker.track(ClassFunnelTracker.CLASS_COMMENT_WRITE, userId, classroom.getId());
+        }
         return new CreateCommentResponse(
                 comment.getId(),
                 new CreateCommentResponse.UserSummary(ClassDisplayNameResolver.userTagOf(classroom, userSummary.userTag()), name, userSummary.characterType(), characterImageUrl),

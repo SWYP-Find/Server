@@ -1,5 +1,7 @@
 package com.swyp.picke.domain.classroom.controller;
 
+import com.swyp.picke.global.infra.mixpanel.ClassFunnelTracker;
+import java.util.Map;
 import com.swyp.picke.domain.classroom.dto.request.ClassDebateReplyRequest;
 import com.swyp.picke.domain.classroom.dto.response.ClassDebateResponse;
 import com.swyp.picke.domain.classroom.service.debate.ClassDebateService;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ClassDebateController {
 
     private final ClassDebateService debateService;
+    private final ClassFunnelTracker funnelTracker;
 
     @Operation(summary = "토론 조회 (재접속)",
             description = "저장된 대화와 상태를 돌려줍니다(AI 호출 없음). 마감 후에도 읽을 수 있지만 canReply/canRetry 는 false 입니다. "
@@ -44,7 +47,9 @@ public class ClassDebateController {
             @AuthenticationPrincipal Long userId,
             @PathVariable Long classId
     ) {
-        return ApiResponse.onSuccess(debateService.start(userId, classId));
+        ClassDebateResponse result = debateService.start(userId, classId);
+        funnelTracker.track(ClassFunnelTracker.CLASS_DEBATE_START, userId, classId);
+        return ApiResponse.onSuccess(result);
     }
 
     @Operation(summary = "반박 제출",
@@ -59,7 +64,10 @@ public class ClassDebateController {
             @PathVariable Long classId,
             @Valid @RequestBody ClassDebateReplyRequest request
     ) {
-        return ApiResponse.onSuccess(debateService.reply(userId, classId, request));
+        ClassDebateResponse result = debateService.reply(userId, classId, request);
+        funnelTracker.track(ClassFunnelTracker.CLASS_DEBATE_REPLY, userId, classId,
+                request.roundIndex() == null ? Map.of() : Map.of("round", request.roundIndex()));
+        return ApiResponse.onSuccess(result);
     }
 
     @Operation(summary = "AI 주장 재시도",

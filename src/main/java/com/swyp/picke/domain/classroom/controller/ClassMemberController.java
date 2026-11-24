@@ -1,5 +1,7 @@
 package com.swyp.picke.domain.classroom.controller;
 
+import com.swyp.picke.global.infra.mixpanel.ClassFunnelTracker;
+import java.util.Map;
 import com.swyp.picke.domain.classroom.dto.request.ClassJoinRequest;
 import com.swyp.picke.domain.classroom.dto.request.ClassMemberNameUpdateRequest;
 import com.swyp.picke.domain.classroom.dto.response.ClassDetailResponse;
@@ -30,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ClassMemberController {
 
     private final ClassMemberService classMemberService;
+    private final ClassFunnelTracker funnelTracker;
 
     @Operation(summary = "참여 코드 확인",
             description = "참여 처리 없이 코드만 확인합니다(코드 입력 단계). 참여할 수 있으면 클래스 요약을, 아니면 사유별 에러를 돌려줍니다. "
@@ -54,7 +57,9 @@ public class ClassMemberController {
             @AuthenticationPrincipal Long userId,
             @Valid @RequestBody ClassJoinRequest request
     ) {
-        return ApiResponse.onSuccess(classMemberService.join(userId, request));
+        ClassDetailResponse joined = classMemberService.join(userId, request);
+        funnelTracker.track(ClassFunnelTracker.CLASS_JOIN_COMPLETE, userId, joined.classId());
+        return ApiResponse.onSuccess(joined);
     }
 
     @Operation(summary = "클래스 명단",

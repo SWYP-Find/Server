@@ -119,6 +119,7 @@ class ClassResultApiIntegrationTest {
     @Autowired private ObjectMapper objectMapper;
     @Autowired private JwtProvider jwtProvider;
     @Autowired private UserRepository userRepository;
+    @Autowired private com.swyp.picke.domain.classroom.repository.ClassReportViewRepository classReportViewRepository;
     @Autowired private UserProfileRepository userProfileRepository;
     @Autowired private FundingOrderRepository fundingOrderRepository;
     @Autowired private ClassTicketRepository classTicketRepository;
@@ -183,6 +184,7 @@ class ClassResultApiIntegrationTest {
     }
 
     private void cleanUp() {
+        classReportViewRepository.deleteAll();
         classReportRepository.deleteAll();
         aiJobRepository.deleteAll();
         debateMessageRepository.deleteAll();
@@ -301,6 +303,17 @@ class ClassResultApiIntegrationTest {
                 .andExpect(jsonPath("$.data.feedback.evidence[0].sourceType").value("PERSPECTIVE"))
                 .andExpect(jsonPath("$.data.feedback.evidence[0].content").value("효과가 입증되지 않아 반대합니다. 표본이 너무 작아요."))
                 .andExpect(jsonPath("$.data.generatedAt").exists());
+
+        // 완성된 리포트를 열면 열람 기록이 남고, 다시 열면 횟수만 는다 (#689)
+        mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + writerToken))
+                .andExpect(status().isOk());
+        assertThat(classReportViewRepository.findAll())
+                .filteredOn(view -> view.getUserId().equals(writer.getId()))
+                .singleElement()
+                .satisfies(view -> {
+                    assertThat(view.getClassId()).isEqualTo(cls.classId);
+                    assertThat(view.getViewCount()).isEqualTo(2);
+                });
 
         // 참여 미완료자는 리포트 행 자체가 없다
         mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + voteOnlyToken))

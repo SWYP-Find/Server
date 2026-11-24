@@ -1,5 +1,8 @@
 package com.swyp.picke.domain.classroom.controller;
 
+import com.swyp.picke.global.infra.mixpanel.ClassFunnelTracker;
+import java.util.Map;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.swyp.picke.domain.battle.enums.BattleDifficulty;
 import com.swyp.picke.domain.classroom.dto.response.ClassBattleRecommendationResponse;
 import com.swyp.picke.domain.classroom.service.ClassBattleRecommendationService;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ClassBattleRecommendationController {
 
     private final ClassBattleRecommendationService recommendationService;
+    private final ClassFunnelTracker funnelTracker;
 
     @Operation(summary = "조건에 맞는 Picke 배틀 추천",
             description = "공개된 배틀 중 어드민이 클래스 추천을 켠 배틀에서 수준이 같고 카테고리가 겹치는 배틀을 최대 3개 돌려줍니다. "
@@ -28,6 +32,7 @@ public class ClassBattleRecommendationController {
                     + "주제 50자 초과는 400 CLASS_400_RECOMMEND_CONDITION.")
     @GetMapping
     public ApiResponse<ClassBattleRecommendationResponse> recommend(
+            @AuthenticationPrincipal Long userId,
             @Parameter(description = "찾고 싶은 주제 (선택, 50자 이하). 쉼표·공백으로 여러 단어", example = "AI, 범죄")
             @RequestParam(required = false) String keyword,
             @Parameter(description = "대상 수준 (필수)", example = "BEGINNER")
@@ -35,6 +40,9 @@ public class ClassBattleRecommendationController {
             @Parameter(description = "카테고리 1~3개 (필수). 한글 이름 또는 enum 이름, 반복 또는 쉼표로 전달", example = "철학,사회")
             @RequestParam(required = false) List<String> categories
     ) {
-        return ApiResponse.onSuccess(recommendationService.recommend(keyword, difficulty, categories));
+        ClassBattleRecommendationResponse result = recommendationService.recommend(keyword, difficulty, categories);
+        funnelTracker.track(ClassFunnelTracker.CLASS_CREATE_START, userId, null,
+                Map.of("battle_type", "EXISTING", "entry", "recommendation"));
+        return ApiResponse.onSuccess(result);
     }
 }

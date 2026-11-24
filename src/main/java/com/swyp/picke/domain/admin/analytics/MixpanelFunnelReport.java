@@ -24,6 +24,8 @@ public record MixpanelFunnelReport(
         Long enteredUsers,
         Long completedUsers,
         Double conversionRate,
+        String groupBy,
+        Long medianSecondsToComplete,
         List<Step> steps) {
 
     /**
@@ -33,6 +35,7 @@ public record MixpanelFunnelReport(
      * @param conversionFromPrevious 앞 단계 대비 전환율(%). 첫 단계는 null.
      * @param droppedFromPrevious   앞 단계에서 이탈한 사용자 수. 첫 단계는 null.
      * @param dropOffFromPrevious   앞 단계 대비 이탈율(%). 첫 단계는 null.
+     * @param medianSecondsFromPrevious 앞 단계에서 이 단계로 넘어오기까지 걸린 시간 중앙값(초). 첫 단계·도달 0이면 null (#687)
      */
     public record Step(
             int order,
@@ -41,14 +44,20 @@ public record MixpanelFunnelReport(
             Double conversionFromEntry,
             Double conversionFromPrevious,
             Long droppedFromPrevious,
-            Double dropOffFromPrevious) {
+            Double dropOffFromPrevious,
+            Long medianSecondsFromPrevious) {
     }
 
     static MixpanelFunnelReport empty(
             AnalyticsStatus status, List<String> steps, int windowDays, LocalDate from, LocalDate to) {
+        return empty(status, steps, windowDays, from, to, null);
+    }
+
+    static MixpanelFunnelReport empty(
+            AnalyticsStatus status, List<String> steps, int windowDays, LocalDate from, LocalDate to, String groupBy) {
         List<Step> emptySteps = java.util.stream.IntStream.range(0, steps.size())
-                .mapToObj(index -> new Step(index + 1, steps.get(index), null, null, null, null, null))
+                .mapToObj(index -> new Step(index + 1, steps.get(index), null, null, null, null, null, null))
                 .toList();
-        return new MixpanelFunnelReport(status, null, from, to, windowDays, null, null, null, emptySteps);
+        return new MixpanelFunnelReport(status, null, from, to, windowDays, null, null, null, groupBy, null, emptySteps);
     }
 }

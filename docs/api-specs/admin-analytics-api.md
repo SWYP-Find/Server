@@ -15,15 +15,18 @@
 - `signUpDays[]`: 선택 기간 전체의 `sign_up` 일별 가입 수. 이벤트 선택값과 무관하게 집계하며 날짜 오름차순이다.
 - `events`를 비우면 기간에 나타난 이벤트 전부를 발생 수 내림차순으로 준다. 이벤트 이름을 미리 설정해 둘 필요가 없다.
 - 원본을 전부 받으므로 기간은 **31일까지**다(`MixpanelClient.MAX_DAYS`). 4일치가 약 2MB다.
-- `properties.time`은 프로젝트 타임존 기준 epoch 초이고 `from_date`·`to_date` 경계도 같은 타임존을 따른다. 둘을 같은 타임존으로 묶어야 Mixpanel 화면 숫자와 맞는다. `picke.analytics.mixpanel.project-zone`(기본 `UTC`)로 맞춘다. 이 프로젝트는 UTC로 실측 확인했다.
-- 경계 하루가 타임존 차이로 걸쳐 들어올 수 있어 요청 기간 밖 이벤트는 버린다.
+- `properties.time`은 실제 UTC epoch 초이고, Export 의 `from_date`·`to_date`는 **프로젝트 시간대 설정과 관계없이 UTC 날짜**로 잘린다 (2026-11-24 실측: 프로젝트 시간대 US/Pacific·Asia/Seoul 모두 동일).
+- 그래서 서버는 Export 를 앞뒤 하루씩 넓혀 받고(끝은 오늘 UTC 까지), `picke.analytics.mixpanel.project-zone`(기본 `Asia/Seoul`, #687) 날짜로 다시 잘라 요청 기간 밖 이벤트는 버린다. 한국 새벽 0~9시 이벤트가 전날로 잡히던 문제를 막는다.
+- 인증: `MIXPANEL_SERVICE_ACCOUNT_USERNAME`·`MIXPANEL_SERVICE_ACCOUNT_SECRET`·`MIXPANEL_PROJECT_ID`가 모두 있으면 서비스 계정(+`project_id`), 없으면 `MIXPANEL_API_SECRET` 레거시 방식. 프로젝트 비밀은 2027-03-03 제거 예정이므로 서비스 계정으로 옮긴다.
 
 ### 퍼널 (이탈율)
 
-- `GET /api/v1/admin/analytics/mixpanel/funnel?from&to&steps=A,B,C&windowDays=7`: ADMIN 전용.
-- 고유 사용자 기준이다. 한 사람이 같은 단계를 여러 번 밟아도 한 번으로 센다.
+- `GET /api/v1/admin/analytics/mixpanel/funnel?from&to&steps=A,B,C&windowDays=7&groupBy=`: ADMIN 전용.
+- 기본은 고유 사용자 기준이다. 한 사람이 같은 단계를 여러 번 밟아도 한 번으로 센다.
+- `groupBy=class_id`처럼 속성 이름을 주면 사용자 대신 그 값 단위로 센다 (#687). 운영자가 개설하고 참가자가 들어오는 클래스 퍼널처럼 단계마다 사람이 다른 흐름을 한 줄로 본다. 그 속성이 없는 이벤트는 빠진다.
+- 단계별 `medianSecondsFromPrevious`: 앞 단계에서 이 단계로 넘어오기까지 걸린 시간 중앙값(초). 리포트 `medianSecondsToComplete`: 첫 단계에서 마지막 단계까지 중앙값(초) (#687).
 - 다음 단계는 앞 단계 **이후**여야 하고, 첫 단계로부터 `windowDays` 안에 끝나야 한다. Mixpanel 화면의 Unique Conversion·전환 윈도우와 같은 규칙이다.
-- 단계는 이벤트 이름만 쓰거나 `event:property=value`로 속성까지 좁힌다. 배틀 흐름은 선택·재생·투표가 모두 `battle_step` 한 이벤트로 들어오고 `step_name`으로만 갈리므로 속성을 좁히지 않으면 한 단계로 뭉친다.
+- 단계는 이벤트 이름만 쓰거나 `event:property=value`로 속성까지 좁힌다. 조건 여러 개는 `;`로 잇고, `property~정규식`은 전체 일치다 (#687). 예: `network_request:method=POST;path~/api/v1/classes/\d+/battle/votes/post`. 배틀 흐름은 선택·재생·투표가 모두 `battle_step` 한 이벤트로 들어오고 `step_name`으로만 갈리므로 속성을 좁히지 않으면 한 단계로 뭉친다.
 - 단계는 2~8개, `windowDays`는 1~30. 원본 이벤트를 받으므로 기간은 31일까지.
 - 분모가 0이면 전환율은 0%가 아니라 `null`이다. 아무도 진입하지 않은 것과 전환 실패를 구분한다.
 - 검증: 2026-08-01~08-31 `battle_step → screen_view → community_action` 7일 윈도우로 24 / 24 / 2 (8.33%) — Mixpanel 콘솔 퍼널 화면 숫자와 일치한다.

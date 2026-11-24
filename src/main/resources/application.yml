@@ -191,6 +191,11 @@ media:
     path: ${FFMPEG_PATH:ffmpeg}
   ffprobe:
     path: ${FFPROBE_PATH:ffprobe}
+  # 배틀 음성 대사별 음량 맞추기 (#701). 목소리마다 기본 음량이 달라 이어 붙이기 전에 맞춘다
+  loudness:
+    enabled: ${MEDIA_LOUDNESS_ENABLED:true}
+    target-lufs: ${MEDIA_LOUDNESS_TARGET_LUFS:-16}
+    true-peak: ${MEDIA_LOUDNESS_TRUE_PEAK:-1.5}
 
 coupang:
   partners:

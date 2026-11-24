@@ -494,6 +494,88 @@ class ClassResultApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("#705 인사이트 AI 입력: 댓글을 많이 달아도 의견(본문)은 모두 들어가고, 입력에 없는 부모 의견은 댓글 맥락으로 붙는다")
+    void insight_inputKeepsAllPerspectives() throws Exception {
+        ClassInfo cls = createClass(false);
+        String[] opinions = {
+                "습관에서 시작된 문제라 생활을 바꾸는 것이 먼저라고 생각해요",
+                "기술이 발전해도 소비가 늘면 효과가 줄어들어서 습관이 우선이에요",
+                "가까운 거리는 걷고 버스를 타면 에너지 자체를 줄일 수 있어요",
+                "ㅋㅋ"};
+        String[] tokens = new String[opinions.length];
+        for (int i = 0; i < opinions.length; i++) {
+            tokens[i] = tokenOf(newUser("학생" + i));
+            join(tokens[i], cls.inviteCode, "학생" + i);
+            completeParticipation(tokens[i], cls, optionA, optionA, opinions[i]);
+        }
+        List<Perspective> posts = perspectiveRepository.findByClassroomIdAndStatusOrderByCreatedAtAsc(cls.classId, PerspectiveStatus.PUBLISHED);
+        // 의견을 쓴 뒤 댓글을 여러 개 단다 (예전에는 '최근 2건'만 넣어 의견이 빠졌다)
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                Perspective target = posts.get((i + j + 1) % 4);
+                mockMvc.perform(post("/api/v1/perspectives/" + target.getId() + "/comments")
+                                .header("Authorization", "Bearer " + tokens[i])
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(json(Map.of("content", "맞아요 그 근거라면 생활 습관부터 바꾸는 게 맞는 것 같아요 " + i + j))))
+                        .andExpect(status().isOk());
+            }
+        }
+
+        closeClass(cls.classId);
+        generationService.runOnce(LocalDateTime.now());
+
+        Long shortOpinionId = posts.get(3).getId();
+        verify(aiClient).chatJson(any(), eq(ClassReportPrompts.CLASS_INSIGHT_SYSTEM), argThat(prompt ->
+                prompt.contains("source_id=p:" + posts.get(0).getId())
+                        && prompt.contains("source_id=p:" + posts.get(1).getId())
+                        && prompt.contains("source_id=p:" + posts.get(2).getId())
+                        // 짧아서 빠진 의견에 단 댓글에는 그 의견 내용이 맥락으로 붙는다
+                        && prompt.contains("(부모 의견, 맥락 전용·선택 금지: \"ㅋㅋ\")")
+                        && !prompt.contains("source_id=p:" + shortOpinionId + " ")), anyInt());
+    }
+
+    @Test
+    @DisplayName("#705 관리자가 의견 부족(LIMITED) 인사이트를 다시 만들면 대기열에 들어가 다음 틱에 AI 로 다시 만든다. 생성 대기 중이면 409")
+    void admin_regenerateInsight() throws Exception {
+        ClassInfo cls = createClass(false);
+        String[] contents = {"ㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋ", "asdfasdfasdf", "몰라요 그냥요"};
+        String[] tokens = new String[3];
+        for (int i = 0; i < 3; i++) {
+            tokens[i] = tokenOf(newUser("학생" + i));
+            join(tokens[i], cls.inviteCode, "학생" + i);
+            completeParticipation(tokens[i], cls, optionA, optionA, contents[i]);
+        }
+        closeClass(cls.classId);
+        generationService.runOnce(LocalDateTime.now());
+        assertThat(summaryOf(cls.classId).getStatus()).isEqualTo(ClassReportStatus.LIMITED);
+
+        // 마감 뒤 이유 있는 글이 늘어난 상황: 다시 만들면 AI 를 부른다
+        List<Perspective> posts = perspectiveRepository.findByClassroomIdAndStatusOrderByCreatedAtAsc(cls.classId, PerspectiveStatus.PUBLISHED);
+        String[] reasons = {"비용 대비 효과가 분명해서 찬성하는 쪽이 설득력 있어요", "표본이 작아서 결론을 내리기에는 이르다고 생각합니다",
+                "장기적으로 사회 전체의 신뢰를 높이는 선택이라고 봐요"};
+        for (int i = 0; i < 3; i++) {
+            ReflectionTestUtils.setField(posts.get(i), "content", reasons[i]);
+        }
+        perspectiveRepository.saveAll(posts);
+
+        User admin = userRepository.save(User.builder().userTag("adm-" + UUID.randomUUID().toString().substring(0, 8))
+                .nickname("adm").role(UserRole.ADMIN).status(UserStatus.ACTIVE).build());
+        createdUserIds.add(admin.getId());
+        String adminToken = jwtProvider.createAccessToken(admin.getId(), UserRole.ADMIN.name());
+        mockMvc.perform(post("/api/v1/admin/classes/" + cls.classId + "/insight/regenerate").header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("PENDING"));
+        mockMvc.perform(post("/api/v1/admin/classes/" + cls.classId + "/insight/regenerate").header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CLASS_409_REPORT_RETRY"));
+
+        generationService.runOnce(LocalDateTime.now());
+
+        assertThat(summaryOf(cls.classId).getStatus()).isEqualTo(ClassReportStatus.SUCCEEDED);
+        verify(aiClient).chatJson(any(), eq(ClassReportPrompts.CLASS_INSIGHT_SYSTEM), anyString(), anyInt());
+    }
+
+    @Test
     @DisplayName("#673 주요 의견: 고를 글이 하나면 논쟁 댓글은 null, 없으면 둘 다 null")
     void insight_keyOpinions_notEnough() throws Exception {
         ClassInfo cls = createClass(false);

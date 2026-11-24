@@ -58,6 +58,7 @@ public class AdminClassroomService {
     private final UserBattleRepository userBattleRepository;
     private final PerspectiveRepository perspectiveRepository;
     private final ClassImageUrlResolver imageUrls;
+    private final com.swyp.picke.domain.classroom.repository.ClassReportRepository classReportRepository;
 
     public AdminClassSummaryResponse getClassSummary() {
         LocalDateTime now = LocalDateTime.now(KST);
@@ -160,6 +161,30 @@ public class AdminClassroomService {
         }
 
         return getClassDetail(classId);
+    }
+
+    /**
+     * 마감된 클래스의 운영자 인사이트를 다시 만든다 (#705). 의견 부족(LIMITED)·완료·실패 상태 모두 가능하고,
+     * 생성 대기·생성 중이면 409. 대기열에 다시 넣으면 스케줄러가 현재 공개 글로 1분 안에 다시 만든다 (AI 1회 호출).
+     */
+    @Transactional
+    public com.swyp.picke.domain.admin.dto.classroom.response.AdminInsightRegenerateResponse regenerateInsight(Long classId) {
+        classroomRepository.findById(classId).orElseThrow(() -> new CustomException(ErrorCode.CLASS_NOT_FOUND));
+        com.swyp.picke.domain.classroom.entity.ClassReport summary = classReportRepository
+                .findByClassroomIdAndTypeAndMemberIsNull(classId, com.swyp.picke.domain.classroom.enums.ClassReportType.CLASS_SUMMARY)
+                .orElseThrow(() -> new CustomException(ErrorCode.CLASS_REPORT_NOT_RETRYABLE));
+        com.swyp.picke.domain.classroom.enums.ClassReportStatus status = summary.getStatus();
+        if (status == com.swyp.picke.domain.classroom.enums.ClassReportStatus.PENDING
+                || status == com.swyp.picke.domain.classroom.enums.ClassReportStatus.GENERATING
+                || status == com.swyp.picke.domain.classroom.enums.ClassReportStatus.CANCELED) {
+            throw new CustomException(ErrorCode.CLASS_REPORT_NOT_RETRYABLE);
+        }
+        if (summary.getAiJob() != null) {
+            summary.getAiJob().resetForRegeneration();
+        }
+        summary.requeue();
+        return new com.swyp.picke.domain.admin.dto.classroom.response.AdminInsightRegenerateResponse(
+                classId, summary.getId(), summary.getStatus());
     }
 
     public AdminTicketSummaryResponse getTicketSummary() {

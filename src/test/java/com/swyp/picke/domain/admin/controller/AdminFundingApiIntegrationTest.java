@@ -450,6 +450,77 @@ class AdminFundingApiIntegrationTest {
         assertThat(classTicketRepository.findById(t2New).orElseThrow().getUsageDays()).isNull();
     }
 
+    @Test
+    @DisplayName("코드 확인 화면은 일 단위 이용권이면 usageDays·usageLabel(14일)을, 기본이면 6개월을 내려준다")
+    void preview_showsUsageLabel() throws Exception {
+        upload(HEADER
+                + "MANUAL,QA,ORD-P1,SEAT_5,1,QA,,,PAID_CONFIRMED,2026-11-01 10:00:00\n"
+                + "MANUAL,QA,ORD-P2,SEAT_5,1,QA,,,PAID_CONFIRMED,2026-11-01 10:00:00\n");
+        JsonNode issued = issueOrders("ORD-P1", "ORD-P2").get("issued");
+        JsonNode shortTicket = issued.get(0);
+        JsonNode defaultTicket = issued.get(1);
+        patchJson("/api/v1/admin/funding/tickets/usage-period",
+                Map.of("ticketIds", List.of(shortTicket.get("ticketId").asLong()), "usageDays", 14));
+
+        mockMvc.perform(get("/api/v1/class-tickets/preview").param("code", shortTicket.get("code").asText())
+                        .header("Authorization", "Bearer " + userToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.usageDays").value(14))
+                .andExpect(jsonPath("$.data.usageLabel").value("14일"))
+                .andExpect(jsonPath("$.data.usageMonths").value(1));
+        mockMvc.perform(get("/api/v1/class-tickets/preview").param("code", defaultTicket.get("code").asText())
+                        .header("Authorization", "Bearer " + userToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.usageDays").doesNotExist())
+                .andExpect(jsonPath("$.data.usageLabel").value("6개월"))
+                .andExpect(jsonPath("$.data.usageMonths").value(6));
+    }
+
+    @Test
+    @DisplayName("등록된 이용권 만료일 수정: 늘리고 줄이기, 만료된 이용권 되살리기, 등록 전·등록 시각 이전은 거절")
+    void changeExpiresAt() throws Exception {
+        upload(HEADER
+                + "MANUAL,QA,ORD-E1,SEAT_15,1,QA,,,PAID_CONFIRMED,2026-11-01 10:00:00\n"
+                + "MANUAL,QA,ORD-E2,SEAT_15,1,QA,,,PAID_CONFIRMED,2026-11-01 10:00:00\n");
+        JsonNode issued = issueOrders("ORD-E1", "ORD-E2").get("issued");
+        long registeredId = issued.get(0).get("ticketId").asLong();
+        long unregisteredId = issued.get(1).get("ticketId").asLong();
+        String token = userToken();
+        mockMvc.perform(post("/api/v1/class-tickets/register")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("code", issued.get(0).get("code").asText()))))
+                .andExpect(status().isOk());
+        String url = "/api/v1/admin/funding/tickets/" + registeredId + "/expires-at";
+        java.time.LocalDateTime target = java.time.LocalDateTime.now().plusDays(20).withNano(0);
+
+        JsonNode changed = patchJson(url, Map.of("expiresAt", target.toString()));
+        assertThat(changed.get("expiresAt").asText()).startsWith(target.toString().substring(0, 16));
+        assertThat(changed.get("status").asText()).isEqualTo("ACTIVE");
+        mockMvc.perform(get("/api/v1/class-tickets/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.expiresAt").value(org.hamcrest.Matchers.startsWith(target.toString().substring(0, 16))));
+
+        // 만료 처리된 이용권을 미래로 늘리면 다시 ACTIVE
+        ClassTicket ticket = classTicketRepository.findById(registeredId).orElseThrow();
+        ticket.expire();
+        classTicketRepository.save(ticket);
+        JsonNode revived = patchJson(url, Map.of("expiresAt", target.plusDays(5).toString()));
+        assertThat(revived.get("status").asText()).isEqualTo("ACTIVE");
+
+        // 등록 시각 이전은 400, 등록 전 이용권은 409
+        mockMvc.perform(patch(url).header("Authorization", "Bearer " + adminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("expiresAt", "2020-01-01T00:00:00"))))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(patch("/api/v1/admin/funding/tickets/" + unregisteredId + "/expires-at")
+                        .header("Authorization", "Bearer " + adminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("expiresAt", target.toString()))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("TICKET_409_STATE"));
+    }
+
     private JsonNode patchJson(String url, Object body) throws Exception {
         MvcResult result = mockMvc.perform(patch(url).header("Authorization", "Bearer " + adminToken())
                         .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(body)))

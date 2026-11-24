@@ -8,6 +8,7 @@ import com.swyp.picke.domain.admin.dto.funding.request.FundingOrderContactUpdate
 import com.swyp.picke.domain.admin.dto.funding.request.FundingOrderAdminUpdateRequest;
 import com.swyp.picke.domain.admin.dto.funding.request.TicketDeliveryRequest;
 import com.swyp.picke.domain.admin.dto.funding.request.TicketIssueRequest;
+import com.swyp.picke.domain.admin.dto.funding.request.TicketExpiresAtRequest;
 import com.swyp.picke.domain.admin.dto.funding.request.TicketUsagePeriodRequest;
 import com.swyp.picke.domain.admin.dto.funding.request.TicketCodeWorkbookRequest;
 import com.swyp.picke.domain.admin.service.AdminFundingService;
@@ -95,6 +96,19 @@ public class AdminFundingController {
             @AuthenticationPrincipal Long adminUserId
     ) {
         return ApiResponse.onSuccess(adminFundingService.updateUsagePeriod(request, adminUserId));
+    }
+
+    @Operation(summary = "등록된 이용권 만료일 수정",
+            description = "등록된(ACTIVE/EXPIRED) 이용권의 만료 시각을 바꿉니다. 클래스 마감·결과 조회 기간(만료 + 30일)도 함께 바뀝니다. "
+                    + "만료된 이용권을 미래로 늘리면 다시 ACTIVE. 등록 전·무효화 409 TICKET_409_STATE, 등록 시각 이전 400 FUNDING_400_REQUEST, "
+                    + "다른 사용 중 이용권이 있는 계정의 만료 이용권을 되살리면 409 TICKET_409_ACTIVE. 등록 전 이용권은 사용 기간 설정 API 를 씁니다.")
+    @PatchMapping("/tickets/{ticketId}/expires-at")
+    public ApiResponse<TicketExpiresAtResponse> changeExpiresAt(
+            @PathVariable Long ticketId,
+            @Valid @RequestBody TicketExpiresAtRequest request,
+            @AuthenticationPrincipal Long adminUserId
+    ) {
+        return ApiResponse.onSuccess(adminFundingService.changeExpiresAt(ticketId, request, adminUserId));
     }
 
     @Operation(summary = "이용권 전달 기록",

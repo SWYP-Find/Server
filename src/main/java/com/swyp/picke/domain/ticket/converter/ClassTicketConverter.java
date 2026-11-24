@@ -29,7 +29,9 @@ public class ClassTicketConverter {
         return new ClassTicketPreviewResponse(
                 ticket.getCapacity(),
                 ticket.getRegisterBy(),
-                ClassTicket.USAGE_MONTHS,
+                ticket.getUsageDays() == null ? ClassTicket.USAGE_MONTHS : Math.max(1, (ticket.getUsageDays() + 29) / 30),
+                ticket.getUsageDays(),
+                ticket.getUsageDays() == null ? ClassTicket.USAGE_MONTHS + "개월" : ticket.getUsageDays() + "일",
                 registeredByMe
         );
     }

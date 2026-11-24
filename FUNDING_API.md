@@ -16,6 +16,7 @@
 | 전달 기록 | `POST /admin/funding/tickets/{ticketId}/deliveries` |
 | 미등록 코드 재발급 | `POST /admin/funding/tickets/{ticketId}/reissue` |
 | 미등록 이용권 사용 기간(일) 설정 | `PATCH /admin/funding/tickets/usage-period` (body: `ticketIds`, `usageDays`. 등록 시 만료일 = 등록 시각 + usageDays 일, null 이면 6개월, #685) |
+| 등록된 이용권 만료일 수정 | `PATCH /admin/funding/tickets/{ticketId}/expires-at` (body: `expiresAt`. 클래스 마감·결과 조회 기간도 함께 바뀜, 만료 이용권을 늘리면 ACTIVE, #691) |
 | 주문 환불·이용권 취소 | `POST /admin/funding/refunds` |
 | 사용자 코드 확인 | `GET /class-tickets/preview?code=...` |
 | 사용자 코드 등록 | `POST /class-tickets/register` |

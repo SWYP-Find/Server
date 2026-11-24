@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.classroom.service.debate;
 
+import com.swyp.picke.global.infra.mixpanel.ClassFunnelTracker;
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.battle.enums.BattleDifficulty;
@@ -68,6 +69,7 @@ public class ClassDebateSessionService {
     private final UserBattleService userBattleService;
     private final AiJobRepository aiJobRepository;
     private final ClassImageUrlResolver imageUrls;
+    private final ClassFunnelTracker funnelTracker;
 
     /** AI 주장 1건을 만들 준비가 된 상태 */
     public record PreparedTurn(Long sessionId, Long jobId, int round, DebatePromptInput input) {
@@ -140,6 +142,16 @@ public class ClassDebateSessionService {
         if (length < REPLY_MIN_LENGTH || length > REPLY_MAX_LENGTH) {
             throw new CustomException(ErrorCode.CLASS_DEBATE_REPLY_INVALID);
         }
+        // 체류시간: 이 라운드 AI 주장이 도착한 뒤 반박을 낼 때까지 걸린 시간 (#695)
+        LocalDateTime argumentAt = messageRepository.findBySessionIdAndRoundIndexAndSpeaker(session.getId(), round, ClassDebateSpeaker.AI)
+                .map(ClassDebateMessage::getCreatedAt).orElse(null);
+        java.util.Map<String, Object> replyProps = new java.util.HashMap<>();
+        replyProps.put("round", round);
+        Long inputSeconds = ClassFunnelTracker.secondsBetween(argumentAt, now);
+        if (inputSeconds != null) {
+            replyProps.put("input_seconds", inputSeconds);
+        }
+        funnelTracker.track(ClassFunnelTracker.CLASS_DEBATE_REPLY, userId, classId, replyProps);
         messageRepository.save(ClassDebateMessage.builder()
                 .session(session)
                 .roundIndex(round)
@@ -258,6 +270,9 @@ public class ClassDebateSessionService {
                     .focus(argument.focus())
                     .replyToMessageId(replyTo)
                     .build());
+            // 라운드별 AI 주장 도착. 다음 class_debate_reply 까지가 그 라운드 입력 단계 (#695)
+            funnelTracker.track(ClassFunnelTracker.CLASS_DEBATE_ARGUMENT, session.getMember().getUser().getId(),
+                    session.getClassroom().getId(), java.util.Map.of("round", turn.round()));
         }
         session.waitForUser();
         addExtraAttempts(job, usage);

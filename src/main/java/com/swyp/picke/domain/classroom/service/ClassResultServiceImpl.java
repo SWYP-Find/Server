@@ -202,8 +202,16 @@ public class ClassResultServiceImpl implements ClassResultService {
         } catch (Exception e) {
             log.warn("[ClassReport] view not recorded reportId={} : {}", report.getId(), e.getClass().getSimpleName());
         }
-        funnelTracker.track(ClassFunnelTracker.CLASS_REPORT_VIEW, userId, classId,
-                java.util.Map.of("report_type", reportType, "report_state", report.getStatus().name(), "first_view", firstView));
+        java.util.Map<String, Object> props = new java.util.HashMap<>();
+        props.put("report_type", reportType);
+        props.put("report_state", report.getStatus().name());
+        props.put("first_view", firstView);
+        // 리포트가 준비된 뒤 열어 보기까지 걸린 시간 (#695)
+        Long sinceReady = ClassFunnelTracker.secondsBetween(report.getGeneratedAt(), now);
+        if (sinceReady != null) {
+            props.put("seconds_since_ready", sinceReady);
+        }
+        funnelTracker.track(ClassFunnelTracker.CLASS_REPORT_VIEW, userId, classId, props);
     }
 
     @Override

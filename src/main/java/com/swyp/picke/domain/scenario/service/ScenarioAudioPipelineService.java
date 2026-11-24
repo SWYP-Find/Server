@@ -79,7 +79,13 @@ public class ScenarioAudioPipelineService {
                         apiCallCount++;
                     }
 
-                    ttsCache.put(script.getId(), audioFile);
+                    // 목소리마다 기본 음량이 달라 이어 붙이기 전에 같은 음량으로 맞춘다 (#701).
+                    // S3 조각은 원본 그대로 두므로 재발행하면 TTS 재호출 없이 다시 맞춰진다
+                    File normalized = ffmpegService.normalizeLoudness(audioFile);
+                    if (normalized != audioFile) {
+                        audioFile.delete();
+                    }
+                    ttsCache.put(script.getId(), normalized);
                 }
             }
             log.info("[API 호출 통계] 💳 TTS API가 총 {}회 호출되어 캐시에 저장되었습니다.", apiCallCount);

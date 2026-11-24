@@ -102,4 +102,13 @@ class ClassFunnelEventListenerTest {
         when(userRepository.findById(999L)).thenReturn(Optional.empty());
         assertThat(listener.toMixpanelEvent(new ClassFunnelEvent("class_vote_pre", 999L, 31L, Map.of(), Instant.now()))).isNull();
     }
+
+    @Test
+    @DisplayName("체류시간 속성: 두 시각 사이 초, 없으면 null, 거꾸로면 0")
+    void secondsBetween() {
+        java.time.LocalDateTime base = java.time.LocalDateTime.of(2026, 11, 24, 18, 0);
+        assertThat(ClassFunnelTracker.secondsBetween(base, base.plusMinutes(3))).isEqualTo(180L);
+        assertThat(ClassFunnelTracker.secondsBetween(null, base)).isNull();
+        assertThat(ClassFunnelTracker.secondsBetween(base.plusSeconds(5), base)).isZero();
+    }
 }

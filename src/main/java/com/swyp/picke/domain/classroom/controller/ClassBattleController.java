@@ -103,9 +103,8 @@ public class ClassBattleController {
             @PathVariable Long classId,
             @RequestBody VoteRequest request
     ) {
-        VoteResultResponse result = classBattleService.postVote(userId, classId, request);
-        funnelTracker.track(ClassFunnelTracker.CLASS_VOTE_POST, userId, classId);
-        return ApiResponse.onSuccess(result);
+        // class_vote_post 는 서비스가 소요 시간과 함께 남긴다 (#695)
+        return ApiResponse.onSuccess(classBattleService.postVote(userId, classId, request));
     }
 
     @Operation(summary = "클래스 내 투표 내역", description = "이 클래스 안에서의 내 사전/중간/사후 투표와 진행 단계. 투표 전이면 404 VOTE_NOT_FOUND.")

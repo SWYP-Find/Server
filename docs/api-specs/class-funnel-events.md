@@ -37,13 +37,14 @@
 | `class_vote_pre` | `POST /classes/{id}/battle/votes/pre` | |
 | `class_tts_complete` | `POST .../votes/tts-complete` | |
 | `class_vote_mid` | `POST .../votes/mid` | |
-| `class_debate_start` | `POST .../battle/debate` (AI 첫 주장) | |
-| `class_debate_reply` | `POST .../battle/debate/replies` (반박 제출) | `round` |
-| `class_vote_post` | `POST .../votes/post` | |
+| `class_debate_start` | `POST .../battle/debate` (토론 시작 버튼) | |
+| `class_debate_argument` | AI 철학자 주장이 저장된 시점 (라운드마다, #695) | `round` 1~3 |
+| `class_debate_reply` | 반박이 저장된 시점 | `round`, `input_seconds`(그 라운드 AI 주장 도착 → 반박 제출, #695) |
+| `class_vote_post` | `POST .../votes/post` | `seconds_from_join`(입장 → 사후투표), `seconds_from_pre_vote`(사전투표 → 사후투표) (#695) |
 | `class_opinion_write` | `POST .../battle/perspectives` | |
 | `class_comment_write` | 클래스 의견에 댓글 작성 | |
 | `class_result_view` | `GET /classes/{id}/result` | |
-| `class_report_view` | 완성된(SUCCEEDED/LIMITED) 리포트 조회: 참가자 `GET .../result/my-report`, 운영자 `GET .../result/insight` | `report_type`(MEMBER / INSIGHT), `report_state`, `first_view` |
+| `class_report_view` | 완성된(SUCCEEDED/LIMITED) 리포트 조회: 참가자 `GET .../result/my-report`, 운영자 `GET .../result/insight` | `report_type`(MEMBER / INSIGHT), `report_state`, `first_view`, `seconds_since_ready`(리포트 생성 완료 → 열람, #695) |
 
 ## 리포트 열람 기록
 
@@ -53,5 +54,6 @@
 
 - P0 클래스 퍼널 (`groupBy=class_id`): `class_create_complete → class_join_complete → class_vote_post → class_report_view`
 - 방식별: 각 단계에 `:battle_type=CUSTOM` / `:battle_type=EXISTING`
-- 커스텀 구간: `class_join_complete → class_vote_pre → class_debate_start → class_debate_reply:round=1 → class_debate_reply:round=2 → class_debate_reply:round=3 → class_vote_post → class_report_view:report_type=MEMBER`
+- 커스텀 구간: `class_join_complete → class_vote_pre → class_debate_argument:round=1 → class_debate_reply:round=1 → class_debate_argument:round=2 → class_debate_reply:round=2 → class_debate_argument:round=3 → class_debate_reply:round=3 → class_vote_post → class_report_view:report_type=MEMBER`
+  - `argument:round=N → reply:round=N` 이탈 = N라운드 입력 단계 이탈 (주장은 받았는데 반박을 내지 않음)
 - 기존 콘텐츠: `class_join_complete → class_vote_pre → class_tts_complete → class_vote_post → class_opinion_write → class_report_view:report_type=MEMBER`

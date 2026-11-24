@@ -26,6 +26,7 @@ public class ClassFunnelTracker {
     public static final String CLASS_OPINION_WRITE = "class_opinion_write";
     public static final String CLASS_COMMENT_WRITE = "class_comment_write";
     public static final String CLASS_DEBATE_START = "class_debate_start";
+    public static final String CLASS_DEBATE_ARGUMENT = "class_debate_argument";
     public static final String CLASS_DEBATE_REPLY = "class_debate_reply";
     public static final String CLASS_RESULT_VIEW = "class_result_view";
     public static final String CLASS_REPORT_VIEW = "class_report_view";
@@ -37,6 +38,14 @@ public class ClassFunnelTracker {
                               @Value("${picke.analytics.mixpanel.tracking-enabled:${MIXPANEL_TRACKING_ENABLED:false}}") boolean enabled) {
         this.publisher = publisher;
         this.enabled = enabled;
+    }
+
+    /** 두 시각 사이 초. 하나라도 없으면 null, 음수는 0 (#695 체류시간 속성) */
+    public static Long secondsBetween(java.time.LocalDateTime from, java.time.LocalDateTime to) {
+        if (from == null || to == null) {
+            return null;
+        }
+        return Math.max(0L, java.time.Duration.between(from, to).getSeconds());
     }
 
     public void track(String event, Long userId, Long classId) {

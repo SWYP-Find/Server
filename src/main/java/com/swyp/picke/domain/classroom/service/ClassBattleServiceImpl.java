@@ -1,5 +1,6 @@
 package com.swyp.picke.domain.classroom.service;
 
+import com.swyp.picke.global.infra.mixpanel.ClassFunnelTracker;
 import com.swyp.picke.domain.battle.dto.response.BattleUserDetailResponse;
 import com.swyp.picke.domain.battle.entity.Battle;
 import com.swyp.picke.domain.battle.service.BattleService;
@@ -63,6 +64,7 @@ public class ClassBattleServiceImpl implements ClassBattleService {
     private final UserRepository userRepository;
     private final ClassDebateSessionService debateSessionService;
     private final ClassMidVoteService classMidVoteService;
+    private final ClassFunnelTracker funnelTracker;
 
     @Override
     public ClassBattleDetailResponse getDetail(Long userId, Long classId) {
@@ -142,7 +144,22 @@ public class ClassBattleServiceImpl implements ClassBattleService {
             // 필수 중간투표가 있는 콘텐츠는 그 응답까지 저장돼야 사후투표 (PRD §7)
             classMidVoteService.requireCompleted(classroom, vote);
         }
-        return battleVoteService.postVote(battleOf(classroom).getId(), userId, classroom, request);
+        BattleVote preVote = battleVoteRepository.findByBattleAndUserAndClassroom(battleOf(classroom), access.member().getUser(), classroom)
+                .orElse(null);
+        VoteResultResponse result = battleVoteService.postVote(battleOf(classroom).getId(), userId, classroom, request);
+        // 체류시간: 입장 → 사후투표, 사전투표 → 사후투표 (#695)
+        LocalDateTime votedAt = LocalDateTime.now(KST);
+        java.util.Map<String, Object> props = new java.util.HashMap<>();
+        Long fromJoin = ClassFunnelTracker.secondsBetween(access.member().getJoinedAt(), votedAt);
+        Long fromPreVote = ClassFunnelTracker.secondsBetween(preVote == null ? null : preVote.getCreatedAt(), votedAt);
+        if (fromJoin != null) {
+            props.put("seconds_from_join", fromJoin);
+        }
+        if (fromPreVote != null) {
+            props.put("seconds_from_pre_vote", fromPreVote);
+        }
+        funnelTracker.track(ClassFunnelTracker.CLASS_VOTE_POST, userId, classId, props);
+        return result;
     }
 
     @Override

@@ -494,6 +494,38 @@ class ClassResultApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("#707 개인 리포트 품질: 일반 제목이면 한 번 다시 만들고, 다시 만들어도 같으면 그대로 게시한다")
+    void memberReport_qualityRetry() throws Exception {
+        ClassInfo cls = createClass(false);
+        String token = tokenOf(newUser("학생A"));
+        join(token, cls.inviteCode, "학생A");
+        completeParticipation(token, cls, optionA, optionB, "효과가 입증되지 않아 반대합니다. 표본이 너무 작아요.");
+
+        java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
+        when(aiClient.chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt())).thenAnswer(inv -> {
+            ClassReportAiClient.AiChatResult good = memberFeedbackAnswer(inv.getArgument(1));
+            Map<String, Object> json = new HashMap<>(good.json());
+            json.put("strength", Map.of("title", "주장과 이유의 연결", "body", "표본 크기를 짚으며 근거의 한계를 확인했어요."));
+            calls.incrementAndGet();
+            return new ClassReportAiClient.AiChatResult(json, "{}", 10, 5);
+        });
+
+        closeClass(cls.classId);
+        LocalDateTime now = LocalDateTime.now();
+        generationService.runOnce(now);
+        ClassReport report = classReportRepository.findAll().stream()
+                .filter(r -> r.getType() == ClassReportType.MEMBER_FEEDBACK).findFirst().orElseThrow();
+        assertThat(report.getStatus()).isEqualTo(ClassReportStatus.PENDING);
+        assertThat(jobOf(report).getErrorCode()).isEqualTo("QUALITY_GENERIC_TITLE");
+
+        // 두 번째도 같은 문제 → 더 막지 않고 게시
+        generationService.runOnce(now.plusMinutes(1));
+        report = classReportRepository.findById(report.getId()).orElseThrow();
+        assertThat(report.getStatus()).isEqualTo(ClassReportStatus.SUCCEEDED);
+        assertThat(calls.get()).isEqualTo(2);
+    }
+
+    @Test
     @DisplayName("#673 주요 의견: 고를 글이 하나면 논쟁 댓글은 null, 없으면 둘 다 null")
     void insight_keyOpinions_notEnough() throws Exception {
         ClassInfo cls = createClass(false);

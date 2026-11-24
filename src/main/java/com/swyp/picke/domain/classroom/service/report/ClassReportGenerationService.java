@@ -98,6 +98,19 @@ public class ClassReportGenerationService {
             snapshotService.fail(reportId, prepared.jobId(), errorCodeOf(e), false, LocalDateTime.now(KST));
             return;
         }
+        if (prepared.type() == ClassReportType.MEMBER_FEEDBACK) {
+            // 칸끼리 반복·일반 제목·참가자 글에 없는 선택지 문장·말투 (#707). 한 번 다시 만들고, 그래도 남으면 그대로 게시한다
+            List<String> issues = ReportQualityChecker.memberFeedbackIssues(validated, prepared.memberInput());
+            if (!issues.isEmpty()) {
+                int attempt = snapshotService.attemptOf(prepared.jobId());
+                if (attempt < ClassReportSnapshotService.MAX_AUTO_ATTEMPTS) {
+                    log.info("[ClassReport] quality retry reportId={} attempt={} issues={}", reportId, attempt, issues);
+                    snapshotService.fail(reportId, prepared.jobId(), "QUALITY_" + issues.get(0), true, LocalDateTime.now(KST));
+                    return;
+                }
+                log.warn("[ClassReport] quality issues kept reportId={} attempt={} issues={}", reportId, attempt, issues);
+            }
+        }
         snapshotService.complete(reportId, prepared.jobId(), validated, result, LocalDateTime.now(KST));
     }
 

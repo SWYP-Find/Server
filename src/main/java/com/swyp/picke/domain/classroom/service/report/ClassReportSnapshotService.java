@@ -195,6 +195,12 @@ public class ClassReportSnapshotService {
         }
     }
 
+    /** 지금까지 쓴 AI 시도 횟수 (#707 품질 재시도 판단용) */
+    @Transactional(readOnly = true)
+    public int attemptOf(Long jobId) {
+        return aiJobRepository.findById(jobId).map(AiJob::getAttempt).orElse(MAX_AUTO_ATTEMPTS);
+    }
+
     /** rejected=true 는 검증 실패(응답은 왔지만 규칙 위반), false 는 제공자 장애 */
     public void fail(Long reportId, Long jobId, String errorCode, boolean rejected, LocalDateTime now) {
         fail(reportId, jobId, errorCode, rejected, null, now);

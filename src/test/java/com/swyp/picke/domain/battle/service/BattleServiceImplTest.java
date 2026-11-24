@@ -173,4 +173,39 @@ class BattleServiceImplTest {
             TransactionSynchronizationManager.clearSynchronization();
         }
     }
+
+    @Test
+    void 임시저장_배틀을_발행할_때_기존_local_draft_썸네일을_승격_전에_지우지_않는다() {
+        Battle battle = battle(1L);
+        String localDraftKey = "local/drafts/uuid_thumb.png";
+        String s3Key = "images/battles/uuid_thumb.png";
+        org.springframework.test.util.ReflectionTestUtils.setField(battle, "thumbnailUrl", localDraftKey);
+
+        when(battleRepository.findById(1L)).thenReturn(Optional.of(battle));
+        when(battleOptionRepository.findByBattle(battle)).thenReturn(List.of());
+        lenient().when(localDraftFileStorageService.normalizeLocalDraftKey(localDraftKey)).thenReturn(localDraftKey);
+        lenient().when(localDraftFileStorageService.isLocalDraftReference(localDraftKey)).thenReturn(true);
+        when(localDraftFileStorageService.resolveS3Key(localDraftKey, FileCategory.BATTLE)).thenReturn(s3Key);
+        lenient().when(battleOptionRepository.save(any(BattleOption.class))).thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(battleOptionTagRepository.findByBattleWithTags(battle)).thenReturn(List.of());
+
+        AdminBattleUpdateRequest request = new AdminBattleUpdateRequest(
+                "제목", null, null, localDraftKey, null, null, null, BattleStatus.PUBLISHED,
+                null, List.of(
+                        new AdminBattleOptionRequest("옵션1", null, null, null, 1, null),
+                        new AdminBattleOptionRequest("옵션2", null, null, null, 2, null)));
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.updateBattle(1L, request);
+
+            verify(localDraftFileStorageService, never()).deleteIfLocalReference(anyString());
+            org.assertj.core.api.Assertions.assertThat(battle.getThumbnailUrl()).isEqualTo(s3Key);
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(org.springframework.transaction.support.TransactionSynchronization::afterCommit);
+            verify(localDraftFileStorageService).promoteToS3(localDraftKey, s3Key, s3UploadService);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
 }

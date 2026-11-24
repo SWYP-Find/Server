@@ -1,5 +1,7 @@
 package com.swyp.picke.domain.classroom.controller;
 
+import com.swyp.picke.global.infra.mixpanel.ClassFunnelTracker;
+import java.util.Map;
 import com.swyp.picke.domain.classroom.dto.request.ClassCreateRequest;
 import com.swyp.picke.domain.classroom.dto.request.ClassUpdateRequest;
 import com.swyp.picke.domain.classroom.dto.response.ClassDetailResponse;
@@ -28,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ClassroomController {
 
     private final ClassroomService classroomService;
+    private final ClassFunnelTracker funnelTracker;
 
     @Operation(summary = "클래스 생성",
             description = "사용 중인 이용권이 있어야 합니다(없으면 403 CLASS_403_TICKET). 정원은 이용권 인원을 그대로 씁니다. "
@@ -37,7 +40,9 @@ public class ClassroomController {
             @AuthenticationPrincipal Long userId,
             @Valid @RequestBody ClassCreateRequest request
     ) {
-        return ApiResponse.onSuccess(classroomService.create(userId, request));
+        ClassDetailResponse created = classroomService.create(userId, request);
+        funnelTracker.track(ClassFunnelTracker.CLASS_CREATE_COMPLETE, userId, created.classId());
+        return ApiResponse.onSuccess(created);
     }
 
     @Operation(summary = "내 클래스 목록", description = "내가 운영하는 클래스 + 참여 중인 클래스. 최신 생성순.")

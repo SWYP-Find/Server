@@ -32,13 +32,13 @@ import org.springframework.web.util.UriComponentsBuilder;
  * {@code HTTP 402 Your plan does not allow API calls} 를 준다. 반면 Raw Export
  * ({@code data.mixpanel.com/api/2.0/export}) 는 같은 플랜에서 열려 있어 여기서 직접 센다.
  *
- * <p>인증은 프로젝트 API 비밀을 Basic 사용자명 자리에 넣는 레거시 방식이다.
- * 이 방식에는 {@code project_id} 파라미터를 넣으면 400 이 되므로 넣지 않는다.
- * 비밀이 이미 프로젝트를 특정한다.
+ * <p>인증: 서비스 계정(사용자명·비밀·프로젝트 ID)이 설정돼 있으면 그것을 쓰고 {@code project_id} 를 붙인다.
+ * 없으면 프로젝트 API 비밀을 Basic 사용자명 자리에 넣는 레거시 방식을 쓴다 (이때 {@code project_id} 를 넣으면 400).
+ * 프로젝트 비밀은 2027-03-03 제거 예정이라 서비스 계정으로 옮겨야 한다 (#687).
  *
- * <p>응답은 한 줄에 이벤트 하나인 NDJSON 이다. {@code properties.time} 은 프로젝트 타임존
- * 기준 epoch 초이며, 요청의 {@code from_date}·{@code to_date} 경계도 같은 타임존을 따른다.
- * 둘을 같은 타임존으로 묶어야 날짜 버킷이 Mixpanel 화면 숫자와 맞는다.
+ * <p>응답은 한 줄에 이벤트 하나인 NDJSON 이다. {@code properties.time} 은 실제 UTC epoch 초이고,
+ * {@code from_date}·{@code to_date} 는 프로젝트 시간대 설정과 관계없이 UTC 날짜로 잘린다 (2026-11-24 실측).
+ * 그래서 요청은 앞뒤로 하루 넓혀 받고, 날짜는 {@code projectZone}(기본 Asia/Seoul) 기준으로 다시 자른다 (#687).
  */
 @Slf4j
 @Component
@@ -49,6 +49,9 @@ public class MixpanelClient {
 
     private final String baseUrl;
     private final String apiSecret;
+    private final String serviceAccountUsername;
+    private final String serviceAccountSecret;
+    private final String projectId;
     private final ZoneId projectZone;
     private final AnalyticsHttpTransport transport;
     private final ObjectMapper objectMapper;
@@ -57,16 +60,31 @@ public class MixpanelClient {
     public MixpanelClient(
             @Value("${picke.analytics.mixpanel.base-url:https://data.mixpanel.com}") String baseUrl,
             @Value("${picke.analytics.mixpanel.api-secret:${MIXPANEL_API_SECRET:}}") String apiSecret,
-            @Value("${picke.analytics.mixpanel.project-zone:UTC}") String projectZone,
+            @Value("${picke.analytics.mixpanel.service-account-username:${MIXPANEL_SERVICE_ACCOUNT_USERNAME:}}")
+            String serviceAccountUsername,
+            @Value("${picke.analytics.mixpanel.service-account-secret:${MIXPANEL_SERVICE_ACCOUNT_SECRET:}}")
+            String serviceAccountSecret,
+            @Value("${picke.analytics.mixpanel.project-id:${MIXPANEL_PROJECT_ID:}}") String projectId,
+            @Value("${picke.analytics.mixpanel.project-zone:Asia/Seoul}") String projectZone,
             @Value("${picke.analytics.mixpanel.default-events:}") List<String> defaultEvents,
             AnalyticsHttpTransport transport) {
-        this(baseUrl, apiSecret, ZoneId.of(projectZone), defaultEvents, transport, new ObjectMapper());
+        this(baseUrl, apiSecret, serviceAccountUsername, serviceAccountSecret, projectId,
+                ZoneId.of(projectZone), defaultEvents, transport, new ObjectMapper());
     }
 
     MixpanelClient(String baseUrl, String apiSecret, ZoneId projectZone, List<String> defaultEvents,
                    AnalyticsHttpTransport transport, ObjectMapper objectMapper) {
+        this(baseUrl, apiSecret, null, null, null, projectZone, defaultEvents, transport, objectMapper);
+    }
+
+    MixpanelClient(String baseUrl, String apiSecret, String serviceAccountUsername, String serviceAccountSecret,
+                   String projectId, ZoneId projectZone, List<String> defaultEvents,
+                   AnalyticsHttpTransport transport, ObjectMapper objectMapper) {
         this.baseUrl = baseUrl;
         this.apiSecret = apiSecret;
+        this.serviceAccountUsername = serviceAccountUsername;
+        this.serviceAccountSecret = serviceAccountSecret;
+        this.projectId = projectId;
         this.projectZone = projectZone;
         this.transport = transport;
         this.objectMapper = objectMapper;
@@ -76,7 +94,7 @@ public class MixpanelClient {
      * @param requestedEvents 빈 값이면 기간에 실제로 나타난 이벤트 전부를 센다.
      */
     public MixpanelEventReport fetchDailyCounts(List<String> requestedEvents, LocalDate from, LocalDate to) {
-        if (!StringUtils.hasText(apiSecret)) {
+        if (!isConfigured()) {
             return MixpanelEventReport.empty(AnalyticsStatus.NOT_CONFIGURED, from, to);
         }
 
@@ -233,74 +251,127 @@ public class MixpanelClient {
         }
     }
 
+    /** 사용자(distinct_id) 기준 퍼널. {@link #fetchFunnel(List, int, LocalDate, LocalDate, String)} 참고 */
+    public MixpanelFunnelReport fetchFunnel(
+            List<String> steps, int windowDays, LocalDate from, LocalDate to) {
+        return fetchFunnel(steps, windowDays, from, to, null);
+    }
+
     /**
-     * 지정한 순서대로 이벤트를 밟은 고유 사용자를 센다.
+     * 지정한 순서대로 이벤트를 밟은 고유 대상(기본 사용자)을 센다.
      *
      * <p>집계 API 의 퍼널 리포트를 쓸 수 없어(플랜 제한) 원본 이벤트로 직접 계산한다.
      * 규칙은 Mixpanel 화면과 같다. 다음 단계는 앞 단계 이후여야 하고, 첫 단계로부터
      * {@code windowDays} 안에 끝나야 한다. 2026-08 실데이터로 Mixpanel 화면 숫자와 일치를 확인했다.
+     *
+     * <p>{@code groupBy} 를 주면 사용자 대신 그 속성 값(예: {@code class_id})으로 묶어 센다.
+     * 운영자가 만들고 참가자가 들어오는 클래스 퍼널처럼 단계마다 사람이 다른 흐름을 한 줄로 본다 (#687).
+     * 속성이 없는 이벤트는 그 퍼널에서 빠진다.
+     *
+     * <p>단계마다 앞 단계에서 넘어오기까지 걸린 시간의 중앙값(초)을 함께 낸다 (#687 체류시간).
      */
     public MixpanelFunnelReport fetchFunnel(
-            List<String> steps, int windowDays, LocalDate from, LocalDate to) {
-        if (!StringUtils.hasText(apiSecret)) {
-            return MixpanelFunnelReport.empty(AnalyticsStatus.NOT_CONFIGURED, steps, windowDays, from, to);
+            List<String> steps, int windowDays, LocalDate from, LocalDate to, String groupBy) {
+        String group = StringUtils.hasText(groupBy) ? groupBy.trim() : null;
+        if (!isConfigured()) {
+            return MixpanelFunnelReport.empty(AnalyticsStatus.NOT_CONFIGURED, steps, windowDays, from, to, group);
         }
 
         AnalyticsHttpResponse response = transport.get(uri(from, to),
                 Map.of("Authorization", "Basic " + basicCredentials()));
         if (!response.isSuccess()) {
             log.warn("[Mixpanel] 퍼널용 원본 이벤트 조회 실패: status={}", response.statusCode());
-            return MixpanelFunnelReport.empty(AnalyticsStatus.UNAVAILABLE, steps, windowDays, from, to);
+            return MixpanelFunnelReport.empty(AnalyticsStatus.UNAVAILABLE, steps, windowDays, from, to, group);
         }
 
         try {
-            long[] reached = walkFunnel(response.body(), steps, windowDays, from, to);
-            return funnelReport(steps, windowDays, from, to, reached);
+            FunnelWalk walk = walkFunnel(response.body(), steps, windowDays, from, to, group);
+            return funnelReport(steps, windowDays, from, to, group, walk);
         } catch (Exception e) {
             log.warn("[Mixpanel] 퍼널 계산 실패: {}", e.getClass().getSimpleName());
-            return MixpanelFunnelReport.empty(AnalyticsStatus.UNAVAILABLE, steps, windowDays, from, to);
+            return MixpanelFunnelReport.empty(AnalyticsStatus.UNAVAILABLE, steps, windowDays, from, to, group);
         }
     }
 
     /**
-     * 단계 하나를 가리키는 조건. {@code battle_step} 처럼 이벤트 이름만 쓰거나
-     * {@code battle_step:step_name=pre_vote} 처럼 속성까지 좁힌다.
+     * 단계 하나를 가리키는 조건.
+     * <ul>
+     *   <li>{@code battle_step} : 이벤트 이름만</li>
+     *   <li>{@code battle_step:step_name=pre_vote} : 속성 값이 같음</li>
+     *   <li>{@code network_request:method=POST;path~/api/v1/classes/\d+/battle/votes/post} :
+     *       조건 여러 개는 {@code ;} 로 잇고, {@code ~} 는 정규식 전체 일치 (#687)</li>
+     * </ul>
      *
      * <p>배틀 흐름은 선택·재생·투표가 모두 {@code battle_step} 한 이벤트로 들어오고
      * {@code step_name} 으로만 갈린다. 속성을 못 좁히면 이 구간이 한 단계로 뭉쳐 이탈율을 볼 수 없다.
      */
-    private record StepMatcher(String spec, String event, String property, String value) {
+    record StepMatcher(String spec, String event, List<Condition> conditions) {
+
+        record Condition(String property, String value, java.util.regex.Pattern pattern) {
+            boolean matches(JsonNode properties) {
+                JsonNode actual = properties.get(property);
+                if (actual == null || actual.isNull() || actual.isContainerNode()) {
+                    return false;
+                }
+                String text = actual.asText();
+                return pattern != null ? pattern.matcher(text).matches() : value.equals(text);
+            }
+        }
+
         static StepMatcher parse(String spec) {
             int marker = spec.indexOf(':');
             if (marker < 0) {
-                return new StepMatcher(spec, spec, null, null);
+                return new StepMatcher(spec, spec, List.of());
             }
             String event = spec.substring(0, marker);
-            String filter = spec.substring(marker + 1);
-            int equals = filter.indexOf('=');
-            if (equals < 0) {
-                throw new IllegalArgumentException("퍼널 단계 속성은 property=value 형태여야 합니다: " + spec);
+            List<Condition> conditions = new ArrayList<>();
+            for (String filter : spec.substring(marker + 1).split(";")) {
+                if (filter.isBlank()) {
+                    continue;
+                }
+                int equals = filter.indexOf('=');
+                int tilde = filter.indexOf('~');
+                boolean regex = tilde >= 0 && (equals < 0 || tilde < equals);
+                int operator = regex ? tilde : equals;
+                if (operator <= 0) {
+                    throw new IllegalArgumentException(
+                            "퍼널 단계 속성은 property=value 또는 property~정규식 형태여야 합니다: " + spec);
+                }
+                String property = filter.substring(0, operator).trim();
+                String value = filter.substring(operator + 1);
+                try {
+                    conditions.add(new Condition(property, value,
+                            regex ? java.util.regex.Pattern.compile(value) : null));
+                } catch (java.util.regex.PatternSyntaxException e) {
+                    throw new IllegalArgumentException("퍼널 단계 정규식이 올바르지 않습니다: " + spec);
+                }
             }
-            return new StepMatcher(spec, event, filter.substring(0, equals), filter.substring(equals + 1));
+            return new StepMatcher(spec, event, List.copyOf(conditions));
         }
 
         boolean matches(String event, JsonNode properties) {
             if (!this.event.equals(event)) {
                 return false;
             }
-            if (property == null) {
-                return true;
+            for (Condition condition : conditions) {
+                if (!condition.matches(properties)) {
+                    return false;
+                }
             }
-            JsonNode actual = properties.get(property);
-            return actual != null && !actual.isNull() && value.equals(actual.asText());
+            return true;
         }
     }
 
-    /** 사용자별로 단계 이벤트만 모아 시간순으로 훑는다. 단계에 없는 이벤트는 담지 않아 메모리를 아낀다. */
-    private long[] walkFunnel(
-            String body, List<String> steps, int windowDays, LocalDate from, LocalDate to) throws Exception {
+    /** 단계별 도달 수와, 앞 단계에서 넘어오기까지 걸린 초(대상별 1건) */
+    private record FunnelWalk(long[] reached, List<List<Long>> secondsFromPrevious, List<Long> secondsToComplete) {
+    }
+
+    /** 대상(사용자 또는 groupBy 값)별로 단계 이벤트만 모아 시간순으로 훑는다. 단계에 없는 이벤트는 담지 않아 메모리를 아낀다. */
+    private FunnelWalk walkFunnel(
+            String body, List<String> steps, int windowDays, LocalDate from, LocalDate to, String groupBy)
+            throws Exception {
         List<StepMatcher> matchers = steps.stream().map(StepMatcher::parse).toList();
-        Map<String, List<long[]>> byUser = new HashMap<>();
+        Map<String, List<long[]>> byTarget = new HashMap<>();
 
         for (String line : body.split("\n")) {
             if (line.isBlank()) {
@@ -313,33 +384,34 @@ public class MixpanelClient {
                 throw new IllegalArgumentException("Mixpanel export line is missing event or time.");
             }
             JsonNode properties = node.path("properties");
-            int step = -1;
-            for (int index = 0; index < matchers.size(); index++) {
-                if (matchers.get(index).matches(event, properties)) {
-                    step = index;
-                    break;
-                }
-            }
-            if (step < 0) {
-                continue;
-            }
             Instant occurredAt = Instant.ofEpochSecond(time.asLong());
             LocalDate date = occurredAt.atZone(projectZone).toLocalDate();
             if (date.isBefore(from) || date.isAfter(to)) {
                 continue;
             }
-            String distinctId = text(properties.get("distinct_id"));
-            if (distinctId == null) {
-                // 사용자를 못 가리는 이벤트는 고유 전환을 셀 수 없다.
+            String target = text(properties.get(groupBy == null ? "distinct_id" : groupBy));
+            if (target == null) {
+                // 대상을 못 가리는 이벤트는 고유 전환을 셀 수 없다.
                 continue;
             }
-            byUser.computeIfAbsent(distinctId, key -> new ArrayList<>())
-                    .add(new long[]{time.asLong(), step});
+            // 이벤트 하나는 처음 맞는 단계 하나에만 쓴다 (같은 이벤트가 두 단계를 동시에 채우지 않게, 기존 규칙 유지)
+            for (int index = 0; index < matchers.size(); index++) {
+                if (matchers.get(index).matches(event, properties)) {
+                    byTarget.computeIfAbsent(target, key -> new ArrayList<>())
+                            .add(new long[]{time.asLong(), index});
+                    break;
+                }
+            }
         }
 
         long[] reached = new long[steps.size()];
+        List<List<Long>> fromPrevious = new ArrayList<>();
+        for (int index = 0; index < steps.size(); index++) {
+            fromPrevious.add(new ArrayList<>());
+        }
+        List<Long> toComplete = new ArrayList<>();
         long window = (long) windowDays * 86_400L;
-        for (List<long[]> events : byUser.values()) {
+        for (List<long[]> events : byTarget.values()) {
             events.sort(Comparator.comparingLong(entry -> entry[0]));
             Long entry = firstTimeOf(events, 0);
             if (entry == null) {
@@ -348,16 +420,22 @@ public class MixpanelClient {
             reached[0]++;
             long cursor = entry;
             long deadline = entry + window;
+            boolean completed = true;
             for (int step = 1; step < steps.size(); step++) {
                 Long next = nextTimeOf(events, step, cursor, deadline);
                 if (next == null) {
+                    completed = false;
                     break;
                 }
                 reached[step]++;
+                fromPrevious.get(step).add(next - cursor);
                 cursor = next;
             }
+            if (completed) {
+                toComplete.add(cursor - entry);
+            }
         }
-        return reached;
+        return new FunnelWalk(reached, fromPrevious, toComplete);
     }
 
     private Long firstTimeOf(List<long[]> events, int step) {
@@ -374,7 +452,8 @@ public class MixpanelClient {
     }
 
     private MixpanelFunnelReport funnelReport(
-            List<String> steps, int windowDays, LocalDate from, LocalDate to, long[] reached) {
+            List<String> steps, int windowDays, LocalDate from, LocalDate to, String groupBy, FunnelWalk walk) {
+        long[] reached = walk.reached();
         long entered = reached[0];
         List<MixpanelFunnelReport.Step> rows = new ArrayList<>();
         for (int index = 0; index < steps.size(); index++) {
@@ -387,11 +466,23 @@ public class MixpanelClient {
                     percentage(users, entered),
                     previous == null ? null : percentage(users, previous),
                     previous == null ? null : previous - users,
-                    previous == null ? null : percentage(previous - users, previous)));
+                    previous == null ? null : percentage(previous - users, previous),
+                    index == 0 ? null : median(walk.secondsFromPrevious().get(index))));
         }
         long completed = reached[reached.length - 1];
         return new MixpanelFunnelReport(AnalyticsStatus.CONNECTED, Instant.now(), from, to, windowDays,
-                entered, completed, percentage(completed, entered), rows);
+                entered, completed, percentage(completed, entered), groupBy, median(walk.secondsToComplete()), rows);
+    }
+
+    /** 값이 없으면 null. 짝수 개면 가운데 두 값의 평균(내림) */
+    static Long median(List<Long> values) {
+        if (values == null || values.isEmpty()) {
+            return null;
+        }
+        List<Long> sorted = new ArrayList<>(values);
+        sorted.sort(null);
+        int middle = sorted.size() / 2;
+        return sorted.size() % 2 == 1 ? sorted.get(middle) : (sorted.get(middle - 1) + sorted.get(middle)) / 2;
     }
 
     /** 분모가 0이면 0%가 아니라 null 이다. 아무도 진입하지 않은 것과 전환 실패를 구분한다. */
@@ -404,18 +495,41 @@ public class MixpanelClient {
                 .doubleValue();
     }
 
-    private String basicCredentials() {
-        // 레거시 방식은 API 비밀을 사용자명 자리에 두고 비밀번호를 비운다.
-        return Base64.getEncoder()
-                .encodeToString((apiSecret + ":").getBytes(StandardCharsets.UTF_8));
+    private boolean usesServiceAccount() {
+        return StringUtils.hasText(serviceAccountUsername) && StringUtils.hasText(serviceAccountSecret)
+                && StringUtils.hasText(projectId);
     }
 
+    private boolean isConfigured() {
+        return usesServiceAccount() || StringUtils.hasText(apiSecret);
+    }
+
+    private String basicCredentials() {
+        // 서비스 계정은 사용자명:비밀, 레거시 방식은 API 비밀을 사용자명 자리에 두고 비밀번호를 비운다.
+        String credentials = usesServiceAccount()
+                ? serviceAccountUsername + ":" + serviceAccountSecret
+                : apiSecret + ":";
+        return Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Export 는 UTC 날짜로 잘리므로 projectZone 날짜 [from, to] 를 덮도록 앞뒤 하루씩 넓혀 받는다.
+     * 오늘(UTC) 이후 날짜를 넣으면 Mixpanel 이 거절하므로 끝은 오늘로 자른다.
+     */
     private URI uri(LocalDate from, LocalDate to) {
-        return UriComponentsBuilder.fromUriString(baseUrl)
+        LocalDate todayUtc = LocalDate.now(java.time.ZoneOffset.UTC);
+        LocalDate exportTo = to.plusDays(1).isAfter(todayUtc) ? todayUtc : to.plusDays(1);
+        LocalDate exportFrom = from.minusDays(1);
+        if (exportTo.isBefore(exportFrom)) {
+            exportTo = exportFrom;
+        }
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl)
                 .path("/api/2.0/export")
-                .queryParam("from_date", from)
-                .queryParam("to_date", to)
-                .build()
-                .toUri();
+                .queryParam("from_date", exportFrom)
+                .queryParam("to_date", exportTo);
+        if (usesServiceAccount()) {
+            builder.queryParam("project_id", projectId);
+        }
+        return builder.build().toUri();
     }
 }

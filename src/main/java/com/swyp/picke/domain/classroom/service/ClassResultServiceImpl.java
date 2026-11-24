@@ -1,5 +1,7 @@
 package com.swyp.picke.domain.classroom.service;
 
+import com.swyp.picke.domain.classroom.service.report.ClassReportViewRecorder;
+import com.swyp.picke.global.infra.mixpanel.ClassFunnelTracker;
 import com.swyp.picke.domain.battle.entity.BattleOption;
 import com.swyp.picke.domain.classroom.dto.response.ClassInsightResponse;
 import com.swyp.picke.domain.classroom.dto.response.ClassMyReportResponse;
@@ -57,6 +59,7 @@ import org.springframework.data.domain.PageRequest;
  * 상태 판정 순서: 마감 전 → BEFORE_CLOSE, 스냅샷 없음(스케줄러 전) → PENDING, 리포트 행 없음 → NOT_ELIGIBLE, 그 외 리포트 status.
  */
 @Service
+@lombok.extern.slf4j.Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ClassResultServiceImpl implements ClassResultService {
@@ -75,6 +78,8 @@ public class ClassResultServiceImpl implements ClassResultService {
     private final PerspectiveCommentRepository perspectiveCommentRepository;
     private final PerspectiveLikeRepository perspectiveLikeRepository;
     private final CommentLikeRepository commentLikeRepository;
+    private final ClassReportViewRecorder reportViewRecorder;
+    private final ClassFunnelTracker funnelTracker;
 
     private static final int DEFAULT_ACTIVITY_PAGE_SIZE = 20;
     private static final int MAX_ACTIVITY_PAGE_SIZE = 100;
@@ -131,6 +136,7 @@ public class ClassResultServiceImpl implements ClassResultService {
         if (report != null && report.isDone()) {
             feedback = toFeedback(report.getContent(), userId);
             generatedAt = report.getGeneratedAt();
+            recordReportView(classId, report, userId, "MEMBER", now);
         }
         return new ClassMyReportResponse(
                 classId, state, report != null && isRetryable(report), classroom.getEffectiveCloseAt(),
@@ -182,7 +188,22 @@ public class ClassResultServiceImpl implements ClassResultService {
         LocalDateTime now = LocalDateTime.now(KST);
         ClassAccess access = requireOwner(classId, userId, now);
         ClassReport summary = findSummary(classId);
+        if (summary != null && summary.isDone()) {
+            recordReportView(classId, summary, userId, "INSIGHT", now);
+        }
         return toInsight(classId, summary, access.classroom().isClosed(now));
+    }
+
+    /** 완성된 리포트를 열었을 때만 열람으로 센다 (#689). 기록 실패는 조회를 막지 않는다 */
+    private void recordReportView(Long classId, ClassReport report, Long userId, String reportType, LocalDateTime now) {
+        boolean firstView = false;
+        try {
+            firstView = reportViewRecorder.record(classId, report.getId(), userId, now);
+        } catch (Exception e) {
+            log.warn("[ClassReport] view not recorded reportId={} : {}", report.getId(), e.getClass().getSimpleName());
+        }
+        funnelTracker.track(ClassFunnelTracker.CLASS_REPORT_VIEW, userId, classId,
+                java.util.Map.of("report_type", reportType, "report_state", report.getStatus().name(), "first_view", firstView));
     }
 
     @Override

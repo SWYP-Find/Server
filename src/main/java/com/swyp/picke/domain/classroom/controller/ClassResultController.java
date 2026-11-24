@@ -1,5 +1,7 @@
 package com.swyp.picke.domain.classroom.controller;
 
+import com.swyp.picke.global.infra.mixpanel.ClassFunnelTracker;
+import java.util.Map;
 import com.swyp.picke.domain.classroom.dto.response.ClassInsightResponse;
 import com.swyp.picke.domain.classroom.dto.response.ClassMyReportResponse;
 import com.swyp.picke.domain.classroom.dto.response.ClassMyActivityResponse;
@@ -27,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ClassResultController {
 
     private final ClassResultService classResultService;
+    private final ClassFunnelTracker funnelTracker;
 
     @Operation(summary = "클래스 결과 (정량 통계)",
             description = "참여율·댓글 작성률·사전/사후 분포. 마감 전에는 현재 데이터(statsBasis=LIVE), 마감 후에는 마감 스냅샷(SNAPSHOT). "
@@ -36,7 +39,9 @@ public class ClassResultController {
             @AuthenticationPrincipal Long userId,
             @PathVariable Long classId
     ) {
-        return ApiResponse.onSuccess(classResultService.getResult(userId, classId));
+        ClassResultResponse result = classResultService.getResult(userId, classId);
+        funnelTracker.track(ClassFunnelTracker.CLASS_RESULT_VIEW, userId, classId);
+        return ApiResponse.onSuccess(result);
     }
 
     @Operation(summary = "내 AI 피드백",

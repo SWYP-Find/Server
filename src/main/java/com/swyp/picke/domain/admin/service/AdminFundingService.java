@@ -8,6 +8,9 @@ import com.swyp.picke.domain.admin.dto.funding.request.FundingOrderAdminUpdateRe
 import com.swyp.picke.domain.admin.dto.funding.request.TicketDeliveryRequest;
 import com.swyp.picke.domain.admin.dto.funding.request.RegisterReminderRequest;
 import com.swyp.picke.domain.admin.dto.funding.request.TicketIssueRequest;
+import com.swyp.picke.domain.admin.dto.funding.request.TicketExpiresAtRequest;
+import com.swyp.picke.domain.admin.dto.funding.response.TicketExpiresAtResponse;
+import com.swyp.picke.domain.admin.dto.funding.request.TicketUsagePeriodRequest;
 import com.swyp.picke.domain.admin.dto.funding.response.FundingImportResponse;
 import com.swyp.picke.domain.admin.dto.funding.response.FundingOrderPageResponse;
 import com.swyp.picke.domain.admin.dto.funding.response.FundingOrderSummaryResponse;
@@ -18,6 +21,7 @@ import com.swyp.picke.domain.admin.dto.funding.response.RegisterReminderTargetRe
 import com.swyp.picke.domain.admin.dto.funding.response.TumblbugCampaignDashboardResponse;
 import com.swyp.picke.domain.admin.dto.funding.response.TicketDeliveryResponse;
 import com.swyp.picke.domain.admin.dto.funding.response.TicketIssueResponse;
+import com.swyp.picke.domain.admin.dto.funding.response.TicketUsagePeriodResponse;
 import com.swyp.picke.domain.admin.dto.funding.response.AdminTicketCodeResponse;
 import com.swyp.picke.domain.ticket.entity.ClassTicket;
 import com.swyp.picke.domain.ticket.entity.FundingOrder;
@@ -282,6 +286,66 @@ public class AdminFundingService {
         return new TicketIssueResponse.IssuedTicket(ticket.getId(), order.getId(), order.getOrderId(),
                 order.getSupporterName(), order.getSupporterEmail(), order.getSupporterPhone(),
                 ticket.getCapacity(), ticket.getRegisterBy(), TicketCodeGenerator.format(rawCode));
+    }
+
+    // ───────────── 2-1. 사용 기간 ─────────────
+
+    /**
+     * 등록 전 이용권의 사용 기간(일)을 한 번에 정한다 (#685). 하나라도 없거나 이미 등록·무효화된 이용권이면 전부 반영하지 않는다.
+     * 등록 시 만료일 = 등록 시각 + usageDays 일. null 이면 기본 6개월.
+     */
+    @Transactional
+    public TicketUsagePeriodResponse updateUsagePeriod(TicketUsagePeriodRequest request, Long adminUserId) {
+        List<Long> ids = request.ticketIds().stream().distinct().sorted().toList();
+        List<ClassTicket> tickets = classTicketRepository.findAllById(ids);
+        if (tickets.size() != ids.size()) {
+            throw new CustomException(ErrorCode.TICKET_NOT_FOUND);
+        }
+        if (tickets.stream().anyMatch(ticket -> !ticket.isUnclaimed() || ticket.isRevoked())) {
+            throw new CustomException(ErrorCode.TICKET_STATE_CONFLICT);
+        }
+        String metadata = "{\"usageDays\":" + request.usageDays() + "}";
+        for (ClassTicket ticket : tickets) {
+            ticket.updateUsageDays(request.usageDays());
+            adminAuditLogRepository.save(new AdminAuditLog(adminUserId, "TICKET_USAGE_PERIOD_UPDATED", "CLASS_TICKET",
+                    ticket.getId(), null, metadata));
+        }
+        return new TicketUsagePeriodResponse(ids, request.usageDays());
+    }
+
+    /**
+     * 등록된 이용권의 만료일을 바꾼다 (#691). 클래스 마감·결과 조회 기간은 이용권 만료일을 따라가므로 함께 바뀐다.
+     * <ul>
+     *   <li>등록 전·무효화된 이용권은 409 TICKET_409_STATE (등록 전은 사용 기간 설정 API 사용)</li>
+     *   <li>등록 시각 이전으로는 바꿀 수 없다 (400)</li>
+     *   <li>만료된 이용권을 미래로 늘릴 때 그 계정에 다른 사용 중 이용권이 있으면 409 TICKET_409_ACTIVE</li>
+     * </ul>
+     */
+    @Transactional
+    public TicketExpiresAtResponse changeExpiresAt(Long ticketId, TicketExpiresAtRequest request, Long adminUserId) {
+        ClassTicket ticket = getTicket(ticketId);
+        if (ticket.isRevoked() || ticket.getActivatedAt() == null
+                || (ticket.getStatus() != TicketStatus.ACTIVE && ticket.getStatus() != TicketStatus.EXPIRED)) {
+            throw new CustomException(ErrorCode.TICKET_STATE_CONFLICT);
+        }
+        LocalDateTime expiresAt = request.expiresAt();
+        if (!expiresAt.isAfter(ticket.getActivatedAt())) {
+            throw new CustomException(ErrorCode.FUNDING_INVALID_REQUEST);
+        }
+        LocalDateTime now = LocalDateTime.now(KST);
+        if (ticket.getStatus() == TicketStatus.EXPIRED && expiresAt.isAfter(now)) {
+            classTicketRepository.findByRegisteredUserIdAndStatus(ticket.getRegisteredUser().getId(), TicketStatus.ACTIVE)
+                    .filter(other -> !other.getId().equals(ticket.getId()))
+                    .ifPresent(other -> {
+                        throw new CustomException(ErrorCode.TICKET_ALREADY_ACTIVE);
+                    });
+        }
+        LocalDateTime previous = ticket.getExpiresAt();
+        ticket.changeExpiresAt(expiresAt, now);
+        adminAuditLogRepository.save(new AdminAuditLog(adminUserId, "TICKET_EXPIRES_AT_CHANGED", "CLASS_TICKET",
+                ticket.getId(), null, "{\"previous\":\"" + previous + "\",\"expiresAt\":\"" + expiresAt + "\"}"));
+        return new TicketExpiresAtResponse(ticket.getId(), ticket.getActivatedAt(), previous, ticket.getExpiresAt(),
+                ticket.getReadGraceEndsAt(), ticket.getStatus());
     }
 
     // ───────────── 3. 전달 기록 ─────────────

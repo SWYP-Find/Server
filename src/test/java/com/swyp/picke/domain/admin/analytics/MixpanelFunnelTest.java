@@ -257,4 +257,68 @@ class MixpanelFunnelTest {
                 .containsExactly(24L, 24L, 2L);
         assertThat(result.conversionRate()).isEqualTo(8.33);
     }
+
+    private String raw(String name, String date, int hour, int minute, String props) {
+        long epoch = LocalDate.parse(date).atStartOfDay(UTC).plusHours(hour).plusMinutes(minute).toEpochSecond();
+        return "{\"event\":\"" + name + "\",\"properties\":{\"time\":" + epoch + "," + props + "}}";
+    }
+
+    @Test
+    @DisplayName("groupBy=class_id 면 단계마다 사람이 달라도 클래스 단위로 이어서 세고, 단계 사이 시간 중앙값을 낸다")
+    void groupsByClassAndMeasuresStepDurations() {
+        List<String> steps = List.of("class_create_complete", "class_join_complete", "class_vote_post");
+        var transport = new StubTransport(response(200, String.join("\n",
+                // 클래스 1: 운영자 o1 개설 → 참가자 p1 입장 10분 뒤 → p1 사후투표 30분 뒤
+                raw("class_create_complete", "2026-08-02", 1, 0, "\"distinct_id\":\"o1\",\"class_id\":1"),
+                raw("class_join_complete", "2026-08-02", 1, 10, "\"distinct_id\":\"p1\",\"class_id\":1"),
+                raw("class_vote_post", "2026-08-02", 1, 40, "\"distinct_id\":\"p1\",\"class_id\":1"),
+                // 클래스 2: 개설 → 입장 20분 뒤, 투표 없음
+                raw("class_create_complete", "2026-08-03", 1, 0, "\"distinct_id\":\"o2\",\"class_id\":2"),
+                raw("class_join_complete", "2026-08-03", 1, 20, "\"distinct_id\":\"p2\",\"class_id\":2"),
+                // class_id 없는 이벤트는 빠진다
+                raw("class_create_complete", "2026-08-03", 2, 0, "\"distinct_id\":\"o3\""))));
+
+        var result = client("secret", transport).fetchFunnel(steps, 7, from, to, "class_id");
+
+        assertThat(result.groupBy()).isEqualTo("class_id");
+        assertThat(result.steps()).extracting(MixpanelFunnelReport.Step::users,
+                                              MixpanelFunnelReport.Step::medianSecondsFromPrevious)
+                .containsExactly(tuple(2L, null), tuple(2L, 900L), tuple(1L, 1800L));
+        assertThat(result.medianSecondsToComplete()).isEqualTo(2400L);
+
+        // 사용자 기준이면 운영자와 참가자가 달라 개설 다음 단계로 이어지지 않는다
+        var byUser = client("secret", new StubTransport(response(200, String.join("\n",
+                raw("class_create_complete", "2026-08-02", 1, 0, "\"distinct_id\":\"o1\",\"class_id\":1"),
+                raw("class_join_complete", "2026-08-02", 1, 10, "\"distinct_id\":\"p1\",\"class_id\":1")))))
+                .fetchFunnel(steps, 7, from, to);
+        assertThat(byUser.steps().get(1).users()).isZero();
+    }
+
+    @Test
+    @DisplayName("단계 조건은 ';' 로 여러 개, '~' 로 정규식 전체 일치를 쓸 수 있다 (network_request 경로 매칭)")
+    void matchesMultipleConditionsAndRegex() {
+        List<String> steps = List.of(
+                "network_request:method=POST;path=/api/v1/classes/join",
+                "network_request:method=POST;path~/api/v1/classes/\\d+/battle/votes/post");
+        var transport = new StubTransport(response(200, String.join("\n",
+                raw("network_request", "2026-08-02", 1, 0, "\"distinct_id\":\"u1\",\"method\":\"POST\",\"path\":\"/api/v1/classes/join\""),
+                raw("network_request", "2026-08-02", 1, 5, "\"distinct_id\":\"u1\",\"method\":\"GET\",\"path\":\"/api/v1/classes/31/battle/votes/post\""),
+                raw("network_request", "2026-08-02", 1, 9, "\"distinct_id\":\"u1\",\"method\":\"POST\",\"path\":\"/api/v1/classes/31/battle/votes/post\""),
+                raw("network_request", "2026-08-02", 2, 0, "\"distinct_id\":\"u2\",\"method\":\"POST\",\"path\":\"/api/v1/classes/join\""),
+                raw("network_request", "2026-08-02", 2, 1, "\"distinct_id\":\"u2\",\"method\":\"POST\",\"path\":\"/api/v1/classes/31/battle/votes/post/extra\""))));
+
+        var result = client("secret", transport).fetchFunnel(steps, 7, from, to);
+
+        assertThat(result.steps()).extracting(MixpanelFunnelReport.Step::users,
+                                              MixpanelFunnelReport.Step::medianSecondsFromPrevious)
+                .containsExactly(tuple(2L, null), tuple(1L, 540L));
+    }
+
+    @Test
+    @DisplayName("중앙값: 짝수 개면 가운데 두 값의 평균, 값이 없으면 null")
+    void median() {
+        assertThat(MixpanelClient.median(List.of(30L, 10L, 20L))).isEqualTo(20L);
+        assertThat(MixpanelClient.median(List.of(10L, 20L, 30L, 40L))).isEqualTo(25L);
+        assertThat(MixpanelClient.median(List.of())).isNull();
+    }
 }

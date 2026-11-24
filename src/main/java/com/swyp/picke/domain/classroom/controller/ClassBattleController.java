@@ -1,5 +1,7 @@
 package com.swyp.picke.domain.classroom.controller;
 
+import com.swyp.picke.global.infra.mixpanel.ClassFunnelTracker;
+import java.util.Map;
 import com.swyp.picke.domain.classroom.dto.request.ClassMidVoteRequest;
 import com.swyp.picke.domain.classroom.dto.response.ClassBattleDetailResponse;
 import com.swyp.picke.domain.classroom.dto.response.ClassMyVoteResponse;
@@ -38,6 +40,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ClassBattleController {
 
     private final ClassBattleService classBattleService;
+    private final ClassFunnelTracker funnelTracker;
 
     @Operation(summary = "클래스 배틀 상세",
             description = "배틀 상세 + 이 클래스 안에서의 내 투표 상태·진행 단계·참여자 수. 마감 후에도 조회 가능. "
@@ -59,7 +62,9 @@ public class ClassBattleController {
             @PathVariable Long classId,
             @RequestBody VoteRequest request
     ) {
-        return ApiResponse.onSuccess(classBattleService.preVote(userId, classId, request));
+        VoteResultResponse result = classBattleService.preVote(userId, classId, request);
+        funnelTracker.track(ClassFunnelTracker.CLASS_VOTE_PRE, userId, classId);
+        return ApiResponse.onSuccess(result);
     }
 
     @Operation(summary = "클래스 TTS 청취 완료", description = "사전투표 후 오디오 재생이 끝났을 때 호출. 이미 완료(COMPLETED)된 진행은 되돌리지 않습니다.")
@@ -69,6 +74,7 @@ public class ClassBattleController {
             @PathVariable Long classId
     ) {
         classBattleService.completeTts(userId, classId);
+        funnelTracker.track(ClassFunnelTracker.CLASS_TTS_COMPLETE, userId, classId);
         return ApiResponse.onSuccess(null);
     }
 
@@ -84,7 +90,9 @@ public class ClassBattleController {
             @PathVariable Long classId,
             @RequestBody ClassMidVoteRequest request
     ) {
-        return ApiResponse.onSuccess(classBattleService.midVote(userId, classId, request));
+        VoteResultResponse result = classBattleService.midVote(userId, classId, request);
+        funnelTracker.track(ClassFunnelTracker.CLASS_VOTE_MID, userId, classId);
+        return ApiResponse.onSuccess(result);
     }
 
     @Operation(summary = "클래스 사후투표",
@@ -95,7 +103,9 @@ public class ClassBattleController {
             @PathVariable Long classId,
             @RequestBody VoteRequest request
     ) {
-        return ApiResponse.onSuccess(classBattleService.postVote(userId, classId, request));
+        VoteResultResponse result = classBattleService.postVote(userId, classId, request);
+        funnelTracker.track(ClassFunnelTracker.CLASS_VOTE_POST, userId, classId);
+        return ApiResponse.onSuccess(result);
     }
 
     @Operation(summary = "클래스 내 투표 내역", description = "이 클래스 안에서의 내 사전/중간/사후 투표와 진행 단계. 투표 전이면 404 VOTE_NOT_FOUND.")
@@ -123,7 +133,9 @@ public class ClassBattleController {
             @PathVariable Long classId,
             @RequestBody @Valid CreatePerspectiveRequest request
     ) {
-        return ApiResponse.onSuccess(classBattleService.createPerspective(userId, classId, request));
+        CreatePerspectiveResponse result = classBattleService.createPerspective(userId, classId, request);
+        funnelTracker.track(ClassFunnelTracker.CLASS_OPINION_WRITE, userId, classId);
+        return ApiResponse.onSuccess(result);
     }
 
     @Operation(summary = "클래스 의견 목록", description = "이 클래스 안에서 작성된 의견만 커서 기반으로 조회합니다. sort=latest|popular, optionId 로 선택지 필터.")

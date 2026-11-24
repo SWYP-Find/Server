@@ -23,7 +23,7 @@ import lombok.NoArgsConstructor;
  * 클래스 이용권. SHA-256 해시로 검증하고 AES-GCM 암호문으로 관리자 표시용 원문을 보관한다.
  * <ul>
  *   <li>registerBy  = 결제 확정일 + 1년 (발급 시 계산)</li>
- *   <li>activatedAt = 등록 시각, expiresAt = activatedAt + 6개월</li>
+ *   <li>activatedAt = 등록 시각, expiresAt = activatedAt + 6개월 (usageDays 가 있으면 activatedAt + usageDays 일, #685)</li>
  *   <li>계정당 ACTIVE 이용권은 1개 (partial unique index, SQL 로 관리)</li>
  * </ul>
  */
@@ -90,13 +90,19 @@ public class ClassTicket extends BaseEntity {
     @Column(name = "revoked_at")
     private LocalDateTime revokedAt;
 
+    /** 사용 기간(일). null 이면 기본 6개월. QA·체험용 이용권처럼 짧게 쓸 때만 관리자가 등록 전에 정한다 (#685) */
+    @Column(name = "usage_days")
+    private Integer usageDays;
+
     @Builder
-    private ClassTicket(FundingOrder fundingOrder, int capacity, String codeHash, String encryptedCode, LocalDateTime registerBy) {
+    private ClassTicket(FundingOrder fundingOrder, int capacity, String codeHash, String encryptedCode, LocalDateTime registerBy,
+                        Integer usageDays) {
         this.fundingOrder = fundingOrder;
         this.capacity = capacity;
         this.codeHash = codeHash;
         this.encryptedCode = encryptedCode;
         this.registerBy = registerBy;
+        this.usageDays = usageDays;
         this.codeStatus = TicketCodeStatus.ISSUED;
         this.status = TicketStatus.UNREGISTERED;
     }
@@ -124,6 +130,7 @@ public class ClassTicket extends BaseEntity {
                 .codeHash(codeHash)
                 .encryptedCode(encryptedCode)
                 .registerBy(previous.getRegisterBy())
+                .usageDays(previous.getUsageDays())
                 .build();
     }
 
@@ -145,16 +152,32 @@ public class ClassTicket extends BaseEntity {
         this.capacity = capacity;
     }
 
+    /** 등록 전 이용권의 사용 기간(일)을 정한다. null 이면 기본 6개월로 되돌린다 */
+    public void updateUsageDays(Integer usageDays) {
+        this.usageDays = usageDays;
+    }
+
     public void register(User user, LocalDateTime now) {
         this.registeredUser = user;
         this.activatedAt = now;
-        this.expiresAt = now.plusMonths(USAGE_MONTHS);
+        this.expiresAt = usageDays == null ? now.plusMonths(USAGE_MONTHS) : now.plusDays(usageDays);
         this.codeStatus = TicketCodeStatus.CLAIMED;
         this.status = TicketStatus.ACTIVE;
     }
 
     public void expire() {
         this.status = TicketStatus.EXPIRED;
+    }
+
+    /**
+     * 관리자가 등록된 이용권의 만료일을 바꾼다 (#691). 만료됐던 이용권을 미래로 늘리면 다시 사용 중이 된다.
+     * 사용 중인데 과거로 줄이면 상태는 그대로 두고, 다음 조회 때 기존 규칙(isUsable)대로 만료 처리된다.
+     */
+    public void changeExpiresAt(LocalDateTime expiresAt, LocalDateTime now) {
+        this.expiresAt = expiresAt;
+        if (status == TicketStatus.EXPIRED && expiresAt.isAfter(now)) {
+            this.status = TicketStatus.ACTIVE;
+        }
     }
 
     public void expireRegisterWindow() {

@@ -81,6 +81,8 @@ class ClassBattleServiceImplTest {
     private UserRepository userRepository;
     @Mock
     private ClassMidVoteService classMidVoteService;
+    @Mock
+    private com.swyp.picke.global.infra.mixpanel.ClassFunnelTracker funnelTracker;
 
     @InjectMocks
     private ClassBattleServiceImpl service;

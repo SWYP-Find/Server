@@ -1,7 +1,6 @@
 package com.swyp.picke.domain.classroom.controller;
 
 import com.swyp.picke.global.infra.mixpanel.ClassFunnelTracker;
-import java.util.Map;
 import com.swyp.picke.domain.classroom.dto.request.ClassDebateReplyRequest;
 import com.swyp.picke.domain.classroom.dto.response.ClassDebateResponse;
 import com.swyp.picke.domain.classroom.service.debate.ClassDebateService;
@@ -64,10 +63,8 @@ public class ClassDebateController {
             @PathVariable Long classId,
             @Valid @RequestBody ClassDebateReplyRequest request
     ) {
-        ClassDebateResponse result = debateService.reply(userId, classId, request);
-        funnelTracker.track(ClassFunnelTracker.CLASS_DEBATE_REPLY, userId, classId,
-                request.roundIndex() == null ? Map.of() : Map.of("round", request.roundIndex()));
-        return ApiResponse.onSuccess(result);
+        // class_debate_reply 는 반박 저장 시점에 서비스가 남긴다 (input_seconds 포함, #695)
+        return ApiResponse.onSuccess(debateService.reply(userId, classId, request));
     }
 
     @Operation(summary = "AI 주장 재시도",

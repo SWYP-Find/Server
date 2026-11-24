@@ -438,8 +438,9 @@ public class BattleServiceImpl implements BattleService {
         validateBattleOptionCount(request.options());
 
         String existingThumbnailKey = normalizeStoredImageReference(battle.getThumbnailUrl(), FileCategory.BATTLE);
+        String requestedThumbnailKey = normalizeStoredImageReference(request.thumbnailUrl(), FileCategory.BATTLE);
         String resolvedThumbnailKey = resolveStoredImageKey(request.thumbnailUrl(), request.status(), FileCategory.BATTLE);
-        if (existingThumbnailKey != null && !existingThumbnailKey.equals(resolvedThumbnailKey)) {
+        if (isReplaced(existingThumbnailKey, requestedThumbnailKey, resolvedThumbnailKey)) {
             deleteStoredAsset(existingThumbnailKey);
         }
 
@@ -483,7 +484,8 @@ public class BattleServiceImpl implements BattleService {
                     option = battleOptionRepository.save(option);
                 } else {
                     String existingOptionImageKey = normalizeStoredImageReference(option.getImageUrl(), FileCategory.PHILOSOPHER);
-                    if (existingOptionImageKey != null && !existingOptionImageKey.equals(resolvedOptionImageKey)) {
+                    String requestedOptionImageKey = normalizeStoredImageReference(optionRequest.imageUrl(), FileCategory.PHILOSOPHER);
+                    if (isReplaced(existingOptionImageKey, requestedOptionImageKey, resolvedOptionImageKey)) {
                         deleteStoredAsset(existingOptionImageKey);
                     }
                     option.update(optionRequest.title(), optionRequest.stance(),
@@ -808,6 +810,18 @@ public class BattleServiceImpl implements BattleService {
             }
         }
         return value;
+    }
+
+    /**
+     * 기존 이미지를 지워도 되는지. 새 이미지로 바뀐 경우만 true.
+     * 발행으로 같은 local draft 가 S3 로 승격되는 경우(요청이 기존 draft 를 그대로 가리킴)는 false —
+     * 여기서 draft 를 지우면 커밋 후 승격할 파일이 없어 이미지가 사라진다 (#697). draft 는 승격 후 promoteToS3 가 지운다.
+     */
+    private static boolean isReplaced(String existingKey, String requestedKey, String resolvedKey) {
+        if (existingKey == null || existingKey.equals(resolvedKey)) {
+            return false;
+        }
+        return !existingKey.equals(requestedKey);
     }
 
     private void deleteStoredAsset(String rawReference) {

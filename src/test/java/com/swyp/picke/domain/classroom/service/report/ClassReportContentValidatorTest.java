@@ -236,7 +236,7 @@ class ClassReportContentValidatorTest {
     }
 
     @Test
-    @DisplayName("인사이트는 공개 글 목록에 있는 source_id 만 evidence 1~5, highlight 최대 2로 남긴다")
+    @DisplayName("인사이트는 공개 글 목록에 있는 source_id 만 evidence 1~5, highlight 최대 2(의견 먼저)로 남긴다")
     void insightFiltersIds() {
         ClassInsightInput input = new ClassInsightInput("제목", null, List.of(A, B), null, List.of(
                 new ClassInsightInput.PublicPost("p:1", "PERSPECTIVE", 1L, 1, 1L, "찬성", "비용보다 기대 효과가 커서 찬성해요.", null),
@@ -252,7 +252,8 @@ class ClassReportContentValidatorTest {
         Map<String, Object> insight = validator.validateClassInsight(json, input);
 
         assertThat(ReportContent.stringList(insight, "evidence_ids")).containsExactly("p:1", "p:2", "c:3");
-        assertThat(ReportContent.stringList(insight, "highlight_ids")).containsExactly("p:1", "c:3");
+        // 대표 의견은 의견(본문)을 먼저 채운다 (#705)
+        assertThat(ReportContent.stringList(insight, "highlight_ids")).containsExactly("p:1", "p:2");
         assertThat(insight).containsEntry("analysis_status", "SUFFICIENT");
 
         Map<String, Object> noEvidence = Map.of("insight_text", "요약", "evidence_ids", List.of("p:999"));

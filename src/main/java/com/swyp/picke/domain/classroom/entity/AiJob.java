@@ -94,6 +94,12 @@ public class AiJob extends BaseEntity {
         this.startedAt = now;
     }
 
+    /** 관리자가 리포트를 다시 만들 때 자동 재시도 횟수를 처음부터 다시 쓴다 (#705) */
+    public void resetForRegeneration() {
+        this.status = AiJobStatus.QUEUED;
+        this.attempt = 0;
+    }
+
     /** 같은 작업 안의 재시도·보정 호출. 업무 작업 1건당 호출 예산을 attempt 로 센다 (PRD §17) */
     public void addAttempt() {
         this.attempt++;

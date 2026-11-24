@@ -17,6 +17,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -64,6 +65,15 @@ public class AdminClassroomController {
             @PathVariable Long classId,
             @Valid @RequestBody AdminClassUpdateRequest request) {
         return ApiResponse.onSuccess(adminClassroomService.updateClass(classId, request));
+    }
+
+    @Operation(summary = "클래스 인사이트 다시 만들기",
+            description = "마감된 클래스의 운영자 인사이트를 현재 공개 글로 다시 만듭니다 (AI 1회). 의견 부족(LIMITED)·완료·실패 모두 가능, "
+                    + "생성 대기·생성 중이면 409 CLASS_409_REPORT_RETRY. 1분 안에 스케줄러가 처리합니다.")
+    @PostMapping("/classes/{classId}/insight/regenerate")
+    public ApiResponse<com.swyp.picke.domain.admin.dto.classroom.response.AdminInsightRegenerateResponse> regenerateInsight(
+            @PathVariable Long classId) {
+        return ApiResponse.onSuccess(adminClassroomService.regenerateInsight(classId));
     }
 
     @Operation(summary = "이용권 현황 요약")

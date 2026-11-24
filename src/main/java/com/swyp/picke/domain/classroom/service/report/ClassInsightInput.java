@@ -16,9 +16,17 @@ public record ClassInsightInput(
         int excludedCount
 ) {
 
-    /** 공개 글 1건. sourceId 는 "p:{id}" / "c:{id}". 댓글의 stance 는 부모 의견의 입장 */
+    /**
+     * 공개 글 1건. sourceId 는 "p:{id}" / "c:{id}". 댓글의 stance 는 부모 의견의 입장.
+     * parentContent 는 부모 의견이 입력에 없을 때만 채우는 맥락(타인의 글, 200자 이내). 근거·대표 의견으로 고르지 않는다 (#705)
+     */
     public record PublicPost(String sourceId, String sourceType, Long id, int authorNo, Long optionId,
-                             String stance, String content, String parentSourceId) {
+                             String stance, String content, String parentSourceId, String parentContent) {
+
+        public PublicPost(String sourceId, String sourceType, Long id, int authorNo, Long optionId,
+                          String stance, String content, String parentSourceId) {
+            this(sourceId, sourceType, id, authorNo, optionId, stance, content, parentSourceId, null);
+        }
     }
 
     public boolean isPartial() {

@@ -47,7 +47,7 @@ public final class ClassReportPrompts {
             규칙:
             1. 숫자(참여율·비율·인원)는 [집계] 에 있는 값만 그대로 쓰고 새로 계산하거나 추정하지 않습니다. 빈도를 단정하는 "많이 나온 의견" 대신 "눈에 띈 의견" 으로 표현합니다.
             2. 이름·개별 참여자의 변화·비공개 내용을 쓰지 않습니다. 특정 작성자를 지목하지 않습니다.
-            3. evidence_ids 는 [공개 의견] 의 source_id 만 1~5개 씁니다. highlight_ids 는 운영자에게 추천할 대표 의견 1개와 다른 관점의 의견 1개(없으면 생략)로 최대 2개이며 역시 [공개 의견] 의 source_id 만 씁니다.
+            3. evidence_ids 는 [공개 의견] 의 source_id 만 1~5개 씁니다. highlight_ids 는 운영자에게 추천할 대표 의견 1개와 다른 관점의 의견 1개(없으면 생략)로 최대 2개이며 역시 [공개 의견] 의 source_id 만 씁니다. highlight_ids 는 종류=의견 에서 먼저 고르고, 고를 의견이 없을 때만 댓글을 고릅니다. 댓글에 붙은 '부모 의견' 은 그 댓글이 무엇에 답했는지 이해하는 맥락으로만 쓰고 근거로 인용하거나 고르지 않습니다.
             4. 의견에 등급·우열을 매기지 않습니다.
             5. 먼저 [공개 의견] 을 하나씩 보고 아래에 해당하는 글의 source_id 를 모두 excluded_ids 에 적습니다. excluded_ids 에 적은 글은 evidence_ids·highlight_ids 로 고르지 않고 요약에도 쓰지 않습니다.
                - 주제와 무관한 글 (예: 급식, 장난, 웃음만 있는 글)
@@ -146,7 +146,7 @@ public final class ClassReportPrompts {
         }
         sb.append("\n[공개 의견] (작성자는 익명 번호, 총 ").append(input.posts().size()).append("건");
         if (input.isPartial()) {
-            sb.append(", 분량 제한으로 ").append(input.excludedCount()).append("건 제외됨");
+            sb.append(", 분량·작성자별 댓글 수 제한으로 댓글 ").append(input.excludedCount()).append("건 제외됨");
         }
         sb.append(")\n");
         for (ClassInsightInput.PublicPost post : input.posts()) {
@@ -157,6 +157,9 @@ public final class ClassReportPrompts {
                 sb.append("(부모 ").append(post.parentSourceId()).append(')');
             }
             sb.append(" | 입장=").append(post.stance() == null ? "-" : post.stance()).append('\n');
+            if (post.parentContent() != null) {
+                sb.append("  (부모 의견, 맥락 전용·선택 금지: \"").append(post.parentContent()).append("\")\n");
+            }
             sb.append("  원문: ").append(post.content()).append('\n');
         }
         return sb.toString();

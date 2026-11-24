@@ -128,11 +128,12 @@
 ```json
 {
   "statusCode": 200,
-  "data": { "capacity": 30, "registerBy": "2027-09-01T00:00:00", "usageMonths": 6, "registeredByMe": false }
+  "data": { "capacity": 30, "registerBy": "2027-09-01T00:00:00", "usageMonths": 6, "usageDays": null, "usageLabel": "6개월", "registeredByMe": false }
 }
 ```
 
 - `registerBy`: 이 코드를 등록할 수 있는 마지막 시각 (결제 확정일 + 1년)
+- `usageLabel`: 화면에 그대로 보여줄 사용 기간 ("6개월", QA·체험용 일 단위 이용권은 "14일"). `usageDays`는 일 단위 이용권일 때만 값이 있다. `usageMonths`는 호환용으로 일 단위면 올림한 개월 수(14일 → 1)라 표시에는 `usageLabel`을 쓴다 (#691)
 - `registeredByMe`: 내가 이미 등록한 코드면 true다. 이때는 등록 대신 내 이용권 조회(1.3)로 보내면 된다.
 
 | 상황 | 응답 |

@@ -169,6 +169,17 @@ public class ClassTicket extends BaseEntity {
         this.status = TicketStatus.EXPIRED;
     }
 
+    /**
+     * 관리자가 등록된 이용권의 만료일을 바꾼다 (#691). 만료됐던 이용권을 미래로 늘리면 다시 사용 중이 된다.
+     * 사용 중인데 과거로 줄이면 상태는 그대로 두고, 다음 조회 때 기존 규칙(isUsable)대로 만료 처리된다.
+     */
+    public void changeExpiresAt(LocalDateTime expiresAt, LocalDateTime now) {
+        this.expiresAt = expiresAt;
+        if (status == TicketStatus.EXPIRED && expiresAt.isAfter(now)) {
+            this.status = TicketStatus.ACTIVE;
+        }
+    }
+
     public void expireRegisterWindow() {
         this.status = TicketStatus.REGISTER_EXPIRED;
     }

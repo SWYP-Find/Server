@@ -8,6 +8,7 @@ import com.swyp.picke.domain.admin.dto.funding.request.FundingOrderAdminUpdateRe
 import com.swyp.picke.domain.admin.dto.funding.request.TicketDeliveryRequest;
 import com.swyp.picke.domain.admin.dto.funding.request.RegisterReminderRequest;
 import com.swyp.picke.domain.admin.dto.funding.request.TicketIssueRequest;
+import com.swyp.picke.domain.admin.dto.funding.request.TicketUsagePeriodRequest;
 import com.swyp.picke.domain.admin.dto.funding.response.FundingImportResponse;
 import com.swyp.picke.domain.admin.dto.funding.response.FundingOrderPageResponse;
 import com.swyp.picke.domain.admin.dto.funding.response.FundingOrderSummaryResponse;
@@ -18,6 +19,7 @@ import com.swyp.picke.domain.admin.dto.funding.response.RegisterReminderTargetRe
 import com.swyp.picke.domain.admin.dto.funding.response.TumblbugCampaignDashboardResponse;
 import com.swyp.picke.domain.admin.dto.funding.response.TicketDeliveryResponse;
 import com.swyp.picke.domain.admin.dto.funding.response.TicketIssueResponse;
+import com.swyp.picke.domain.admin.dto.funding.response.TicketUsagePeriodResponse;
 import com.swyp.picke.domain.admin.dto.funding.response.AdminTicketCodeResponse;
 import com.swyp.picke.domain.ticket.entity.ClassTicket;
 import com.swyp.picke.domain.ticket.entity.FundingOrder;
@@ -282,6 +284,31 @@ public class AdminFundingService {
         return new TicketIssueResponse.IssuedTicket(ticket.getId(), order.getId(), order.getOrderId(),
                 order.getSupporterName(), order.getSupporterEmail(), order.getSupporterPhone(),
                 ticket.getCapacity(), ticket.getRegisterBy(), TicketCodeGenerator.format(rawCode));
+    }
+
+    // ───────────── 2-1. 사용 기간 ─────────────
+
+    /**
+     * 등록 전 이용권의 사용 기간(일)을 한 번에 정한다 (#685). 하나라도 없거나 이미 등록·무효화된 이용권이면 전부 반영하지 않는다.
+     * 등록 시 만료일 = 등록 시각 + usageDays 일. null 이면 기본 6개월.
+     */
+    @Transactional
+    public TicketUsagePeriodResponse updateUsagePeriod(TicketUsagePeriodRequest request, Long adminUserId) {
+        List<Long> ids = request.ticketIds().stream().distinct().sorted().toList();
+        List<ClassTicket> tickets = classTicketRepository.findAllById(ids);
+        if (tickets.size() != ids.size()) {
+            throw new CustomException(ErrorCode.TICKET_NOT_FOUND);
+        }
+        if (tickets.stream().anyMatch(ticket -> !ticket.isUnclaimed() || ticket.isRevoked())) {
+            throw new CustomException(ErrorCode.TICKET_STATE_CONFLICT);
+        }
+        String metadata = "{\"usageDays\":" + request.usageDays() + "}";
+        for (ClassTicket ticket : tickets) {
+            ticket.updateUsageDays(request.usageDays());
+            adminAuditLogRepository.save(new AdminAuditLog(adminUserId, "TICKET_USAGE_PERIOD_UPDATED", "CLASS_TICKET",
+                    ticket.getId(), null, metadata));
+        }
+        return new TicketUsagePeriodResponse(ids, request.usageDays());
     }
 
     // ───────────── 3. 전달 기록 ─────────────

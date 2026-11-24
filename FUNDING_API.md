@@ -15,6 +15,7 @@
 | 관리자 코드 조회·복사 | `GET /admin/funding/tickets/{ticketId}/code` |
 | 전달 기록 | `POST /admin/funding/tickets/{ticketId}/deliveries` |
 | 미등록 코드 재발급 | `POST /admin/funding/tickets/{ticketId}/reissue` |
+| 미등록 이용권 사용 기간(일) 설정 | `PATCH /admin/funding/tickets/usage-period` (body: `ticketIds`, `usageDays`. 등록 시 만료일 = 등록 시각 + usageDays 일, null 이면 6개월, #685) |
 | 주문 환불·이용권 취소 | `POST /admin/funding/refunds` |
 | 사용자 코드 확인 | `GET /class-tickets/preview?code=...` |
 | 사용자 코드 등록 | `POST /class-tickets/register` |

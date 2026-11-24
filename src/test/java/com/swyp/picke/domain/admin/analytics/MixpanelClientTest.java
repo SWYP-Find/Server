@@ -80,8 +80,9 @@ class MixpanelClientTest {
         assertThat(transport.headers).containsEntry("Authorization", "Basic " + expected);
         assertThat(transport.uri.toString())
                 .contains("data.mixpanel.com/api/2.0/export")
-                .contains("from_date=2026-09-08")
-                .contains("to_date=2026-09-10")
+                // Export 는 UTC 날짜로 잘리므로 앞뒤 하루씩 넓혀 받는다 (#687)
+                .contains("from_date=2026-09-07")
+                .contains("to_date=2026-09-11")
                 // 레거시 비밀 인증에 project_id 를 넣으면 400 이 된다.
                 .doesNotContain("project_id");
         assertThat(result.status()).isEqualTo(AnalyticsStatus.CONNECTED);
@@ -177,5 +178,26 @@ class MixpanelClientTest {
         var result = client("secret", List.of(), transport).fetchDailyCounts(null, from, to);
 
         assertThat(result.status()).isEqualTo(AnalyticsStatus.UNAVAILABLE);
+    }
+
+    @Test
+    @DisplayName("한국 시간 기준이면 UTC 전날 15시 이후 이벤트가 그날로 잡히고, 서비스 계정이면 project_id 를 붙인다")
+    void bucketsByKoreanDateWithServiceAccount() {
+        var transport = new CapturingTransport(response(200, String.join("\n",
+                // KST 2026-09-08 00:30 = UTC 2026-09-07 15:30
+                line("screen_view", "2026-09-07", 15),
+                // KST 2026-09-08 08:00 = UTC 2026-09-07 23:00
+                line("screen_view", "2026-09-07", 23),
+                // KST 2026-09-07 23:00 = UTC 2026-09-07 14:00 → 요청 기간 밖
+                line("screen_view", "2026-09-07", 14))));
+        var client = new MixpanelClient("https://data.mixpanel.com", "", "sa-user", "sa-secret", "4021406",
+                ZoneId.of("Asia/Seoul"), List.of(), transport, new ObjectMapper());
+
+        var result = client.fetchDailyCounts(List.of("screen_view"), LocalDate.of(2026, 9, 8), LocalDate.of(2026, 9, 8));
+
+        assertThat(result.events().getFirst().total()).isEqualTo(2);
+        String expected = Base64.getEncoder().encodeToString("sa-user:sa-secret".getBytes(StandardCharsets.UTF_8));
+        assertThat(transport.headers).containsEntry("Authorization", "Basic " + expected);
+        assertThat(transport.uri.toString()).contains("from_date=2026-09-07").contains("project_id=4021406");
     }
 }

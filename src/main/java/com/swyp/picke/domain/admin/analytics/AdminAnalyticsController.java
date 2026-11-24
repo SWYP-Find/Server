@@ -41,16 +41,21 @@ public class AdminAnalyticsController {
 
     @GetMapping("/mixpanel/funnel")
     @Operation(summary = "Mixpanel 이벤트 퍼널 이탈율",
-               description = "steps 순서대로 밟은 고유 사용자를 센다. 다음 단계는 앞 단계 이후여야 하고 첫 단계로부터 windowDays 안에 끝나야 한다")
+               description = "steps 순서대로 밟은 고유 사용자를 센다. 다음 단계는 앞 단계 이후여야 하고 첫 단계로부터 windowDays 안에 끝나야 한다. "
+                       + "단계는 event, event:prop=value, 조건 여러 개는 ';', 정규식은 prop~regex. "
+                       + "groupBy 를 주면 사용자 대신 그 속성(예: class_id) 단위로 센다. 날짜는 한국 시간 기준. "
+                       + "단계별 medianSecondsFromPrevious 는 앞 단계에서 넘어오기까지 걸린 시간 중앙값(초)")
     public ApiResponse<MixpanelFunnelReport> mixpanelFunnel(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam List<String> steps,
-            @RequestParam(defaultValue = "7") int windowDays) {
+            @RequestParam(defaultValue = "7") int windowDays,
+            @RequestParam(required = false) String groupBy) {
         validateRange(from, to, MixpanelClient.MAX_DAYS);
         validateSteps(steps);
         validateWindow(windowDays);
-        return ApiResponse.onSuccess(mixpanelClient.fetchFunnel(steps, windowDays, from, to));
+        validateGroupBy(groupBy);
+        return ApiResponse.onSuccess(mixpanelClient.fetchFunnel(steps, windowDays, from, to, groupBy));
     }
 
     @GetMapping("/sentry")
@@ -82,6 +87,13 @@ public class AdminAnalyticsController {
         }
         if (steps.stream().anyMatch(step -> step == null || step.isBlank())) {
             throw new IllegalArgumentException("퍼널 단계 이름이 비어 있습니다.");
+        }
+        steps.forEach(MixpanelClient.StepMatcher::parse); // 형식·정규식 오류는 400 으로 돌려준다
+    }
+
+    private void validateGroupBy(String groupBy) {
+        if (groupBy != null && !groupBy.isBlank() && !groupBy.trim().matches("[A-Za-z0-9_$]{1,64}")) {
+            throw new IllegalArgumentException("groupBy 는 영문·숫자·_·$ 64자 이하 속성 이름이어야 합니다.");
         }
     }
 

@@ -381,4 +381,22 @@ class ClassReportContentValidatorTest {
 
         assertThat(ReportContent.stringList(insight, "highlight_ids")).containsExactly("p:2", "p:1");
     }
+
+    @Test
+    @DisplayName("#721 AI 가 짧은 글('싸고 좋은게 짱.')을 대표 의견으로 골라도 빼고 다른 의견으로 채운다. 요약 근거에는 남는다")
+    void insightHighlightsSkipShortPosts() {
+        ClassInsightInput input = insightInput(
+                post("p:1", 1, "싸고 좋은게 짱."),
+                post("p:2", 2, "자주 입을 옷이라면 비싸게 사고 여행갈 때는 싼 옷을 살 것 같아요."),
+                post("p:3", 3, "패션 산업이 환경오염을 많이 시키니 오래 입는 게 맞다고 봐요."));
+        Map<String, Object> json = Map.of(
+                "insight_text", "싸게 자주 쪽은 가격을, 비싸게 오래 쪽은 환경을 기준으로 삼았어요.",
+                "evidence_ids", List.of("p:1", "p:2", "p:3"),
+                "highlight_ids", List.of("p:1", "p:2"));
+
+        Map<String, Object> insight = validator.validateClassInsight(json, input);
+
+        assertThat(ReportContent.stringList(insight, "evidence_ids")).containsExactly("p:1", "p:2", "p:3");
+        assertThat(ReportContent.stringList(insight, "highlight_ids")).containsExactly("p:2", "p:3");
+    }
 }

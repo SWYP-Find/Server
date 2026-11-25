@@ -92,4 +92,16 @@ class ReportQualityCheckerTest {
                 "기술 발전이 소비 속도를 따라오지 못한다는 점을 짚었어요.", "기술 쪽 반론 다뤄 보기", "기술 우선 쪽 반론에 답해 보면 좋겠어요.");
         assertThat(ReportQualityChecker.memberFeedbackIssues(content, input(OWN))).contains("UNSUPPORTED_OPTION_TEXT");
     }
+
+    @Test
+    @DisplayName("주제어 수준의 짧은 겹침('인간의 발전을 위해')은 참가자가 안 썼어도 통과한다 (#711)")
+    void topicLevelOverlapPasses() {
+        MemberFeedbackInput.OptionInfo allow = new MemberFeedbackInput.OptionInfo(1L, "허용된다", "인간의 발전을 위해 필요하다.");
+        MemberFeedbackInput.Statement own = new MemberFeedbackInput.Statement("p:1", MemberFeedbackInput.SOURCE_PERSPECTIVE, 1L,
+                LocalDateTime.now(), "허용된다", "신약 안전성을 확인하려면 아직 다른 방법이 부족해요.", null);
+        MemberFeedbackInput input = new MemberFeedbackInput("동물 실험", "동물 실험의 윤리적 정당성을 논의합니다.", List.of(allow), allow,
+                List.of(), allow, List.of(own), 0);
+        assertThat(ReportQualityChecker.hasUnsupportedOptionText(
+                "인간의 발전을 위해 신약 안전성 확인이 필요하다고 봤어요.", input)).isFalse();
+    }
 }

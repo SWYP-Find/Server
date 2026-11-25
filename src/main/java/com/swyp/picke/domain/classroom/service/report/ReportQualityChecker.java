@@ -20,7 +20,11 @@ import java.util.regex.Pattern;
  */
 public final class ReportQualityChecker {
 
-    static final int OPTION_PHRASE_CHARS = 8;
+    /**
+     * 선택지·요약 문장과 이어서 같아야 하는 글자 수 (공백·기호 제외). 8글자는 '인간의 발전을 위해' 같은 주제어 겹침까지 잡아
+     * 11/24 QA 17건 중 15건이 걸렸다. 10글자면 실제로 옮겨 쓴 10건만 걸린다 (#711)
+     */
+    static final int OPTION_PHRASE_CHARS = 10;
     /** 잘한 점 본문 글자쌍 중 판단 기준과 겹치는 비율. 11/24 QA 17건 중 심한 반복(0.5~0.66)만 걸리도록 */
     static final double REDUNDANT_OVERLAP = 0.5;
 

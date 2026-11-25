@@ -69,7 +69,8 @@ public class ClassReportSnapshotService {
     static final int MEMBER_COMMENT_MAX_COUNT = 20;
     static final int INSIGHT_INPUT_MAX_CHARS = 12_000;
     static final int INSIGHT_POST_MAX_COUNT = 60;
-    static final int INSIGHT_POSTS_PER_AUTHOR = 2;
+    /** 인사이트 입력: 의견은 모두 넣고, 댓글만 작성자당 이만큼 (#705) */
+    static final int INSIGHT_COMMENTS_PER_AUTHOR = 3;
     public static final int INSIGHT_MIN_AUTHORS = 3;
     static final int PARENT_CONTEXT_MAX_CHARS = 200;
 
@@ -192,6 +193,12 @@ public class ClassReportSnapshotService {
         } else {
             report.complete(withInsight(report.getContent(), validated), now);
         }
+    }
+
+    /** 지금까지 쓴 AI 시도 횟수 (#707 품질 재시도 판단용) */
+    @Transactional(readOnly = true)
+    public int attemptOf(Long jobId) {
+        return aiJobRepository.findById(jobId).map(AiJob::getAttempt).orElse(MAX_AUTO_ATTEMPTS);
     }
 
     /** rejected=true 는 검증 실패(응답은 왔지만 규칙 위반), false 는 제공자 장애 */
@@ -361,8 +368,6 @@ public class ClassReportSnapshotService {
             options.add(new MemberFeedbackInput.OptionInfo(option.getId(), option.getTitle(), option.getStance()));
         }
 
-        record Raw(Long userId, LocalDateTime createdAt, ClassInsightInput.PublicPost post) {
-        }
         List<Raw> raws = new ArrayList<>();
         for (Perspective p : perspectiveRepository.findByClassroomIdAndStatusOrderByCreatedAtAsc(classId, PerspectiveStatus.PUBLISHED)) {
             if (!InsightPostRules.hasReason(p.getContent())) {
@@ -384,10 +389,11 @@ public class ClassReportSnapshotService {
                     MemberFeedbackInput.SOURCE_COMMENT, c.getId(), 0,
                     parent.getOption() == null ? null : parent.getOption().getId(),
                     parent.getOption() == null ? null : parent.getOption().getStance(), ReportProfanityMasker.mask(c.getContent()),
-                    MemberFeedbackInput.sourceId(MemberFeedbackInput.SOURCE_PERSPECTIVE, parent.getId()))));
+                    MemberFeedbackInput.sourceId(MemberFeedbackInput.SOURCE_PERSPECTIVE, parent.getId()),
+                    truncate(ReportProfanityMasker.mask(parent.getContent()), PARENT_CONTEXT_MAX_CHARS))));
         }
 
-        // 작성자 익명 번호 (첫 등장 순) + 작성자별 최신 2건
+        // 작성자 익명 번호 (첫 등장 순). 같은 사람이 같은 글을 반복한 것은 하나만
         Map<Long, Integer> authorNo = new LinkedHashMap<>();
         Map<Long, List<Raw>> byAuthor = new LinkedHashMap<>();
         Set<String> seenByAuthor = new HashSet<>();
@@ -398,41 +404,39 @@ public class ClassReportSnapshotService {
             authorNo.computeIfAbsent(raw.userId(), id -> authorNo.size() + 1);
             byAuthor.computeIfAbsent(raw.userId(), id -> new ArrayList<>()).add(raw);
         }
-        Comparator<Raw> latestFirst = Comparator.comparing(Raw::createdAt, Comparator.nullsLast(Comparator.reverseOrder()));
-        Map<String, List<ClassInsightInput.PublicPost>> byStance = new LinkedHashMap<>();
+        // 1) 의견(본문)은 모두 먼저 넣는다. 예전에는 작성자당 '최근 2건'만 넣어, 의견을 쓰고 댓글을 단 사람은
+        //    의견이 빠지고 "맞아요" 같은 댓글만 남았다 (#705, 11/24 QA 클래스 33·34)
+        // 2) 댓글은 작성자당 최근 INSIGHT_COMMENTS_PER_AUTHOR 건까지, 분량 안에서
+        // 둘 다 입장을 번갈아 가며 넣어 한쪽만 앞에 몰리지 않게 한다
+        Comparator<Raw> oldestFirst = Comparator.comparing(Raw::createdAt, Comparator.nullsLast(Comparator.naturalOrder()));
+        Comparator<Raw> latestFirst = oldestFirst.reversed();
+        Map<String, List<ClassInsightInput.PublicPost>> perspectivesByStance = new LinkedHashMap<>();
+        Map<String, List<ClassInsightInput.PublicPost>> commentsByStance = new LinkedHashMap<>();
         for (Map.Entry<Long, List<Raw>> entry : byAuthor.entrySet()) {
-            List<Raw> mine = new ArrayList<>(entry.getValue());
-            mine.sort(latestFirst);
             int no = authorNo.get(entry.getKey());
-            for (Raw raw : mine.subList(0, Math.min(INSIGHT_POSTS_PER_AUTHOR, mine.size()))) {
-                ClassInsightInput.PublicPost p = raw.post();
-                ClassInsightInput.PublicPost numbered = new ClassInsightInput.PublicPost(p.sourceId(), p.sourceType(), p.id(), no,
-                        p.optionId(), p.stance(), p.content(), p.parentSourceId());
-                byStance.computeIfAbsent(p.stance() == null ? "" : p.stance(), s -> new ArrayList<>()).add(numbered);
+            List<Raw> perspectives = entry.getValue().stream()
+                    .filter(raw -> MemberFeedbackInput.SOURCE_PERSPECTIVE.equals(raw.post().sourceType()))
+                    .sorted(oldestFirst).toList();
+            List<Raw> comments = entry.getValue().stream()
+                    .filter(raw -> !MemberFeedbackInput.SOURCE_PERSPECTIVE.equals(raw.post().sourceType()))
+                    .sorted(latestFirst).limit(INSIGHT_COMMENTS_PER_AUTHOR).toList();
+            for (Raw raw : perspectives) {
+                perspectivesByStance.computeIfAbsent(stanceKey(raw), s -> new ArrayList<>()).add(numbered(raw, no));
+            }
+            for (Raw raw : comments) {
+                commentsByStance.computeIfAbsent(stanceKey(raw), s -> new ArrayList<>()).add(numbered(raw, no));
             }
         }
-        // 입장을 번갈아 가며 섞는다 (한쪽만 앞에 몰리지 않게)
         List<ClassInsightInput.PublicPost> selected = new ArrayList<>();
-        List<List<ClassInsightInput.PublicPost>> queues = new ArrayList<>(byStance.values());
-        int chars = 0;
-        boolean remaining = true;
-        while (remaining && selected.size() < INSIGHT_POST_MAX_COUNT) {
-            remaining = false;
-            for (List<ClassInsightInput.PublicPost> queue : queues) {
-                if (queue.isEmpty()) {
-                    continue;
-                }
-                ClassInsightInput.PublicPost next = queue.get(0);
-                int len = next.content() == null ? 0 : next.content().length();
-                if (chars + len > INSIGHT_INPUT_MAX_CHARS || selected.size() >= INSIGHT_POST_MAX_COUNT) {
-                    queue.clear();
-                    continue;
-                }
-                selected.add(queue.remove(0));
-                chars += len;
-                remaining = true;
-            }
-        }
+        int chars = takeAlternating(perspectivesByStance, selected, 0);
+        takeAlternating(commentsByStance, selected, chars);
+        // 부모 의견이 이미 입력에 있으면 맥락을 붙이지 않는다 (중복). 없을 때만 남겨 AI 가 댓글의 뜻을 알게 한다
+        Set<String> selectedIds = new HashSet<>();
+        selected.forEach(post -> selectedIds.add(post.sourceId()));
+        selected.replaceAll(post -> post.parentContent() != null && selectedIds.contains(post.parentSourceId())
+                ? new ClassInsightInput.PublicPost(post.sourceId(), post.sourceType(), post.id(), post.authorNo(), post.optionId(),
+                        post.stance(), post.content(), post.parentSourceId(), null)
+                : post);
         ClassResultStats stats = snapshot == null ? null : ClassResultStats.fromMap(ReportContent.map(snapshot, KEY_STATS));
         if (stats == null) {
             stats = statsCalculator.calculate(classroom).stats();
@@ -442,6 +446,47 @@ public class ClassReportSnapshotService {
     }
 
     // ===== 헬퍼 =====
+
+    /** 인사이트 입력 후보 1건 */
+    private record Raw(Long userId, LocalDateTime createdAt, ClassInsightInput.PublicPost post) {
+    }
+
+    private static String stanceKey(Raw raw) {
+        return raw.post().stance() == null ? "" : raw.post().stance();
+    }
+
+    private static ClassInsightInput.PublicPost numbered(Raw raw, int authorNo) {
+        ClassInsightInput.PublicPost p = raw.post();
+        return new ClassInsightInput.PublicPost(p.sourceId(), p.sourceType(), p.id(), authorNo,
+                p.optionId(), p.stance(), p.content(), p.parentSourceId(), p.parentContent());
+    }
+
+    /** 입장 큐를 번갈아 가며 꺼내 selected 에 넣는다. 분량·개수 한도에 걸린 큐는 거기서 멈춘다. 넣은 뒤 누적 글자 수를 돌려준다 */
+    private static int takeAlternating(Map<String, List<ClassInsightInput.PublicPost>> byStance,
+                                       List<ClassInsightInput.PublicPost> selected, int chars) {
+        List<List<ClassInsightInput.PublicPost>> queues = new ArrayList<>();
+        byStance.values().forEach(queue -> queues.add(new ArrayList<>(queue)));
+        boolean remaining = true;
+        while (remaining && selected.size() < INSIGHT_POST_MAX_COUNT) {
+            remaining = false;
+            for (List<ClassInsightInput.PublicPost> queue : queues) {
+                if (queue.isEmpty()) {
+                    continue;
+                }
+                ClassInsightInput.PublicPost next = queue.get(0);
+                int len = (next.content() == null ? 0 : next.content().length())
+                        + (next.parentContent() == null ? 0 : next.parentContent().length());
+                if (chars + len > INSIGHT_INPUT_MAX_CHARS || selected.size() >= INSIGHT_POST_MAX_COUNT) {
+                    queue.clear();
+                    continue;
+                }
+                selected.add(queue.remove(0));
+                chars += len;
+                remaining = true;
+            }
+        }
+        return chars;
+    }
 
     private List<BattleOption> sortedOptions(Battle battle) {
         List<BattleOption> options = new ArrayList<>(battleOptionRepository.findByBattle(battle));

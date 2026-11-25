@@ -1226,6 +1226,8 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
 - `POST /api/v1/classes/{classId}/result/insight/retry`
 - `FAILED` 상태일 때만 할 수 있다.
 - 대기열에 다시 넣고 `PENDING`을 돌려준다. 1분 안에 다시 생성된다.
+- 의견 부족(`LIMITED`)·완료된 인사이트를 다시 만들려면 관리자 API `POST /api/v1/admin/classes/{classId}/insight/regenerate`를 쓴다 (#705).
+- AI 입력: 공개 의견(본문)은 모두 넣고, 댓글은 작성자당 최근 3건까지 분량 안에서 넣는다. 입력에 없는 부모 의견은 댓글에 맥락으로 붙는다. 대표 의견은 의견을 먼저 고른다 (#705).
 
 | 상황 | 응답 |
 |---|---|

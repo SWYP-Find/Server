@@ -199,12 +199,19 @@ public class ClassReportContentValidator {
         if (evidenceIds.isEmpty()) {
             throw new ReportValidationException("EVIDENCE_MISSING");
         }
-        List<String> highlightIds = new ArrayList<>();
+        List<String> highlightCandidates = new ArrayList<>();
         for (String id : ReportContent.stringList(json, "highlight_ids")) {
             String trimmed = id.trim();
-            if (!excluded.contains(trimmed) && selectable(input, trimmed) && !highlightIds.contains(trimmed) && highlightIds.size() < INSIGHT_HIGHLIGHT_MAX) {
-                highlightIds.add(trimmed);
+            if (!excluded.contains(trimmed) && selectable(input, trimmed) && !highlightCandidates.contains(trimmed)) {
+                highlightCandidates.add(trimmed);
             }
+        }
+        // 대표 의견은 의견(본문)을 먼저, 댓글은 그다음 (#705). AI 가 고른 순서는 같은 종류 안에서 유지
+        List<String> highlightIds = new ArrayList<>();
+        highlightCandidates.stream().filter(id -> id.startsWith("p:")).forEach(highlightIds::add);
+        highlightCandidates.stream().filter(id -> !id.startsWith("p:")).forEach(highlightIds::add);
+        if (highlightIds.size() > INSIGHT_HIGHLIGHT_MAX) {
+            highlightIds = new ArrayList<>(highlightIds.subList(0, INSIGHT_HIGHLIGHT_MAX));
         }
 
         Map<String, Object> insight = new LinkedHashMap<>();

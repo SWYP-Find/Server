@@ -16,6 +16,7 @@ import java.util.regex.Pattern;
  *       참가자 글에는 없음. 참가자가 실제로 비슷하게 쓴 구절은 문제가 아니다</li>
  *   <li>REDUNDANT_STRENGTH: 잘한 점이 판단 기준을 거의 그대로 반복</li>
  *   <li>TONE: 본문이 "~요" 로 끝나지 않거나 "~습니다" 가 섞임</li>
+ *   <li>QUESTION_TENSE: 다음 생각 한 걸음 질문이 "~생각했어요?" 처럼 과거형 (#717)</li>
  * </ul>
  */
 public final class ReportQualityChecker {
@@ -29,6 +30,7 @@ public final class ReportQualityChecker {
     static final double REDUNDANT_OVERLAP = 0.5;
 
     private static final Pattern NOT_TEXT = Pattern.compile("[^가-힣A-Za-z0-9]");
+    private static final Pattern PAST_QUESTION = Pattern.compile("(했|었|였|봤|났|왔|갔)(어요|나요|니)\\?\\s*$");
     private static final List<String> CATEGORY_NAMES = List.of(
             "주장과이유의연결", "근거와가정점검", "반대논점에대한응답", "판단조건구체화");
 
@@ -60,6 +62,10 @@ public final class ReportQualityChecker {
         }
         if (badTone(basis) || badTone(strengthBody) || badTone(focusBody)) {
             issues.add("TONE");
+        }
+        String question = ReportContent.str(content, "next_question");
+        if (question != null && PAST_QUESTION.matcher(question.strip()).find()) {
+            issues.add("QUESTION_TENSE");
         }
         return issues;
     }

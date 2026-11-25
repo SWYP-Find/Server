@@ -107,6 +107,7 @@ public class AiJob extends BaseEntity {
 
     public void succeed(Integer inputTokens, Integer outputTokens, LocalDateTime now) {
         this.status = AiJobStatus.SUCCEEDED;
+        this.errorCode = null; // 재시도 끝에 성공하면 앞선 실패 코드는 남기지 않는다 (#717)
         this.inputTokens = inputTokens;
         this.outputTokens = outputTokens;
         this.finishedAt = now;

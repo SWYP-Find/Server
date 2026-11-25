@@ -76,7 +76,7 @@ public class ClassReportGenerationService {
         Map<String, Object> validated;
         try {
             if (prepared.type() == ClassReportType.MEMBER_FEEDBACK) {
-                result = aiClient.chatJson(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM,
+                result = aiClient.chatJson(aiClient.getMemberReportModel(), ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM,
                         ClassReportPrompts.memberFeedbackUser(prepared.memberInput()),
                         ClassReportPrompts.MEMBER_FEEDBACK_MAX_OUTPUT_TOKENS);
                 validated = validator.validateMemberFeedback(result.json(), prepared.memberInput());

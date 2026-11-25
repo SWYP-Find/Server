@@ -162,6 +162,7 @@ class ClassResultApiIntegrationTest {
         optionB = newOption(battle, 2);
         when(aiClient.getModel()).thenReturn("test-model");
         when(aiClient.getInsightModel()).thenReturn("test-insight-model");
+        when(aiClient.getMemberReportModel()).thenReturn("test-member-model");
         stubMemberFeedback();
         stubInsightSuccess();
     }
@@ -333,10 +334,11 @@ class ClassResultApiIntegrationTest {
                 .andExpect(jsonPath("$.data.highlights", hasSize(1)));
 
         // 비용 기록: 개인 1건만 (인사이트는 템플릿이라 호출 없음), 재실행해도 다시 만들지 않는다
-        verify(aiClient, times(1)).chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt());
+        verify(aiClient, times(1)).chatJson(eq("test-member-model"), eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt());
         verify(aiClient, never()).chatJson(any(), eq(ClassReportPrompts.CLASS_INSIGHT_SYSTEM), anyString(), anyInt());
         List<AiJob> jobs = aiJobRepository.findAll();
         assertThat(jobs).hasSize(1);
+        assertThat(jobs.get(0).getModel()).isEqualTo("test-member-model"); // 개인 리포트도 별도 모델 (#713)
         assertThat(jobs.get(0).getType()).isEqualTo(AiJobType.MEMBER_REPORT);
         assertThat(jobs.get(0).getStatus()).isEqualTo(AiJobStatus.SUCCEEDED);
         assertThat(jobs.get(0).getInputTokens()).isEqualTo(120);
@@ -636,8 +638,8 @@ class ClassResultApiIntegrationTest {
         completeParticipation(token, cls, optionA, optionB, "효과가 입증되지 않아 반대합니다. 표본이 너무 작아요.");
 
         java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
-        when(aiClient.chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt())).thenAnswer(inv -> {
-            ClassReportAiClient.AiChatResult good = memberFeedbackAnswer(inv.getArgument(1));
+        when(aiClient.chatJson(eq("test-member-model"), eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt())).thenAnswer(inv -> {
+            ClassReportAiClient.AiChatResult good = memberFeedbackAnswer(inv.getArgument(2));
             Map<String, Object> json = new HashMap<>(good.json());
             json.put("strength", Map.of("title", "주장과 이유의 연결", "body", "표본 크기를 짚으며 근거의 한계를 확인했어요."));
             calls.incrementAndGet();
@@ -669,12 +671,12 @@ class ClassResultApiIntegrationTest {
         completeParticipation(token, cls, optionA, optionB, "효과가 입증되지 않아 반대합니다. 표본이 너무 작아요.");
 
         // 1차: headline 누락 → 거절, 2차: 정상
-        when(aiClient.chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
+        when(aiClient.chatJson(eq("test-member-model"), eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
                 .thenReturn(new ClassReportAiClient.AiChatResult(Map.of(
                         "judgment_basis", "j", "next_question", "q",
                         "evidence_refs", List.of(Map.of("field", "judgment_basis", "source_id", "p:999999", "quote", "없는 문장"))
                 ), "{}", 10, 5))
-                .thenAnswer(inv -> memberFeedbackAnswer(inv.getArgument(1)));
+                .thenAnswer(inv -> memberFeedbackAnswer(inv.getArgument(2)));
 
         closeClass(cls.classId);
         LocalDateTime now = LocalDateTime.now();
@@ -704,7 +706,7 @@ class ClassResultApiIntegrationTest {
         String token = tokenOf(student);
         join(token, cls.inviteCode, "학생A");
         completeParticipation(token, cls, optionA, optionB, "효과가 입증되지 않아 반대합니다. 표본이 너무 작아요.");
-        when(aiClient.chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
+        when(aiClient.chatJson(eq("test-member-model"), eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
                 .thenThrow(new RuntimeException("provider down"));
 
         closeClass(cls.classId);
@@ -723,8 +725,8 @@ class ClassResultApiIntegrationTest {
                 .andExpect(jsonPath("$.data.feedback").doesNotExist());
 
         // thenThrow 로 막아 둔 메서드라 when(...) 대신 doAnswer 로 바꾼다
-        org.mockito.Mockito.doAnswer(inv -> memberFeedbackAnswer(inv.getArgument(1)))
-                .when(aiClient).chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt());
+        org.mockito.Mockito.doAnswer(inv -> memberFeedbackAnswer(inv.getArgument(2)))
+                .when(aiClient).chatJson(eq("test-member-model"), eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt());
         mockMvc.perform(post(result(cls) + "/my-report/retry").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.state").value("PENDING"))
@@ -763,7 +765,7 @@ class ClassResultApiIntegrationTest {
                 .speaker(ClassDebateSpeaker.USER).content("오늘 점심은 김치찌개를 먹고 싶어요.").validForAnalysis(false).build());
 
         String debateId = "d:" + valid.getId();
-        when(aiClient.chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
+        when(aiClient.chatJson(eq("test-member-model"), eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
                 .thenReturn(new ClassReportAiClient.AiChatResult(Map.of(
                         "headline", "반복 확인을 중시하는 판단", "judgment_basis", "우연을 배제하려고 반복 확인을 기준으로 삼았어요.",
                         "next_question", "반복 실험이 어려울 때는 무엇으로 확인할 수 있을까요?",
@@ -773,7 +775,7 @@ class ClassResultApiIntegrationTest {
         closeClass(cls.classId);
         generationService.runOnce(LocalDateTime.now());
 
-        verify(aiClient).chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), argThat(prompt -> prompt.contains("source_id=" + debateId)
+        verify(aiClient).chatJson(eq("test-member-model"), eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), argThat(prompt -> prompt.contains("source_id=" + debateId)
                 && prompt.contains("종류=토론 반박")
                 && prompt.contains("(직전 AI 철학자 주장, 맥락 전용·인용 금지: \"표본이 작아도 효과가 보이면 충분하지 않을까요?\")")
                 && !prompt.contains("d:" + offTopic.getId())
@@ -806,7 +808,7 @@ class ClassResultApiIntegrationTest {
         closeClass(cls.classId);
         generationService.runOnce(LocalDateTime.now());
 
-        verify(aiClient).chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM),
+        verify(aiClient).chatJson(eq("test-member-model"), eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM),
                 argThat(prompt -> prompt.contains("(시간순, 총 2건)") && prompt.split("표본 크기가 중요해요", -1).length == 2), anyInt());
     }
 
@@ -818,7 +820,7 @@ class ClassResultApiIntegrationTest {
         String token = tokenOf(student);
         join(token, cls.inviteCode, "학생A");
         completeParticipation(token, cls, optionA, optionB, "그냥 그렇게 생각해요 잘 모르겠어요");
-        when(aiClient.chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
+        when(aiClient.chatJson(eq("test-member-model"), eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
                 .thenReturn(new ClassReportAiClient.AiChatResult(Map.of("analysis_status", "INSUFFICIENT"), "{}", 10, 5));
 
         closeClass(cls.classId);
@@ -828,7 +830,7 @@ class ClassResultApiIntegrationTest {
                 .filter(r -> r.getType() == ClassReportType.MEMBER_FEEDBACK).findFirst().orElseThrow();
         assertThat(report.getStatus()).isEqualTo(ClassReportStatus.LIMITED);
         assertThat(jobOf(report).getStatus()).isEqualTo(AiJobStatus.SUCCEEDED);
-        verify(aiClient, times(1)).chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt());
+        verify(aiClient, times(1)).chatJson(eq("test-member-model"), eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt());
         mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.state").value("LIMITED"))
@@ -845,9 +847,9 @@ class ClassResultApiIntegrationTest {
         completeParticipation(token, cls, optionA, optionB, "씨발 그냥 그렇게 생각해요 잘 모르겠어요");
 
         // 인용할 수 있는 원문이 없음(비속어로 시작) + 두 번 모두 원문이 아닌 입장 문구를 인용 → 근거 누락
-        when(aiClient.chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
+        when(aiClient.chatJson(eq("test-member-model"), eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
                 .thenAnswer(inv -> {
-                    String prompt = inv.getArgument(1);
+                    String prompt = inv.getArgument(2);
                     String sourceId = prompt.substring(prompt.indexOf("source_id=") + "source_id=".length()).split(" ")[0];
                     return new ClassReportAiClient.AiChatResult(Map.of(
                             "headline", "h", "judgment_basis", "j", "next_question", "q",
@@ -971,7 +973,7 @@ class ClassResultApiIntegrationTest {
                 .andExpect(jsonPath("$.data.stats.midVoteCheckpoints[0].options[1].voteCount").value(2));
 
         // AI 개인 피드백 입력에 중간 선택이 실린다
-        verify(aiClient).chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM),
+        verify(aiClient).chatJson(eq("test-member-model"), eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM),
                 argThat(prompt -> prompt.contains("중간투표(콘텐츠 중 선택, 지점 " + checkpoint.getId() + "): 무죄")), anyInt());
         mockMvc.perform(get(result(cls) + "/my-report").header("Authorization", "Bearer " + writerToken))
                 .andExpect(status().isOk())
@@ -1041,7 +1043,7 @@ class ClassResultApiIntegrationTest {
                 .containsExactlyInAnyOrder(
                         tuple(ClassReportType.MEMBER_FEEDBACK, ClassReportStatus.CANCELED),
                         tuple(ClassReportType.CLASS_SUMMARY, ClassReportStatus.LIMITED));
-        verify(aiClient, never()).chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt());
+        verify(aiClient, never()).chatJson(eq("test-member-model"), eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt());
     }
 
     @Test
@@ -1052,12 +1054,12 @@ class ClassResultApiIntegrationTest {
         String writerToken = tokenOf(writer);
         join(writerToken, cls.inviteCode, "학생A");
         completeParticipation(writerToken, cls, optionA, optionB, "효과가 입증되지 않아 반대합니다. 표본이 너무 작아요.");
-        when(aiClient.chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
+        when(aiClient.chatJson(eq("test-member-model"), eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
                 .thenAnswer(inv -> {
                     Classroom classroom = classroomRepository.findById(cls.classId).orElseThrow();
                     classroom.delete(LocalDateTime.now());
                     classroomRepository.save(classroom);
-                    return memberFeedbackAnswer(inv.getArgument(1));
+                    return memberFeedbackAnswer(inv.getArgument(2));
                 });
         closeClass(cls.classId);
         generationService.runOnce(LocalDateTime.now());
@@ -1071,8 +1073,8 @@ class ClassResultApiIntegrationTest {
     }
 
     private void stubMemberFeedback() {
-        when(aiClient.chatJson(eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
-                .thenAnswer(inv -> memberFeedbackAnswer(inv.getArgument(1)));
+        when(aiClient.chatJson(eq("test-member-model"), eq(ClassReportPrompts.MEMBER_FEEDBACK_SYSTEM), anyString(), anyInt()))
+                .thenAnswer(inv -> memberFeedbackAnswer(inv.getArgument(2)));
     }
 
     private static ClassReportAiClient.AiChatResult memberFeedbackAnswer(String userPrompt) {

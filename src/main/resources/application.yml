@@ -91,6 +91,8 @@ openai:
     model: ${OPENAI_DEBATE_MODEL:gpt-5.4-mini}
   insight:
     model: ${OPENAI_INSIGHT_MODEL:gpt-5.4-mini}
+  member-report:
+    model: ${OPENAI_MEMBER_REPORT_MODEL:gpt-5.4-mini}
   moderation:
     url: https://api.openai.com/v1/moderations
     model: omni-moderation-latest

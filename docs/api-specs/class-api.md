@@ -1218,7 +1218,7 @@ AI가 주제 후보를 제안하면 운영자가 하나를 고르거나 직접 �
   - `highlights`가 2건보다 적으면 최신 공개 의견으로 채운다. 이때도 같은 기준으로 거른다.
   - 그래서 `LIMITED`여도 `highlights`가 비어 있지 않을 수 있다.
   - 그래도 2건보다 적으면 클래스의 공개 의견·댓글 중 비속어가 없는 글을 랜덤으로 채운다 (#673). AI 인사이트 생성 전(마감 전 포함)에도 채운다.
-- 인사이트는 `gpt-5.4-mini`로 만든다. 서버 환경변수 `OPENAI_INSIGHT_MODEL`로 바꿀 수 있다. 개인 리포트는 기존 모델을 그대로 쓴다.
+- 인사이트는 `gpt-5.4-mini`로 만든다. 서버 환경변수 `OPENAI_INSIGHT_MODEL`로 바꿀 수 있다. 개인 리포트도 `gpt-5.4-mini`로 만들고 `OPENAI_MEMBER_REPORT_MODEL`로 바꿀 수 있다 (#713).
 - 생성에 실패하면 `FAILED`이고 `retryable`이 true다.
 - 운영자가 아니면 403 `CLASS_403_OWNER`다.
 

@@ -15,7 +15,8 @@ public final class ClassReportPrompts {
 
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    public static final int MEMBER_FEEDBACK_MAX_OUTPUT_TOKENS = 800;
+    /** gpt-5.4-mini 는 추론 토큰도 이 한도에 들어간다. 운영 gpt-4o-mini 최대 529 (#713) */
+    public static final int MEMBER_FEEDBACK_MAX_OUTPUT_TOKENS = 1_200;
     public static final int CLASS_INSIGHT_MAX_OUTPUT_TOKENS = 1_000;
 
     public static final String MEMBER_FEEDBACK_SYSTEM = """

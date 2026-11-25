@@ -290,7 +290,8 @@ class ClassReportContentValidatorTest {
         Map<String, Object> insight = validator.validateClassInsight(json, input);
 
         assertThat(ReportContent.stringList(insight, "evidence_ids")).containsExactly("p:1", "p:2");
-        assertThat(ReportContent.stringList(insight, "highlight_ids")).containsExactly("p:3");
+        // AI 가 고른 쓸 수 있는 대표 의견은 p:3 하나 → AI 근거 의견 p:1 로 채운다 (#717). 빠진 글(p:4·p:5·p:6)은 채우지 않는다
+        assertThat(ReportContent.stringList(insight, "highlight_ids")).containsExactly("p:3", "p:1");
         assertThat(insight).containsEntry("analysis_status", "SUFFICIENT");
     }
 
@@ -361,5 +362,23 @@ class ClassReportContentValidatorTest {
         Map<String, Object> noMid = ClassReportContentValidator.limitedMemberFeedback(A, null, B);
         assertThat(noMid).containsEntry("judgment_basis", "선택이 선택지 1에서 선택지 2로 바뀌었어요.");
         assertThat((List<?>) noMid.get("mid_choices")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("#717 AI 가 의견 1개·댓글 1개를 대표로 골라도, 입력에 의견이 더 있으면 의견 2개로 채운다")
+    void insightHighlightsPreferPerspectives() {
+        ClassInsightInput input = insightInput(
+                post("p:1", 1, "비용보다 기대 효과가 커서 찬성해요."),
+                post("p:2", 2, "표본이 작아서 효과를 믿기 어려워요."),
+                post("p:3", 3, "장기적으로 보면 비용도 줄어들 거예요."),
+                post("c:9", 4, "맞아요 비용이 줄어들면 더 많은 학교가 쓸 수 있겠네요"));
+        Map<String, Object> json = Map.of(
+                "insight_text", "찬성 쪽은 비용을, 반대 쪽은 효과를 기준으로 삼았어요.",
+                "evidence_ids", List.of("p:1", "c:9"),
+                "highlight_ids", List.of("p:2", "c:9"));
+
+        Map<String, Object> insight = validator.validateClassInsight(json, input);
+
+        assertThat(ReportContent.stringList(insight, "highlight_ids")).containsExactly("p:2", "p:1");
     }
 }

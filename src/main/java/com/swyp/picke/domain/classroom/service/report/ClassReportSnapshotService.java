@@ -371,7 +371,7 @@ public class ClassReportSnapshotService {
 
         List<Raw> raws = new ArrayList<>();
         for (Perspective p : perspectiveRepository.findByClassroomIdAndStatusOrderByCreatedAtAsc(classId, PerspectiveStatus.PUBLISHED)) {
-            if (!InsightPostRules.hasReason(p.getContent())) {
+            if (!InsightPostRules.hasContent(p.getContent())) {
                 continue; // 이유를 읽을 수 없는 글은 요약할 내용이 없고 작성자 수에도 넣지 않는다 (#657)
             }
             raws.add(new Raw(p.getUser().getId(), p.getCreatedAt(), new ClassInsightInput.PublicPost(
@@ -382,7 +382,7 @@ public class ClassReportSnapshotService {
         }
         for (PerspectiveComment c : perspectiveCommentRepository.findByClassroomIdAndHiddenFalseOrderByCreatedAtAsc(classId)) {
             Perspective parent = c.getPerspective();
-            if (parent == null || parent.getStatus() != PerspectiveStatus.PUBLISHED || !InsightPostRules.hasReason(c.getContent())) {
+            if (parent == null || parent.getStatus() != PerspectiveStatus.PUBLISHED || !InsightPostRules.hasContent(c.getContent())) {
                 continue;
             }
             raws.add(new Raw(c.getUser().getId(), c.getCreatedAt(), new ClassInsightInput.PublicPost(

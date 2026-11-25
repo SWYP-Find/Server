@@ -206,9 +206,22 @@ public class ClassReportContentValidator {
                 highlightCandidates.add(trimmed);
             }
         }
-        // 대표 의견은 의견(본문)을 먼저, 댓글은 그다음 (#705). AI 가 고른 순서는 같은 종류 안에서 유지
+        // 대표 의견은 의견(본문)을 먼저, 댓글은 그다음 (#705). AI 가 고른 순서는 같은 종류 안에서 유지.
+        // AI 가 의견을 1개만 골라도 입력에 의견이 더 있으면 의견으로 채운다: AI 가 근거로 쓴 의견 → 그 밖의 의견(엄격한 기준) (#717)
         List<String> highlightIds = new ArrayList<>();
         highlightCandidates.stream().filter(id -> id.startsWith("p:")).forEach(highlightIds::add);
+        for (String id : evidenceIds) {
+            if (highlightIds.size() < INSIGHT_HIGHLIGHT_MAX && id.startsWith("p:") && !highlightIds.contains(id)) {
+                highlightIds.add(id);
+            }
+        }
+        for (ClassInsightInput.PublicPost post : input.posts()) {
+            String id = post.sourceId();
+            if (highlightIds.size() < INSIGHT_HIGHLIGHT_MAX && id.startsWith("p:") && !highlightIds.contains(id)
+                    && !excluded.contains(id) && InsightPostRules.isAutoSelectable(post.content())) {
+                highlightIds.add(id);
+            }
+        }
         highlightCandidates.stream().filter(id -> !id.startsWith("p:")).forEach(highlightIds::add);
         if (highlightIds.size() > INSIGHT_HIGHLIGHT_MAX) {
             highlightIds = new ArrayList<>(highlightIds.subList(0, INSIGHT_HIGHLIGHT_MAX));

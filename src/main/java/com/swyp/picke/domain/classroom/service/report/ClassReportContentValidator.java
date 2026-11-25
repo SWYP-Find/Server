@@ -202,7 +202,9 @@ public class ClassReportContentValidator {
         List<String> highlightCandidates = new ArrayList<>();
         for (String id : ReportContent.stringList(json, "highlight_ids")) {
             String trimmed = id.trim();
-            if (!excluded.contains(trimmed) && selectable(input, trimmed) && !highlightCandidates.contains(trimmed)) {
+            // 대표 의견은 짧은 글("싸고 좋은게 짱.")을 빼고 서버 자동 선택과 같은 기준 (#721). 요약 근거는 4글자 기준 유지
+            if (!excluded.contains(trimmed) && selectable(input, trimmed) && autoSelectable(input, trimmed)
+                    && !highlightCandidates.contains(trimmed)) {
                 highlightCandidates.add(trimmed);
             }
         }
@@ -211,7 +213,8 @@ public class ClassReportContentValidator {
         List<String> highlightIds = new ArrayList<>();
         highlightCandidates.stream().filter(id -> id.startsWith("p:")).forEach(highlightIds::add);
         for (String id : evidenceIds) {
-            if (highlightIds.size() < INSIGHT_HIGHLIGHT_MAX && id.startsWith("p:") && !highlightIds.contains(id)) {
+            if (highlightIds.size() < INSIGHT_HIGHLIGHT_MAX && id.startsWith("p:") && !highlightIds.contains(id)
+                    && autoSelectable(input, id)) {
                 highlightIds.add(id);
             }
         }
@@ -248,6 +251,11 @@ public class ClassReportContentValidator {
             return false;
         }
         return true;
+    }
+
+    private static boolean autoSelectable(ClassInsightInput input, String sourceId) {
+        ClassInsightInput.PublicPost post = input.findPost(sourceId);
+        return post != null && InsightPostRules.isAutoSelectable(post.content());
     }
 
     // ===== 템플릿 (AI 호출 없음) =====

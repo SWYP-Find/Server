@@ -319,7 +319,7 @@ public class ClassResultServiceImpl implements ClassResultService {
             backfillHighlights(highlights, classId);
             List<ClassInsightResponse.PublicPost> pool = randomPool(classId);
             fillRandom(highlights, pool);
-            KeyOpinions key = keyOpinions(classId, pool);
+            KeyOpinions key = keyOpinions(classId, pool, highlights);
             return new ClassInsightResponse(classId, state, retryable, cutoffAt, null, text, null, 0, List.of(), highlights,
                     key.best(), key.mostDebated());
         }
@@ -334,14 +334,15 @@ public class ClassResultServiceImpl implements ClassResultService {
         List<ClassInsightResponse.PublicPost> highlights = new ArrayList<>();
         for (String id : ReportContent.stringList(insight, "highlight_ids")) {
             ClassInsightResponse.PublicPost post = resolvePublic(id, classId);
-            if (post != null && highlights.size() < HIGHLIGHT_MAX) {
+            // 대표 의견은 짧은 글을 빼고 서버 자동 선택과 같은 기준 (#721). 이미 저장된 리포트에도 적용된다
+            if (post != null && highlights.size() < HIGHLIGHT_MAX && InsightPostRules.isAutoSelectable(post.content())) {
                 highlights.add(post);
             }
         }
         backfillHighlights(highlights, classId);
         List<ClassInsightResponse.PublicPost> pool = randomPool(classId);
         fillRandom(highlights, pool);
-        KeyOpinions key = keyOpinions(classId, pool);
+        KeyOpinions key = keyOpinions(classId, pool, highlights);
         return new ClassInsightResponse(
                 classId, state, retryable, cutoffAt, summary.getGeneratedAt(),
                 // 예전 문구로 저장된 LIMITED 인사이트도 현재 문구로 내려준다 (#661)
@@ -356,40 +357,70 @@ public class ClassResultServiceImpl implements ClassResultService {
     }
 
     /**
-     * 주요 의견 (#673). AI 와 상관없이 공개 의견의 좋아요·댓글 수로 고른다.
-     * BEST = 좋아요 최다, 가장 논쟁이 활발했던 댓글 = BEST 를 뺀 나머지 중 댓글 최다. 같으면 먼저 쓴 글.
-     * 비속어·이유 없는 글은 고르지 않는다 (근거·대표 의견과 같은 기준, #657).
+     * 주요 의견 (#673, #721). AI 와 상관없이 공개 의견·댓글의 좋아요·댓글 수로 고른다.
+     * BEST = 좋아요 최다, 가장 논쟁이 활발했던 댓글 = BEST 를 뺀 나머지 중 달린 댓글 최다(댓글에는 답글이 없어 0). 같으면 먼저 쓴 글.
+     * 비속어·짧은 글은 고르지 않는다(서버 자동 선택 기준). 고르는 순서:
+     * 1) 대표 의견에 나오지 않은 글 → 2) 그런 글이 없으면 대표 의견과 같은 글(작은 반) →
+     * 3) 기준에 맞는 글이 하나도 없는 반(ㅋㅋ·자판 누르기만)일 때만 랜덤 글 (#673 빈 칸 방지)
      */
-    private KeyOpinions keyOpinions(Long classId, List<ClassInsightResponse.PublicPost> pool) {
-        List<Perspective> candidates = perspectiveRepository
-                .findByClassroomIdAndStatusOrderByCreatedAtAsc(classId, PerspectiveStatus.PUBLISHED).stream()
-                .filter(p -> InsightPostRules.isAutoSelectable(p.getContent()))
-                .toList();
-        // 생성 순으로 정렬돼 있어 stable sort 로 동점이면 먼저 쓴 글이 앞에 온다
-        Perspective best = candidates.stream()
-                .sorted(Comparator.comparingInt(Perspective::getLikeCount).reversed())
-                .findFirst().orElse(null);
-        Perspective debated = candidates.stream()
-                .filter(p -> p != best)
-                .sorted(Comparator.comparingInt(Perspective::getCommentCount).reversed())
-                .findFirst().orElse(null);
-        String bestText = best == null ? null : best.getContent();
-        String debatedText = debated == null ? null : debated.getContent();
-        // 기준에 맞는 글이 모자라면 랜덤 글로 채운다 (#673)
-        for (ClassInsightResponse.PublicPost post : pool) {
-            if (bestText != null && debatedText != null) {
-                break;
-            }
-            if (post.content().equals(bestText) || post.content().equals(debatedText)) {
-                continue;
-            }
-            if (bestText == null) {
-                bestText = post.content();
-            } else {
-                debatedText = post.content();
+    private KeyOpinions keyOpinions(Long classId, List<ClassInsightResponse.PublicPost> pool,
+                                    List<ClassInsightResponse.PublicPost> highlights) {
+        List<KeyCandidate> candidates = new ArrayList<>();
+        perspectiveRepository.findByClassroomIdAndStatusOrderByCreatedAtAsc(classId, PerspectiveStatus.PUBLISHED)
+                .forEach(p -> candidates.add(new KeyCandidate(toPublic(p), p.getLikeCount(), p.getCommentCount())));
+        perspectiveCommentRepository.findByClassroomIdAndHiddenFalseOrderByCreatedAtAsc(classId)
+                .forEach(c -> candidates.add(new KeyCandidate(toPublic(c), c.getLikeCount(), 0)));
+        candidates.removeIf(c -> !InsightPostRules.isAutoSelectable(c.post().content()));
+        // 먼저 쓴 글이 앞에 오도록 정렬한 뒤 stable sort 로 동점 처리
+        candidates.sort(Comparator.comparing(c -> c.post().createdAt(), Comparator.nullsLast(Comparator.naturalOrder())));
+        List<KeyCandidate> fresh = candidates.stream().filter(c -> !containsPost(highlights, c.post())).toList();
+        List<KeyCandidate> shown = candidates.stream().filter(c -> containsPost(highlights, c.post())).toList();
+
+        KeyCandidate best = pick(fresh, Comparator.comparingInt(KeyCandidate::likes), null);
+        if (best == null) {
+            best = pick(shown, Comparator.comparingInt(KeyCandidate::likes), null);
+        }
+        KeyCandidate debated = pick(fresh, Comparator.comparingInt(KeyCandidate::replies), best);
+        if (debated == null) {
+            debated = pick(shown, Comparator.comparingInt(KeyCandidate::replies), best);
+        }
+        String bestText = best == null ? null : best.post().content();
+        String debatedText = debated == null ? null : debated.post().content();
+        if (candidates.isEmpty()) {
+            // 기준에 맞는 글이 없는 반은 랜덤 글로 채운다 (#673). 대표 의견과 겹치지 않는 글 먼저
+            for (boolean allowHighlight : new boolean[]{false, true}) {
+                for (ClassInsightResponse.PublicPost post : pool) {
+                    if (bestText != null && debatedText != null) {
+                        break;
+                    }
+                    if (post.content().equals(bestText) || post.content().equals(debatedText)
+                            || (!allowHighlight && containsPost(highlights, post))) {
+                        continue;
+                    }
+                    if (bestText == null) {
+                        bestText = post.content();
+                    } else {
+                        debatedText = post.content();
+                    }
+                }
             }
         }
         return new KeyOpinions(bestText, debatedText);
+    }
+
+    private record KeyCandidate(ClassInsightResponse.PublicPost post, int likes, int replies) {
+    }
+
+    /** 점수가 가장 높은 후보. 후보는 먼저 쓴 순으로 정렬돼 있어 동점이면 먼저 쓴 글 */
+    private static KeyCandidate pick(List<KeyCandidate> candidates, Comparator<KeyCandidate> score, KeyCandidate except) {
+        return candidates.stream()
+                .filter(c -> except == null || !Objects.equals(c.post(), except.post()))
+                .sorted(score.reversed())
+                .findFirst().orElse(null);
+    }
+
+    private static boolean containsPost(List<ClassInsightResponse.PublicPost> posts, ClassInsightResponse.PublicPost post) {
+        return posts.stream().anyMatch(h -> Objects.equals(h.sourceType(), post.sourceType()) && Objects.equals(h.id(), post.id()));
     }
 
     /**

@@ -104,4 +104,16 @@ class ReportQualityCheckerTest {
         assertThat(ReportQualityChecker.hasUnsupportedOptionText(
                 "인간의 발전을 위해 신약 안전성 확인이 필요하다고 봤어요.", input)).isFalse();
     }
+
+    @Test
+    @DisplayName("다음 생각 한 걸음 질문이 '~생각했어요?' 과거형이면 QUESTION_TENSE, 현재형은 통과 (#717)")
+    void questionTense() {
+        Map<String, Object> content = report("소비 속도를 기준으로 습관 개선을 골랐어요.", "인구 수로 규모를 짚었어요",
+                "80억이라는 숫자로 기술만으로는 부족하다는 점을 보여줬어요.", "기술의 역할도 따져 보기",
+                "기술이 습관 변화를 돕는 경우도 있는지 살펴보면 좋겠어요.");
+        content.put("next_question", "어떤 조건을 넘으면 허용하지 말아야 한다고 생각했어요?");
+        assertThat(ReportQualityChecker.memberFeedbackIssues(content, input(OWN))).containsExactly("QUESTION_TENSE");
+        content.put("next_question", "어떤 조건을 넘으면 허용하지 말아야 할까요?");
+        assertThat(ReportQualityChecker.memberFeedbackIssues(content, input(OWN))).isEmpty();
+    }
 }

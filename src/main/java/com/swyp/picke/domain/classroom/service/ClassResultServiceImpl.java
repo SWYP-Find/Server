@@ -363,7 +363,7 @@ public class ClassResultServiceImpl implements ClassResultService {
     private KeyOpinions keyOpinions(Long classId, List<ClassInsightResponse.PublicPost> pool) {
         List<Perspective> candidates = perspectiveRepository
                 .findByClassroomIdAndStatusOrderByCreatedAtAsc(classId, PerspectiveStatus.PUBLISHED).stream()
-                .filter(p -> InsightPostRules.isSelectable(p.getContent()))
+                .filter(p -> InsightPostRules.isAutoSelectable(p.getContent()))
                 .toList();
         // 생성 순으로 정렬돼 있어 stable sort 로 동점이면 먼저 쓴 글이 앞에 온다
         Perspective best = candidates.stream()
@@ -430,7 +430,7 @@ public class ClassResultServiceImpl implements ClassResultService {
         List<Perspective> recent = perspectiveRepository.findByClassroomIdAndStatusOrderByCreatedAtAsc(classId, PerspectiveStatus.PUBLISHED);
         for (int i = recent.size() - 1; i >= 0 && highlights.size() < HIGHLIGHT_MAX; i--) {
             Perspective p = recent.get(i);
-            if (!InsightPostRules.isSelectable(p.getContent())) {
+            if (!InsightPostRules.isAutoSelectable(p.getContent())) {
                 continue;
             }
             boolean exists = highlights.stream().anyMatch(h ->

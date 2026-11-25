@@ -14,7 +14,9 @@ class InsightPostRulesTest {
     @DisplayName("#657 웃음·자모·같은 글자 반복·숫자만·짧은 글은 이유가 없는 글이다")
     void noReason(String content) {
         assertThat(InsightPostRules.hasReason(content)).isFalse();
+        assertThat(InsightPostRules.hasContent(content)).isFalse();
         assertThat(InsightPostRules.isSelectable(content)).isFalse();
+        assertThat(InsightPostRules.isAutoSelectable(content)).isFalse();
     }
 
     @ParameterizedTest
@@ -23,6 +25,7 @@ class InsightPostRulesTest {
     void hasReason(String content) {
         assertThat(InsightPostRules.hasReason(content)).isTrue();
         assertThat(InsightPostRules.isSelectable(content)).isTrue();
+        assertThat(InsightPostRules.isAutoSelectable(content)).isTrue();
     }
 
     @ParameterizedTest
@@ -31,5 +34,22 @@ class InsightPostRulesTest {
     void profanityNotSelectable(String content) {
         assertThat(InsightPostRules.hasReason(content)).isTrue();
         assertThat(InsightPostRules.isSelectable(content)).isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"싸고 좋은게 짱.", "반띵 해야지", "마니마니 챙기자", "환경이 먼저"})
+    @DisplayName("#717 짧아도 입장이 있는 글은 AI 입력·AI 가 고른 대표 의견에 쓰고, 서버가 채우는 대표 의견에는 쓰지 않는다")
+    void shortContent(String content) {
+        assertThat(InsightPostRules.hasContent(content)).isTrue();
+        assertThat(InsightPostRules.isSelectable(content)).isTrue();
+        assertThat(InsightPostRules.hasReason(content)).isFalse();
+        assertThat(InsightPostRules.isAutoSelectable(content)).isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"시발!", "아잇", "ㅇㅇ", "젠장!", "저도ㅛㅇ", "몰라", "그냥요 ㅋㅋ", "asdf", "qwer qwer", "1234", "ㅋㅋ 인정"})
+    @DisplayName("#717 아주 짧은 글·이유 없다는 말·영문 자판 누르기는 짧은 글 기준에서도 뺀다")
+    void tooShort(String content) {
+        assertThat(InsightPostRules.hasContent(content)).isFalse();
     }
 }

@@ -44,6 +44,10 @@ public class ClassReportAiClient {
     @Value("${openai.insight.model:gpt-5.4-mini}")
     private String insightModel;
 
+    /** 개인 리포트만 쓰는 모델. gpt-4o-mini 는 선택지 문장 인용 금지·말투 규칙을 자주 어겨 인사이트와 같은 모델로 둔다 (#713) */
+    @Value("${openai.member-report.model:gpt-5.4-mini}")
+    private String memberReportModel;
+
     /** 파싱된 JSON 본문과 토큰 사용량 */
     public record AiChatResult(Map<String, Object> json, String rawContent, Integer inputTokens, Integer outputTokens) {
     }
@@ -58,6 +62,10 @@ public class ClassReportAiClient {
 
     public String getInsightModel() {
         return insightModel;
+    }
+
+    public String getMemberReportModel() {
+        return memberReportModel;
     }
 
     public AiChatResult chatJson(String systemPrompt, String userPrompt, int maxOutputTokens) {

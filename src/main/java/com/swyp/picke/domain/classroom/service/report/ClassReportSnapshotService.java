@@ -167,7 +167,8 @@ public class ClassReportSnapshotService {
                 .classroom(classroom)
                 .member(member)
                 .build()));
-        job.start(type == AiJobType.CLASS_INSIGHT ? aiClient.getInsightModel() : aiClient.getModel(), now);
+        job.start(type == AiJobType.CLASS_INSIGHT ? aiClient.getInsightModel()
+                : type == AiJobType.MEMBER_REPORT ? aiClient.getMemberReportModel() : aiClient.getModel(), now);
         report.startGenerating(job);
         return job;
     }

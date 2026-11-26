@@ -6,6 +6,8 @@ import com.swyp.picke.domain.funding.dto.request.*;
 import com.swyp.picke.domain.funding.dto.response.*;
 import com.swyp.picke.domain.funding.service.FundingAdminService;
 import com.swyp.picke.domain.funding.service.FundingTicketQueryService;
+import com.swyp.picke.domain.admin.dto.classroom.response.AdminTicketUsageResponse;
+import com.swyp.picke.domain.admin.service.AdminClassUsageService;
 import com.swyp.picke.domain.ticket.enums.TicketStatus;
 import com.swyp.picke.global.common.response.PageResponse;
 import java.time.LocalDate;
@@ -33,6 +35,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class FundingAdminController {
     private final FundingAdminService fundingAdminService;
     private final FundingTicketQueryService fundingTicketQueryService;
+    private final AdminClassUsageService adminClassUsageService;
 
     @Operation(summary = "펀딩 이용권·등록자 검색", description = "최신 클래스 이용권을 정원, 상태, 등록일, 구매자/등록자, 전체 코드 또는 끝 4자리로 검색합니다. 연락처와 코드는 마스킹됩니다.")
     @GetMapping("/tickets")
@@ -42,10 +45,17 @@ public class FundingAdminController {
             @RequestParam(required = false) TicketStatus status,
             @RequestParam(required = false) LocalDate registeredFrom,
             @RequestParam(required = false) LocalDate registeredTo,
+            @RequestParam(defaultValue = "LATEST") AdminTicketSort sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return ApiResponse.onSuccess(fundingTicketQueryService.searchTickets(keyword, capacity, status,
-                registeredFrom, registeredTo, page, size));
+                registeredFrom, registeredTo, sort, page, size));
+    }
+
+    @Operation(summary = "이용권 계정 이용 현황", description = "이용권으로 만든 클래스 수·참가자·배틀 완료·최근 30일 리포트와 클래스별 활동을 조회합니다.")
+    @GetMapping("/tickets/{ticketId}/usage")
+    public ApiResponse<AdminTicketUsageResponse> getTicketUsage(@PathVariable Long ticketId) {
+        return ApiResponse.onSuccess(adminClassUsageService.ticketUsage(ticketId));
     }
 
     @Operation(summary = "펀딩 이용권 상세", description = "구매자·등록자·이용권 상태·전달 이력과 연결된 클래스를 조회합니다. 코드 원문은 별도 조회 API를 사용합니다.")

@@ -28,6 +28,16 @@ public record TicketAdminRowResponse(
         // 이용권 활성화 시각
         LocalDateTime activatedAt,
         // 이용권 만료 시각
-        LocalDateTime expiresAt
+        LocalDateTime expiresAt,
+        // 코드 원문을 확인할 수 있는지 (암호화 원문 보관 여부)
+        boolean codeAvailable,
+        // 등록 계정 ID. 미등록이면 null
+        Long registeredUserId,
+        // 마스킹된 등록 계정 이메일 (소셜 계정). 미등록이거나 이메일이 없으면 null
+        String maskedAccountEmail,
+        // 이 이용권으로 만든 클래스 수 (삭제 제외)
+        long classCount,
+        // 연결된 클래스의 마지막 활동 시각. 없으면 null
+        LocalDateTime lastActiveAt
 ) {
 }

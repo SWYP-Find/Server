@@ -1,5 +1,7 @@
 package com.swyp.picke.domain.funding.service;
 
+import com.swyp.picke.domain.admin.service.AdminClassUsageService;
+import com.swyp.picke.domain.funding.dto.response.AdminTicketSort;
 import com.swyp.picke.domain.funding.dto.response.TicketAdminRowResponse;
 import com.swyp.picke.domain.funding.dto.response.TicketAdminDetailResponse;
 import com.swyp.picke.domain.classroom.repository.ClassMemberRepository;
@@ -41,6 +43,7 @@ public class FundingTicketQueryService {
     private final TicketDeliveryAttemptRepository deliveryAttemptRepository;
     private final ClassroomRepository classroomRepository;
     private final ClassMemberRepository classMemberRepository;
+    private final AdminClassUsageService adminClassUsageService;
 
     public TicketAdminDetailResponse getTicketDetail(Long ticketId) {
         ClassTicket ticket = classTicketRepository.findById(ticketId)
@@ -67,7 +70,11 @@ public class FundingTicketQueryService {
                 order.getQuantity(), ticket.getCapacity(), order.getPaymentStatus(),
                 effectiveStatus(ticket, now), ticket.getCodeStatus(), ticket.getCreatedAt(), ticket.getDeliveredAt(),
                 ticket.getRegisterBy(), ticket.getActivatedAt(), ticket.getExpiresAt(), ticket.getRevokedAt(),
-                deliveries, classes);
+                deliveries, classes,
+                registeredUser == null ? null : registeredUser.getUserTag(),
+                registeredUser == null ? null : adminClassUsageService.accountEmails(List.of(registeredUser.getId()))
+                        .get(registeredUser.getId()),
+                ticket.getUsageDays());
     }
 
     private TicketAdminDetailResponse.Delivery toDelivery(TicketDeliveryAttempt attempt) {
@@ -77,6 +84,11 @@ public class FundingTicketQueryService {
 
     public PageResponse<TicketAdminRowResponse> searchTickets(String keyword, Integer capacity, TicketStatus status,
             LocalDate registeredFrom, LocalDate registeredTo, int page, int size) {
+        return searchTickets(keyword, capacity, status, registeredFrom, registeredTo, AdminTicketSort.LATEST, page, size);
+    }
+
+    public PageResponse<TicketAdminRowResponse> searchTickets(String keyword, Integer capacity, TicketStatus status,
+            LocalDate registeredFrom, LocalDate registeredTo, AdminTicketSort sort, int page, int size) {
         if (registeredFrom != null && registeredTo != null && registeredFrom.isAfter(registeredTo)) {
             throw new CustomException(ErrorCode.COMMON_INVALID_PARAMETER);
         }
@@ -87,9 +99,14 @@ public class FundingTicketQueryService {
             if (status != null) filters.add(status(root, status, now, cb));
             if (registeredFrom != null) filters.add(cb.greaterThanOrEqualTo(root.get("activatedAt"), registeredFrom.atStartOfDay()));
             if (registeredTo != null) filters.add(cb.lessThan(root.get("activatedAt"), registeredTo.plusDays(1).atStartOfDay()));
+            var order = root.join("fundingOrder");
+            var owner = root.join("registeredUser", JoinType.LEFT);
+            if (query != null && query.getResultType() != Long.class && query.getResultType() != long.class
+                    && sort != null && sort != AdminTicketSort.LATEST) {
+                var name = cb.coalesce(owner.<String>get("nickname"), order.<String>get("supporterName"));
+                query.orderBy(sort == AdminTicketSort.NAME_DESC ? cb.desc(name) : cb.asc(name), cb.desc(root.get("id")));
+            }
             if (keyword != null && !keyword.isBlank()) {
-                var order = root.join("fundingOrder");
-                var owner = root.join("registeredUser", JoinType.LEFT);
                 String term = keyword.trim();
                 String pattern = "%" + term.toLowerCase(Locale.ROOT) + "%";
                 filters.add(cb.or(cb.like(cb.lower(order.get("supporterName")), pattern),
@@ -100,18 +117,31 @@ public class FundingTicketQueryService {
                         cb.equal(root.get("codeSuffix"), TicketCodeHasher.normalize(term))));
             }
             return cb.and(filters.toArray(Predicate[]::new));
-        }, pageable(page, size));
+        }, pageable(page, size, sort));
+        List<Long> ticketIds = result.getContent().stream().map(ClassTicket::getId).toList();
+        var stats = adminClassUsageService.ticketListStats(ticketIds);
+        var emails = adminClassUsageService.accountEmails(result.getContent().stream()
+                .filter(ticket -> ticket.getRegisteredUser() != null)
+                .map(ticket -> ticket.getRegisteredUser().getId()).distinct().toList());
         return PageResponse.of(result.map(ticket -> new TicketAdminRowResponse(ticket.getId(), ticket.getFundingOrder().getId(),
                 ticket.getCodeSuffix() == null ? null : "****-" + ticket.getCodeSuffix(),
                 ticket.getFundingOrder().getSupporterName(), mask(ticket.getFundingOrder()),
                 ticket.getRegisteredUser() == null ? null : ticket.getRegisteredUser().getNickname(),
                 ticket.getCapacity(), effectiveStatus(ticket, now), ticket.getCodeStatus(), ticket.getRegisterBy(),
-                ticket.getActivatedAt(), ticket.getExpiresAt())));
+                ticket.getActivatedAt(), ticket.getExpiresAt(),
+                ticket.getEncryptedCode() != null && !ticket.getEncryptedCode().isBlank(),
+                ticket.getRegisteredUser() == null ? null : ticket.getRegisteredUser().getId(),
+                ticket.getRegisteredUser() == null ? null
+                        : AdminClassUsageService.maskEmail(emails.get(ticket.getRegisteredUser().getId())),
+                stats.get(ticket.getId()).classCount(), stats.get(ticket.getId()).lastActiveAt())));
     }
 
-    private Pageable pageable(int page, int size) {
+    private Pageable pageable(int page, int size, AdminTicketSort sort) {
         if (page < 0 || size < 1 || size > 100) throw new CustomException(ErrorCode.COMMON_INVALID_PARAMETER);
-        return PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
+        // 이름순은 명세 안에서 정렬한다 (등록 계정 닉네임이 없으면 구매자 이름)
+        return sort == null || sort == AdminTicketSort.LATEST
+                ? PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"))
+                : PageRequest.of(page, size);
     }
 
     private Predicate status(Root<ClassTicket> root, TicketStatus status, LocalDateTime now, CriteriaBuilder cb) {

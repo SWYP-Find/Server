@@ -1493,6 +1493,74 @@ PRD "등록기한 30일·7일 전 알림은 허용된 연락 수단에서만 발
 | 종료된 클래스 | 409 `CLASS_409_CLOSED` |
 | 관리자 권한 없음 | 403 |
 
+### 9.11 이용권 계정 관리·성과 분석 (#725)
+
+Figma '어드민 추가 페이지'(이용권 계정 목록·계정 상세·성과 분석·클래스 성과) 화면용이다. 모두 관리자 전용이고 조회 시점에 센다. 삭제된 클래스는 세지 않는다. 날짜는 한국 시간이다.
+
+**이용권 목록 추가 필드** (`GET /api/v1/admin/tickets`)
+
+- 쿼리 `sort`: `LATEST`(기본, 최신 발급순) / `NAME_ASC` / `NAME_DESC`. 이름은 등록 계정 닉네임이고, 미등록이면 구매자 이름이다.
+- 행 끝에 다음이 추가됐다.
+
+| 필드 | 설명 |
+|---|---|
+| `codeAvailable` | 코드 원문을 확인할 수 있는지 (상세와 같은 값) |
+| `registeredUserId` | 등록 계정 ID. 미등록이면 null |
+| `maskedAccountEmail` | 등록 계정의 소셜 이메일을 마스킹한 값 (`o***@example.com`). 없으면 null |
+| `classCount` | 이 이용권으로 만든 클래스 수 |
+| `lastActiveAt` | 연결된 클래스의 마지막 활동 시각 (클래스 생성·참가·의견·댓글·배틀 진행·AI 토론 중 가장 늦은 때). 없으면 null |
+
+- 이용권 상세(`GET /api/v1/admin/tickets/{ticketId}`) 끝에는 `registeredUserTag`, `registeredEmail`(원문), `usageDays`(등록 후 이용 기간 일수, null 이면 6개월)가 추가됐다.
+
+**이용권 계정 이용 현황**
+
+- `GET /api/v1/admin/tickets/{ticketId}/usage`
+- 응답: `classCount`, `participantCount`(클래스별 좌석 점유 인원 합), `battleCompletedCount`(배틀을 끝까지 마친 기록 수), `reportsLast30Days`(최근 30일 안에 완료된 개인 리포트·인사이트 수), `lastActiveAt`, `classes[]`
+- `classes[]`: `classId`, `name`, `state`, `participantCount`, `capacity`, `debateCount`(AI 토론 시작 수), `battleCompletedCount`, `reportCount`(완료된 개인 리포트 수), `lastActiveAt`, `createdAt`. 최신 생성순이다.
+- 없는 이용권이면 404 `TICKET_404`다.
+
+**클래스 성과**
+
+- `GET /api/v1/admin/classes/{classId}/performance?page=0&size=10`
+- 클래스 이름·주제·생성일은 클래스 상세(9.10)를 함께 쓴다.
+
+| 필드 | 설명 |
+|---|---|
+| `ownerEmail` | 운영자 소셜 이메일. 없으면 null |
+| `participantCount`, `capacity` | 좌석 점유 인원 / 정원 |
+| `battleStartedCount` | 배틀을 시작한 참가자 수 (사전투표 화면 진입 이상) |
+| `reportTargetCount` | 리포트 대상 참가자 수. 활동 중인 멤버이고, 운영자는 참여하는 클래스에서만 넣는다 |
+| `reportCompletedCount`, `reportCompletionRate` | 개인 리포트가 완료(`SUCCEEDED`·`LIMITED`)된 참가자 수와 비율(%, 소수 첫째 자리). 참가자별 1건이라 재생성은 세지 않는다. 대상이 없으면 비율은 null |
+| `aiErrorCount`, `aiErrors[]` | 이 클래스에서 실패한 AI 작업 수와 `type`·`status`·`errorCode`별 건수 |
+| `participants` | `PageResponse`. 행: `memberId`, `userTag`, `displayName`, `owner`, `commentCount`(공개 의견 + 숨기지 않은 댓글), `battleStep`, `reportStatus`(없으면 null), `reportGeneratedAt`. 참가 순서다 |
+
+**성과 분석**
+
+- `GET /api/v1/admin/classes/analytics?from=2026-10-28&to=2026-11-26`
+- `from`·`to`는 한국 날짜이고 양끝을 포함한다. 생략하면 오늘까지 최근 30일이다. `from`이 `to`보다 늦거나 기간이 366일을 넘으면 400 `COMMON_400`이다.
+- `operation`(전체 누적):
+
+| 필드 | 설명 |
+|---|---|
+| `issuedTotal` | 회수(무효화) 포함 누적 발급 |
+| `revokedCount`, `validIssued` | 회수된 수, 회수를 뺀 유효 발급 |
+| `registered` | 유효 발급 중 계정에 등록된 이용권 |
+| `registrationRate` | `registered / validIssued` (%). 유효 발급이 없으면 null |
+| `activeAccounts` | 지금 이용 기간 안인 이용권을 가진 계정 수 (만료 임박·클래스 미사용 포함) |
+
+- `flow`(기간 안):
+
+| 필드 | 설명 |
+|---|---|
+| `operatorsWithReport` | 리포트(개인·인사이트)가 1건 이상 완료된 클래스의 운영자 수 |
+| `aiReportsGenerated` | 성공한 AI 리포트 작업 수 (개인 리포트 + 인사이트, 재생성 포함). AI 를 부르지 않는 `LIMITED` 는 빠진다 |
+| `battlesStarted`, `battlesWithReport`, `battleToReportRate` | 기간 안에 시작한 클래스 배틀 수, 그중 개인 리포트까지 완료된 수와 비율 |
+| `reportsCompleted`, `reportsViewed`, `reportViewRate` | 기간 안에 완료된 리포트 수, 그중 1회 이상 열람된 수와 비율 |
+
+- `dailyReports[]`: `date`, `count`. 기간의 모든 날짜를 0 포함으로 돌려준다 (완료된 리포트 기준).
+- `aiErrorTotal`, `aiErrors[]`: 기간 안에 실패한 AI 작업을 `type`·`status`·`errorCode`별로 많은 순서대로 센다. 상태는 `FAILED`와 검증 반려 `REJECTED`다. 반박 입력 분류(`DEBATE_INPUT_CLASSIFY`)의 `REJECTED`는 참가자 입력을 반려한 정상 동작이라 넣지 않는다. 재시도 끝에 성공한 작업은 오류 코드를 비우므로(#717) 마지막까지 실패한 것만 남는다.
+- `type`: `TOPIC_CANDIDATES`·`TOPIC_VALIDATION`(주제 생성), `DEBATE_ARGUMENT`(AI 토론), `DEBATE_INPUT_CLASSIFY`(반박 분류), `MEMBER_REPORT`(개인 리포트), `CLASS_INSIGHT`(인사이트). 화면 단계 이름은 어드민에서 붙인다.
+
 ---
 
 ## 10. 에러 코드 모음

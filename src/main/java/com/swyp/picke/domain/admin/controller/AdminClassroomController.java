@@ -6,7 +6,11 @@ import com.swyp.picke.domain.admin.dto.classroom.response.AdminClassState;
 import com.swyp.picke.domain.admin.dto.classroom.response.AdminClassSummaryResponse;
 import com.swyp.picke.domain.admin.dto.classroom.response.AdminTicketSummaryResponse;
 import com.swyp.picke.domain.admin.dto.classroom.request.AdminClassUpdateRequest;
+import com.swyp.picke.domain.admin.dto.classroom.response.AdminClassAnalyticsResponse;
+import com.swyp.picke.domain.admin.dto.classroom.response.AdminClassPerformanceResponse;
+import com.swyp.picke.domain.admin.service.AdminClassUsageService;
 import com.swyp.picke.domain.admin.service.AdminClassroomService;
+import java.time.LocalDate;
 import com.swyp.picke.domain.classroom.enums.ClassBattleType;
 import com.swyp.picke.global.common.response.ApiResponse;
 import com.swyp.picke.global.common.response.PageResponse;
@@ -34,6 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminClassroomController {
 
     private final AdminClassroomService adminClassroomService;
+    private final AdminClassUsageService adminClassUsageService;
 
     @Operation(summary = "클래스 현황 요약")
     @GetMapping("/classes/summary")
@@ -51,6 +56,24 @@ public class AdminClassroomController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return ApiResponse.onSuccess(adminClassroomService.searchClasses(keyword, state, capacity, battleType, page, size));
+    }
+
+    @Operation(summary = "클래스 성과 분석", description = "이용권 발급·등록 현황(전체 누적)과 기간 안 사용 흐름·일별 리포트 완료·AI 작업 오류를 조회합니다. "
+            + "from·to 는 한국 날짜(양끝 포함), 생략하면 오늘까지 최근 30일. 최대 366일.")
+    @GetMapping("/classes/analytics")
+    public ApiResponse<AdminClassAnalyticsResponse> getClassAnalytics(
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to) {
+        return ApiResponse.onSuccess(adminClassUsageService.analytics(from, to));
+    }
+
+    @Operation(summary = "클래스 성과", description = "배틀 시작 인원·개인 리포트 완료율·AI 작업 오류와 참가자별 댓글 수·리포트 상태를 조회합니다. 참가자는 페이지로 나눕니다.")
+    @GetMapping("/classes/{classId}/performance")
+    public ApiResponse<AdminClassPerformanceResponse> getClassPerformance(
+            @PathVariable Long classId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ApiResponse.onSuccess(adminClassUsageService.classPerformance(classId, page, size));
     }
 
     @Operation(summary = "관리자 클래스 상세")

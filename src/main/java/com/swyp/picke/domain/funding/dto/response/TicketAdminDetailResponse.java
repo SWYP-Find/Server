@@ -38,7 +38,12 @@ public record TicketAdminDetailResponse(
         LocalDateTime expiresAt,
         LocalDateTime revokedAt,
         List<Delivery> deliveries,
-        List<ClassItem> classes
+        List<ClassItem> classes,
+        // 등록 계정 사용자 태그 · 이메일 (소셜 계정). 미등록이면 null
+        String registeredUserTag,
+        String registeredEmail,
+        // 등록 후 이용 기간(일). null 이면 기본 6개월
+        Integer usageDays
 ) {
     public record Delivery(DeliveryChannel channel, DeliveryStatus status, String failureReason,
                            LocalDateTime attemptedAt) {}

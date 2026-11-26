@@ -139,6 +139,7 @@ public class MixpanelClient {
         Set<String> activeUsers = new HashSet<>();
         Map<LocalDate, Long> signUpsByDate = new HashMap<>();
         long signUps = 0;
+        Set<String> seen = new HashSet<>();
 
         for (String line : body.split("\n")) {
             if (line.isBlank()) {
@@ -149,6 +150,9 @@ public class MixpanelClient {
             JsonNode time = node.path("properties").path("time");
             if (event == null || !time.isNumber()) {
                 throw new IllegalArgumentException("Mixpanel export line is missing event or time.");
+            }
+            if (isDuplicate(seen, event, node.path("properties"))) {
+                continue;
             }
             availableEvents.add(event);
             Instant occurredAt = Instant.ofEpochSecond(time.asLong());
@@ -211,6 +215,21 @@ public class MixpanelClient {
         }
         return new MixpanelEventReport.EventSeries(
                 event, stats.total, (long) stats.allUsers.size(), stats.firstSeen, stats.lastSeen, days);
+    }
+
+    /**
+     * Raw Export 는 같은 이벤트를 여러 줄로 돌려줄 수 있다 (실측: 같은 $insert_id 가 보통 5줄, #729).
+     * Mixpanel 화면과 같은 규칙으로 이벤트 이름·distinct_id·time·$insert_id 가 모두 같으면 한 번만 센다.
+     * $insert_id 가 없는 줄은 구분할 수 없어 그대로 센다.
+     */
+    private boolean isDuplicate(Set<String> seen, String event, JsonNode properties) {
+        String insertId = text(properties.get("$insert_id"));
+        if (insertId == null) {
+            return false;
+        }
+        String key = event + '\u0001' + text(properties.get("distinct_id")) + '\u0001'
+                + properties.path("time").asText() + '\u0001' + insertId;
+        return !seen.add(key);
     }
 
     private String text(JsonNode value) {
@@ -372,6 +391,7 @@ public class MixpanelClient {
             throws Exception {
         List<StepMatcher> matchers = steps.stream().map(StepMatcher::parse).toList();
         Map<String, List<long[]>> byTarget = new HashMap<>();
+        Set<String> seen = new HashSet<>();
 
         for (String line : body.split("\n")) {
             if (line.isBlank()) {
@@ -384,6 +404,9 @@ public class MixpanelClient {
                 throw new IllegalArgumentException("Mixpanel export line is missing event or time.");
             }
             JsonNode properties = node.path("properties");
+            if (isDuplicate(seen, event, properties)) {
+                continue;
+            }
             Instant occurredAt = Instant.ofEpochSecond(time.asLong());
             LocalDate date = occurredAt.atZone(projectZone).toLocalDate();
             if (date.isBefore(from) || date.isAfter(to)) {

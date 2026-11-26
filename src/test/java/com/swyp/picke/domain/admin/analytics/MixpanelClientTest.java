@@ -113,6 +113,29 @@ class MixpanelClientTest {
     }
 
     @Test
+    @DisplayName("원본 내보내기의 중복 줄(같은 $insert_id)은 한 번만 센다 (#729)")
+    void dedupesRowsWithSameInsertId() {
+        String signUp = withInsertId(line("sign_up", "2026-09-10", 2), "a1");
+        var transport = new CapturingTransport(response(200, String.join("\n",
+                signUp, signUp, signUp, signUp, signUp,
+                withInsertId(line("sign_up", "2026-09-10", 3), "b2"),
+                // $insert_id 가 없으면 구분할 수 없어 줄마다 센다
+                line("screen_view", "2026-09-10", 4),
+                line("screen_view", "2026-09-10", 4))));
+
+        var result = client("secret", List.of(), transport).fetchDailyCounts(null, from, to);
+
+        assertThat(result.signUps()).isEqualTo(2L);
+        assertThat(result.events())
+                .extracting(MixpanelEventReport.EventSeries::event, MixpanelEventReport.EventSeries::total)
+                .containsExactly(tuple("sign_up", 2L), tuple("screen_view", 2L));
+    }
+
+    private String withInsertId(String line, String insertId) {
+        return line.replace("\"distinct_id\"", "\"$insert_id\":\"" + insertId + "\",\"distinct_id\"");
+    }
+
+    @Test
     @DisplayName("이벤트를 지정하지 않으면 기간에 나타난 이벤트 전부를 발생 수 내림차순으로 센다")
     void countsEveryEventWhenNoneRequested() {
         var transport = new CapturingTransport(response(200, String.join("\n",
